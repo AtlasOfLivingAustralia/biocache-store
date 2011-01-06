@@ -100,6 +100,8 @@ class Classification {
   @BeanProperty var subgenusID:String = _
   @BeanProperty var speciesID:String = _
   @BeanProperty var subspeciesID:String = _
+  @BeanProperty var left:String = _
+  @BeanProperty var right:String = _
 }
 
 class Measurement {

@@ -1,5 +1,7 @@
 package au.org.ala.biocache
 
+import com.google.gson.reflect.TypeToken
+import com.google.gson.Gson
 import au.org.ala.util.ReflectBean
 import scala.reflect.BeanProperty
 import org.wyki.cassandra.pelops.{Mutator,Pelops,Policy,Selector}
@@ -7,21 +9,48 @@ import scala.collection.mutable.{LinkedList,ListBuffer}
 import org.apache.cassandra.thrift.{Column,ConsistencyLevel,ColumnPath,SlicePredicate,SliceRange}
 import java.util.ArrayList
 
-class LocationDAO {
-	
-    val hosts = Array{"localhost"}
+object DAO {
+	val hosts = Array{"localhost"}
 	val keyspace = "occurrence"
-	val columnFamily = "location"
 	val poolName = "test-pool"
-	
-    Pelops.addPool("test-pool",hosts, 9160, false, keyspace, new Policy());
-//	val pointDefn = scala.io.Source.fromFile("/Users/davejmartin2/dev/biocache/src/main/resources/Point.txt", "utf-8").getLines.toList.map(_.trim).toArray
+	Pelops.addPool(poolName, hosts, 9160, false, keyspace, new Policy())
+	//read in the ORM mappings
+	val occurrenceDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Occurrence.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+	val locationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Location.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+	val eventDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Event.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+	val classificationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Classification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+	val identificationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+}
+
+class LocationDAO {
+
+	val columnFamily = "location"
+
+	def addTagToLocation (latitude:Float, longitude:Float, tagName:String, tagValue:String) {
+		val guid = latitude +"|"+longitude
+    	val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
+    	mutator.writeColumn(guid, "location", mutator.newColumn("decimalLatitude", latitude.toString))
+    	mutator.writeColumn(guid, "location", mutator.newColumn("decimalLongitude", longitude.toString))
+		mutator.writeColumn(guid, "location", mutator.newColumn(tagName, tagValue)) 
+		mutator.execute(ConsistencyLevel.ONE)
+	}
+
+	def addRegionToPoint (latitude:Float, longitude:Float, mapping:Map[String,String]) {
+		val guid = latitude +"|"+longitude
+    	val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
+    	mutator.writeColumn(guid, "location", mutator.newColumn("decimalLatitude", latitude.toString))
+    	mutator.writeColumn(guid, "location", mutator.newColumn("decimalLongitude", longitude.toString))
+    	for(map<-mapping){
+    		mutator.writeColumn(guid, "location", mutator.newColumn(map._1, map._2))
+    	}
+		mutator.execute(ConsistencyLevel.ONE)
+	}
 	
 	def getLocationByLatLon(latitude:String, longitude:String) : Option[Location] = {
 		try {
 			val uuid = latitude+"|"+longitude
 			//println(uuid)
-			val selector = Pelops.createSelector(poolName, keyspace)
+			val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
 			val slicePredicate = new SlicePredicate
 			val sliceRange = new SliceRange
 			sliceRange.setStart("".getBytes)
@@ -56,23 +85,8 @@ class OccurrenceDAO {
 	import OccurrenceType._
 	import ReflectBean._
 	
-	//move this to Cake Pattern for DI
-    val hosts = Array{"localhost"}
-	val keyspace = "occurrence"
 	val columnFamily = "occurrence"
-	val poolName = "test-pool"
-	val port = 9160
-	
-	//initialise connection pool
-    Pelops.addPool(poolName,hosts, port, false, keyspace, new Policy());
-     
-	//read in the ORM mappings
-	val occurrenceDefn = scala.io.Source.fromFile("/Users/davejmartin2/dev/biocache/src/main/resources/Occurrence.txt", "utf-8").getLines.toList.map(_.trim).toArray
-	val locationDefn = scala.io.Source.fromFile("/Users/davejmartin2/dev/biocache/src/main/resources/Location.txt", "utf-8").getLines.toList.map(_.trim).toArray
-	val eventDefn = scala.io.Source.fromFile("/Users/davejmartin2/dev/biocache/src/main/resources/Event.txt", "utf-8").getLines.toList.map(_.trim).toArray
-	val classificationDefn = scala.io.Source.fromFile("/Users/davejmartin2/dev/biocache/src/main/resources/Classification.txt", "utf-8").getLines.toList.map(_.trim).toArray
-	val identificationDefn = scala.io.Source.fromFile("/Users/davejmartin2/dev/biocache/src/main/resources/Identification.txt", "utf-8").getLines.toList.map(_.trim).toArray
-	
+
 	/**
 	 * Get an occurrence with UUID
 	 * 
@@ -92,7 +106,7 @@ class OccurrenceDAO {
 	 */
 	def getByUuid(uuid:String, occurrenceType:OccurrenceType.Value) : Option[(Occurrence, Classification, Location, Event)] = {
 		
-		val selector = Pelops.createSelector(poolName, keyspace)
+		val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
 		val slicePredicate = new SlicePredicate
 		val sliceRange = new SliceRange
 		//retrieve all columns
@@ -115,13 +129,13 @@ class OccurrenceDAO {
 	 * @param fieldValue the value to set
 	 */
 	def setProperty(o:Occurrence, c:Classification, l:Location, e:Event, fieldName:String, fieldValue:String){
-	  if(occurrenceDefn.contains(fieldName)){
+	  if(DAO.occurrenceDefn.contains(fieldName)){
 	 	  o.setter(fieldName,fieldValue)
-	  } else if(classificationDefn.contains(fieldName)){
+	  } else if(DAO.classificationDefn.contains(fieldName)){
 	 	  c.setter(fieldName,fieldValue)
-	  } else if(eventDefn.contains(fieldName)){
+	  } else if(DAO.eventDefn.contains(fieldName)){
 	 	  e.setter(fieldName,fieldValue)
-	  } else if(locationDefn.contains(fieldName)){
+	  } else if(DAO.locationDefn.contains(fieldName)){
 	 	  l.setter(fieldName,fieldValue)
 	  }
 	}
@@ -174,7 +188,7 @@ class OccurrenceDAO {
 	 */
 	def pageOverAll(occurrenceType:OccurrenceType.Value, proc:((Option[(Occurrence, Classification, Location, Event)])=>Unit) ) : Unit = {
 		
-	  val selector = Pelops.createSelector(poolName, columnFamily);
+	  val selector = Pelops.createSelector(DAO.poolName, columnFamily);
 	  val slicePredicate = new SlicePredicate
 	  val sliceRange = new SliceRange
 	  //blank key ranges to select all columns
@@ -217,13 +231,13 @@ class OccurrenceDAO {
 	def updateOccurrence(uuid:String, anObject:AnyRef, occurrenceType:OccurrenceType.Value) {
 		
 		//select the correct definition file
-		var defn = occurrenceDefn
-		if(anObject.isInstanceOf[Location]) defn = locationDefn
-		else if(anObject.isInstanceOf[Event]) defn = eventDefn
-		else if(anObject.isInstanceOf[Classification]) defn = classificationDefn
+		var defn = DAO.occurrenceDefn
+		if(anObject.isInstanceOf[Location]) defn = DAO.locationDefn
+		else if(anObject.isInstanceOf[Event]) defn = DAO.eventDefn
+		else if(anObject.isInstanceOf[Classification]) defn = DAO.classificationDefn
 		//additional functionality to support adding Quality Assertions and Field corrections.
 		
-		val mutator = Pelops.createMutator(poolName, columnFamily);
+		val mutator = Pelops.createMutator(DAO.poolName, columnFamily);
 		for(field <- defn){
 			
 			val fieldValue = anObject.getClass.getMethods.find(_.getName == field).get.invoke(anObject).asInstanceOf[String]
@@ -251,9 +265,45 @@ class OccurrenceDAO {
 	def addQualityAssertion(uuid:String, qualityAssertion:QualityAssertion){
 		
 		//set field qualityAssertion
+		val selector = Pelops.createSelector(DAO.poolName, columnFamily);
+		val mutator = Pelops.createMutator(DAO.poolName, columnFamily);
+		val column = {
+			try {
+			 Some(selector.getColumnFromRow(uuid, columnFamily, "qualityAssertion".getBytes, ConsistencyLevel.ONE))
+			} catch {
+				case _ => None
+			}
+		}
+		val gson = new Gson
 		
-		//contains a JSON list of assertions?????
-	
+		if(column.isEmpty){
+			//parse it
+			val json = gson.toJson(Array(qualityAssertion))
+			mutator.writeColumn(uuid, columnFamily, mutator.newColumn("qualityAssertion", json))
+		} else {
+			var json = new String(column.get.getValue)
+			val listType = new TypeToken[ArrayList[QualityAssertion]]() {}.getType()
+			var qaList = gson.fromJson(json,listType).asInstanceOf[java.util.List[QualityAssertion]]
+			
+			var written = false
+			for(i<- 0 until qaList.size){
+				val qa = qaList.get(i)
+				if(qa equals qualityAssertion){
+					//overwrite
+					written = true
+					qaList.remove(qa)
+					qaList.add(i, qualityAssertion)
+				}
+			}
+			if(!written){
+				qaList.add(qualityAssertion)
+			}
+			
+			// check equals
+			json = gson.toJson(qaList)
+			mutator.writeColumn(uuid, columnFamily, mutator.newColumn("qualityAssertion", json))
+		}
+		mutator.execute(ConsistencyLevel.ONE)
 	}
 	
 	def getQualityAssertions(uuid:String){

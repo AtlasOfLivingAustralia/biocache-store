@@ -1,5 +1,8 @@
 package au.org.ala.util
 
+import au.org.ala.biocache.AssertionCodes
+import au.org.ala.biocache.QualityAssertion
+import au.org.ala.biocache.States
 import au.org.ala.biocache.Event
 import au.org.ala.biocache.Classification
 import au.org.ala.biocache.Location
@@ -46,7 +49,8 @@ object ProcessRecords {
 	  //page over all records and process
 	  odao.pageOverAll(OccurrenceType.Raw, o => {
 	 	  if(!o.isEmpty){
-	 	 	  counter+=1
+	 	 	  
+	 	 	  counter += 1
 	 	 	  
 	 	 	  val rawOccurrence = o.get._1 
 	 	 	  val rawClassification = o.get._2
@@ -59,10 +63,10 @@ object ProcessRecords {
 	 	 	  var processedEvent = new Event
 	 	 	  
 	 	 	  //find a classification in NSLs
-	 	 	  processClassification(rawClassification, processedClassification, nm)
+	 	 	  processClassification(rawOccurrence, rawClassification, processedClassification, nm)
 
 			  //perform gazetteer lookups - just using point hash for now
-	 	 	  processLocation(rawLocation, processedLocation, pdao) 
+	 	 	  processLocation(rawOccurrence, rawLocation, processedLocation, pdao, odao) 
 	 	 	  
 	 	 	  //temporal processing
 
@@ -80,6 +84,7 @@ object ProcessRecords {
 
 	 	 	  //store the occurrence
  	 		  odao.updateOccurrence(rawOccurrence.uuid, processedOccurrence, OccurrenceType.Processed)
+ 	 		  odao.updateOccurrence(rawOccurrence.uuid, processedLocation, OccurrenceType.Processed)
 	 	  }
 	  })
 	  
@@ -87,11 +92,12 @@ object ProcessRecords {
 	  println("Processed "+counter+" records in "+(finish-start)/1000+" seconds. Records per sec: "+ (((finish.toFloat-start.toFloat)/1000f)/counter.toFloat))
   }
   
-  def processLocation(raw:Location, processed:Location, pdao:LocationDAO) {
+  def processLocation(rawOccurrence:Occurrence, raw:Location, processed:Location, pdao:LocationDAO, odao:OccurrenceDAO) {
 	  //retrieve the point
 	  if(raw.decimalLatitude!=null && raw.decimalLongitude!=null){
 	 	  val point = pdao.getLocationByLatLon(raw.decimalLatitude, raw.decimalLongitude);
 	 	  if(!point.isEmpty){
+	 	 	  
 	 	 	  processed.stateProvince = point.get.stateProvince
 	 	 	  processed.ibra = point.get.ibra
 	 	 	  processed.imcra = point.get.imcra
@@ -100,14 +106,24 @@ object ProcessRecords {
 	 	 	  //check matched stateProvince
 	 	 	  if(processed.stateProvince!=null && raw.stateProvince!=null){
 	 	 		  //quality assertions
-	 	 		  if(!processed.stateProvince.equalsIgnoreCase(raw.stateProvince)){
-	 	 		 	  println("###########State conflict: "+raw.uuid+", processed:"+processed.stateProvince+", raw:"+raw.stateProvince)
+	 	 	 	  val stateTerm = States.matchTerm(raw.stateProvince)
+	 	 	 	  
+	 	 		  if(!stateTerm.isEmpty && !processed.stateProvince.equalsIgnoreCase(stateTerm.get.canonical)){
+	 	 		 	  println("[QualityAssertion] "+rawOccurrence.uuid+", state conflict: "+raw.uuid+", processed:"+processed.stateProvince+", raw:"+raw.stateProvince)
+	 	 		 	  //add a quality assertion
+	 	 		 	  val qa = new QualityAssertion
+	 	 		 	  qa.positive = false
+	 	 		 	  qa.assertionCode  = AssertionCodes.GEOSPATIAL_STATE_COORDINATE_MISMATCH 
+	 	 		 	  qa.comment = "Supplied: " + stateTerm.get.canonical + ", Calculated: "+ processed.stateProvince
+	 	 		 	  qa.userId = "system"
+	 	 		 	  //store the assertion
+	 	 		      odao.addQualityAssertion(rawOccurrence.uuid, qa);
 	 	 		  }
 	 	 	  }
 	 	 	  
 	 	 	  //check marine/non-marine
 	 	 	   
-	 	 	  //check centre point of state 
+	 	 	  //check centre point of the state
 	 	 	  
 	 	 	  //check 
 	 	 	   
@@ -115,7 +131,7 @@ object ProcessRecords {
 	  }
   }
   
-  def processClassification(raw:Classification, processed:Classification, nm:CBIndexSearch) {
+  def processClassification(rawOccurrence:Occurrence, raw:Classification, processed:Classification, nm:CBIndexSearch) {
 	  val classification = new LinnaeanRankClassification(
 	 		  raw.kingdom,
 	 		  raw.phylum,
