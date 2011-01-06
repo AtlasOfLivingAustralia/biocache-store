@@ -1,30 +1,10 @@
 package au.org.ala.test
-
-import java.io._
-import org.apache.cassandra.thrift._
-import org.apache.cassandra.thrift.Column
-import org.apache.cassandra.thrift.SuperColumn
-import scala.collection.mutable.LinkedList
-import scala.Application
-import org.apache.cassandra.thrift.ConsistencyLevel
-import org.apache.cassandra.thrift.ColumnPath
-import org.apache.thrift.transport.TTransport
-import scala.reflect._
-import java.io._
+import java.io.{File}
 import java.util.ArrayList
+import org.apache.cassandra.thrift._
+import org.wyki.cassandra.pelops.{Selector, Policy, Pelops}
 import scala.collection.immutable.Set
-import scala.collection.mutable.ListBuffer
-import se.scalablesolutions.akka.persistence.cassandra._
-import se.scalablesolutions.akka.persistence.common._
-import org.apache.cassandra.thrift.ConsistencyLevel
-import org.apache.cassandra.thrift.ColumnPath
-import org.apache.thrift.transport.TTransport
-import java.util.UUID
-
-import org.wyki.cassandra.pelops.Mutator
-import org.wyki.cassandra.pelops.Pelops
-import org.wyki.cassandra.pelops.Policy
-import org.wyki.cassandra.pelops.Selector
+import scala.reflect._
 
 object PaginationTest {
 	

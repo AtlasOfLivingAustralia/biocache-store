@@ -1,23 +1,10 @@
 package au.org.ala.biocache
-
-import org.codehaus.jackson.map.ObjectMapper
-import org.wyki.cassandra.pelops.{Mutator,Pelops,Policy,Selector}
-import java.io._
-import org.apache.cassandra.thrift._
-import scala.collection.mutable.LinkedList
-import scala.Application
-import org.apache.thrift.transport._
-import scala.reflect._
-import java.io._
-import java.util.ArrayList
-import scala.collection.immutable.Set
-import scala.collection.mutable.ListBuffer
-import org.apache.cassandra.thrift.Column
-import org.apache.cassandra.thrift.ConsistencyLevel
-import org.apache.cassandra.thrift.ColumnPath
-import org.apache.thrift.transport.TTransport
-import au.org.ala.cluster._
+import java.io.File
 import java.util.UUID
+import org.apache.cassandra.thrift._
+import org.apache.thrift.transport._
+import org.wyki.cassandra.pelops.{Pelops}
+import scala.reflect._
 
 object PointDAOTest {
 	def main(args : Array[String]) : Unit = {
@@ -68,7 +55,7 @@ object OccurrenceDAOTest {
 		val uuid = UUID.randomUUID.toString
 		var qa = new QualityAssertion
 		qa.uuid = uuid
-		qa.assertionType  = "geospatial"
+		qa.assertionCode  = 123
 		qa.positive = true
 		qa.comment = "My comment"
 		qa.userId = "David.Martin@csiro.au"
@@ -80,7 +67,7 @@ object OccurrenceDAOTest {
 		val uuid2 = UUID.randomUUID.toString
 		var qa2 = new QualityAssertion
 		qa2.uuid = uuid2
-		qa2.assertionType  = "geospatial"
+		qa2.assertionCode  = 123
 		qa2.positive = true
 		qa2.comment = "My comment"
 		qa2.userId = "David.Martin@csiro.au"
@@ -88,8 +75,8 @@ object OccurrenceDAOTest {
 		
 		occurrenceDAO.addQualityAssertion("3480993d-b0b1-4089-9faf-30b4eab050ae",qa2)
 		
-		val om = new ObjectMapper
-		println(om.writeValueAsString(qa))
+//		val om = new ObjectMapper
+//		println(om.writeValueAsString(qa))
 		
 		Pelops.shutdown
 	}
