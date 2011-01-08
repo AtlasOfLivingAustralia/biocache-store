@@ -1,34 +1,106 @@
 package au.org.ala.biocache
 
+import scala.collection.mutable.ArrayBuffer
 case class Term (canonical:String, variants:Array[String])
 
-/**
- * Quick state string matching.
- * @author Dave Martin (David.Martin@csiro.au)
- */
-object States {
-	val act = new Term("Australian Capital Territory", Array("AustralianCapitalTerritory","AusCap","ACT"))
-	val nsw = new Term("New South Wales", Array("NEWSOUTHWALES","NSWALES","NSW"))
-	val nt = new Term("Northern Territory", Array("NTERRITORY","NTERRIT","NT"))
-	val qld = new Term("Queensland", Array("QUEENSLAND","QLD"))
-	val sa = new Term("South Australia", Array("SOUTHAUSTRALIA","SAUSTRALIA","SAUST","SA"))
-	val tas = new Term("Tasmania", Array("TASMANIA", "TASSIE","TAS"))
-	val vic = new Term("Victoria", Array("SAUSTRALIA","SOUTHAUSTRALIA", "SAUST","SA"))
-	val wa = new Term("Western Australia", Array("WAUSTRALIA","WESTAUSTRALIA","WA"))
-	val all = Array(act,nsw,nt,qld,sa,tas,vic,wa)
-	
-	def matchTerm(stateString:String) : Option[Term] = {
-		if(stateString!=null){
+trait Vocab {
+	val all:Array[Term]
+	/**
+	 * Match a term. Matches canonical form or variants in array
+	 * @param string2Match
+	 * @return
+	 */
+	def matchTerm(string2Match:String) : Option[Term] = {
+		if(string2Match!=null){
 			//strip whitespace & strip quotes and fullstops & uppercase
-			val stringToUse = stateString.trim.replace(".","").replace(" ", "").toUpperCase
-			for(state<-all){
-				if(state.variants.contains(stringToUse)){
-					return Some(state)
+			val stringToUse = string2Match.replaceAll("[.,-]*", "").replaceAll("\\s", "").toLowerCase
+			for(term<-all){
+				if(term.canonical.equalsIgnoreCase(stringToUse))
+					return Some(term)
+				if(term.variants.contains(stringToUse)){
+					return Some(term)
 				}
 			}
 		}
 		None
 	}
+	/**
+	 * Retrieve all the terms defined in this vocab.
+	 * @return
+	 */
+	def retrieveAll : Array[Term] = {
+		val methods = this.getClass.getMethods
+		for{
+			method<-methods
+			if(method.getReturnType.getName == "au.org.ala.biocache.Term")
+		} yield (method.invoke(this).asInstanceOf[Term])
+	}
+}
+
+/**
+ * Quick state string matching.
+ * @author Dave Martin (David.Martin@csiro.au)
+ */
+object States extends Vocab {
+	val act = new Term("Australian Capital Territory", Array("AustralianCapitalTerritory","AusCap","ACT"))
+	val nsw = new Term("New South Wales", Array("newsouthwales","nswales","nsw"))
+	val nt = new Term("Northern Territory", Array("nterritory","nterrit","nt"))
+	val qld = new Term("Queensland", Array("queensland","qld"))
+	val sa = new Term("South Australia", Array("southaustralia","saustralia","saust","sa"))
+	val tas = new Term("Tasmania", Array("tasmania", "tassie","tas"))
+	val vic = new Term("Victoria", Array("saustralia","southaustralia", "saust","sa"))
+	val wa = new Term("Western Australia", Array("waustralia","westaustralia","wa"))
+	val all = retrieveAll
+}
+
+object BasisOfRecord extends Vocab {
+	val specimen = new Term("PreservedSpecimen", Array("specimen","s."))
+	val observation = new Term("HumanObservation", Array("observation","o"))
+	val fossil = new Term("FossilSpecimen", Array("fossil","f"))
+	val living = new Term("LivingSpecimen", Array("living","l"))
+	val all = retrieveAll
+}
+
+object TypeStatus extends Vocab {
+	val allolectotype = new Term("allolectotype", Array[String]())
+	val alloneotype = new Term("alloneotype", Array[String]())
+	val allotype = new Term("allotype", Array[String]())
+	val cotype = new Term("cotype", Array[String]())
+	val epitype = new Term("epitype", Array[String]())
+	val exepitype = new Term("exepitype", Array[String]())
+	val exholotype = new Term("exholotype", Array[String]())
+	val exisotype = new Term("exisotype", Array[String]())
+	val exlectotype = new Term("exlectotype", Array[String]())
+	val exneotype = new Term("exneotype", Array[String]())
+	val exparatype = new Term("exparatype", Array[String]())
+	val exsyntype = new Term("exsyntype", Array[String]())
+	val extype = new Term("extype", Array[String]())
+	val hapantotype = new Term("hapantotype", Array[String]())
+	val holotype = new Term("holotype", Array[String]())
+	val iconotype = new Term("iconotype", Array[String]())
+	val isolectotype = new Term("isolectotype", Array[String]())
+	val isoneotype = new Term("isoneotype", Array[String]())
+	val isosyntype = new Term("isosyntype", Array[String]())
+	val isotype = new Term("isotype", Array[String]())
+	val lectotype = new Term("lectotype", Array[String]())
+	val neotype = new Term("neotype", Array[String]())
+	val notatype = new Term("notatype", Array[String]())
+	val paralectotype = new Term("paralectotype", Array[String]())
+	val paraneotype = new Term("paraneotype", Array[String]())
+	val paratype = new Term("paratype", Array[String]())
+	val plastoholotype = new Term("plastoholotype", Array[String]())
+	val plastoisotype = new Term("plastoisotype", Array[String]())
+	val plastolectotype = new Term("plastolectotype", Array[String]())
+	val plastoneotype = new Term("plastoneotype", Array[String]())
+	val plastoparatype = new Term("plastoparatype", Array[String]())
+	val plastosyntype = new Term("plastosyntype", Array[String]())
+	val plastotype = new Term("plastotype", Array[String]())
+	val secondarytype = new Term("secondarytype", Array[String]())
+	val supplementarytype = new Term("supplementarytype", Array[String]())
+	val syntype = new Term("syntype", Array[String]())
+	val topotype = new Term("topotype", Array[String]())
+	val typee = new Term("type", Array[String]())
+	val all = retrieveAll
 }
 
 object AssertionCodes {
