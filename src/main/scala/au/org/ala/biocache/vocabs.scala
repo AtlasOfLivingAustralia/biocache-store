@@ -13,7 +13,7 @@ trait Vocab {
 	def matchTerm(string2Match:String) : Option[Term] = {
 		if(string2Match!=null){
 			//strip whitespace & strip quotes and fullstops & uppercase
-			val stringToUse = string2Match.replaceAll("[.,-]*", "").replaceAll("\\s", "").toLowerCase
+			val stringToUse = string2Match.replaceAll("([.,-]*)?([\\s]*)?", "").toLowerCase
 			for(term<-all){
 				if(term.canonical.equalsIgnoreCase(stringToUse))
 					return Some(term)
@@ -136,4 +136,5 @@ object AssertionCodes {
 	val OTHER_BADLY_FORMED_BASIS_OF_RECORD = 2002
 	val OTHER_INVALID_DATE = 2003
 	val OTHER_COUNTRY_INFERRED_FROM_COORDINATES = 2004
+	val OTHER_UNRECOGNISED_TYPESTATUS = 2006
 }

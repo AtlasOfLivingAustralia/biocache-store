@@ -23,20 +23,20 @@ class QualityAssertion {
 		case _ => false 
  	}
 }
-
-case class FieldCorrection (
-		uuid:String, 
-		recordUuid:String, 
-		fieldName:String, 
-		oldValue:String, 
-		newValue:String, 
-		userId:String, 
-		userDisplayName:String)
-
-case class Annotation (
-		uuid:String, 
-		recordUuid:String, 
-		comment:String, 
-		userId:String, 
-		userDisplayName:String, 
-		inReplyToUuid:String)
+//
+//case class FieldCorrection (
+//		uuid:String, 
+//		recordUuid:String, 
+//		fieldName:String, 
+//		oldValue:String, 
+//		newValue:String, 
+//		userId:String, 
+//		userDisplayName:String)
+//
+//case class Annotation (
+//		uuid:String, 
+//		recordUuid:String, 
+//		comment:String, 
+//		userId:String, 
+//		userDisplayName:String, 
+//		inReplyToUuid:String)

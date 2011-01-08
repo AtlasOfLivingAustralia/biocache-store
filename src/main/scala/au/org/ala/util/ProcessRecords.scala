@@ -1,5 +1,7 @@
 package au.org.ala.util
 
+import au.org.ala.biocache.TypeStatus
+import au.org.ala.biocache.BasisOfRecord
 import au.org.ala.biocache.AssertionCodes
 import au.org.ala.biocache.QualityAssertion
 import au.org.ala.biocache.States
@@ -69,19 +71,18 @@ object ProcessRecords {
 	 	 	  processLocation(rawOccurrence, rawLocation, processedLocation, pdao, odao) 
 	 	 	  
 	 	 	  //temporal processing
-
+	 	 	  
+	 	 	  
 	 	 	  //basis of record parsing
+	 	 	  processBasisOfRecord(rawOccurrence, processedOccurrence, odao)
 	 	 	  
 	 	 	  //type status normalisation
+	 	 	  processTypeStatus(rawOccurrence, processedOccurrence, odao)
 	 	 	  
 	 	 	  //BIE properties lookup?
 	 	 	  
-			  //perform SDS lookups
+			  //perform SDS lookups - retrieve from BIE for now....
 			  
-			  //data quality measures
-				  //validate locality vs 
-				  //store annotations
-
 	 	 	  //store the occurrence
  	 		  odao.updateOccurrence(rawOccurrence.uuid, processedOccurrence, OccurrenceType.Processed)
  	 		  odao.updateOccurrence(rawOccurrence.uuid, processedLocation, OccurrenceType.Processed)
@@ -91,7 +92,57 @@ object ProcessRecords {
 	  finish = System.currentTimeMillis
 	  println("Processed "+counter+" records in "+(finish-start)/1000+" seconds. Records per sec: "+ (((finish.toFloat-start.toFloat)/1000f)/counter.toFloat))
   }
+
+  def processTypeStatus(rawOccurrence:Occurrence, processedOccurrence:Occurrence, odao:OccurrenceDAO){
+	  
+	  if(rawOccurrence.typeStatus != null && rawOccurrence.typeStatus.isEmpty){
+		  val term = TypeStatus.matchTerm(rawOccurrence.typeStatus)
+		  if(term.isEmpty){
+		 	  //add a quality assertion
+		 	  val qa = new QualityAssertion
+		 	  qa.positive = false
+		 	  qa.assertionCode  = AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS 
+		 	  qa.comment = "Unrecognised type status"
+		 	  qa.userId = "system"
+		 	  odao.addQualityAssertion(rawOccurrence.uuid, qa)
+		  } else {
+		 	  processedOccurrence.basisOfRecord = term.get.canonical
+		  }
+	  }
+  }
   
+  /**
+   * Process basis of record
+   */
+  def processBasisOfRecord(rawOccurrence:Occurrence, processedOccurrence:Occurrence, odao:OccurrenceDAO){
+	  
+	  if(rawOccurrence.basisOfRecord == null || rawOccurrence.basisOfRecord.isEmpty){
+	 	  //add a quality assertion
+	 	  val qa = new QualityAssertion
+	 	  qa.positive = false
+	 	  qa.assertionCode  = AssertionCodes.OTHER_MISSING_BASIS_OF_RECORD
+	 	  qa.comment = "Missing basis of record"
+	 	  qa.userId = "system"
+	 	  odao.addQualityAssertion(rawOccurrence.uuid, qa)
+	  } else {
+		  val term = BasisOfRecord.matchTerm(rawOccurrence.basisOfRecord)
+		  if(term.isEmpty){
+		 	  //add a quality assertion
+		 	  val qa = new QualityAssertion
+		 	  qa.positive = false
+		 	  qa.assertionCode  = AssertionCodes.OTHER_BADLY_FORMED_BASIS_OF_RECORD 
+		 	  qa.comment = "Unrecognised basis of record"
+		 	  qa.userId = "system"
+		 	  odao.addQualityAssertion(rawOccurrence.uuid, qa)
+		  } else {
+		 	  processedOccurrence.basisOfRecord = term.get.canonical
+		  }
+	  }
+  }
+  
+  /**
+   * Process geospatial details
+   */
   def processLocation(rawOccurrence:Occurrence, raw:Location, processed:Location, pdao:LocationDAO, odao:OccurrenceDAO) {
 	  //retrieve the point
 	  if(raw.decimalLatitude!=null && raw.decimalLongitude!=null){
@@ -131,6 +182,9 @@ object ProcessRecords {
 	  }
   }
   
+  /**
+   * Match the classification
+   */
   def processClassification(rawOccurrence:Occurrence, raw:Classification, processed:Classification, nm:CBIndexSearch) {
 	  val classification = new LinnaeanRankClassification(
 	 		  raw.kingdom,

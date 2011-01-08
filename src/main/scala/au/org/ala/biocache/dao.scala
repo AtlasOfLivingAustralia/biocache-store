@@ -255,12 +255,6 @@ class OccurrenceDAO {
 		mutator.execute(ConsistencyLevel.ONE)
 	}
 
-	def addFieldCorrection(uuid:String, fieldCorrection:FieldCorrection){
-		
-		//set field corrections.dwc.<field-name>
-		//list of FieldCorrection objects ?????
-			//store disagrees/agrees
-	}	
 	
 	def addQualityAssertion(uuid:String, qualityAssertion:QualityAssertion){
 		
