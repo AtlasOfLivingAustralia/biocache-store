@@ -1,5 +1,7 @@
 package au.org.ala.util
 
+import org.wyki.cassandra.pelops.Pelops
+import au.org.ala.biocache.DAO
 import au.org.ala.biocache.TypeStatus
 import au.org.ala.biocache.BasisOfRecord
 import au.org.ala.biocache.AssertionCodes
@@ -43,35 +45,41 @@ object ProcessRecords {
 	  
 	  val odao = new OccurrenceDAO
 	  val pdao = new LocationDAO
-	  val nm = new CBIndexSearch("/data/lucene/namematching")
 	  var start = System.currentTimeMillis
 	  var finish = System.currentTimeMillis
 	  var counter = 0
+	  var startTime = System.currentTimeMillis
+      var finishTime = System.currentTimeMillis
 	   
 	  //page over all records and process
 	  odao.pageOverAll(OccurrenceType.Raw, o => {
+	 	  counter += 1
 	 	  if(!o.isEmpty){
-	 	 	  
-	 	 	  counter += 1
 	 	 	  
 	 	 	  val rawOccurrence = o.get._1 
 	 	 	  val rawClassification = o.get._2
 	 	 	  val rawLocation = o.get._3
 	 	 	  val rawEvent = o.get._4
-	 	 	  
-	 	 	  var processedOccurrence = new Occurrence
+
+	 	 	  var processedOccurrence = rawOccurrence.clone
 	 	 	  var processedClassification = new Classification
-	 	 	  var processedLocation = new Location
-	 	 	  var processedEvent = new Event
+	 	 	  var processedLocation = rawLocation.clone
+	 	 	  var processedEvent = rawEvent.clone
+	 	 	  
+	 	 	  if(counter % 1000 == 0) { 
+	 	 	 	  finishTime = System.currentTimeMillis
+	 	 	 	  println(counter + " >> Last key : "+rawOccurrence.uuid +", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
+	 	 	 	  startTime = System.currentTimeMillis
+	 	 	  }
 	 	 	  
 	 	 	  //find a classification in NSLs
-	 	 	  processClassification(rawOccurrence, rawClassification, processedClassification, nm)
+	 	 	  processClassification(rawOccurrence, rawClassification, processedClassification)
 
 			  //perform gazetteer lookups - just using point hash for now
 	 	 	  processLocation(rawOccurrence, rawLocation, processedLocation, pdao, odao) 
 	 	 	  
 	 	 	  //temporal processing
-	 	 	  
+	 	 	  processEvent(rawOccurrence, rawEvent, processedEvent, odao)
 	 	 	  
 	 	 	  //basis of record parsing
 	 	 	  processBasisOfRecord(rawOccurrence, processedOccurrence, odao)
@@ -79,20 +87,47 @@ object ProcessRecords {
 	 	 	  //type status normalisation
 	 	 	  processTypeStatus(rawOccurrence, processedOccurrence, odao)
 	 	 	  
-	 	 	  //BIE properties lookup?
+	 	 	  //process the attribution - call out to the Collectory...
+	 	 	  
+	 	 	  
+	 	 	  //BIE properties lookup - use AVRO
 	 	 	  
 			  //perform SDS lookups - retrieve from BIE for now....
 			  
 	 	 	  //store the occurrence
  	 		  odao.updateOccurrence(rawOccurrence.uuid, processedOccurrence, OccurrenceType.Processed)
  	 		  odao.updateOccurrence(rawOccurrence.uuid, processedLocation, OccurrenceType.Processed)
+ 	 		  odao.updateOccurrence(rawOccurrence.uuid, processedClassification, OccurrenceType.Processed)
+ 	 		  odao.updateOccurrence(rawOccurrence.uuid, processedEvent, OccurrenceType.Processed)
 	 	  }
 	  })
-	  
-	  finish = System.currentTimeMillis
-	  println("Processed "+counter+" records in "+(finish-start)/1000+" seconds. Records per sec: "+ (((finish.toFloat-start.toFloat)/1000f)/counter.toFloat))
+	  Pelops.shutdown
   }
 
+  def processEvent(rawOccurrence:Occurrence, rawEvent:Event, processEvent:Event, odao:OccurrenceDAO){
+	  
+	  //fields to check
+//  @BeanProperty var day:String = _
+//  @BeanProperty var endDayOfYear:String = _
+//  @BeanProperty var eventAttributes:String = _
+//  @BeanProperty var eventDate:String = _
+//  @BeanProperty var eventID:String = _
+//  @BeanProperty var eventRemarks:String = _
+//  @BeanProperty var eventTime:String = _
+//  @BeanProperty var verbatimEventDate:String = _
+//  @BeanProperty var year:String = _
+//  @BeanProperty var month:String = _
+//  @BeanProperty var startDayOfYear:String = _
+//  //custom date range fields
+//  @BeanProperty var startYear:String = _
+//  @BeanProperty var endYear:String = _	  
+	  //
+	  
+	  //need to populate the eventDate, day, month and year
+	  
+  }
+  
+  
   def processTypeStatus(rawOccurrence:Occurrence, processedOccurrence:Occurrence, odao:OccurrenceDAO){
 	  
 	  if(rawOccurrence.typeStatus != null && rawOccurrence.typeStatus.isEmpty){
@@ -128,6 +163,7 @@ object ProcessRecords {
 		  val term = BasisOfRecord.matchTerm(rawOccurrence.basisOfRecord)
 		  if(term.isEmpty){
 		 	  //add a quality assertion
+		 	  println("[QualityAssertion] "+rawOccurrence.uuid+", unrecognised BoR: "+rawOccurrence.uuid+", BoR:"+rawOccurrence.basisOfRecord)
 		 	  val qa = new QualityAssertion
 		 	  qa.positive = false
 		 	  qa.assertionCode  = AssertionCodes.OTHER_BADLY_FORMED_BASIS_OF_RECORD 
@@ -146,9 +182,23 @@ object ProcessRecords {
   def processLocation(rawOccurrence:Occurrence, raw:Location, processed:Location, pdao:LocationDAO, odao:OccurrenceDAO) {
 	  //retrieve the point
 	  if(raw.decimalLatitude!=null && raw.decimalLongitude!=null){
+	 	  
+	 	  //TODO validate decimal degrees
+ 	 	  processed.decimalLatitude = raw.decimalLatitude
+ 	 	  processed.decimalLongitude = raw.decimalLongitude
+ 	 	  
+ 	 	  //validate coordinate accuracy (coordinateUncertaintyInMeters) and coordinatePrecision (precision - A. Chapman)
+ 	 	  
+ 	 	  //
+ 	 	  
+	 	  
+	 	  //generate coordinate accuracy if not supplied
+	 	  
+	 	  
 	 	  val point = pdao.getLocationByLatLon(raw.decimalLatitude, raw.decimalLongitude);
 	 	  if(!point.isEmpty){
 	 	 	  
+	 	 	  //add state information
 	 	 	  processed.stateProvince = point.get.stateProvince
 	 	 	  processed.ibra = point.get.ibra
 	 	 	  processed.imcra = point.get.imcra
@@ -160,7 +210,7 @@ object ProcessRecords {
 	 	 	 	  val stateTerm = States.matchTerm(raw.stateProvince)
 	 	 	 	  
 	 	 		  if(!stateTerm.isEmpty && !processed.stateProvince.equalsIgnoreCase(stateTerm.get.canonical)){
-	 	 		 	  println("[QualityAssertion] "+rawOccurrence.uuid+", state conflict: "+raw.uuid+", processed:"+processed.stateProvince+", raw:"+raw.stateProvince)
+	 	 		 	  println("[QualityAssertion] "+rawOccurrence.uuid+", processed:"+processed.stateProvince+", raw:"+raw.stateProvince)
 	 	 		 	  //add a quality assertion
 	 	 		 	  val qa = new QualityAssertion
 	 	 		 	  qa.positive = false
@@ -185,7 +235,7 @@ object ProcessRecords {
   /**
    * Match the classification
    */
-  def processClassification(rawOccurrence:Occurrence, raw:Classification, processed:Classification, nm:CBIndexSearch) {
+  def processClassification(rawOccurrence:Occurrence, raw:Classification, processed:Classification) {
 	  val classification = new LinnaeanRankClassification(
 	 		  raw.kingdom,
 	 		  raw.phylum,
@@ -200,7 +250,7 @@ object ProcessRecords {
 	 		  raw.scientificName)
 	 	 	  //println("Record: "+occ.uuid+", classification for Kingdom: "+occ.kingdom+", Family:"+  occ.family +", Genus:"+  occ.genus +", Species: " +occ.species+", Epithet: " +occ.specificEpithet)
  	  try{
- 	 	  val nsr = nm.searchForRecord(classification, true)
+ 	 	  val nsr = DAO.nameIndex.searchForRecord(classification, true)
  	 	  //store the matched classification
  	 	  if(nsr!=null){
  	 		  val classification = nsr.getRankClassification
@@ -216,10 +266,10 @@ object ProcessRecords {
  	 		  processed.scientificName = classification.getScientificName
  	 		  processed.taxonConceptID = nsr.getLsid
  	 	  } else {
- 	 	 	  println("No match for record, classification for Kingdom: "+raw.kingdom+", Family:"+  raw.family +", Genus:"+  raw.genus +", Species: " +raw.species+", Epithet: " +raw.specificEpithet)
+ 	 	 	  println("[QualityAssertion] No match for record, classification for Kingdom: "+raw.kingdom+", Family:"+  raw.family +", Genus:"+  raw.genus +", Species: " +raw.species+", Epithet: " +raw.specificEpithet)
  	 	  }
  	  } catch {
- 	 	  case e:HomonymException => println("Homonym exception for record, classification for Kingdom: "+raw.kingdom+", Family:"+  raw.family +", Genus:"+  raw.genus +", Species: " +raw.species+", Epithet: " +raw.specificEpithet)
+ 	 	  case e:HomonymException => //println("Homonym exception for record, classification for Kingdom: "+raw.kingdom+", Family:"+  raw.family +", Genus:"+  raw.genus +", Species: " +raw.species+", Epithet: " +raw.specificEpithet)
  	 	  case e:Exception => e.printStackTrace
  	  }
   }

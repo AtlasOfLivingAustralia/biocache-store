@@ -1,5 +1,6 @@
 package au.org.ala.biocache
 
+import au.org.ala.checklist.lucene.CBIndexSearch
 import com.google.gson.reflect.TypeToken
 import com.google.gson.Gson
 import au.org.ala.util.ReflectBean
@@ -11,8 +12,10 @@ import java.util.ArrayList
 
 object DAO {
 	val hosts = Array{"localhost"}
-	val keyspace = "occurrence"
-	val poolName = "test-pool"
+	val keyspace = "occ"
+	val poolName = "occ-pool"
+	val nameIndex= new CBIndexSearch("/data/lucene/namematching")
+		
 	Pelops.addPool(poolName, hosts, 9160, false, keyspace, new Policy())
 	//read in the ORM mappings
 	val occurrenceDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Occurrence.txt"), "utf-8").getLines.toList.map(_.trim).toArray
@@ -24,24 +27,24 @@ object DAO {
 
 class LocationDAO {
 
-	val columnFamily = "location"
+	val columnFamily = "loc"
 
 	def addTagToLocation (latitude:Float, longitude:Float, tagName:String, tagValue:String) {
 		val guid = latitude +"|"+longitude
     	val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
-    	mutator.writeColumn(guid, "location", mutator.newColumn("decimalLatitude", latitude.toString))
-    	mutator.writeColumn(guid, "location", mutator.newColumn("decimalLongitude", longitude.toString))
-		mutator.writeColumn(guid, "location", mutator.newColumn(tagName, tagValue)) 
+    	mutator.writeColumn(guid, columnFamily, mutator.newColumn("decimalLatitude", latitude.toString))
+    	mutator.writeColumn(guid, columnFamily, mutator.newColumn("decimalLongitude", longitude.toString))
+		mutator.writeColumn(guid, columnFamily, mutator.newColumn(tagName, tagValue)) 
 		mutator.execute(ConsistencyLevel.ONE)
 	}
 
 	def addRegionToPoint (latitude:Float, longitude:Float, mapping:Map[String,String]) {
 		val guid = latitude +"|"+longitude
     	val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
-    	mutator.writeColumn(guid, "location", mutator.newColumn("decimalLatitude", latitude.toString))
-    	mutator.writeColumn(guid, "location", mutator.newColumn("decimalLongitude", longitude.toString))
+    	mutator.writeColumn(guid,columnFamily, mutator.newColumn("decimalLatitude", latitude.toString))
+    	mutator.writeColumn(guid,columnFamily, mutator.newColumn("decimalLongitude", longitude.toString))
     	for(map<-mapping){
-    		mutator.writeColumn(guid, "location", mutator.newColumn(map._1, map._2))
+    		mutator.writeColumn(guid, columnFamily, mutator.newColumn(map._1, map._2))
     	}
 		mutator.execute(ConsistencyLevel.ONE)
 	}
@@ -85,7 +88,7 @@ class OccurrenceDAO {
 	import OccurrenceType._
 	import ReflectBean._
 	
-	val columnFamily = "occurrence"
+	val columnFamily = "occ"
 
 	/**
 	 * Get an occurrence with UUID
@@ -189,36 +192,27 @@ class OccurrenceDAO {
 	def pageOverAll(occurrenceType:OccurrenceType.Value, proc:((Option[(Occurrence, Classification, Location, Event)])=>Unit) ) : Unit = {
 		
 	  val selector = Pelops.createSelector(DAO.poolName, columnFamily);
-	  val slicePredicate = new SlicePredicate
-	  val sliceRange = new SliceRange
-	  //blank key ranges to select all columns
-	  sliceRange.setStart("".getBytes)
-	  sliceRange.setFinish("".getBytes)
-	  slicePredicate.setSlice_range(sliceRange)
-		
+	  val slicePredicate = Selector.newColumnsPredicateAll(true, 10000);
 	  var startKey = ""
-	  var keyRange = Selector.newKeyRange(startKey, "", 101) 
+	  var keyRange = Selector.newKeyRange(startKey, "", 1001) 
 	  var hasMore = true
 	  var counter = 0
-	  while (hasMore) {
-		  val columnMap = selector.getColumnsFromRows(keyRange, columnFamily, slicePredicate, ConsistencyLevel.ONE)
-		  if(columnMap.size>0) {
-  			  val columnsObj = List(columnMap.keySet.toArray : _*)
-			  val columns = columnsObj.asInstanceOf[List[String]]
-		 	  startKey = columns.last
-		 	  val keys = columns.dropRight(1)
-		 	  for(key<-keys){
-		 	 	  val columnsList = columnMap.get(key)
-		 	 	  proc(createOccurrence(key, columnsList, occurrenceType))
-		 	  }  
-		 	  counter += columnMap.size -1
-			  keyRange = Selector.newKeyRange(startKey, "", 101)
-		  } 
-		  if(columnMap.size<100){
-		 	  hasMore = false
-		  }
+	  var columnMap = selector.getColumnsFromRows(keyRange, columnFamily, slicePredicate, ConsistencyLevel.ONE)
+	  while (columnMap.size>0) {
+		  val columnsObj = List(columnMap.keySet.toArray : _*)
+		  //convert to scala List
+		  val keys = columnsObj.asInstanceOf[List[String]]
+	 	  startKey = keys.last
+	 	  for(key<-keys){
+	 	 	  val columnsList = columnMap.get(key)
+	 	 	  proc(createOccurrence(key, columnsList, occurrenceType))
+	 	  }  
+	 	  counter += keys.size
+		  keyRange = Selector.newKeyRange(startKey, "", 1001)
+		  columnMap = selector.getColumnsFromRows(keyRange, columnFamily, slicePredicate, ConsistencyLevel.ONE)
+		  columnMap.remove(startKey)
 	  }
-	  println("finished") 
+	  println("Finished paging. Total count: "+counter) 
     }
 	
 	/**

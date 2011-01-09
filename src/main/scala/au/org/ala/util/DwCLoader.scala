@@ -13,6 +13,10 @@
  *  rights and limitations under the License.
  ***************************************************************************/
 package au.org.ala.util
+
+import scala.collection.mutable.HashSet
+import scala.collection.immutable.ListSet
+import scala.collection.SortedSet
 import java.io.File
 import java.util.UUID
 import org.apache.cassandra.thrift._
@@ -29,9 +33,9 @@ import scala.reflect._
 object DwCLoader {
 
   val hosts = Array { "localhost" }
-  val keyspace = "occurrence"
-  val columnFamily = "occurrence"
-  val poolName = "test-pool"
+  val keyspace = "occ"
+  val columnFamily = "occ"
+  val poolName = "occ-pool"
   val resourceUid = "dp20"
 
   def main(args: Array[String]): Unit = {
@@ -50,7 +54,7 @@ object DwCLoader {
 
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-
+    
     while (iter.hasNext) {
       count += 1
       //the newly assigned record UUID
@@ -60,11 +64,7 @@ object DwCLoader {
       val cc: String = dwc.getProperty(DwcTerm.collectionCode)
       val ic: String = dwc.getProperty(DwcTerm.institutionCode)
       val cn: String = dwc.getProperty(DwcTerm.catalogNumber)
-      val uniqueID = resourceUid + "|" + cc + "|" + ic + "|" + cn
-
-      //check if we already have this
-      var uuidPath = new ColumnPath("dr")
-      uuidPath.setColumn("uuid".getBytes)
+      val uniqueID = resourceUid + "|" + ic + "|" + cc + "|" + cn
 
       //lookup the column
       val recordUuid = createOrRetrieveUuid(uniqueID)
@@ -91,7 +91,7 @@ object DwCLoader {
       }
     }
     Pelops.shutdown
-    println("Finished DwC loader.")
+    println("Finished DwC loader. Records processed: " + count)
   }
 
   /**
@@ -101,19 +101,15 @@ object DwCLoader {
     try {
       val selector = Pelops.createSelector(poolName, columnFamily)
       val column = selector.getColumnFromRow(uniqueID, "dr", "uuid".getBytes, ConsistencyLevel.ONE)
-      if (column != null) {
-        new String(column.value)
-      } else {
-        // write new UUID to table
+      new String(column.value)
+    } catch {
+      //NotFoundException is expected behaviour with thrift
+      case e:NotFoundException => 
         val newUuid = UUID.randomUUID.toString
         val mutator = Pelops.createMutator(poolName, columnFamily)
-        mutator.writeColumn(uniqueID, columnFamily, mutator.newColumn("uuid".getBytes, newUuid))
+        mutator.writeColumn(uniqueID, "dr", mutator.newColumn("uuid".getBytes, newUuid))
+        mutator.execute(ConsistencyLevel.ONE)
         newUuid
-      }
-    } catch {
-      case e =>
-        None
-        UUID.randomUUID.toString
     }
   }
 }

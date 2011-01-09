@@ -54,7 +54,7 @@ object States extends Vocab {
 }
 
 object BasisOfRecord extends Vocab {
-	val specimen = new Term("PreservedSpecimen", Array("specimen","s."))
+	val specimen = new Term("PreservedSpecimen", Array("specimen","s"))
 	val observation = new Term("HumanObservation", Array("observation","o"))
 	val fossil = new Term("FossilSpecimen", Array("fossil","f"))
 	val living = new Term("LivingSpecimen", Array("living","l"))

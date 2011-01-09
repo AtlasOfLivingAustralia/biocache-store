@@ -1,7 +1,8 @@
 package au.org.ala.biocache
 import scala.reflect.BeanProperty
 
-class Occurrence {
+class Occurrence extends Cloneable {
+  override def clone : Occurrence = super.clone.asInstanceOf[Occurrence]
   @BeanProperty var uuid:String = _	
   @BeanProperty var occurrenceID:String = _
   @BeanProperty var accessrights:String = _
@@ -53,7 +54,8 @@ class Occurrence {
   @BeanProperty var typeStatus:String = _
 }
 
-class Classification {
+class Classification extends Cloneable {
+  override def clone : Classification = super.clone.asInstanceOf[Classification]
   @BeanProperty var scientificName:String = _
   @BeanProperty var scientificNameAuthorship:String = _
   @BeanProperty var scientificNameID:String = _
@@ -104,7 +106,8 @@ class Classification {
   @BeanProperty var right:String = _
 }
 
-class Measurement {
+class Measurement extends Cloneable {
+  override def clone : Measurement = super.clone.asInstanceOf[Measurement]
   @BeanProperty var measurementAccuracy:String = _
   @BeanProperty var measurementDeterminedBy:String = _
   @BeanProperty var measurementDeterminedDate:String = _
@@ -116,7 +119,8 @@ class Measurement {
   @BeanProperty var measurementValue:String = _
 }
 
-class Identification {
+class Identification extends Cloneable {
+  override def clone : Identification = super.clone.asInstanceOf[Identification]
   @BeanProperty var dateIdentified:String = _
   @BeanProperty var identificationAttributes:String = _
   @BeanProperty var identificationID:String = _
@@ -127,7 +131,8 @@ class Identification {
   @BeanProperty var typeStatus:String = _
 }
 
-class Event {
+class Event extends Cloneable {
+  override def clone : Event = super.clone.asInstanceOf[Event]
   @BeanProperty var day:String = _
   @BeanProperty var endDayOfYear:String = _
   @BeanProperty var eventAttributes:String = _
@@ -139,9 +144,14 @@ class Event {
   @BeanProperty var year:String = _
   @BeanProperty var month:String = _
   @BeanProperty var startDayOfYear:String = _
+  //custom date range fields
+  @BeanProperty var startYear:String = _
+  @BeanProperty var endYear:String = _
+  
 }
 
-class Location {
+class Location extends Cloneable {
+  override def clone : Location = super.clone.asInstanceOf[Location]
   @BeanProperty var uuid:String = _	
   //dwc terms
   @BeanProperty var continent:String = _
