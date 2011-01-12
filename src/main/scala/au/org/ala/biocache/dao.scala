@@ -18,11 +18,52 @@ object DAO {
 		
 	Pelops.addPool(poolName, hosts, 9160, false, keyspace, new Policy())
 	//read in the ORM mappings
+	val attributionDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Attribution.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 	val occurrenceDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Occurrence.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 	val locationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Location.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 	val eventDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Event.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 	val classificationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Classification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 	val identificationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+}
+
+class AttributionDAO {
+
+	import ReflectBean._
+	val columnFamily = "attr"
+	
+	def addCollectionMapping(institutionCode:String, collectionCode:String, attribution:Attribution){
+		val guid = institutionCode +"|"+collectionCode
+    	val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
+    	for(field<-DAO.attributionDefn){
+    		val fieldValue = attribution.getter(field).asInstanceOf[String]
+    		if(fieldValue!=null && !fieldValue.isEmpty){
+	    		val fieldValue = attribution.getter(field).asInstanceOf[String].getBytes
+	    		mutator.writeColumn(guid, columnFamily, mutator.newColumn(field, fieldValue))
+    		}
+    	}
+		mutator.execute(ConsistencyLevel.ONE)
+	}
+	
+	def getAttibutionByCodes(institutionCode:String, collectionCode:String) : Option[Attribution] = {
+		try {
+			val uuid = institutionCode+"|"+collectionCode
+			//println(uuid)
+			val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
+			val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
+			val columns = selector.getColumnsFromRow(uuid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
+			val columnList = List(columns.toArray : _*)
+			val attribution = new Attribution
+			for(column<-columnList){
+				val field = new String(column.asInstanceOf[Column].name)
+				val value = new String(column.asInstanceOf[Column].value)
+				val method = attribution.getClass.getMethods.find(_.getName == field + "_$eq")
+				method.get.invoke(attribution, value.asInstanceOf[AnyRef])
+			}
+			Some(attribution)
+		} catch {
+			case e:Exception => println(e.printStackTrace); None
+		}
+	}
 }
 
 class LocationDAO {
@@ -54,12 +95,7 @@ class LocationDAO {
 			val uuid = latitude+"|"+longitude
 			//println(uuid)
 			val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
-			val slicePredicate = new SlicePredicate
-			val sliceRange = new SliceRange
-			sliceRange.setStart("".getBytes)
-			sliceRange.setFinish("".getBytes)
-			slicePredicate.setSlice_range(sliceRange)
-			
+			val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
 			val columns = selector.getColumnsFromRow(uuid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
 			val columnList = List(columns.toArray : _*)
 			val location = new Location
@@ -110,13 +146,7 @@ class OccurrenceDAO {
 	def getByUuid(uuid:String, occurrenceType:OccurrenceType.Value) : Option[(Occurrence, Classification, Location, Event)] = {
 		
 		val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
-		val slicePredicate = new SlicePredicate
-		val sliceRange = new SliceRange
-		//retrieve all columns
-		sliceRange.setStart("".getBytes)
-		sliceRange.setFinish("".getBytes)
-		slicePredicate.setSlice_range(sliceRange)
-		
+		val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
 		val occurrence = new Occurrence
 		val columnList = selector.getColumnsFromRow(uuid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
 		createOccurrence(uuid, columnList, occurrenceType)
@@ -225,15 +255,17 @@ class OccurrenceDAO {
 	def updateOccurrence(uuid:String, anObject:AnyRef, occurrenceType:OccurrenceType.Value) {
 		
 		//select the correct definition file
-		var defn = DAO.occurrenceDefn
+		var defn:Array[String] = null
 		if(anObject.isInstanceOf[Location]) defn = DAO.locationDefn
+		else if(anObject.isInstanceOf[Occurrence]) defn = DAO.occurrenceDefn
 		else if(anObject.isInstanceOf[Event]) defn = DAO.eventDefn
 		else if(anObject.isInstanceOf[Classification]) defn = DAO.classificationDefn
+		else if(anObject.isInstanceOf[Attribution]) defn = DAO.attributionDefn
+		else throw new RuntimeException("Unmapped object type: "+anObject)
 		//additional functionality to support adding Quality Assertions and Field corrections.
 		
 		val mutator = Pelops.createMutator(DAO.poolName, columnFamily);
 		for(field <- defn){
-			
 			val fieldValue = anObject.getClass.getMethods.find(_.getName == field).get.invoke(anObject).asInstanceOf[String]
 			if(fieldValue!=null && !fieldValue.isEmpty){
 				var fieldName = field

@@ -1,5 +1,9 @@
 package au.org.ala.util
 
+import au.org.ala.biocache.AttributionDAO
+import org.apache.commons.lang.time.DateUtils
+import java.util.Calendar
+import org.apache.commons.lang.time.DateFormatUtils
 import org.wyki.cassandra.pelops.Pelops
 import au.org.ala.biocache.DAO
 import au.org.ala.biocache.TypeStatus
@@ -18,6 +22,7 @@ import au.org.ala.data.model.LinnaeanRankClassification
 import au.org.ala.checklist.lucene.CBIndexSearch
 import au.org.ala.biocache.OccurrenceType
 import au.org.ala.biocache.OccurrenceDAO
+
 object ProcessRecords {
   /**
    * 1. Classification matching
@@ -45,8 +50,7 @@ object ProcessRecords {
 	  
 	  val odao = new OccurrenceDAO
 	  val pdao = new LocationDAO
-	  var start = System.currentTimeMillis
-	  var finish = System.currentTimeMillis
+	  val adao = new AttributionDAO
 	  var counter = 0
 	  var startTime = System.currentTimeMillis
       var finishTime = System.currentTimeMillis
@@ -88,7 +92,7 @@ object ProcessRecords {
 	 	 	  processTypeStatus(rawOccurrence, processedOccurrence, odao)
 	 	 	  
 	 	 	  //process the attribution - call out to the Collectory...
-	 	 	  
+	 	 	  processAttribution(rawOccurrence, processedOccurrence, odao, adao)
 	 	 	  
 	 	 	  //BIE properties lookup - use AVRO
 	 	 	  
@@ -104,27 +108,154 @@ object ProcessRecords {
 	  Pelops.shutdown
   }
 
-  def processEvent(rawOccurrence:Occurrence, rawEvent:Event, processEvent:Event, odao:OccurrenceDAO){
+  /**
+   * select icm.institution_uid, icm.collection_uid,  ic.code, ic.name, ic.lsid, cc.code from inst_coll_mapping icm
+   * inner join institution_code ic ON ic.id = icm.institution_code_id
+   * inner join collection_code cc ON cc.id = icm.collection_code_id
+   * limit 10;
+   */
+  def processAttribution(rawOccurrence:Occurrence, processedOccurrence:Occurrence, odao:OccurrenceDAO, adao:AttributionDAO){
+	  val attribution = adao.getAttibutionByCodes(rawOccurrence.institutionCode , rawOccurrence.collectionCode)
+	  if(!attribution.isEmpty){
+	 	  odao.updateOccurrence(rawOccurrence.uuid, attribution.get, OccurrenceType.Processed)
+	  }
+  }
+  
+  /**
+   * Date parsing
+   */
+  def processEvent(rawOccurrence:Occurrence, rawEvent:Event, processedEvent:Event, odao:OccurrenceDAO){
 	  
-	  //fields to check
-//  @BeanProperty var day:String = _
-//  @BeanProperty var endDayOfYear:String = _
-//  @BeanProperty var eventAttributes:String = _
-//  @BeanProperty var eventDate:String = _
-//  @BeanProperty var eventID:String = _
-//  @BeanProperty var eventRemarks:String = _
-//  @BeanProperty var eventTime:String = _
-//  @BeanProperty var verbatimEventDate:String = _
-//  @BeanProperty var year:String = _
-//  @BeanProperty var month:String = _
-//  @BeanProperty var startDayOfYear:String = _
-//  //custom date range fields
-//  @BeanProperty var startYear:String = _
-//  @BeanProperty var endYear:String = _	  
-	  //
-	  
-	  //need to populate the eventDate, day, month and year
-	  
+		var year = -1
+		var month = -1
+		var day = -1
+		var date:Option[java.util.Date] = None
+		
+		var invalidDate = false;
+		val now = new java.util.Date
+		val currentYear = DateFormatUtils.format(now,"yyyy").toInt
+		
+		try {
+			if (rawEvent.year!=null) {
+				year = rawEvent.year.toInt
+				if (year < 0 || year > currentYear) {
+					invalidDate = true
+					year = -1
+				}
+			}
+		} catch {
+			case e:NumberFormatException => {
+				invalidDate = true
+				year = -1
+			}
+		}
+		
+		try {
+			if (rawEvent.month!=null)
+				month = rawEvent.month.toInt
+			if (month<1 || month>12) {
+				month = -1
+				invalidDate = true
+			}
+		} catch {
+			case e:NumberFormatException => {
+				invalidDate = true
+				month = -1
+			}
+		}
+		
+		try {
+			if (rawEvent.day!=null)
+				day = rawEvent.day.toInt
+			if (day < 0 || day > 31) {
+				day = -1
+				invalidDate = true
+			}
+		} catch {
+			case e:NumberFormatException => {
+				invalidDate = true
+				day = -1
+			}
+		}
+		
+		if (year > 0) {
+			if (year < 100)	{
+				if (year > currentYear % 100) {
+					// Must be in last century
+					year += ((currentYear / 100) - 1) * 100;
+				} else {
+					// Must be in this century		
+					year += (currentYear / 100) * 100;
+				}
+			} else if (year >= 100 && year < 1700) {
+				year = -1
+				invalidDate = true;
+			}
+		}
+		
+		//construct
+		if (year != -1 && month != -1 && day != -1) {
+			try {
+				val calendar = Calendar.getInstance
+				calendar.set(year, month - 1, day, 12, 0, 0);
+				date = Some(new java.util.Date(calendar.getTimeInMillis())) 
+			} catch {
+				case e:Exception => {
+					invalidDate = true
+				}
+			}
+		}
+
+		if (year != -1) processedEvent.year = year.toString
+		if (month != -1) processedEvent.month = month.toString
+		if (day != -1) processedEvent.day = day.toString
+		if(!date.isEmpty) {
+			processedEvent.eventDate = DateFormatUtils.format(date.get, "yyyy-MM-dd")
+		}
+		
+		if (date.isEmpty && rawEvent.eventDate !=null && !rawEvent.eventDate.isEmpty){
+			//TODO handle these formats
+//			"1963-03-08T14:07-0600" is 8 Mar 1963 2:07pm in the time zone six hours earlier than UTC, 
+//			"2009-02-20T08:40Z" is 20 Feb 2009 8:40am UTC, "1809-02-12" is 12 Feb 1809, 
+//			"1906-06" is Jun 1906, "1971" is just that year, 
+//			"2007-03-01T13:00:00Z/2008-05-11T15:30:00Z" is the interval between 1 Mar 2007 1pm UTC and 
+//			11 May 2008 3:30pm UTC, "2007-11-13/15" is the interval between 13 Nov 2007 and 15 Nov 2007
+			try {
+				val eventDateParsed = DateUtils.parseDate(rawEvent.eventDate, 
+						Array("yyyy-MM-dd", "yyyy-MM-ddThh:mm-ss", "2009-02-20T08:40Z"))
+				processedEvent.eventDate = DateFormatUtils.format(date.get, "yyyy-MM-dd")
+			} catch {
+				case e:Exception => {
+					//handle "1906-06"
+					invalidDate = true
+				}
+			}
+		}
+		
+		//deal with verbatim date
+		if (date.isEmpty && rawEvent.verbatimEventDate !=null && !rawEvent.verbatimEventDate.isEmpty){
+			try{
+				val eventDate = rawEvent.verbatimEventDate.split("/").first
+				val eventDateParsed = DateUtils.parseDate(eventDate, 
+						Array("yyyy-MM-dd", "yyyy-MM-ddThh:mm-ss", "2009-02-20T08:40Z"))
+			} catch {
+				case e:Exception => {
+					invalidDate = true
+				}
+			}
+		}
+		
+		if (invalidDate) {
+//			or.setOtherIssueBits(IndexingIssue.OTHER_INVALID_DATE.getBit());
+//			GbifLogMessage rangeMessage = gbifLogUtils.createGbifLogMessage(context, LogEvent.EXTRACT_GEOSPATIALISSUE,
+//			    "Invalid or unparsable date");
+//			rangeMessage.setCountOnly(true);
+//			logger.warn(rangeMessage);			
+			var qa = new QualityAssertion
+			qa.assertionCode = AssertionCodes.OTHER_INVALID_DATE
+			qa.positive = false
+			odao.addQualityAssertion(rawOccurrence.uuid,qa)
+		}
   }
   
   

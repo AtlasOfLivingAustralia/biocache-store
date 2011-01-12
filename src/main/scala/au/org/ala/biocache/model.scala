@@ -1,6 +1,17 @@
 package au.org.ala.biocache
 import scala.reflect.BeanProperty
 
+class Attribution extends Cloneable {
+  override def clone : Attribution = super.clone.asInstanceOf[Attribution]
+  @BeanProperty var dataProviderUid:String = _
+  @BeanProperty var dataResourceUid:String = _	
+  @BeanProperty var collectionUid:String = _
+  @BeanProperty var institutionUid:String = _
+  @BeanProperty var dataHubUid:String = _
+  @BeanProperty var institutionName:String = _
+  @BeanProperty var collectionName:String = _
+}
+
 class Occurrence extends Cloneable {
   override def clone : Occurrence = super.clone.asInstanceOf[Occurrence]
   @BeanProperty var uuid:String = _	

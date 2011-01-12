@@ -42,14 +42,14 @@ trait Vocab {
  * @author Dave Martin (David.Martin@csiro.au)
  */
 object States extends Vocab {
-	val act = new Term("Australian Capital Territory", Array("AustralianCapitalTerritory","AusCap","ACT"))
-	val nsw = new Term("New South Wales", Array("newsouthwales","nswales","nsw"))
+	val act = new Term("Australian Capital Territory", Array("AustCapitalTerritory","AustCapitalTerrit","AusCap","ACT"))
+	val nsw = new Term("New South Wales", Array("nswales","nsw"))
 	val nt = new Term("Northern Territory", Array("nterritory","nterrit","nt"))
-	val qld = new Term("Queensland", Array("queensland","qld"))
-	val sa = new Term("South Australia", Array("southaustralia","saustralia","saust","sa"))
-	val tas = new Term("Tasmania", Array("tasmania", "tassie","tas"))
-	val vic = new Term("Victoria", Array("saustralia","southaustralia", "saust","sa"))
-	val wa = new Term("Western Australia", Array("waustralia","westaustralia","wa"))
+	val qld = new Term("Queensland", Array("qland","qld"))
+	val sa = new Term("South Australia", Array("sthaustralia","saustralia","saust","sa"))
+	val tas = new Term("Tasmania", Array("tassie","tas"))
+	val vic = new Term("Victoria", Array("vic","vict"))
+	val wa = new Term("Western Australia", Array("waustralia","westaustralia","westaust","wa"))
 	val all = retrieveAll
 }
 

@@ -18,7 +18,7 @@ import org.apache.cassandra.thrift.{ Column, ConsistencyLevel, ColumnPath, Slice
  * 
  * @author Dave Martin (David.Martin@csiro.au)
  */
-object PointLoader {
+object LocationLoader {
 
   def main(args: Array[String]): Unit = {
     import FileHelper._
