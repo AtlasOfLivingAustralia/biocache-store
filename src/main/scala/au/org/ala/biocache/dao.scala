@@ -32,7 +32,7 @@ class AttributionDAO {
 	val columnFamily = "attr"
 	
 	def addCollectionMapping(institutionCode:String, collectionCode:String, attribution:Attribution){
-		val guid = institutionCode +"|"+collectionCode
+		val guid = institutionCode.toUpperCase +"|"+collectionCode.toUpperCase
     	val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
     	for(field<-DAO.attributionDefn){
     		val fieldValue = attribution.getter(field).asInstanceOf[String]
@@ -46,20 +46,24 @@ class AttributionDAO {
 	
 	def getAttibutionByCodes(institutionCode:String, collectionCode:String) : Option[Attribution] = {
 		try {
-			val uuid = institutionCode+"|"+collectionCode
-			//println(uuid)
-			val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
-			val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
-			val columns = selector.getColumnsFromRow(uuid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
-			val columnList = List(columns.toArray : _*)
-			val attribution = new Attribution
-			for(column<-columnList){
-				val field = new String(column.asInstanceOf[Column].name)
-				val value = new String(column.asInstanceOf[Column].value)
-				val method = attribution.getClass.getMethods.find(_.getName == field + "_$eq")
-				method.get.invoke(attribution, value.asInstanceOf[AnyRef])
+			if(institutionCode!=null && collectionCode!=null){
+				val uuid = institutionCode.toUpperCase+"|"+collectionCode.toUpperCase
+				//println(uuid)
+				val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
+				val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
+				val columns = selector.getColumnsFromRow(uuid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
+				val columnList = List(columns.toArray : _*)
+				val attribution = new Attribution
+				for(column<-columnList){
+					val field = new String(column.asInstanceOf[Column].name)
+					val value = new String(column.asInstanceOf[Column].value)
+					val method = attribution.getClass.getMethods.find(_.getName == field + "_$eq")
+					method.get.invoke(attribution, value.asInstanceOf[AnyRef])
+				}
+				Some(attribution)
+			} else {
+				None
 			}
-			Some(attribution)
 		} catch {
 			case e:Exception => println(e.printStackTrace); None
 		}
