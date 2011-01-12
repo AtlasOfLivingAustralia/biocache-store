@@ -1,4 +1,4 @@
-package au.org.ala.util
+package au.org.ala.util {
 
 class ReflectBean(ref: AnyRef)  {
   def getter(name: String): Any = ref.getClass.getMethods.find(_.getName == name).get.invoke(ref)
@@ -19,4 +19,6 @@ class ReflectBean(ref: AnyRef)  {
  */
 object ReflectBean{
   implicit def file2helper(ref: AnyRef) = new ReflectBean(ref)
+}
+
 }

@@ -4,19 +4,20 @@ import au.org.ala.checklist.lucene.CBIndexSearch
 import com.google.gson.reflect.TypeToken
 import com.google.gson.Gson
 import au.org.ala.util.ReflectBean
-import scala.reflect.BeanProperty
-import org.wyki.cassandra.pelops.{Mutator,Pelops,Policy,Selector}
+import org.wyki.cassandra.pelops.{Mutator,Pelops,Selector}
 import scala.collection.mutable.{LinkedList,ListBuffer}
 import org.apache.cassandra.thrift.{Column,ConsistencyLevel,ColumnPath,SlicePredicate,SliceRange}
 import java.util.ArrayList
+import org.wyki.cassandra.pelops.Policy
 
 object DAO {
+
 	val hosts = Array{"localhost"}
 	val keyspace = "occ"
 	val poolName = "occ-pool"
 	val nameIndex= new CBIndexSearch("/data/lucene/namematching")
 		
-	Pelops.addPool(poolName, hosts, 9160, false, keyspace, new Policy())
+	Pelops.addPool(poolName, hosts, 9160, false, keyspace, new Policy)
 	//read in the ORM mappings
 	val attributionDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Attribution.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 	val occurrenceDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Occurrence.txt"), "utf-8").getLines.toList.map(_.trim).toArray
@@ -26,6 +27,9 @@ object DAO {
 	val identificationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 }
 
+/**
+ * A DAO for attribution data. The source of this data should be
+ */
 class AttributionDAO {
 
 	import ReflectBean._
@@ -70,6 +74,9 @@ class AttributionDAO {
 	}
 }
 
+/**
+ * DAO for location lookups.
+ */
 class LocationDAO {
 
 	val columnFamily = "loc"
