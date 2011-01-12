@@ -54,7 +54,7 @@ object DwCLoader {
 
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    
+
     while (iter.hasNext) {
       count += 1
       //the newly assigned record UUID

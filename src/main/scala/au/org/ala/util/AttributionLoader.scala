@@ -29,15 +29,15 @@ object AttributionLoader {
     val attributionDAO = new AttributionDAO
     var counter = 0
     file.foreachLine { line => {
-    		counter+=1
-    		//add point with details to 
-    		val parts = line.split('\t')
-    		var attribution = new Attribution
-    		attribution.institutionUid = parts(2)
-    		attribution.collectionUid = parts(3)
-    		attribution.institutionName = parts(4)
-    		attributionDAO.addCollectionMapping(parts(0), parts(1), attribution)
-    	}
+        counter+=1
+        //add point with details to
+        val parts = line.split('\t')
+        var attribution = new Attribution
+        attribution.institutionUid = parts(2)
+        attribution.collectionUid = parts(3)
+        attribution.institutionName = parts(4)
+        attributionDAO.addCollectionMapping(parts(0), parts(1), attribution)
+      }
     }
     println(counter)
     Pelops.shutdown

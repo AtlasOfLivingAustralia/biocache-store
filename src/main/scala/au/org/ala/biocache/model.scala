@@ -158,7 +158,7 @@ class Event extends Cloneable {
   //custom date range fields
   @BeanProperty var startYear:String = _
   @BeanProperty var endYear:String = _
-  
+
 }
 
 class Location extends Cloneable {
@@ -213,6 +213,6 @@ class Location extends Cloneable {
 }
 
 object OccurrenceType extends Enumeration {
-	type OccurrenceType = Value
-	val Raw, Processed, Consensus = Value
+  type OccurrenceType = Value
+  val Raw, Processed, Consensus = Value
 }
