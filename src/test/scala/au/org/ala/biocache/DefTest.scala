@@ -4,13 +4,12 @@ object DefTest {
 
   def main(args: Array[String]): Unit = { 
 	  
+	  var occurrence = new Occurrence
+	  println(occurrence.basisOfRecord)
 	  
 	  
   }
 
-  def formatString(test:String) : String = { 
-//	  println(test) 
-	  ""
-  }
+
   
 }
