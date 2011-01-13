@@ -46,7 +46,7 @@ object SpeciesProfileLoader {
 	      }
 	      if(profile.habitat!=null){
 	    	  val habitats = for(habitat<-profile.habitat) yield habitat.toString
-	    	  taxonProfile.habitat = habitats.toArray
+	    	  taxonProfile.habitats = habitats.toArray
 	      }
 	      taxonProfileDAO.add(taxonProfile)
 	      lastKey = profile.guid

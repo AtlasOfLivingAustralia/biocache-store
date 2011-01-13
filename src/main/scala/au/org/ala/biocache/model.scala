@@ -6,7 +6,7 @@ class TaxonProfile extends Cloneable {
   @BeanProperty var guid:String = _
   @BeanProperty var scientificName:String = _	
   @BeanProperty var commonName:String = _
-  @BeanProperty var habitat:Array[String] = _
+  @BeanProperty var habitats:Array[String] = _
 }
 
 class Attribution extends Cloneable {

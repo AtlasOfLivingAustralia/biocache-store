@@ -19,12 +19,12 @@ object DAO {
 
   Pelops.addPool(poolName, hosts, 9160, false, keyspace, new Policy)
   //read in the ORM mappings
-  val attributionDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Attribution.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val occurrenceDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Occurrence.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val locationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Location.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+  val attributionDefn = scala.io.Source.fromURL(getClass.getResource("/Attribution.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+  val occurrenceDefn = scala.io.Source.fromURL(getClass.getResource("/Occurrence.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+  val locationDefn = scala.io.Source.fromURL(getClass.getResource("/Location.txt"), "utf-8").getLines.toList.map(_.trim).toArray
   val eventDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Event.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val classificationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Classification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val identificationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+  val classificationDefn = scala.io.Source.fromURL(getClass.getResource("/Classification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+  val identificationDefn = scala.io.Source.fromURL(getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 }
 
 class TaxonProfileDAO {
@@ -32,13 +32,37 @@ class TaxonProfileDAO {
 	val columnFamily = "taxon"
 	
 	def getByGuid(guid:String) : Option[TaxonProfile] = {
-		val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
-        val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
 		
-        
-        
-        
-        None
+		if(guid==null || guid.isEmpty) { return None }
+		
+        val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
+        val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
+        try {
+	        val columns = selector.getColumnsFromRow(guid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
+	        val columnList = List(columns.toArray : _*)
+	        var taxonProfile = new TaxonProfile
+	        
+	        for(column<-columnList){
+	        	
+	          val field = new String(column.asInstanceOf[Column].name)
+	          val value = new String(column.asInstanceOf[Column].value)
+	           
+	          field match {
+	         	  case "guid" => taxonProfile.guid = value
+	         	  case "habitats" => {
+	         	 	  if(value!=null && value.size>0){
+	         	 		  taxonProfile.habitats = value.split(",")
+	         	 	   }
+	         	  }
+	         	  case "scientificName" => taxonProfile.scientificName = value
+	         	  case "commonName" => taxonProfile.commonName = value
+	         	  case _ =>
+	          }
+	        }
+	        Some(taxonProfile)
+        } catch {
+        	case e:Exception => None
+        }
 	}
 	
 	def add(taxonProfile:TaxonProfile) {
@@ -47,8 +71,8 @@ class TaxonProfileDAO {
 	    mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("scientificName", taxonProfile.scientificName))
 	    if(taxonProfile.commonName!=null)
 	    	mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("commonName", taxonProfile.commonName))
-	    if(taxonProfile.habitat!=null && taxonProfile.habitat.size>0){
-	    	val habitatString = taxonProfile.habitat.reduceLeft(_+","+_)
+	    if(taxonProfile.habitats!=null && taxonProfile.habitats.size>0){
+	    	val habitatString = taxonProfile.habitats.reduceLeft(_+","+_)
 	    	mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("habitats", habitatString))
 	    }
 	    mutator.execute(ConsistencyLevel.ONE)
@@ -129,9 +153,18 @@ class LocationDAO {
     mutator.execute(ConsistencyLevel.ONE)
   }
 
+
+  def roundCoord(x:String) : String = {
+	  try {
+		(((x * 10000).toInt).toFloat / 10000).toString
+	  } catch {
+	  	case e:NumberFormatException => x
+	  }
+  }
+  
   def getLocationByLatLon(latitude:String, longitude:String) : Option[Location] = {
     try {
-      val uuid = latitude+"|"+longitude
+      val uuid =  roundCoord(latitude)+"|"+roundCoord(longitude)
       //println(uuid)
       val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
       val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
@@ -294,15 +327,16 @@ class OccurrenceDAO {
   def updateOccurrence(uuid:String, anObject:AnyRef, occurrenceType:OccurrenceType.Value) {
 
     //select the correct definition file
-    var defn:Array[String] = null
-    if(anObject.isInstanceOf[Location]) defn = DAO.locationDefn
-    else if(anObject.isInstanceOf[Occurrence]) defn = DAO.occurrenceDefn
-    else if(anObject.isInstanceOf[Event]) defn = DAO.eventDefn
-    else if(anObject.isInstanceOf[Classification]) defn = DAO.classificationDefn
-    else if(anObject.isInstanceOf[Attribution]) defn = DAO.attributionDefn
-    else throw new RuntimeException("Unmapped object type: "+anObject)
+    val defn = { anObject match {
+    	case l:Location => DAO.locationDefn
+    	case o:Occurrence => DAO.occurrenceDefn
+    	case e:Event => DAO.eventDefn
+    	case c:Classification => DAO.classificationDefn
+    	case a:Attribution => DAO.attributionDefn
+      }
+    }
+    
     //additional functionality to support adding Quality Assertions and Field corrections.
-
     val mutator = Pelops.createMutator(DAO.poolName, columnFamily);
     for(field <- defn){
       val fieldValue = anObject.getClass.getMethods.find(_.getName == field).get.invoke(anObject).asInstanceOf[String]
@@ -320,7 +354,12 @@ class OccurrenceDAO {
     mutator.execute(ConsistencyLevel.ONE)
   }
 
-
+  /**
+   * Adds a quality assertion to the row with the supplied UUID.
+   * 
+   * @param uuid
+   * @param qualityAssertion
+   */
   def addQualityAssertion(uuid:String, qualityAssertion:QualityAssertion){
 
     //set field qualityAssertion
