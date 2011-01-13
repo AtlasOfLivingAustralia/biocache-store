@@ -9,15 +9,11 @@ import org.apache.avro.util.Utf8
 import au.org.ala.bie.rpc.{ ProfileArray, Page, SpeciesProfile }
 
 /**
- * Created by IntelliJ IDEA.
- * User: davejmartin2
- * Date: 12/01/2011
- * Time: 20:40
- * To change this template use File | Settings | File Templates.
+ * Primes the cache of species profiles.
  */
 object SpeciesProfileLoader {
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]){
 
     println("test")
     import scala.collection.JavaConversions._
@@ -25,7 +21,7 @@ object SpeciesProfileLoader {
     val host = args(0)
     val port = args(1).toInt
     val taxonProfileDAO = new TaxonProfileDAO
-    //int maxNoOfProfiles = Integer.MAX_VALUE;
+    //int maxNoOfProfiles = Integer.MAX_VALUE;                                    au.org.
     val client = new SocketTransceiver(new InetSocketAddress(host, port))
     val proxy = SpecificRequestor.getClient(classOf[SpeciesProfile], client).asInstanceOf[SpeciesProfile]
     var page = new Page
