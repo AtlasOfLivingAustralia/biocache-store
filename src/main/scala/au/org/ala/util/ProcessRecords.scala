@@ -349,7 +349,7 @@ object ProcessRecords {
             qa.comment = "Supplied: " + stateTerm.get.canonical + ", Calculated: "+ processed.stateProvince
             qa.userId = "system"
             //store the assertion
-              odao.addQualityAssertion(rawOccurrence.uuid, qa);
+            odao.addQualityAssertion(rawOccurrence.uuid, qa);
           }
         }
 

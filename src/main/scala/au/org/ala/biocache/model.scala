@@ -1,6 +1,14 @@
 package au.org.ala.biocache
 import scala.reflect.BeanProperty
 
+class TaxonProfile extends Cloneable {
+  override def clone : TaxonProfile = super.clone.asInstanceOf[TaxonProfile]
+  @BeanProperty var guid:String = _
+  @BeanProperty var scientificName:String = _	
+  @BeanProperty var commonName:String = _
+  @BeanProperty var habitat:Array[String] = _
+}
+
 class Attribution extends Cloneable {
   override def clone : Attribution = super.clone.asInstanceOf[Attribution]
   @BeanProperty var dataProviderUid:String = _
@@ -158,7 +166,6 @@ class Event extends Cloneable {
   //custom date range fields
   @BeanProperty var startYear:String = _
   @BeanProperty var endYear:String = _
-
 }
 
 class Location extends Cloneable {

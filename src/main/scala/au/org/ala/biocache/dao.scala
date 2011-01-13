@@ -27,6 +27,34 @@ object DAO {
   val identificationDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 }
 
+class TaxonProfileDAO {
+	
+	val columnFamily = "taxon"
+	
+	def getByGuid(guid:String) : Option[TaxonProfile] = {
+		val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
+        val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
+		
+        
+        
+        
+        None
+	}
+	
+	def add(taxonProfile:TaxonProfile) {
+	    val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
+	    mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("guid", taxonProfile.guid))
+	    mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("scientificName", taxonProfile.scientificName))
+	    if(taxonProfile.commonName!=null)
+	    	mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("commonName", taxonProfile.commonName))
+	    if(taxonProfile.habitat!=null && taxonProfile.habitat.size>0){
+	    	val habitatString = taxonProfile.habitat.reduceLeft(_+","+_)
+	    	mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("habitats", habitatString))
+	    }
+	    mutator.execute(ConsistencyLevel.ONE)
+	}
+}
+
 /**
  * A DAO for attribution data. The source of this data should be
  */
