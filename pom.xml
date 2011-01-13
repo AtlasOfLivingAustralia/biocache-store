@@ -91,7 +91,7 @@
       <exclusions>
         <exclusion>
           <groupId>org.apache.cassandra</groupId>
-          <artifactId>apache-cassandra</artifactId>
+          <artifactId>cassandra</artifactId>
         </exclusion>
         <exclusion>
           <groupId>org.apache.cassandra</groupId>
@@ -108,6 +108,12 @@
       <groupId>org.apache.cassandra</groupId>
       <artifactId>libthrift-r917130</artifactId>
       <version>0.6.9</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.cassandra</groupId>
+          <artifactId>cassandra</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.thrift</groupId>
@@ -209,4 +215,14 @@
       </plugin>
     </plugins>
   </reporting>
+  <distributionManagement>
+    <downloadUrl>https://maven.ala.org.au/repository</downloadUrl>
+    <repository>
+      <uniqueVersion>false</uniqueVersion>
+      <id>ala-repository</id>
+      <name>ALA Maven Repository</name>
+      <url>scp://maven.ala.org.au/data/maven</url>
+      <layout>default</layout>
+    </repository>
+  </distributionManagement>
 </project>
