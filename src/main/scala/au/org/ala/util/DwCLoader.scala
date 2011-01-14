@@ -41,7 +41,7 @@ object DwCLoader {
   def main(args: Array[String]): Unit = {
 
     println("Starting DwC loader....")
-    val file = new File("/Users/davejmartin2/Desktop/ozcam/")
+    val file = new File("/data/biocache/ozcam/")
     val archive = ArchiveFactory.openArchive(file)
     val iter = archive.iteratorDwc
     val terms = DwcTerm.values
