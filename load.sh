@@ -1,1 +1,1 @@
-mvn -e exec:java -Dexec.mainClass="au.org.ala.util.DWCLoader" -Dexec.classpathScope=runtime
+mvn -e exec:java -Dexec.mainClass="au.org.ala.util.DwCLoader" -Dexec.classpathScope=runtime
