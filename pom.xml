@@ -4,10 +4,19 @@
   <groupId>au.org.ala</groupId>
   <artifactId>biocache-nosql</artifactId>
   <version>1.0-SNAPSHOT</version>
-  <inceptionYear>2010</inceptionYear>
+  <url>http://biocache.ala.org.au</url>
+  <issueManagement>
+  	<system>Google code</system>
+  	<url>http://code.google.com/p/ala-portal/issues/list</url>
+  </issueManagement>
+  <ciManagement>
+  	<system>Hudson</system>
+  	<url>http://hudson.ala.org.au</url>
+  </ciManagement>
+  <inceptionYear>2011</inceptionYear>
   <name>biocache-nosql</name>
   <properties>
-    <scala.version>2.8.0</scala.version>
+    <scala.version>2.8.1</scala.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <description>Prototype scala implementation of biocache backend.</description>
@@ -36,10 +45,18 @@
     </pluginRepository>
   </pluginRepositories>
   <dependencies>
+    <!-- LOG4J -->
     <dependency>
       <groupId>log4j</groupId>
       <artifactId>log4j</artifactId>
       <version>1.2.16</version>
+    </dependency>
+    <!-- SL4J -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.5.11</version>
+      <scope>compile</scope>
     </dependency>
     <!--  ALA Name matching -->
     <dependency>
@@ -120,12 +137,6 @@
       <artifactId>thrift</artifactId>
       <version>0.2.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>1.5.11</version>
-      <scope>compile</scope>
-    </dependency>
     <!-- COMMONS -->
     <dependency>
       <groupId>commons-httpclient</groupId>
@@ -133,6 +144,10 @@
       <version>3.1</version>
     </dependency>
   </dependencies>
+  <organization>
+  	<name>Atlas of Living Australia</name>
+  	<url>http://www.ala.org.au</url>
+  </organization>
   <build>
     <sourceDirectory>src/main/scala</sourceDirectory>
     <testSourceDirectory>src/test/scala</testSourceDirectory>

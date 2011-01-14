@@ -1,5 +1,6 @@
 package au.org.ala.util
 
+import au.org.ala.biocache.HabitatMap
 import au.org.ala.biocache.TaxonProfileDAO
 import au.org.ala.biocache.AttributionDAO
 import org.apache.commons.lang.time.DateUtils
@@ -49,17 +50,12 @@ object ProcessRecords {
 
   def main(args: Array[String]): Unit = {
 
-    val odao = new OccurrenceDAO
-    val pdao = new LocationDAO
-    val adao = new AttributionDAO
-    val tdao = new TaxonProfileDAO
-    
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
 
     //page over all records and process
-    odao.pageOverAll(OccurrenceType.Raw, o => {
+    OccurrenceDAO.pageOverAll(OccurrenceType.Raw, o => {
       counter += 1
       if (!o.isEmpty) {
 
@@ -83,29 +79,27 @@ object ProcessRecords {
         processClassification(rawOccurrence, rawClassification, processedClassification)
 
         //perform gazetteer lookups - just using point hash for now
-        processLocation(rawOccurrence, rawLocation, processedLocation, processedClassification, pdao, odao, tdao)
+        processLocation(rawOccurrence, rawLocation, processedLocation, processedClassification)
 
         //temporal processing
-        processEvent(rawOccurrence, rawEvent, processedEvent, odao)
+        processEvent(rawOccurrence, rawEvent, processedEvent)
 
         //basis of record parsing
-        processBasisOfRecord(rawOccurrence, processedOccurrence, odao)
+        processBasisOfRecord(rawOccurrence, processedOccurrence)
 
         //type status normalisation
-        processTypeStatus(rawOccurrence, processedOccurrence, odao)
+        processTypeStatus(rawOccurrence, processedOccurrence)
 
         //process the attribution - call out to the Collectory...
-        processAttribution(rawOccurrence, processedOccurrence, odao, adao)
-
-        //BIE properties lookup - use AVRO
+        processAttribution(rawOccurrence, processedOccurrence)
 
         //perform SDS lookups - retrieve from BIE for now....
 
         //store the occurrence
-        odao.updateOccurrence(rawOccurrence.uuid, processedOccurrence, OccurrenceType.Processed)
-        odao.updateOccurrence(rawOccurrence.uuid, processedLocation, OccurrenceType.Processed)
-        odao.updateOccurrence(rawOccurrence.uuid, processedClassification, OccurrenceType.Processed)
-        odao.updateOccurrence(rawOccurrence.uuid, processedEvent, OccurrenceType.Processed)
+        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedOccurrence, OccurrenceType.Processed)
+        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedLocation, OccurrenceType.Processed)
+        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedClassification, OccurrenceType.Processed)
+        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedEvent, OccurrenceType.Processed)
       }
     })
     Pelops.shutdown
@@ -117,17 +111,18 @@ object ProcessRecords {
    * inner join collection_code cc ON cc.id = icm.collection_code_id
    * limit 10;
    */
-  def processAttribution(rawOccurrence: Occurrence, processedOccurrence: Occurrence, odao: OccurrenceDAO, adao: AttributionDAO) {
-    val attribution = adao.getAttibutionByCodes(rawOccurrence.institutionCode, rawOccurrence.collectionCode)
+  def processAttribution(rawOccurrence: Occurrence, processedOccurrence: Occurrence) {
+    val attribution = AttributionDAO.getAttibutionByCodes(rawOccurrence.institutionCode, rawOccurrence.collectionCode)
     if (!attribution.isEmpty) {
-      odao.updateOccurrence(rawOccurrence.uuid, attribution.get, OccurrenceType.Processed)
+      OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, attribution.get, OccurrenceType.Processed)
     }
   }
 
   /**
-   * Date parsing
+   * Date parsing - this is pretty much copied from GBIF source code and needs
+   * splitting into several methods
    */
-  def processEvent(rawOccurrence: Occurrence, rawEvent: Event, processedEvent: Event, odao: OccurrenceDAO) {
+  def processEvent(rawOccurrence: Occurrence, rawEvent: Event, processedEvent: Event) {
 
     var year = -1
     var month = -1
@@ -257,14 +252,14 @@ object ProcessRecords {
       var qa = new QualityAssertion
       qa.assertionCode = AssertionCodes.OTHER_INVALID_DATE
       qa.positive = false
-      odao.addQualityAssertion(rawOccurrence.uuid, qa)
+      OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa)
     }
   }
 
   /**
    * Process the type status
    */
-  def processTypeStatus(rawOccurrence: Occurrence, processedOccurrence: Occurrence, odao: OccurrenceDAO) {
+  def processTypeStatus(rawOccurrence: Occurrence, processedOccurrence: Occurrence) {
 
     if (rawOccurrence.typeStatus != null && rawOccurrence.typeStatus.isEmpty) {
       val term = TypeStatus.matchTerm(rawOccurrence.typeStatus)
@@ -275,7 +270,7 @@ object ProcessRecords {
         qa.assertionCode = AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS
         qa.comment = "Unrecognised type status"
         qa.userId = "system"
-        odao.addQualityAssertion(rawOccurrence.uuid, qa)
+        OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa)
       } else {
         processedOccurrence.basisOfRecord = term.get.canonical
       }
@@ -285,7 +280,7 @@ object ProcessRecords {
   /**
    * Process basis of record
    */
-  def processBasisOfRecord(rawOccurrence: Occurrence, processedOccurrence: Occurrence, odao: OccurrenceDAO) {
+  def processBasisOfRecord(rawOccurrence: Occurrence, processedOccurrence: Occurrence) {
 
     if (rawOccurrence.basisOfRecord == null || rawOccurrence.basisOfRecord.isEmpty) {
       //add a quality assertion
@@ -294,7 +289,7 @@ object ProcessRecords {
       qa.assertionCode = AssertionCodes.OTHER_MISSING_BASIS_OF_RECORD
       qa.comment = "Missing basis of record"
       qa.userId = "system"
-      odao.addQualityAssertion(rawOccurrence.uuid, qa)
+      OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa)
     } else {
       val term = BasisOfRecord.matchTerm(rawOccurrence.basisOfRecord)
       if (term.isEmpty) {
@@ -305,7 +300,7 @@ object ProcessRecords {
         qa.assertionCode = AssertionCodes.OTHER_BADLY_FORMED_BASIS_OF_RECORD
         qa.comment = "Unrecognised basis of record"
         qa.userId = "system"
-        odao.addQualityAssertion(rawOccurrence.uuid, qa)
+        OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa)
       } else {
         processedOccurrence.basisOfRecord = term.get.canonical
       }
@@ -316,8 +311,7 @@ object ProcessRecords {
   /**
    * Process geospatial details
    */
-  def processLocation(rawOccurrence:Occurrence, raw:Location, processed:Location, processedClassification:Classification, 
-		  pdao:LocationDAO, odao: OccurrenceDAO, tdao:TaxonProfileDAO) {
+  def processLocation(rawOccurrence:Occurrence, raw:Location, processed:Location, processedClassification:Classification) {
     //retrieve the point
     if (raw.decimalLatitude != null && raw.decimalLongitude != null) {
 
@@ -334,7 +328,7 @@ object ProcessRecords {
       
       
       //generate coordinate accuracy if not supplied
-      val point = pdao.getLocationByLatLon(raw.decimalLatitude, raw.decimalLongitude);
+      val point = LocationDAO.getLocationByLatLon(raw.decimalLatitude, raw.decimalLongitude);
       if (!point.isEmpty) {
 
         //add state information
@@ -359,7 +353,7 @@ object ProcessRecords {
             qa.comment = "Supplied: " + stateTerm.get.canonical + ", calculated: " + processed.stateProvince
             qa.userId = "system"
             //store the assertion
-            odao.addQualityAssertion(rawOccurrence.uuid, qa);
+            OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa);
           }
         }
 
@@ -367,14 +361,25 @@ object ProcessRecords {
         if(processed.habitat!=null){
         	
         	//retrieve the species profile
-        	val taxonProfile = tdao.getByGuid(processedClassification.taxonConceptID)
+        	val taxonProfile = TaxonProfileDAO.getByGuid(processedClassification.taxonConceptID)
         	if(!taxonProfile.isEmpty && taxonProfile.get.habitats!=null && taxonProfile.get.habitats.size>0){
         		val habitatsAsString =  taxonProfile.get.habitats.reduceLeft(_+","+_)
-        		println("[QualityAssertion] Habitat" + rawOccurrence.uuid + ", processed:" + processed.habitat + ", retrieved:" + habitatsAsString)
-//        		if(taxonProfile.get.habitat.contains()){
-        			
-//        		}
-        		
+        		val habitatFromPoint = processed.habitat
+        		val habitatsForSpecies = taxonProfile.get.habitats
+        		//is "terrestrial" the same as "non-marine" ??
+        		val validHabitat = HabitatMap.areTermsCompatible(habitatFromPoint, habitatsForSpecies)
+        		if(!validHabitat.isEmpty){
+        			if(validHabitat.get){
+        				println("[QualityAssertion] Habitats compatible" + rawOccurrence.uuid + ", processed:" + processed.habitat + ", retrieved:" + habitatsAsString)
+        			} else {
+        				println("[QualityAssertion] ******** Habitats incompatible for UUID: " + rawOccurrence.uuid + ", processed:" + processed.habitat + ", retrieved:" + habitatsAsString)
+        				var qa = new QualityAssertion
+        				qa.userId = "system"
+        				qa.assertionCode = AssertionCodes.COORDINATE_HABITAT_MISMATCH
+        				qa.comment = "Recognised habitats for species: '" + habitatsForSpecies+"', Value determined from coordinates: '"+habitatFromPoint+"'"
+        				qa.positive = false
+        			}
+        		}
         	}
         }
         

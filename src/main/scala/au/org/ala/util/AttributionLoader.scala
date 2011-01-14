@@ -26,8 +26,6 @@ object AttributionLoader {
     import FileHelper._
     println("Starting Collection Loader....")
     val file = new File("/data/biocache/coll-mapping.txt")
-    val locationDAO = new LocationDAO
-    val attributionDAO = new AttributionDAO
     var counter = 0
     file.foreachLine { line => {
         counter+=1
@@ -37,7 +35,7 @@ object AttributionLoader {
         attribution.institutionUid = parts(2)
         attribution.collectionUid = parts(3)
         attribution.institutionName = parts(4)
-        attributionDAO.addCollectionMapping(parts(0), parts(1), attribution)
+        AttributionDAO.addCollectionMapping(parts(0), parts(1), attribution)
       }
     }
     println(counter)

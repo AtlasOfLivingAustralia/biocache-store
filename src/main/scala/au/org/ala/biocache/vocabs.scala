@@ -42,7 +42,7 @@ trait Vocab {
  * @author Dave Martin (David.Martin@csiro.au)
  */
 object States extends Vocab {
-  val act = new Term("Australian Capital Territory", Array("AustCapitalTerritory","AustCapitalTerrit","AusCap","ACT"))
+  val act = new Term("Australian Capital Territory", Array("AustCapitalTerritory","AustCapitalTerrit","AusCap","AusCapTerrit","ACT"))
   val nsw = new Term("New South Wales", Array("nswales","nsw"))
   val nt = new Term("Northern Territory", Array("nterritory","nterrit","nt"))
   val qld = new Term("Queensland", Array("qland","qld"))
@@ -103,6 +103,72 @@ object TypeStatus extends Vocab {
   val all = retrieveAll
 }
 
+trait VocabMaps {
+	val termMap:Map[String, Array[String]]
+	
+	/**
+	 * Compares the supplied term to an array of options
+	 * for compatibility.
+	 * 
+	 * @param term
+	 * @param terms
+	 * @return
+	 */
+	def areTermsCompatible(term:String, terms:Array[String]) : Option[Boolean] = {
+		var weTested:Option[Boolean] = None
+		for(matchingTerm<-terms){
+			val matches = isCompatible(term, matchingTerm)
+			if(!matches.isEmpty){
+				//term is recognised
+				if(matches.get){
+					//it matches
+					return Some(true)
+				} else {
+					weTested = Some(false)
+				}
+			}
+		}
+		weTested
+	}
+	
+	/**
+	 * Returns None if the term wasnt recognised.
+	 * If it was recognised, then we can test it.
+	 * 
+	 * @param term1
+	 * @param term2
+	 * @return
+	 */
+	def isCompatible (term1:String, term2:String) : Option[Boolean] = {
+		if(term1!=null && term2!=null){
+			if(term1.toUpperCase == term2.toUpperCase){
+				//same term, return true
+				Some(true)
+			} else {
+				val mapped = termMap.get(term1.toUpperCase)
+				if(mapped.isEmpty){
+					// if the term isnt mapped, return no decision
+					None
+				} else {
+					//it is mapped, so return if its compatible
+					Some(mapped.get.contains(term2.toUpperCase))
+				}
+			}
+		} else {
+			None
+		}
+	}
+}
+
+object HabitatMap extends VocabMaps {
+	val termMap = Map(
+		"MARINE" -> Array("MARINE"),
+		"NON-MARINE" -> Array("NON-MARINE", "TERRESTRIAL", "LIMNETIC"),
+		"TERRESTRIAL" -> Array("NON-MARINE", "TERRESTRIAL", "LIMNETIC"),
+		"LIMNETIC" -> Array("NON-MARINE", "TERRESTRIAL", "LIMNETIC")
+	)
+}
+
 object AssertionCodes {
 
   val GEOSPATIAL_PRESUMED_NEGATED_LATITUDE = 1
@@ -124,6 +190,7 @@ object AssertionCodes {
 
   val GEOSPATIAL_COUNTRY_COORDINATE_MISMATCH = 6
   val GEOSPATIAL_STATE_COORDINATE_MISMATCH = 17
+  val COORDINATE_HABITAT_MISMATCH = 18
 
 
   val TAXONOMIC_INVALID_SCIENTIFIC_NAME = 1001

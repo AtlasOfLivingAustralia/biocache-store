@@ -4,16 +4,22 @@
   <HintedHandoffEnabled>true</HintedHandoffEnabled>
   <IndexInterval>128</IndexInterval>
   <Keyspaces>
-    <Keyspace Name="occurrence">
-      <ColumnFamily Name="occurrence"
+    <Keyspace Name="occ">
+      <ColumnFamily Name="occ"
                     CompareWith="UTF8Type"
-                    Comment="The column family for dataset tracking"/>
+                    Comment="The column family for occurrence records"/>
       <ColumnFamily Name="dr"
                     CompareWith="UTF8Type"
                     Comment="The column family for dataset tracking"/>
-      <ColumnFamily Name="location"
+      <ColumnFamily Name="attr"
                     CompareWith="UTF8Type"
-                    Comment="The column family for Taxon Concepts"/>
+                    Comment="The column family for attribution tracking"/>
+      <ColumnFamily Name="loc"
+                    CompareWith="UTF8Type"
+                    Comment="The column family for locations"/>
+      <ColumnFamily Name="taxon"
+                    CompareWith="UTF8Type"
+                    Comment="The column family for taxon profile information"/>
       <ColumnFamily Name="clustering"
                     ColumnType="Super"
                     CompareWith="UTF8Type"

@@ -27,7 +27,7 @@ object DAO {
   val identificationDefn = scala.io.Source.fromURL(getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 }
 
-class TaxonProfileDAO {
+object TaxonProfileDAO {
 	
 	val columnFamily = "taxon"
 	
@@ -82,7 +82,7 @@ class TaxonProfileDAO {
 /**
  * A DAO for attribution data. The source of this data should be
  */
-class AttributionDAO {
+object AttributionDAO {
 
   import ReflectBean._
   val columnFamily = "attr"
@@ -129,7 +129,7 @@ class AttributionDAO {
 /**
  * DAO for location lookups.
  */
-class LocationDAO {
+object LocationDAO {
 
   val columnFamily = "loc"
 
@@ -191,7 +191,7 @@ class LocationDAO {
  * 
  * @author Dave Martin (David.Martin@csiro.au)
  */
-class OccurrenceDAO {
+object OccurrenceDAO {
 
   import OccurrenceType._
   import ReflectBean._

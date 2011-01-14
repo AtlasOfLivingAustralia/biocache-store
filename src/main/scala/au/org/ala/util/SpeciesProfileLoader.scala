@@ -20,7 +20,6 @@ object SpeciesProfileLoader {
 
     val host = args(0)
     val port = args(1).toInt
-    val taxonProfileDAO = new TaxonProfileDAO
     //int maxNoOfProfiles = Integer.MAX_VALUE;                                    au.org.
     val client = new SocketTransceiver(new InetSocketAddress(host, port))
     val proxy = SpecificRequestor.getClient(classOf[SpeciesProfile], client).asInstanceOf[SpeciesProfile]
@@ -44,7 +43,7 @@ object SpeciesProfileLoader {
 	    	  val habitats = for(habitat<-profile.habitat) yield habitat.toString
 	    	  taxonProfile.habitats = habitats.toArray
 	      }
-	      taxonProfileDAO.add(taxonProfile)
+	      TaxonProfileDAO.add(taxonProfile)
 	      lastKey = profile.guid
 	    }
 	    page.startKey = lastKey
