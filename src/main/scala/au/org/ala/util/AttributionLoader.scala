@@ -11,6 +11,7 @@ import org.apache.cassandra.thrift.{ Column, ConsistencyLevel, ColumnPath, Slice
 /**
  * Loads an export from the old portal database of point lookups.
  * 
+ * This should be replaced with access to a webservice.
  * 
 select ic.code, cc.code, icm.institution_uid, icm.collection_uid, ic.name from inst_coll_mapping icm
 inner join institution_code ic ON ic.id = icm.institution_code_id
@@ -24,7 +25,7 @@ object AttributionLoader {
   def main(args: Array[String]): Unit = {
     import FileHelper._
     println("Starting Collection Loader....")
-    val file = new File("/data/coll-mapping.txt")
+    val file = new File("/data/biocache/coll-mapping.txt")
     val locationDAO = new LocationDAO
     val attributionDAO = new AttributionDAO
     var counter = 0

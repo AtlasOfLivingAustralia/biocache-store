@@ -23,7 +23,7 @@ object LocationLoader {
   def main(args: Array[String]): Unit = {
     import FileHelper._
     println("Starting Location Loader....")
-    val file = new File("/data/points3.txt")
+    val file = new File("/data/biocache/points.txt")
     val locationDAO = new LocationDAO
     var counter = 0
     file.foreachLine { line => {

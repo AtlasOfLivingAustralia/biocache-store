@@ -15,7 +15,7 @@ object SpeciesProfileLoader {
 
   def main(args: Array[String]){
 
-    println("test")
+    println("Starting the load...")
     import scala.collection.JavaConversions._
 
     val host = args(0)
@@ -52,4 +52,5 @@ object SpeciesProfileLoader {
     }
     client.close
   }
+  println("Finished species profile loading.")
 }
