@@ -27,165 +27,6 @@ object DAO {
   val identificationDefn = scala.io.Source.fromURL(getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
 }
 
-object TaxonProfileDAO {
-	
-	val columnFamily = "taxon"
-	
-	def getByGuid(guid:String) : Option[TaxonProfile] = {
-		
-		if(guid==null || guid.isEmpty) { return None }
-		
-        val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
-        val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
-        try {
-	        val columns = selector.getColumnsFromRow(guid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
-	        val columnList = List(columns.toArray : _*)
-	        var taxonProfile = new TaxonProfile
-	        
-	        for(column<-columnList){
-	        	
-	          val field = new String(column.asInstanceOf[Column].name)
-	          val value = new String(column.asInstanceOf[Column].value)
-	           
-	          field match {
-	         	  case "guid" => taxonProfile.guid = value
-	         	  case "habitats" => {
-	         	 	  if(value!=null && value.size>0){
-	         	 		  taxonProfile.habitats = value.split(",")
-	         	 	   }
-	         	  }
-	         	  case "scientificName" => taxonProfile.scientificName = value
-	         	  case "commonName" => taxonProfile.commonName = value
-	         	  case _ =>
-	          }
-	        }
-	        Some(taxonProfile)
-        } catch {
-        	case e:Exception => None
-        }
-	}
-	
-	def add(taxonProfile:TaxonProfile) {
-	    val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
-	    mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("guid", taxonProfile.guid))
-	    mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("scientificName", taxonProfile.scientificName))
-	    if(taxonProfile.commonName!=null)
-	    	mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("commonName", taxonProfile.commonName))
-	    if(taxonProfile.habitats!=null && taxonProfile.habitats.size>0){
-	    	val habitatString = taxonProfile.habitats.reduceLeft(_+","+_)
-	    	mutator.writeColumn(taxonProfile.guid, columnFamily, mutator.newColumn("habitats", habitatString))
-	    }
-	    mutator.execute(ConsistencyLevel.ONE)
-	}
-}
-
-/**
- * A DAO for attribution data. The source of this data should be
- */
-object AttributionDAO {
-
-  import ReflectBean._
-  val columnFamily = "attr"
-
-  def addCollectionMapping(institutionCode:String, collectionCode:String, attribution:Attribution){
-    val guid = institutionCode.toUpperCase +"|"+collectionCode.toUpperCase
-      val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
-      for(field<-DAO.attributionDefn){
-        val fieldValue = attribution.getter(field).asInstanceOf[String]
-        if(fieldValue!=null && !fieldValue.isEmpty){
-          val fieldValue = attribution.getter(field).asInstanceOf[String].getBytes
-          mutator.writeColumn(guid, columnFamily, mutator.newColumn(field, fieldValue))
-        }
-      }
-    mutator.execute(ConsistencyLevel.ONE)
-  }
-
-  def getAttibutionByCodes(institutionCode:String, collectionCode:String) : Option[Attribution] = {
-    try {
-      if(institutionCode!=null && collectionCode!=null){
-        val uuid = institutionCode.toUpperCase+"|"+collectionCode.toUpperCase
-        //println(uuid)
-        val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
-        val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
-        val columns = selector.getColumnsFromRow(uuid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
-        val columnList = List(columns.toArray : _*)
-        val attribution = new Attribution
-        for(column<-columnList){
-          val field = new String(column.asInstanceOf[Column].name)
-          val value = new String(column.asInstanceOf[Column].value)
-          val method = attribution.getClass.getMethods.find(_.getName == field + "_$eq")
-          method.get.invoke(attribution, value.asInstanceOf[AnyRef])
-        }
-        Some(attribution)
-      } else {
-        None
-      }
-    } catch {
-      case e:Exception => println(e.printStackTrace); None
-    }
-  }
-}
-
-/**
- * DAO for location lookups.
- */
-object LocationDAO {
-
-  val columnFamily = "loc"
-
-  def addTagToLocation (latitude:Float, longitude:Float, tagName:String, tagValue:String) {
-    val guid = latitude +"|"+longitude
-      val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
-      mutator.writeColumn(guid, columnFamily, mutator.newColumn("decimalLatitude", latitude.toString))
-      mutator.writeColumn(guid, columnFamily, mutator.newColumn("decimalLongitude", longitude.toString))
-    mutator.writeColumn(guid, columnFamily, mutator.newColumn(tagName, tagValue))
-    mutator.execute(ConsistencyLevel.ONE)
-  }
-
-  def addRegionToPoint (latitude:Float, longitude:Float, mapping:Map[String,String]) {
-    val guid = latitude +"|"+longitude
-      val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
-      mutator.writeColumn(guid,columnFamily, mutator.newColumn("decimalLatitude", latitude.toString))
-      mutator.writeColumn(guid,columnFamily, mutator.newColumn("decimalLongitude", longitude.toString))
-      for(map<-mapping){
-        mutator.writeColumn(guid, columnFamily, mutator.newColumn(map._1, map._2))
-      }
-    mutator.execute(ConsistencyLevel.ONE)
-  }
-
-
-  def roundCoord(x:String) : String = {
-	  try {
-		(((x * 10000).toInt).toFloat / 10000).toString
-	  } catch {
-	  	case e:NumberFormatException => x
-	  }
-  }
-  
-  def getLocationByLatLon(latitude:String, longitude:String) : Option[Location] = {
-    try {
-      val uuid =  roundCoord(latitude)+"|"+roundCoord(longitude)
-      //println(uuid)
-      val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
-      val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
-      val columns = selector.getColumnsFromRow(uuid, columnFamily, slicePredicate, ConsistencyLevel.ONE)
-      val columnList = List(columns.toArray : _*)
-      val location = new Location
-      for(column<-columnList){
-        val field = new String(column.asInstanceOf[Column].name)
-        val value = new String(column.asInstanceOf[Column].value)
-        //println(new String(column.asInstanceOf[Column].name)+ " " +column.asInstanceOf[Column].value)
-        //println("field name : " + field+", value : "+value)
-        val method = location.getClass.getMethods.find(_.getName == field + "_$eq")
-        method.get.invoke(location, value.asInstanceOf[AnyRef])
-      }
-      Some(location)
-    } catch {
-      case e:Exception => println(e.printStackTrace); None
-    }
-  }
-}
-
 /**
  * A DAO for accessing occurrences.
  * 
@@ -193,7 +34,7 @@ object LocationDAO {
  */
 object OccurrenceDAO {
 
-  import OccurrenceType._
+  import Version._
   import ReflectBean._
 
   val columnFamily = "occ"
@@ -205,7 +46,7 @@ object OccurrenceDAO {
    * @return
    */
   def getByUuid(uuid:String) : Option[(Occurrence, Classification, Location, Event)] = {
-    getByUuid(uuid, OccurrenceType.Raw)
+    getByUuid(uuid, Version.Raw)
   }
 
   /**
@@ -215,7 +56,7 @@ object OccurrenceDAO {
    * @param occurrenceType
    * @return
    */
-  def getByUuid(uuid:String, occurrenceType:OccurrenceType.Value) : Option[(Occurrence, Classification, Location, Event)] = {
+  def getByUuid(uuid:String, occurrenceType:Version.Value) : Option[(Occurrence, Classification, Location, Event)] = {
 
     val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
     val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
@@ -256,7 +97,7 @@ object OccurrenceDAO {
    * @param occurrenceType raw, processed or consensus version of the record
    * @return
    */
-  def createOccurrence(uuid:String, columnList:java.util.List[Column], occurrenceType:OccurrenceType.Value)
+  def createOccurrence(uuid:String, columnList:java.util.List[Column], occurrenceType:Version.Value)
     : Option[(Occurrence, Classification, Location, Event)] = {
 
     val occurrence = new Occurrence
@@ -272,10 +113,10 @@ object OccurrenceDAO {
       var fieldName = new String(column.asInstanceOf[Column].name)
       val fieldValue = new String(column.asInstanceOf[Column].value)
 
-      if(fieldName.endsWith(".p") && occurrenceType == OccurrenceType.Processed){
+      if(fieldName.endsWith(".p") && occurrenceType == Version.Processed){
         fieldName = fieldName.substring(0, fieldName.length - 2)
         setProperty(occurrence, classification, location, event, fieldName, fieldValue)
-      } else if(fieldName.endsWith(".c") && occurrenceType == OccurrenceType.Consensus){
+      } else if(fieldName.endsWith(".c") && occurrenceType == Version.Consensus){
         fieldName = fieldName.substring(0, fieldName.length - 2)
         setProperty(occurrence, classification, location, event, fieldName, fieldValue)
       } else {
@@ -291,7 +132,7 @@ object OccurrenceDAO {
    * @param occurrenceType
    * @param proc
    */
-  def pageOverAll(occurrenceType:OccurrenceType.Value, proc:((Option[(Occurrence, Classification, Location, Event)])=>Unit) ) : Unit = {
+  def pageOverAll(occurrenceType:Version.Value, proc:((Option[(Occurrence, Classification, Location, Event)])=>Unit) ) : Unit = {
 
     val selector = Pelops.createSelector(DAO.poolName, columnFamily);
     val slicePredicate = Selector.newColumnsPredicateAll(true, 10000);
@@ -324,7 +165,7 @@ object OccurrenceDAO {
    * @param anObject
    * @param occurrenceType
    */
-  def updateOccurrence(uuid:String, anObject:AnyRef, occurrenceType:OccurrenceType.Value) {
+  def updateOccurrence(uuid:String, anObject:AnyRef, occurrenceType:Version.Value) {
 
     //select the correct definition file
     val defn = { anObject match {
@@ -342,10 +183,10 @@ object OccurrenceDAO {
       val fieldValue = anObject.getClass.getMethods.find(_.getName == field).get.invoke(anObject).asInstanceOf[String]
       if(fieldValue!=null && !fieldValue.isEmpty){
         var fieldName = field
-        if(occurrenceType == OccurrenceType.Processed){
+        if(occurrenceType == Version.Processed){
           fieldName = fieldName +".p"
         }
-        if(occurrenceType == OccurrenceType.Consensus){
+        if(occurrenceType == Version.Consensus){
           fieldName = fieldName +".c"
         }
         mutator.writeColumn(uuid, columnFamily, mutator.newColumn(fieldName, fieldValue))
@@ -360,7 +201,7 @@ object OccurrenceDAO {
    * @param uuid
    * @param qualityAssertion
    */
-  def addQualityAssertion(uuid:String, qualityAssertion:QualityAssertion){
+  def addQualityAssertion(uuid:String, qualityAssertion:QualityAssertion, errorCode:ErrorCode){
 
     //set field qualityAssertion
     val selector = Pelops.createSelector(DAO.poolName, columnFamily);
@@ -400,6 +241,7 @@ object OccurrenceDAO {
       // check equals
       json = gson.toJson(qaList)
       mutator.writeColumn(uuid, columnFamily, mutator.newColumn("qualityAssertion", json))
+      mutator.writeColumn(uuid, columnFamily, mutator.newColumn(errorCode.name, "true"))
     }
     mutator.execute(ConsistencyLevel.ONE)
   }

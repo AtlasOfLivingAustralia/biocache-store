@@ -20,7 +20,7 @@ object PointDAOTest {
 
 object OccurrenceDAOTest {
 	def main(args : Array[String]) : Unit = {
-		val ot1 = OccurrenceDAO.getByUuid("3480993d-b0b1-4089-9faf-30b4eab050ae", OccurrenceType.Raw)
+		val ot1 = OccurrenceDAO.getByUuid("3480993d-b0b1-4089-9faf-30b4eab050ae", Version.Raw)
 		if(!ot1.isEmpty){
 			val rawOccurrence = ot1.get._1
 			val rawClassification = ot1.get._2 
@@ -30,7 +30,7 @@ object OccurrenceDAOTest {
 			println("failed")
 		}
 		
-		val ot2 = OccurrenceDAO.getByUuid("3480993d-b0b1-4089-9faf-30b4eab050ae", OccurrenceType.Processed)
+		val ot2 = OccurrenceDAO.getByUuid("3480993d-b0b1-4089-9faf-30b4eab050ae", Version.Processed)
 		if(!ot2.isEmpty){
 			val o = ot1.get._1
 			val c = ot1.get._2 
@@ -40,7 +40,7 @@ object OccurrenceDAOTest {
 			println("failed")
 		}
 
-		val ot3 = OccurrenceDAO.getByUuid("3480993d-b0b1-4089-9faf-30b4eab050ae", OccurrenceType.Consensus)
+		val ot3 = OccurrenceDAO.getByUuid("3480993d-b0b1-4089-9faf-30b4eab050ae", Version.Consensus)
 		if(!ot3.isEmpty){
 			val o = ot1.get._1
 			val c = ot1.get._2 
@@ -59,8 +59,8 @@ object OccurrenceDAOTest {
 		qa.userId = "David.Martin@csiro.au"
 		qa.userDisplayName = "Dave Martin"
 		
-		OccurrenceDAO.addQualityAssertion("3480993d-b0b1-4089-9faf-30b4eab050ae",qa)
-		OccurrenceDAO.addQualityAssertion("3480993d-b0b1-4089-9faf-30b4eab050ae",qa)
+		OccurrenceDAO.addQualityAssertion("3480993d-b0b1-4089-9faf-30b4eab050ae",qa, AssertionCodes.COORDINATE_HABITAT_MISMATCH )
+		OccurrenceDAO.addQualityAssertion("3480993d-b0b1-4089-9faf-30b4eab050ae",qa, AssertionCodes.COORDINATE_HABITAT_MISMATCH )
 
 		val uuid2 = UUID.randomUUID.toString
 		var qa2 = new QualityAssertion
@@ -71,7 +71,7 @@ object OccurrenceDAOTest {
 		qa2.userId = "David.Martin@csiro.au"
 		qa2.userDisplayName = "Dave Martin"
 		
-		OccurrenceDAO.addQualityAssertion("3480993d-b0b1-4089-9faf-30b4eab050ae",qa2)
+		OccurrenceDAO.addQualityAssertion("3480993d-b0b1-4089-9faf-30b4eab050ae",qa2,AssertionCodes.COORDINATE_HABITAT_MISMATCH )
 		
 //		val om = new ObjectMapper
 //		println(om.writeValueAsString(qa))

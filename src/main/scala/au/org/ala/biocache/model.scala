@@ -219,7 +219,7 @@ class Location extends Cloneable {
   @BeanProperty var lga:String = _
 }
 
-object OccurrenceType extends Enumeration {
-  type OccurrenceType = Value
+object Version extends Enumeration {
+  type Version = Value
   val Raw, Processed, Consensus = Value
 }

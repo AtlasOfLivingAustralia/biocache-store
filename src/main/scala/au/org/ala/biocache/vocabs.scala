@@ -1,7 +1,14 @@
 package au.org.ala.biocache
 
 import scala.collection.mutable.ArrayBuffer
+/**
+ * Case class that encapsulates a canonical form and variants.
+ * @author Dave Martin (David.Martin@csiro.au)
+ */
 case class Term (canonical:String, variants:Array[String])
+
+case class ErrorCode(name:String, code:Int)
+
 
 trait Vocab {
   val all:Array[Term]
@@ -54,9 +61,9 @@ object States extends Vocab {
 }
 
 object BasisOfRecord extends Vocab {
-  val specimen = new Term("PreservedSpecimen", Array("specimen","s"))
-  val observation = new Term("HumanObservation", Array("observation","o"))
-  val fossil = new Term("FossilSpecimen", Array("fossil","f"))
+  val specimen = new Term("PreservedSpecimen", Array("specimen","s", "spec", "sp"))
+  val observation = new Term("HumanObservation", Array("observation","o","obs"))
+  val fossil = new Term("FossilSpecimen", Array("fossil","f", "fos"))
   val living = new Term("LivingSpecimen", Array("living","l"))
   val all = retrieveAll
 }
@@ -171,36 +178,35 @@ object HabitatMap extends VocabMaps {
 
 object AssertionCodes {
 
-  val GEOSPATIAL_PRESUMED_NEGATED_LATITUDE = 1
-  val GEOSPATIAL_PRESUMED_NEGATED_LONGITUDE = 2
-  val GEOSPATIAL_PRESUMED_INVERTED_COORDINATES = 3
-  val GEOSPATIAL_ZERO_COORDINATES = 4
-  val GEOSPATIAL_COORDINATES_OUT_OF_RANGE = 5
+  val GEOSPATIAL_NEGATED_LATITUDE = ErrorCode("qaNegatedLatitude",1)
+  val GEOSPATIAL_NEGATED_LONGITUDE = ErrorCode("qaNegatedLongitude",2)
+  val GEOSPATIAL_INVERTED_COORDINATES = ErrorCode("qaInvertedCoordinates",3)
+  val GEOSPATIAL_ZERO_COORDINATES = ErrorCode("qaZeroCoordinates",4)
+  val GEOSPATIAL_COORDINATES_OUT_OF_RANGE = ErrorCode("qaCoordinatesOutOfRange",5)
 
-  val GEOSPATIAL_UNKNOWN_COUNTRY_NAME = 7
-  val GEOSPATIAL_ALTITUDE_OUT_OF_RANGE = 8
-  val GEOSPATIAL_PRESUMED_ERRONOUS_ALTITUDE = 9
-  val GEOSPATIAL_PRESUMED_MIN_MAX_ALTITUDE_REVERSED = 10
-  val GEOSPATIAL_PRESUMED_DEPTH_IN_FEET = 11
-  val GEOSPATIAL_DEPTH_OUT_OF_RANGE = 12
-  val GEOSPATIAL_PRESUMED_MIN_MAX_DEPTH_REVERSED = 13
-  val GEOSPATIAL_PRESUMED_ALTITUDE_IN_FEET = 14
-  val GEOSPATIAL_PRESUMED_ALTITUDE_NON_NUMERIC = 15
-  val GEOSPATIAL_PRESUMED_DEPTH_NON_NUMERIC = 16
+  val GEOSPATIAL_UNKNOWN_COUNTRY_NAME = ErrorCode("qaUnknownCountry",7)
+  val GEOSPATIAL_ALTITUDE_OUT_OF_RANGE = ErrorCode("qaAltitudeOutOfRange",8)
+  val GEOSPATIAL_ERRONOUS_ALTITUDE = ErrorCode("qaErroneousAltitude",9)
+  val GEOSPATIAL_MIN_MAX_ALTITUDE_REVERSED = ErrorCode("qaMinMaxAltitudeReversed",10)
+  val GEOSPATIAL_DEPTH_IN_FEET = ErrorCode("qaDepthInFeet",11)
+  val GEOSPATIAL_DEPTH_OUT_OF_RANGE = ErrorCode("qaDepthOutOfRange",12)
+  val GEOSPATIAL_MIN_MAX_DEPTH_REVERSED = ErrorCode("qaMinMaxDepthReversed",13)
+  val GEOSPATIAL_ALTITUDE_IN_FEET = ErrorCode("qaAltitudeInFeet",14)
+  val GEOSPATIAL_ALTITUDE_NON_NUMERIC = ErrorCode("qaAltitudeNonNumeric",15)
+  val GEOSPATIAL_DEPTH_NON_NUMERIC = ErrorCode("qaDepthNonNumeric",16)
 
-  val GEOSPATIAL_COUNTRY_COORDINATE_MISMATCH = 6
-  val GEOSPATIAL_STATE_COORDINATE_MISMATCH = 17
-  val COORDINATE_HABITAT_MISMATCH = 18
+  val GEOSPATIAL_COUNTRY_COORDINATE_MISMATCH = ErrorCode("qaCountryCoordinateMismatch",6)
+  val GEOSPATIAL_STATE_COORDINATE_MISMATCH = ErrorCode("qaStateCoordinateMismatch",17)
+  val COORDINATE_HABITAT_MISMATCH = ErrorCode("qaHabitatMismatch",18)
 
+  val TAXONOMIC_INVALID_SCIENTIFIC_NAME = ErrorCode("qaInvalidScientificName",1001)
+  val TAXONOMIC_UNKNOWN_KINGDOM = ErrorCode("qaUnknownKingdom",1002)
+  val TAXONOMIC_AMBIGUOUS_NAME = ErrorCode("qaAmbiguousName",1003)
+  val TAXONOMIC_NAME_NOTRECOGNISED = ErrorCode("qaNameNotRecognised",1004)
 
-  val TAXONOMIC_INVALID_SCIENTIFIC_NAME = 1001
-  val TAXONOMIC_UNKNOWN_KINGDOM = 1002
-  val TAXONOMIC_AMBIGUOUS_NAME = 1003
-  val TAXONOMIC_NAME_NOTRECOGNISED = 1004
-
-  val OTHER_MISSING_BASIS_OF_RECORD = 2001
-  val OTHER_BADLY_FORMED_BASIS_OF_RECORD = 2002
-  val OTHER_INVALID_DATE = 2003
-  val OTHER_COUNTRY_INFERRED_FROM_COORDINATES = 2004
-  val OTHER_UNRECOGNISED_TYPESTATUS = 2006
+  val OTHER_MISSING_BASIS_OF_RECORD = ErrorCode("qaMissingBasisOfRecord",2001)
+  val OTHER_BADLY_FORMED_BASIS_OF_RECORD = ErrorCode("qaBadlyFormedBasisOfRecord",2002)
+  val OTHER_INVALID_DATE = ErrorCode("qaInvalidDate",2003)
+  val OTHER_COUNTRY_INFERRED_FROM_COORDINATES = ErrorCode("qaCountryInferredByCoordinates",2004)
+  val OTHER_UNRECOGNISED_TYPESTATUS = ErrorCode("qaUnrecognisedTypeStatus",2006)
 }

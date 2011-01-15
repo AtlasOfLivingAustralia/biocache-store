@@ -17,12 +17,12 @@ import au.org.ala.biocache.Event
 import au.org.ala.biocache.Classification
 import au.org.ala.biocache.Location
 import au.org.ala.biocache.LocationDAO
+import au.org.ala.biocache.Version
 import au.org.ala.checklist.lucene.HomonymException
 import au.org.ala.data.util.RankType
 import au.org.ala.biocache.Occurrence
 import au.org.ala.data.model.LinnaeanRankClassification
 import au.org.ala.checklist.lucene.CBIndexSearch
-import au.org.ala.biocache.OccurrenceType
 import au.org.ala.biocache.OccurrenceDAO
 /**
  * 1. Classification matching
@@ -55,7 +55,7 @@ object ProcessRecords {
     var finishTime = System.currentTimeMillis
 
     //page over all records and process
-    OccurrenceDAO.pageOverAll(OccurrenceType.Raw, o => {
+    OccurrenceDAO.pageOverAll(Version.Raw, o => {
       counter += 1
       if (!o.isEmpty) {
 
@@ -96,10 +96,10 @@ object ProcessRecords {
         //perform SDS lookups - retrieve from BIE for now....
 
         //store the occurrence
-        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedOccurrence, OccurrenceType.Processed)
-        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedLocation, OccurrenceType.Processed)
-        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedClassification, OccurrenceType.Processed)
-        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedEvent, OccurrenceType.Processed)
+        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedOccurrence, Version.Processed)
+        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedLocation, Version.Processed)
+        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedClassification, Version.Processed)
+        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedEvent, Version.Processed)
       }
     })
     Pelops.shutdown
@@ -114,7 +114,7 @@ object ProcessRecords {
   def processAttribution(rawOccurrence: Occurrence, processedOccurrence: Occurrence) {
     val attribution = AttributionDAO.getAttibutionByCodes(rawOccurrence.institutionCode, rawOccurrence.collectionCode)
     if (!attribution.isEmpty) {
-      OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, attribution.get, OccurrenceType.Processed)
+      OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, attribution.get, Version.Processed)
     }
   }
 
@@ -250,9 +250,9 @@ object ProcessRecords {
       //			rangeMessage.setCountOnly(true);
       //			logger.warn(rangeMessage);			
       var qa = new QualityAssertion
-      qa.assertionCode = AssertionCodes.OTHER_INVALID_DATE
+      qa.assertionCode = AssertionCodes.OTHER_INVALID_DATE.code
       qa.positive = false
-      OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa)
+      OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa, AssertionCodes.OTHER_INVALID_DATE)
     }
   }
 
@@ -267,10 +267,10 @@ object ProcessRecords {
         //add a quality assertion
         val qa = new QualityAssertion
         qa.positive = false
-        qa.assertionCode = AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS
+        qa.assertionCode = AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS.code
         qa.comment = "Unrecognised type status"
         qa.userId = "system"
-        OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa)
+        OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
       } else {
         processedOccurrence.basisOfRecord = term.get.canonical
       }
@@ -286,10 +286,10 @@ object ProcessRecords {
       //add a quality assertion
       val qa = new QualityAssertion
       qa.positive = false
-      qa.assertionCode = AssertionCodes.OTHER_MISSING_BASIS_OF_RECORD
+      qa.assertionCode = AssertionCodes.OTHER_MISSING_BASIS_OF_RECORD.code
       qa.comment = "Missing basis of record"
       qa.userId = "system"
-      OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa)
+      OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
     } else {
       val term = BasisOfRecord.matchTerm(rawOccurrence.basisOfRecord)
       if (term.isEmpty) {
@@ -297,10 +297,10 @@ object ProcessRecords {
         println("[QualityAssertion] " + rawOccurrence.uuid + ", unrecognised BoR: " + rawOccurrence.uuid + ", BoR:" + rawOccurrence.basisOfRecord)
         val qa = new QualityAssertion
         qa.positive = false
-        qa.assertionCode = AssertionCodes.OTHER_BADLY_FORMED_BASIS_OF_RECORD
+        qa.assertionCode = AssertionCodes.OTHER_BADLY_FORMED_BASIS_OF_RECORD.code
         qa.comment = "Unrecognised basis of record"
         qa.userId = "system"
-        OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa)
+        OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
       } else {
         processedOccurrence.basisOfRecord = term.get.canonical
       }
@@ -349,11 +349,11 @@ object ProcessRecords {
             //add a quality assertion
             val qa = new QualityAssertion
             qa.positive = false
-            qa.assertionCode = AssertionCodes.GEOSPATIAL_STATE_COORDINATE_MISMATCH
+            qa.assertionCode = AssertionCodes.GEOSPATIAL_STATE_COORDINATE_MISMATCH.code
             qa.comment = "Supplied: " + stateTerm.get.canonical + ", calculated: " + processed.stateProvince
             qa.userId = "system"
             //store the assertion
-            OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa);
+            OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa, AssertionCodes.GEOSPATIAL_STATE_COORDINATE_MISMATCH)
           }
         }
 
@@ -375,9 +375,10 @@ object ProcessRecords {
         				println("[QualityAssertion] ******** Habitats incompatible for UUID: " + rawOccurrence.uuid + ", processed:" + processed.habitat + ", retrieved:" + habitatsAsString)
         				var qa = new QualityAssertion
         				qa.userId = "system"
-        				qa.assertionCode = AssertionCodes.COORDINATE_HABITAT_MISMATCH
-        				qa.comment = "Recognised habitats for species: '" + habitatsForSpecies+"', Value determined from coordinates: '"+habitatFromPoint+"'"
+        				qa.assertionCode = AssertionCodes.COORDINATE_HABITAT_MISMATCH.code
+        				qa.comment = "Recognised habitats for species: " + habitatsAsString+", Value determined from coordinates: "+habitatFromPoint
         				qa.positive = false
+        				OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa, AssertionCodes.COORDINATE_HABITAT_MISMATCH)
         			}
         		}
         	}
