@@ -30,12 +30,12 @@ object AttributionLoader {
     file.foreachLine { line => {
         counter+=1
         //add point with details to
-        val parts = line.split('\t')
+        val parts = line.split("\t")
         var attribution = new Attribution
         attribution.institutionUid = parts(2)
         attribution.collectionUid = parts(3)
         attribution.institutionName = parts(4)
-        AttributionDAO.addCollectionMapping(parts(0), parts(1), attribution)
+        AttributionDAO.add(parts(0), parts(1), attribution)
       }
     }
     println(counter)

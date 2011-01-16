@@ -1,5 +1,8 @@
 package au.org.ala.biocache
-
+/**
+ * These classes represent caches of data sourced from other components
+ * maintained within the biocache for performance reasons.
+ */
 import au.org.ala.checklist.lucene.CBIndexSearch
 import com.google.gson.reflect.TypeToken
 import com.google.gson.Gson
@@ -9,11 +12,8 @@ import scala.collection.mutable.{LinkedList,ListBuffer}
 import org.apache.cassandra.thrift.{Column,ConsistencyLevel,ColumnPath,SlicePredicate,SliceRange}
 import java.util.ArrayList
 import org.wyki.cassandra.pelops.Policy
+
 /**
- * These classes represent caches of data sourced from other components
- * maintained within the biocache for performance reasons.
- * 
- * @author Dave Martin (David.Martin@csiro.au)
  */
 object TaxonProfileDAO {
 	
@@ -21,7 +21,7 @@ object TaxonProfileDAO {
 	
 	def getByGuid(guid:String) : Option[TaxonProfile] = {
 		
-		if(guid==null || guid.isEmpty) { return None }
+		if(guid==null || guid.isEmpty) return None
 		
         val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
         val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
@@ -37,13 +37,13 @@ object TaxonProfileDAO {
 	           
 	          field match {
 	         	  case "guid" => taxonProfile.guid = value
+	         	  case "scientificName" => taxonProfile.scientificName = value
+	         	  case "commonName" => taxonProfile.commonName = value
 	         	  case "habitats" => {
 	         	 	  if(value!=null && value.size>0){
 	         	 		  taxonProfile.habitats = value.split(",")
 	         	 	   }
 	         	  }
-	         	  case "scientificName" => taxonProfile.scientificName = value
-	         	  case "commonName" => taxonProfile.commonName = value
 	         	  case _ =>
 	          }
 	        }
@@ -75,7 +75,7 @@ object AttributionDAO {
   import ReflectBean._
   val columnFamily = "attr"
 
-  def addCollectionMapping(institutionCode:String, collectionCode:String, attribution:Attribution){
+  def add(institutionCode:String, collectionCode:String, attribution:Attribution){
     val guid = institutionCode.toUpperCase +"|"+collectionCode.toUpperCase
       val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
       for(field<-DAO.attributionDefn){
@@ -88,7 +88,7 @@ object AttributionDAO {
     mutator.execute(ConsistencyLevel.ONE)
   }
 
-  def getAttibutionByCodes(institutionCode:String, collectionCode:String) : Option[Attribution] = {
+  def getByCodes(institutionCode:String, collectionCode:String) : Option[Attribution] = {
     try {
       if(institutionCode!=null && collectionCode!=null){
         val uuid = institutionCode.toUpperCase+"|"+collectionCode.toUpperCase
@@ -123,34 +123,33 @@ object LocationDAO {
 
   def addTagToLocation (latitude:Float, longitude:Float, tagName:String, tagValue:String) {
     val guid = latitude +"|"+longitude
-      val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
-      mutator.writeColumn(guid, columnFamily, mutator.newColumn("decimalLatitude", latitude.toString))
-      mutator.writeColumn(guid, columnFamily, mutator.newColumn("decimalLongitude", longitude.toString))
+    val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
+    mutator.writeColumn(guid, columnFamily, mutator.newColumn("decimalLatitude", latitude.toString))
+    mutator.writeColumn(guid, columnFamily, mutator.newColumn("decimalLongitude", longitude.toString))
     mutator.writeColumn(guid, columnFamily, mutator.newColumn(tagName, tagValue))
     mutator.execute(ConsistencyLevel.ONE)
   }
 
   def addRegionToPoint (latitude:Float, longitude:Float, mapping:Map[String,String]) {
     val guid = latitude +"|"+longitude
-      val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
-      mutator.writeColumn(guid,columnFamily, mutator.newColumn("decimalLatitude", latitude.toString))
-      mutator.writeColumn(guid,columnFamily, mutator.newColumn("decimalLongitude", longitude.toString))
-      for(map<-mapping){
-        mutator.writeColumn(guid, columnFamily, mutator.newColumn(map._1, map._2))
-      }
+    val mutator = Pelops.createMutator(DAO.poolName, DAO.keyspace)
+    mutator.writeColumn(guid,columnFamily, mutator.newColumn("decimalLatitude", latitude.toString))
+    mutator.writeColumn(guid,columnFamily, mutator.newColumn("decimalLongitude", longitude.toString))
+    for(map<-mapping){
+      mutator.writeColumn(guid, columnFamily, mutator.newColumn(map._1, map._2))
+    }
     mutator.execute(ConsistencyLevel.ONE)
   }
 
-
   def roundCoord(x:String) : String = {
-	  try {
+	try {
 		(((x * 10000).toInt).toFloat / 10000).toString
-	  } catch {
-	  	case e:NumberFormatException => x
-	  }
+	} catch {
+	  case e:NumberFormatException => x
+	}
   }
   
-  def getLocationByLatLon(latitude:String, longitude:String) : Option[Location] = {
+  def getByLatLon(latitude:String, longitude:String) : Option[Location] = {
     try {
       val uuid =  roundCoord(latitude)+"|"+roundCoord(longitude)
       //println(uuid)

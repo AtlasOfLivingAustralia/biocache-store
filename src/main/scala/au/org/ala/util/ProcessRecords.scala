@@ -24,6 +24,7 @@ import au.org.ala.biocache.Occurrence
 import au.org.ala.data.model.LinnaeanRankClassification
 import au.org.ala.checklist.lucene.CBIndexSearch
 import au.org.ala.biocache.OccurrenceDAO
+import au.org.ala.biocache.FullRecord
 /**
  * 1. Classification matching
  * 	- include a flag to indicate record hasnt been matched to NSLs
@@ -55,51 +56,43 @@ object ProcessRecords {
     var finishTime = System.currentTimeMillis
 
     //page over all records and process
-    OccurrenceDAO.pageOverAll(Version.Raw, o => {
+    OccurrenceDAO.pageOverAll(Version.Raw, record => {
       counter += 1
-      if (!o.isEmpty) {
+      if (!record.isEmpty) {
 
-        val rawOccurrence = o.get._1
-        val rawClassification = o.get._2
-        val rawLocation = o.get._3
-        val rawEvent = o.get._4
-
-        var processedOccurrence = rawOccurrence.clone
-        var processedClassification = new Classification
-        var processedLocation = rawLocation.clone
-        var processedEvent = rawEvent.clone
-
-        if (counter % 1000 == 0) {
-          finishTime = System.currentTimeMillis
-          println(counter + " >> Last key : " + rawOccurrence.uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
-        }
-
+    	val raw = record.get
+    	var processed =  raw.clone
+    	val guid = raw.o.uuid
+    	
         //find a classification in NSLs
-        processClassification(rawOccurrence, rawClassification, processedClassification)
+        processClassification(guid, raw, processed)
 
         //perform gazetteer lookups - just using point hash for now
-        processLocation(rawOccurrence, rawLocation, processedLocation, processedClassification)
+        processLocation(guid, raw, processed)
 
         //temporal processing
-        processEvent(rawOccurrence, rawEvent, processedEvent)
+        processEvent(guid, raw, processed)
 
         //basis of record parsing
-        processBasisOfRecord(rawOccurrence, processedOccurrence)
+        processBasisOfRecord(guid, raw, processed)
 
         //type status normalisation
-        processTypeStatus(rawOccurrence, processedOccurrence)
+        processTypeStatus(guid, raw, processed)
 
         //process the attribution - call out to the Collectory...
-        processAttribution(rawOccurrence, processedOccurrence)
+        processAttribution(guid, raw, processed)
 
         //perform SDS lookups - retrieve from BIE for now....
 
         //store the occurrence
-        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedOccurrence, Version.Processed)
-        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedLocation, Version.Processed)
-        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedClassification, Version.Processed)
-        OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, processedEvent, Version.Processed)
+        OccurrenceDAO.updateOccurrence(guid, processed, Version.Processed)
+        
+        //debug counter
+        if (counter % 1000 == 0) {
+          finishTime = System.currentTimeMillis
+          println(counter + " >> Last key : " + raw.o.uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
+          startTime = System.currentTimeMillis
+        }
       }
     })
     Pelops.shutdown
@@ -111,10 +104,10 @@ object ProcessRecords {
    * inner join collection_code cc ON cc.id = icm.collection_code_id
    * limit 10;
    */
-  def processAttribution(rawOccurrence: Occurrence, processedOccurrence: Occurrence) {
-    val attribution = AttributionDAO.getAttibutionByCodes(rawOccurrence.institutionCode, rawOccurrence.collectionCode)
+  def processAttribution(guid:String, raw:FullRecord, processed:FullRecord) {
+    val attribution = AttributionDAO.getByCodes(raw.o.institutionCode, raw.o.collectionCode)
     if (!attribution.isEmpty) {
-      OccurrenceDAO.updateOccurrence(rawOccurrence.uuid, attribution.get, Version.Processed)
+      OccurrenceDAO.updateOccurrence(guid, attribution.get, Version.Processed)
     }
   }
 
@@ -122,7 +115,7 @@ object ProcessRecords {
    * Date parsing - this is pretty much copied from GBIF source code and needs
    * splitting into several methods
    */
-  def processEvent(rawOccurrence: Occurrence, rawEvent: Event, processedEvent: Event) {
+  def processEvent(guid:String, raw:FullRecord, processed:FullRecord) {
 
     var year = -1
     var month = -1
@@ -132,10 +125,11 @@ object ProcessRecords {
     var invalidDate = false;
     val now = new java.util.Date
     val currentYear = DateFormatUtils.format(now, "yyyy").toInt
+    var comment = ""
 
     try {
-      if (rawEvent.year != null) {
-        year = rawEvent.year.toInt
+      if (raw.e.year != null) {
+        year = raw.e.year.toInt
         if (year < 0 || year > currentYear) {
           invalidDate = true
           year = -1
@@ -144,13 +138,14 @@ object ProcessRecords {
     } catch {
       case e: NumberFormatException => {
         invalidDate = true
+        comment = "Invalid year supplied"
         year = -1
       }
     }
 
     try {
-      if (rawEvent.month != null)
-        month = rawEvent.month.toInt
+      if (raw.e.month != null)
+        month = raw.e.month.toInt
       if (month < 1 || month > 12) {
         month = -1
         invalidDate = true
@@ -158,26 +153,30 @@ object ProcessRecords {
     } catch {
       case e: NumberFormatException => {
         invalidDate = true
+        comment = "Invalid month supplied"
         month = -1
       }
     }
 
     try {
-      if (rawEvent.day != null)
-        day = rawEvent.day.toInt
+      if (raw.e.day != null)
+        day = raw.e.day.toInt
       if (day < 0 || day > 31) {
         day = -1
         invalidDate = true
+        comment = "Invalid day supplied"
       }
     } catch {
       case e: NumberFormatException => {
         invalidDate = true
+        comment = "Invalid day supplied"
         day = -1
       }
     }
 
     if (year > 0) {
       if (year < 100) {
+    	//parse 89 for 1989
         if (year > currentYear % 100) {
           // Must be in last century
           year += ((currentYear / 100) - 1) * 100;
@@ -188,6 +187,7 @@ object ProcessRecords {
       } else if (year >= 100 && year < 1700) {
         year = -1
         invalidDate = true;
+        comment = "Year out of range"
       }
     }
 
@@ -200,18 +200,17 @@ object ProcessRecords {
       } catch {
         case e: Exception => {
           invalidDate = true
+          comment = "Invalid year, day, month"
         }
       }
     }
 
-    if (year != -1) processedEvent.year = year.toString
-    if (month != -1) processedEvent.month = month.toString
-    if (day != -1) processedEvent.day = day.toString
-    if (!date.isEmpty) {
-      processedEvent.eventDate = DateFormatUtils.format(date.get, "yyyy-MM-dd")
-    }
+    if (year != -1) processed.e.year = year.toString
+    if (month != -1) processed.e.month = month.toString
+    if (day != -1) processed.e.day = day.toString
+    if (!date.isEmpty) processed.e.eventDate = DateFormatUtils.format(date.get, "yyyy-MM-dd")
 
-    if (date.isEmpty && rawEvent.eventDate != null && !rawEvent.eventDate.isEmpty) {
+    if (date.isEmpty && raw.e.eventDate != null && !raw.e.eventDate.isEmpty) {
       //TODO handle these formats
       //			"1963-03-08T14:07-0600" is 8 Mar 1963 2:07pm in the time zone six hours earlier than UTC, 
       //			"2009-02-20T08:40Z" is 20 Feb 2009 8:40am UTC, "1809-02-12" is 12 Feb 1809, 
@@ -219,50 +218,50 @@ object ProcessRecords {
       //			"2007-03-01T13:00:00Z/2008-05-11T15:30:00Z" is the interval between 1 Mar 2007 1pm UTC and 
       //			11 May 2008 3:30pm UTC, "2007-11-13/15" is the interval between 13 Nov 2007 and 15 Nov 2007
       try {
-        val eventDateParsed = DateUtils.parseDate(rawEvent.eventDate,
-          Array("yyyy-MM-dd", "yyyy-MM-ddThh:mm-ss", "2009-02-20T08:40Z"))
-        processedEvent.eventDate = DateFormatUtils.format(date.get, "yyyy-MM-dd")
+        val eventDateParsed = DateUtils.parseDate(raw.e.eventDate,
+          Array("yyyy-MM-dd", "yyyy-MM-ddThh:mm-ss", "yyyy-MM-ddThh:mmZ"))
+        processed.e.eventDate = DateFormatUtils.format(date.get, "yyyy-MM-dd")
       } catch {
         case e: Exception => {
           //handle "1906-06"
           invalidDate = true
+          comment = "Invalid eventDate"
         }
       }
     }
 
     //deal with verbatim date
-    if (date.isEmpty && rawEvent.verbatimEventDate != null && !rawEvent.verbatimEventDate.isEmpty) {
+    if (date.isEmpty && raw.e.verbatimEventDate != null && !raw.e.verbatimEventDate.isEmpty) {
       try {
-        val eventDate = rawEvent.verbatimEventDate.split("/").first
+        val eventDate = raw.e.verbatimEventDate.split("/").first
         val eventDateParsed = DateUtils.parseDate(eventDate,
-          Array("yyyy-MM-dd", "yyyy-MM-ddThh:mm-ss", "2009-02-20T08:40Z"))
+          Array("yyyy-MM-dd", "yyyy-MM-ddThh:mm-ss", "yyyy-MM-ddThh:mmZ"))
       } catch {
         case e: Exception => {
           invalidDate = true
+          comment = "Unable to parse verbatim date"
         }
       }
     }
 
     if (invalidDate) {
-      //			or.setOtherIssueBits(IndexingIssue.OTHER_INVALID_DATE.getBit());
-      //			GbifLogMessage rangeMessage = gbifLogUtils.createGbifLogMessage(context, LogEvent.EXTRACT_GEOSPATIALISSUE,
-      //			    "Invalid or unparsable date");
-      //			rangeMessage.setCountOnly(true);
-      //			logger.warn(rangeMessage);			
       var qa = new QualityAssertion
       qa.assertionCode = AssertionCodes.OTHER_INVALID_DATE.code
       qa.positive = false
-      OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa, AssertionCodes.OTHER_INVALID_DATE)
+      qa.comment = comment
+      qa.userId = "system"
+      OccurrenceDAO.addQualityAssertion(guid, qa, AssertionCodes.OTHER_INVALID_DATE)
     }
   }
+
 
   /**
    * Process the type status
    */
-  def processTypeStatus(rawOccurrence: Occurrence, processedOccurrence: Occurrence) {
+  def processTypeStatus(guid:String,raw:FullRecord,processed:FullRecord) {
 
-    if (rawOccurrence.typeStatus != null && rawOccurrence.typeStatus.isEmpty) {
-      val term = TypeStatus.matchTerm(rawOccurrence.typeStatus)
+    if (raw.o.typeStatus != null && raw.o.typeStatus.isEmpty) {
+      val term = TypeStatus.matchTerm(raw.o.typeStatus)
       if (term.isEmpty) {
         //add a quality assertion
         val qa = new QualityAssertion
@@ -270,115 +269,106 @@ object ProcessRecords {
         qa.assertionCode = AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS.code
         qa.comment = "Unrecognised type status"
         qa.userId = "system"
-        OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
+        OccurrenceDAO.addQualityAssertion(guid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
       } else {
-        processedOccurrence.basisOfRecord = term.get.canonical
+        processed.o.basisOfRecord = term.get.canonical
       }
     }
   }
 
+
   /**
    * Process basis of record
    */
-  def processBasisOfRecord(rawOccurrence: Occurrence, processedOccurrence: Occurrence) {
+  def processBasisOfRecord(guid:String, raw:FullRecord, processed:FullRecord) {
 
-    if (rawOccurrence.basisOfRecord == null || rawOccurrence.basisOfRecord.isEmpty) {
+    if (raw.o.basisOfRecord == null || raw.o.basisOfRecord.isEmpty) {
       //add a quality assertion
       val qa = new QualityAssertion
       qa.positive = false
       qa.assertionCode = AssertionCodes.OTHER_MISSING_BASIS_OF_RECORD.code
       qa.comment = "Missing basis of record"
       qa.userId = "system"
-      OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
+      OccurrenceDAO.addQualityAssertion(guid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
     } else {
-      val term = BasisOfRecord.matchTerm(rawOccurrence.basisOfRecord)
+      val term = BasisOfRecord.matchTerm(raw.o.basisOfRecord)
       if (term.isEmpty) {
         //add a quality assertion
-        println("[QualityAssertion] " + rawOccurrence.uuid + ", unrecognised BoR: " + rawOccurrence.uuid + ", BoR:" + rawOccurrence.basisOfRecord)
+        println("[QualityAssertion] " + guid + ", unrecognised BoR: " + guid + ", BoR:" + raw.o.basisOfRecord)
         val qa = new QualityAssertion
         qa.positive = false
         qa.assertionCode = AssertionCodes.OTHER_BADLY_FORMED_BASIS_OF_RECORD.code
         qa.comment = "Unrecognised basis of record"
         qa.userId = "system"
-        OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
+        OccurrenceDAO.addQualityAssertion(guid, qa,  AssertionCodes.OTHER_UNRECOGNISED_TYPESTATUS)
       } else {
-        processedOccurrence.basisOfRecord = term.get.canonical
+        processed.o.basisOfRecord = term.get.canonical
       }
     }
   }
 
-  
   /**
    * Process geospatial details
    */
-  def processLocation(rawOccurrence:Occurrence, raw:Location, processed:Location, processedClassification:Classification) {
+  def processLocation(guid:String,raw:FullRecord, processed:FullRecord) {
     //retrieve the point
-    if (raw.decimalLatitude != null && raw.decimalLongitude != null) {
+    if (raw.l.decimalLatitude != null && raw.l.decimalLongitude != null) {
 
       //TODO validate decimal degrees
-      processed.decimalLatitude = raw.decimalLatitude
-      processed.decimalLongitude = raw.decimalLongitude
+      processed.l.decimalLatitude = raw.l.decimalLatitude
+      processed.l.decimalLongitude = raw.l.decimalLongitude
 
       //validate coordinate accuracy (coordinateUncertaintyInMeters) and coordinatePrecision (precision - A. Chapman)
-
-
-      
-      
-      
-      
       
       //generate coordinate accuracy if not supplied
-      val point = LocationDAO.getLocationByLatLon(raw.decimalLatitude, raw.decimalLongitude);
+      val point = LocationDAO.getByLatLon(raw.l.decimalLatitude, raw.l.decimalLongitude);
       if (!point.isEmpty) {
 
         //add state information
-        processed.stateProvince = point.get.stateProvince
-        processed.ibra = point.get.ibra
-        processed.imcra = point.get.imcra
-        processed.lga = point.get.lga
-        if(point.get.habitat!=null) println("uuid: "+rawOccurrence.uuid+". habitat: "+point.get.habitat)
-        processed.habitat = point.get.habitat
+        processed.l.stateProvince = point.get.stateProvince
+        processed.l.ibra = point.get.ibra
+        processed.l.imcra = point.get.imcra
+        processed.l.lga = point.get.lga
+        processed.l.habitat = point.get.habitat
 
         //check matched stateProvince
-        if (processed.stateProvince != null && raw.stateProvince != null) {
+        if (processed.l.stateProvince != null && raw.l.stateProvince != null) {
           //quality assertions
-          val stateTerm = States.matchTerm(raw.stateProvince)
+          val stateTerm = States.matchTerm(raw.l.stateProvince)
 
-          if (!stateTerm.isEmpty && !processed.stateProvince.equalsIgnoreCase(stateTerm.get.canonical)) {
-            println("[QualityAssertion] " + rawOccurrence.uuid + ", processed:" + processed.stateProvince + ", raw:" + raw.stateProvince)
+          if (!stateTerm.isEmpty && !processed.l.stateProvince.equalsIgnoreCase(stateTerm.get.canonical)) {
+            println("[QualityAssertion] " + guid + ", processed:" + processed.l.stateProvince + ", raw:" + raw.l.stateProvince)
             //add a quality assertion
             val qa = new QualityAssertion
             qa.positive = false
             qa.assertionCode = AssertionCodes.GEOSPATIAL_STATE_COORDINATE_MISMATCH.code
-            qa.comment = "Supplied: " + stateTerm.get.canonical + ", calculated: " + processed.stateProvince
+            qa.comment = "Supplied: " + stateTerm.get.canonical + ", calculated: " + processed.l.stateProvince
             qa.userId = "system"
             //store the assertion
-            OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa, AssertionCodes.GEOSPATIAL_STATE_COORDINATE_MISMATCH)
+            OccurrenceDAO.addQualityAssertion(guid, qa, AssertionCodes.GEOSPATIAL_STATE_COORDINATE_MISMATCH)
           }
         }
 
         //check marine/non-marine
-        if(processed.habitat!=null){
+        if(processed.l.habitat!=null){
         	
         	//retrieve the species profile
-        	val taxonProfile = TaxonProfileDAO.getByGuid(processedClassification.taxonConceptID)
+        	val taxonProfile = TaxonProfileDAO.getByGuid(processed.c.taxonConceptID)
         	if(!taxonProfile.isEmpty && taxonProfile.get.habitats!=null && taxonProfile.get.habitats.size>0){
         		val habitatsAsString =  taxonProfile.get.habitats.reduceLeft(_+","+_)
-        		val habitatFromPoint = processed.habitat
+        		val habitatFromPoint = processed.l.habitat
         		val habitatsForSpecies = taxonProfile.get.habitats
         		//is "terrestrial" the same as "non-marine" ??
         		val validHabitat = HabitatMap.areTermsCompatible(habitatFromPoint, habitatsForSpecies)
         		if(!validHabitat.isEmpty){
-        			if(validHabitat.get){
-        				println("[QualityAssertion] Habitats compatible" + rawOccurrence.uuid + ", processed:" + processed.habitat + ", retrieved:" + habitatsAsString)
-        			} else {
-        				println("[QualityAssertion] ******** Habitats incompatible for UUID: " + rawOccurrence.uuid + ", processed:" + processed.habitat + ", retrieved:" + habitatsAsString)
+        			if(!validHabitat.get){
+        				println("[QualityAssertion] ******** Habitats incompatible for UUID: " + guid + ", processed:" + processed.l.habitat + ", retrieved:" + habitatsAsString)
         				var qa = new QualityAssertion
         				qa.userId = "system"
         				qa.assertionCode = AssertionCodes.COORDINATE_HABITAT_MISMATCH.code
         				qa.comment = "Recognised habitats for species: " + habitatsAsString+", Value determined from coordinates: "+habitatFromPoint
         				qa.positive = false
-        				OccurrenceDAO.addQualityAssertion(rawOccurrence.uuid, qa, AssertionCodes.COORDINATE_HABITAT_MISMATCH)
+        				OccurrenceDAO.addQualityAssertion(guid, qa, AssertionCodes.COORDINATE_HABITAT_MISMATCH)
         			}
         		}
         	}
@@ -394,19 +384,19 @@ object ProcessRecords {
   /**
    * Match the classification
    */
-  def processClassification(rawOccurrence: Occurrence, raw: Classification, processed: Classification) {
+  def processClassification(guid:String, raw:FullRecord, processed:FullRecord) {
     val classification = new LinnaeanRankClassification(
-      raw.kingdom,
-      raw.phylum,
-      raw.classs,
-      raw.order,
-      raw.family,
-      raw.genus,
-      raw.species,
-      raw.specificEpithet,
-      raw.subspecies,
-      raw.infraspecificEpithet,
-      raw.scientificName)
+      raw.c.kingdom,
+      raw.c.phylum,
+      raw.c.classs,
+      raw.c.order,
+      raw.c.family,
+      raw.c.genus,
+      raw.c.species,
+      raw.c.specificEpithet,
+      raw.c.subspecies,
+      raw.c.infraspecificEpithet,
+      raw.c.scientificName)
     //println("Record: "+occ.uuid+", classification for Kingdom: "+occ.kingdom+", Family:"+  occ.family +", Genus:"+  occ.genus +", Species: " +occ.species+", Epithet: " +occ.specificEpithet)
     try {
       val nsr = DAO.nameIndex.searchForRecord(classification, true)
@@ -414,18 +404,19 @@ object ProcessRecords {
       if (nsr != null) {
         val classification = nsr.getRankClassification
         //store ".p" values
-        processed.kingdom = classification.getKingdom
-        processed.phylum = classification.getPhylum
-        processed.classs = classification.getKlass
-        processed.order = classification.getOrder
-        processed.family = classification.getFamily
-        processed.genus = classification.getGenus
-        processed.species = classification.getSpecies
-        processed.specificEpithet = classification.getSpecificEpithet
-        processed.scientificName = classification.getScientificName
-        processed.taxonConceptID = nsr.getLsid
+        processed.c.kingdom = classification.getKingdom
+        processed.c.phylum = classification.getPhylum
+        processed.c.classs = classification.getKlass
+        processed.c.order = classification.getOrder
+        processed.c.family = classification.getFamily
+        processed.c.genus = classification.getGenus
+        processed.c.species = classification.getSpecies
+        processed.c.specificEpithet = classification.getSpecificEpithet
+        processed.c.scientificName = classification.getScientificName
+        processed.c.taxonConceptID = nsr.getLsid
       } else {
-        println("[QualityAssertion] No match for record, classification for Kingdom: " + raw.kingdom + ", Family:" + raw.family + ", Genus:" + raw.genus + ", Species: " + raw.species + ", Epithet: " + raw.specificEpithet)
+        println("[QualityAssertion] No match for record, classification for Kingdom: " + raw.c.kingdom + ", Family:" + raw.c.family + ", Genus:" + raw.c.genus + ", Species: " + raw.c.species 
+        		+ ", Epithet: " + raw.c.specificEpithet)
       }
     } catch {
       case e: HomonymException => //println("Homonym exception for record, classification for Kingdom: "+raw.kingdom+", Family:"+  raw.family +", Genus:"+  raw.genus +", Species: " +raw.species+", Epithet: " +raw.specificEpithet)

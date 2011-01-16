@@ -1,16 +1,17 @@
 package au.org.ala.biocache
 import scala.reflect.BeanProperty
 
-class TaxonProfile extends Cloneable {
+class TaxonProfile (
+		@BeanProperty var guid:String, 
+		@BeanProperty var scientificName:String, 
+		@BeanProperty var commonName:String, 
+		@BeanProperty var habitats:Array[String])
+		extends Cloneable {
+  def this() = this(null, null, null, null)
   override def clone : TaxonProfile = super.clone.asInstanceOf[TaxonProfile]
-  @BeanProperty var guid:String = _
-  @BeanProperty var scientificName:String = _	
-  @BeanProperty var commonName:String = _
-  @BeanProperty var habitats:Array[String] = _
 }
 
 class Attribution extends Cloneable {
-  override def clone : Attribution = super.clone.asInstanceOf[Attribution]
   @BeanProperty var dataProviderUid:String = _
   @BeanProperty var dataResourceUid:String = _	
   @BeanProperty var collectionUid:String = _
@@ -18,6 +19,13 @@ class Attribution extends Cloneable {
   @BeanProperty var dataHubUid:String = _
   @BeanProperty var institutionName:String = _
   @BeanProperty var collectionName:String = _
+  override def clone : Attribution = super.clone.asInstanceOf[Attribution]
+}
+
+class FullRecord (@BeanProperty var o:Occurrence, @BeanProperty var c:Classification,
+		@BeanProperty var l:Location,@BeanProperty var e:Event) extends Cloneable {
+  def this() = this(null,null,null,null)
+  override def clone : FullRecord = new FullRecord(o.clone, c.clone,l.clone,e.clone)
 }
 
 class Occurrence extends Cloneable {
@@ -70,6 +78,7 @@ class Occurrence extends Cloneable {
   @BeanProperty var samplingProtocol:String = _
   @BeanProperty var sex:String = _
   @BeanProperty var source:String = _
+  //type status perhaps should be in identification
   @BeanProperty var typeStatus:String = _
 }
 
@@ -219,6 +228,11 @@ class Location extends Cloneable {
   @BeanProperty var lga:String = _
 }
 
+/**
+ * Enumeration of record versions.
+ * 
+ * @author Dave Martin (David.Martin@csiro.au)
+ */
 object Version extends Enumeration {
   type Version = Value
   val Raw, Processed, Consensus = Value

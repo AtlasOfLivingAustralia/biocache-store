@@ -20,7 +20,6 @@ object SpeciesProfileLoader {
 
     val host = args(0)
     val port = args(1).toInt
-    //int maxNoOfProfiles = Integer.MAX_VALUE;                                    au.org.
     val client = new SocketTransceiver(new InetSocketAddress(host, port))
     val proxy = SpecificRequestor.getClient(classOf[SpeciesProfile], client).asInstanceOf[SpeciesProfile]
     var page = new Page
@@ -28,7 +27,8 @@ object SpeciesProfileLoader {
     page.startKey = lastKey
     page.pageSize = 1000
     var array = proxy.send(page).asInstanceOf[ProfileArray]
-    
+
+    //iterate through all the profiles
     while(array.profiles.size>0){
 	    for (profile <- array.profiles) {
 	      //add to cache

@@ -38,14 +38,14 @@ object OccurrenceDAO {
   import ReflectBean._
 
   val columnFamily = "occ"
-
+	  
   /**
    * Get an occurrence with UUID
    *
    * @param uuid
    * @return
    */
-  def getByUuid(uuid:String) : Option[(Occurrence, Classification, Location, Event)] = {
+  def getByUuid(uuid:String) : Option[FullRecord] = {
     getByUuid(uuid, Version.Raw)
   }
 
@@ -56,7 +56,7 @@ object OccurrenceDAO {
    * @param occurrenceType
    * @return
    */
-  def getByUuid(uuid:String, occurrenceType:Version.Value) : Option[(Occurrence, Classification, Location, Event)] = {
+  def getByUuid(uuid:String, occurrenceType:Version.Value) : Option[FullRecord] = {
 
     val selector = Pelops.createSelector(DAO.poolName, DAO.keyspace)
     val slicePredicate = Selector.newColumnsPredicateAll(true, 10000)
@@ -98,7 +98,7 @@ object OccurrenceDAO {
    * @return
    */
   def createOccurrence(uuid:String, columnList:java.util.List[Column], occurrenceType:Version.Value)
-    : Option[(Occurrence, Classification, Location, Event)] = {
+    : Option[FullRecord] = {
 
     val occurrence = new Occurrence
     val classification = new Classification
@@ -106,8 +106,8 @@ object OccurrenceDAO {
     val event = new Event
 
     occurrence.uuid = uuid
-      val columns = List(columnList.toArray : _*)
-      for(column<-columns){
+    val columns = List(columnList.toArray : _*)
+    for(column<-columns){
 
         //ascertain which term should be associated with which object
       var fieldName = new String(column.asInstanceOf[Column].name)
@@ -122,8 +122,8 @@ object OccurrenceDAO {
       } else {
         setProperty(occurrence, classification, location, event, fieldName, fieldValue)
       }
-      }
-    Some((occurrence, classification, location, event))
+    }
+    Some(new FullRecord(occurrence, classification, location, event))
   }
 
   /**
@@ -132,7 +132,7 @@ object OccurrenceDAO {
    * @param occurrenceType
    * @param proc
    */
-  def pageOverAll(occurrenceType:Version.Value, proc:((Option[(Occurrence, Classification, Location, Event)])=>Unit) ) : Unit = {
+  def pageOverAll(occurrenceType:Version.Value, proc:((Option[FullRecord])=>Unit) ) : Unit = {
 
     val selector = Pelops.createSelector(DAO.poolName, columnFamily);
     val slicePredicate = Selector.newColumnsPredicateAll(true, 10000);
@@ -156,8 +156,15 @@ object OccurrenceDAO {
       columnMap.remove(startKey)
     }
     println("Finished paging. Total count: "+counter)
-    }
+  }
 
+  def updateOccurrence(guid:String, fullRecord:FullRecord, version:Version.Value) {
+	OccurrenceDAO.updateOccurrence(guid, fullRecord.o, version)
+	OccurrenceDAO.updateOccurrence(guid, fullRecord.c, version)
+	OccurrenceDAO.updateOccurrence(guid, fullRecord.l, version)
+	OccurrenceDAO.updateOccurrence(guid, fullRecord.e, version)
+  }
+  
   /**
    * Update an occurrence
    *
@@ -246,9 +253,9 @@ object OccurrenceDAO {
     mutator.execute(ConsistencyLevel.ONE)
   }
 
-  def getQualityAssertions(uuid:String){
-
-
+  def getQualityAssertions(uuid:String): List[QualityAssertion] = {
+//	new ArrayList[QualityAssertion]
+	  List()
   }
 
 
