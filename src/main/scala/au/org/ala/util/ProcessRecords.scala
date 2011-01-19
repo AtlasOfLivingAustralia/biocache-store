@@ -83,6 +83,12 @@ object ProcessRecords {
         processAttribution(guid, raw, processed)
 
         //perform SDS lookups - retrieve from BIE for now....
+        
+        // processImages
+        // processLinkRecord
+        // processIdentifierRecords 
+        // 
+        
 
         //store the occurrence
         OccurrenceDAO.updateOccurrence(guid, processed, Version.Processed)

@@ -19,12 +19,16 @@ object DAO {
 
   Pelops.addPool(poolName, hosts, 9160, false, keyspace, new Policy)
   //read in the ORM mappings
-  val attributionDefn = scala.io.Source.fromURL(getClass.getResource("/Attribution.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val occurrenceDefn = scala.io.Source.fromURL(getClass.getResource("/Occurrence.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val locationDefn = scala.io.Source.fromURL(getClass.getResource("/Location.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val eventDefn = scala.io.Source.fromURL(DAO.getClass.getResource("/Event.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val classificationDefn = scala.io.Source.fromURL(getClass.getResource("/Classification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
-  val identificationDefn = scala.io.Source.fromURL(getClass.getResource("/Identification.txt"), "utf-8").getLines.toList.map(_.trim).toArray
+  val attributionDefn = fileToArray("/Attribution.txt")
+  val occurrenceDefn = fileToArray("/Occurrence.txt")
+  val locationDefn = fileToArray("/Location.txt")
+  val eventDefn = fileToArray("/Event.txt")
+  val classificationDefn = fileToArray("/Classification.txt")
+  val identificationDefn = fileToArray("/Identification.txt")
+  
+  def fileToArray(filePath:String) : Array[String] = {
+	  scala.io.Source.fromURL(getClass.getResource(filePath), "utf-8").getLines.toList.map(_.trim).toArray
+  }
 }
 
 /**

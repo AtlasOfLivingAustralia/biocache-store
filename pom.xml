@@ -11,7 +11,7 @@
   </issueManagement>
   <ciManagement>
   	<system>Hudson</system>
-  	<url>http://hudson.ala.org.au</url>
+  	<url>http://hudson.ala.org.au:8080</url>
   </ciManagement>
   <inceptionYear>2011</inceptionYear>
   <name>biocache-nosql</name>
@@ -22,8 +22,8 @@
   <description>Prototype scala implementation of biocache backend.</description>
   <repositories>
     <repository>
-      <id>ala-repo</id>
-      <name>ala-repo</name>
+      <id>ala-repository</id>
+      <name>ala-repository</name>
       <url>http://maven.ala.org.au/repository</url>
     </repository>
     <repository>
@@ -233,11 +233,8 @@
   <distributionManagement>
     <downloadUrl>https://maven.ala.org.au/repository</downloadUrl>
     <repository>
-      <uniqueVersion>false</uniqueVersion>
       <id>ala-repository</id>
-      <name>ALA Maven Repository</name>
-      <url>scp://maven.ala.org.au/data/maven</url>
-      <layout>default</layout>
+      <url>${ala.repository.url}</url>
     </repository>
   </distributionManagement>
 </project>

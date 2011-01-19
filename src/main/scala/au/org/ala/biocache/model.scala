@@ -1,33 +1,6 @@
 package au.org.ala.biocache
 import scala.reflect.BeanProperty
 
-class TaxonProfile (
-		@BeanProperty var guid:String, 
-		@BeanProperty var scientificName:String, 
-		@BeanProperty var commonName:String, 
-		@BeanProperty var habitats:Array[String])
-		extends Cloneable {
-  def this() = this(null, null, null, null)
-  override def clone : TaxonProfile = super.clone.asInstanceOf[TaxonProfile]
-}
-
-class Attribution extends Cloneable {
-  @BeanProperty var dataProviderUid:String = _
-  @BeanProperty var dataResourceUid:String = _	
-  @BeanProperty var collectionUid:String = _
-  @BeanProperty var institutionUid:String = _
-  @BeanProperty var dataHubUid:String = _
-  @BeanProperty var institutionName:String = _
-  @BeanProperty var collectionName:String = _
-  override def clone : Attribution = super.clone.asInstanceOf[Attribution]
-}
-
-class FullRecord (@BeanProperty var o:Occurrence, @BeanProperty var c:Classification,
-		@BeanProperty var l:Location,@BeanProperty var e:Event) extends Cloneable {
-  def this() = this(null,null,null,null)
-  override def clone : FullRecord = new FullRecord(o.clone, c.clone,l.clone,e.clone)
-}
-
 class Occurrence extends Cloneable {
   override def clone : Occurrence = super.clone.asInstanceOf[Occurrence]
   @BeanProperty var uuid:String = _	
@@ -236,4 +209,34 @@ class Location extends Cloneable {
 object Version extends Enumeration {
   type Version = Value
   val Raw, Processed, Consensus = Value
+}
+
+class TaxonProfile (
+		@BeanProperty var guid:String, 
+		@BeanProperty var scientificName:String, 
+		@BeanProperty var commonName:String, 
+		@BeanProperty var habitats:Array[String])
+		extends Cloneable {
+  def this() = this(null, null, null, null)
+  override def clone : TaxonProfile = super.clone.asInstanceOf[TaxonProfile]
+}
+
+class Attribution extends Cloneable {
+  @BeanProperty var dataProviderUid:String = _
+  @BeanProperty var dataResourceUid:String = _	
+  @BeanProperty var collectionUid:String = _
+  @BeanProperty var institutionUid:String = _
+  @BeanProperty var dataHubUid:String = _
+  @BeanProperty var institutionName:String = _
+  @BeanProperty var collectionName:String = _
+  override def clone : Attribution = super.clone.asInstanceOf[Attribution]
+}
+
+/**
+ * Encapsulates a complete specimen or occurrence record.
+ */
+class FullRecord (@BeanProperty var o:Occurrence, @BeanProperty var c:Classification,
+		@BeanProperty var l:Location,@BeanProperty var e:Event) extends Cloneable {
+  def this() = this(null,null,null,null)
+  override def clone : FullRecord = new FullRecord(o.clone, c.clone,l.clone,e.clone)
 }
