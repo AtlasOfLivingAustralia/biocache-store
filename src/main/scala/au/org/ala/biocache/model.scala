@@ -212,11 +212,11 @@ object Version extends Enumeration {
 }
 
 class TaxonProfile (
-		@BeanProperty var guid:String, 
-		@BeanProperty var scientificName:String, 
-		@BeanProperty var commonName:String, 
-		@BeanProperty var habitats:Array[String])
-		extends Cloneable {
+	@BeanProperty var guid:String, 
+	@BeanProperty var scientificName:String, 
+	@BeanProperty var commonName:String, 
+	@BeanProperty var habitats:Array[String])
+	extends Cloneable {
   def this() = this(null, null, null, null)
   override def clone : TaxonProfile = super.clone.asInstanceOf[TaxonProfile]
 }

@@ -113,7 +113,7 @@ object OccurrenceDAO {
     val columns = List(columnList.toArray : _*)
     for(column<-columns){
 
-        //ascertain which term should be associated with which object
+      //ascertain which term should be associated with which object
       var fieldName = new String(column.asInstanceOf[Column].name)
       val fieldValue = new String(column.asInstanceOf[Column].value)
 
