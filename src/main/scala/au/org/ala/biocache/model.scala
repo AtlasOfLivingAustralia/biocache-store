@@ -240,3 +240,26 @@ class FullRecord (@BeanProperty var o:Occurrence, @BeanProperty var c:Classifica
   def this() = this(null,null,null,null)
   override def clone : FullRecord = new FullRecord(o.clone, c.clone,l.clone,e.clone)
 }
+
+/**
+ * Quality Assertions are made by man or machine.
+ * Man - provided through a UI, giving a positive or negative assertion
+ * Machine - provided through backend processing
+ * 
+ * @author Dave Martin (David.Martin@csiro.au)
+ */
+class QualityAssertion {
+	@BeanProperty var uuid:String = _
+	@BeanProperty var assertionCode:Int = _ 
+	@BeanProperty var positive:Boolean = _
+	@BeanProperty var comment:String = _
+	@BeanProperty var userId:String = _
+	@BeanProperty var userDisplayName:String = _
+	
+	override def equals(that: Any) = that match { 
+	    case other: QualityAssertion => {
+	    	(other.assertionCode == assertionCode) && (other.positive == positive) && (other.userId == userId)
+	    }
+	    case _ => false 
+	}
+}
