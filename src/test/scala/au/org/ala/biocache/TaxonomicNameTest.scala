@@ -19,8 +19,7 @@ class TaxonomicNameTest extends ConfigFunSuite {
       raw.classification.genus = "Pseudosuberia"
       raw.classification.family = "Briareidae"
       val qas = (new ClassificationProcessor).process("test", raw, processed)
-      println(processed.classification.scientificName)
-      
+//      println(processed.classification.scientificName)
     }
   
     test("name not recognised"){
@@ -63,7 +62,7 @@ class TaxonomicNameTest extends ConfigFunSuite {
         raw.classification.genus = "Macropus";
         raw.classification.scientificName = "Macropus ?";
         val qas = (new ClassificationProcessor).process("test", raw, processed);
-        println(processed.classification.taxonConceptID)
+//        println(processed.classification.taxonConceptID)
         expectResult(true){processed.classification.getTaxonomicIssue().contains("homonym")}
         expectResult(true){processed.classification.getTaxonomicIssue().contains("questionSpecies")}
 //        expectResult(10006){qas(0).code}
