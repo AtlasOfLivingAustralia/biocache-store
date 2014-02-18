@@ -100,10 +100,9 @@ class ReflectBean(ref: AnyRef)  {
           }
         case _ => 
       }
-      try{
-      method.get.invoke(ref, v2 )
-      }
-      catch{
+      try {
+        method.get.invoke(ref, v2 )
+      } catch {
         case e:Exception => println("Unable to setter " + name + ":"+value+":" + v2.getClass.toString)
       }
     }
@@ -113,29 +112,22 @@ class ReflectBean(ref: AnyRef)  {
    *
    * TODO: Should these methods be returning null when an exception occurs??
    */
-  implicit def any2Int(in:AnyRef): java.lang.Integer ={
-    try{
-      Integer.parseInt(in.toString)
-    }
-    catch{
-      case e:Exception =>null
-    }
+  implicit def any2Int(in:AnyRef): java.lang.Integer = try {
+    Integer.parseInt(in.toString)
+  } catch {
+    case e:Exception =>null
   }
-  implicit def any2Double(in:AnyRef): java.lang.Double ={
-    try{
-      java.lang.Double.parseDouble(in.toString)
-    }
-    catch{
-      case e:Exception => null
-    }
+
+  implicit def any2Double(in:AnyRef): java.lang.Double = try{
+    java.lang.Double.parseDouble(in.toString)
+  } catch {
+    case e:Exception => null
   }
-  implicit def any2Date(in:AnyRef): java.util.Date ={
-    try{
+
+  implicit def any2Date(in:AnyRef): java.util.Date = try{
       DateUtils.parseDate(in.toString, Array("yyyy-MM-dd"))
-    }
-    catch{
-      case e:Exception => null
-    }
+  } catch{
+    case e:Exception => null
   }
 }
 

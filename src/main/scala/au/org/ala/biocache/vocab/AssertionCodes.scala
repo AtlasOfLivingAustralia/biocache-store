@@ -113,7 +113,7 @@ object AssertionCodes {
     val methods = this.getClass.getMethods
     (for {
       method<-methods
-      if(method.getReturnType.getName == "au.au.biocache.vocab.ErrorCode")
+      if(method.getReturnType.getName == "au.org.ala.biocache.vocab.ErrorCode")
     } yield (method.invoke(this).asInstanceOf[ErrorCode])).toSet[ErrorCode]
   }
 
