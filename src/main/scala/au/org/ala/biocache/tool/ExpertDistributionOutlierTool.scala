@@ -107,7 +107,7 @@ class ExpertDistributionOutlierTool {
 
       var workQueue = scala.collection.mutable.Queue[String]()
       var errorLsidsQueue = scala.collection.mutable.Queue[String]()
-      val distributionLsids = getExpertDistributionLsids();
+      val distributionLsids = getExpertDistributionLsids
 
       if (speciesLsid != null) {
         // If we are only finding outliers for a single lsid, one worker actor will suffice, no need to partition the work.
