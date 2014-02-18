@@ -55,7 +55,7 @@ class Loader extends DataLoader {
   }
 
   def resourceList : List[Map[String, String]] = {
-    val json = Source.fromURL(Config.registryURL + "/dataResource?resourceType=records").getLines.mkString
+    val json = Source.fromURL(Config.registryUrl + "/dataResource?resourceType=records").getLines.mkString
     val drs = JSON.parseFull(json).get.asInstanceOf[List[Map[String, String]]]
     drs
   }
@@ -132,7 +132,7 @@ class Loader extends DataLoader {
   }
 
   def healthcheck = {
-    val json = Source.fromURL(Config.registryURL+"/dataResource/harvesting.json").getLines.mkString
+    val json = Source.fromURL(Config.registryUrl+"/dataResource/harvesting.json").getLines.mkString
     val drs = JSON.parseFull(json).get.asInstanceOf[List[Map[String, String]]]
     // UID, name, protocol, URL,
     var digirCache = new HashMap[String, Map[String, String]]()

@@ -59,7 +59,7 @@ trait RangeCalculator{
    */
   def calculateRanges(threads:Int, query:String="*:*",start:String="", end:String="") : Array[(String,String)] = {
 
-    val firstRequest = Config.biocacheServiceURL + "/occurrences/search?q=" + query + "&pageSize=1&facet=off&sort=row_key&dir=asc"
+    val firstRequest = Config.biocacheServiceUrl + "/occurrences/search?q=" + query + "&pageSize=1&facet=off&sort=row_key&dir=asc"
     val json = JSON.parseFull(Source.fromURL(new URL(firstRequest)).mkString)
     if (!json.isEmpty){
       val totalRecords = json.get.asInstanceOf[Map[String, Object]].getOrElse("totalRecords", 0).asInstanceOf[Double].toInt
@@ -74,7 +74,7 @@ trait RangeCalculator{
         //val json  = JSON.parseFull(Source.fromURL(new URL(baseUrl + "/occurrences/search?q="+query+"&pageSize=1&facet=off&sort=row_key&dir=asc&start=" + (i * pageSize))).mkString)
         //val occurrences = json.get.asInstanceOf[Map[String, Object]].getOrElse("occurrences", List[Map[String, String]]()).asInstanceOf[List[Map[String, String]]]
         //val rowKey:String = occurrences.head.getOrElse("rowKey", "")
-        val json = JSON.parseFull(Source.fromURL(new URL(Config.biocacheServiceURL+"/occurrences/search?q="+query+"&facets=row_key&pageSize=0&flimit=1&fsort=index&foffset="+ (i * pageSize))).mkString)
+        val json = JSON.parseFull(Source.fromURL(new URL(Config.biocacheServiceUrl+"/occurrences/search?q="+query+"&facets=row_key&pageSize=0&flimit=1&fsort=index&foffset="+ (i * pageSize))).mkString)
         val facetResults= json.get.asInstanceOf[Map[String, Object]].getOrElse("facetResults", List[Map[String,Object]]()).asInstanceOf[List[Map[String,Object]]]
         //println(facetResults.getClass + " " + facetResults)//.getOrElse("facetResults", List[Map[String, Map[String,Object]]]()).asInstanceOf[List[Map[String, Map[String,Object]]]]
 

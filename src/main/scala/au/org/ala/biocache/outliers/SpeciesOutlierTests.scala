@@ -331,7 +331,7 @@ object SpeciesOutlierTests {
     val variablesToTest = Array("el889", "el882", "el887", "el865", "el894")
     val requiredFields = Array("id", "latitude", "longitude") ++ variablesToTest
 
-    val u = new URL(Config.biocacheServiceURL + "/webportal/occurrences.gz?pageSize=3000000&q=lsid:\"" + 
+    val u = new URL(Config.biocacheServiceUrl + "/webportal/occurrences.gz?pageSize=3000000&q=lsid:\"" +
         lsid + "\"&fl=" + requiredFields.mkString(","))
 
     val in = u.openStream
@@ -531,7 +531,7 @@ object SpeciesOutlierTests {
   def printLinksForRecords(count: Int, records: Seq[String]) {
     println()
     println("## outlier for : " + count + " ##")
-    records.foreach(c => println(Config.biocacheServiceURL + "/occurrences/" + c))
+    records.foreach(c => println(Config.biocacheServiceUrl + "/occurrences/" + c))
     println("## end of outlier for : " + count + " ##")
     println()
   }
@@ -539,7 +539,7 @@ object SpeciesOutlierTests {
   def printLinks(count: Int, records: Seq[String]) {
     println()
     println("************************ outlier for : " + count + " ******************")
-    records.foreach(c => println(Config.biocacheServiceURL + "/occurrences/" + c))
+    records.foreach(c => println(Config.biocacheServiceUrl + "/occurrences/" + c))
     println("************************ end of outlier for : " + count + " ******************")
     println()
   }

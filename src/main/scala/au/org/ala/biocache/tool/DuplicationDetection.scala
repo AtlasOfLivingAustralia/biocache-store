@@ -117,8 +117,6 @@ object DuplicationDetection {
         } else {
           dd.detect(datafilename, new FileWriter(dupfilename), new FileWriter(passedfilename), guid.get, shouldDownloadRecords = !exist, cleanup = cleanup)
         }
-        //println(new DuplicationDetection().getCurrentDuplicates(guid.get))
-
         Config.persistenceManager.shutdown
         Config.indexDAO.shutdown
       } else if (speciesFile.isDefined) {
@@ -127,9 +125,6 @@ object DuplicationDetection {
         parser.showUsage
       }
     }
-    //new DuplicationDetection().detect("urn:lsid:biodiversity.org.au:afd.taxon:b76f8dcf-fabd-4e48-939c-fd3cafc1887a")
-    //new DuplicationDetection().detect("urn:lsid:biodiversity.org.au:afd.taxon:9e23c727-f3b0-4c29-a345-9cbd306eed84")
-    //new DuplicationDetection().detect("urn:lsid:biodiversity.org.au:apni.taxon:425841")
   }
 
   def removeObsoleteDuplicates(filename: Option[String]) {
@@ -143,12 +138,8 @@ object DuplicationDetection {
   }
 
   def detectDuplicates(file: File, threads: Int, exist: Boolean, cleanup: Boolean, load: Boolean, offlineDir: String = "") {
-    //val queue = new ArrayBlockingQueue[String](100)
-    //create the consumer threads
-
-    //val pool = Array.fill(threads){ val p = new GuidConsumer(queue,{guid => new DuplicationDetection().detect(guid,!exist)}); p.start }
     var ids = 0
-    val pool: Array[Thread] = Array.fill(threads) {
+    val pool = Array.fill(threads) {
       val dir = rootDir + ids + File.separator
       FileUtils.forceMkdir(new File(dir))
       val sourceFile = dir + "dd_data.txt"
@@ -161,7 +152,7 @@ object DuplicationDetection {
       val p = if (load) {
         new Thread() {
           override def run() {
-            new DuplicationDetection().loadMulitpleDuplicatesFromFile(dupfilename, passedfilename, threads, new FileWriter(new File(indexfilename)), new FileWriter(new File(olddupfilename)))
+            new DuplicationDetection().loadMultipleDuplicatesFromFile(dupfilename, passedfilename, threads, new FileWriter(new File(indexfilename)), new FileWriter(new File(olddupfilename)))
             //now reindex all the items
             IndexRecords.indexList(new File(indexfilename), false)
           }
@@ -174,11 +165,6 @@ object DuplicationDetection {
             new DuplicationDetection().detectMultipleDuplicatesFromFile(sourceFileName, new FileWriter(dupfilename), new FileWriter(passedfilename), threads)
           }
         }
-        //        FileUtils.deleteQuietly(new File(dupfilename))
-        //        new StringConsumer(queue,ids,{guid =>
-        //
-        //        val dd = new DuplicationDetection();
-        //        dd.detect(sourceFile,new FileWriter(dupfilename, true), new FileWriter(passedfilename, true),guid,shouldDownloadRecords= !exist ,cleanup=cleanup)})
       }
 
       ids += 1
@@ -186,11 +172,11 @@ object DuplicationDetection {
       p
     }
 
-    //    if(!load){
-    //      //add to the queue
-    //      file.foreachLine(line => queue.put(line.trim))
-    //    }
-    pool.foreach(t => if (t.isInstanceOf[StringConsumer]) t.asInstanceOf[StringConsumer].shouldStop = true)
+    pool.foreach(t => {
+      if (t.isInstanceOf[StringConsumer]){
+        t.asInstanceOf[StringConsumer].shouldStop = true
+      }
+    })
     pool.foreach(_.join)
     if (load) {
       //need to update the last duplication detection time
@@ -220,6 +206,7 @@ class DuplicationDetection {
 
   import JavaConversions._
   import FileHelper._
+  val logger = LoggerFactory.getLogger("DuplicateDetection")
 
   val baseDir = "/tmp"
   val duplicatesFile = "duplicates.txt"
@@ -234,7 +221,6 @@ class DuplicationDetection {
   val mapper = new ObjectMapper
   //mapper.registerModule(DefaultScalaModule)
   mapper.setSerializationInclusion(Include.NON_NULL)
-
 
   /**
    * Takes the a dumpfile that was generated from the ExportAllRecordFacetFilter in mutiple threads
@@ -291,15 +277,14 @@ class DuplicationDetection {
         val oldDuplicateOf = StringUtils.trimToNull(currentLine(16).replaceAll("\\[", "").replaceAll("\\]", ""))
         buff += new DuplicateRecordDetails(rowKey, uuid, taxon_lsid, year, month, day, currentLine(7), currentLine(8),
           currentLine(9), currentLine(10), currentLine(11), currentLine(12), rawName, collector, oldStatus, oldDuplicateOf)
-      }
-      else {
+      } else {
         DuplicationDetection.logger.warn("lsid " + currentLine(0) + " line " + counter + " has incorrect column number: " + currentLine.size)
       }
       currentLine = reader.readNext
     }
     DuplicationDetection.logger.info("Read in " + counter + " records for " + currentLsid)
     //at this point we have all the records for a species that should be considered for duplication
-    if (buff.size > 0) {
+    if (!buff.isEmpty) {
       performDetection(buff.toList, duplicateWriter, passedWriter)
     }
     duplicateWriter.close
@@ -320,7 +305,7 @@ class DuplicationDetection {
     }
     //now wait for each thread to finish
     threads.foreach(_.join)
-    DuplicationDetection.logger.debug("Finished processing each year")
+    logger.debug("Finished processing each year")
 
     duplicateWriter.flush
   }
@@ -328,12 +313,12 @@ class DuplicationDetection {
   /**
    * Loads the duplicates from a file that contains duplicates from multiple taxon concepts
    */
-  def loadMulitpleDuplicatesFromFile(dupFilename: String, passedFilename: String, threads: Int, reindexWriter: FileWriter, oldDuplicatesWriter: FileWriter) {
+  def loadMultipleDuplicatesFromFile(dupFilename: String, passedFilename: String, threads: Int, reindexWriter: FileWriter, oldDuplicatesWriter: FileWriter) {
     var currentLsid = ""
     val queue = new ArrayBlockingQueue[String](100)
     var ids = 0
-    var buffer = new ArrayBuffer[String] // The buffer to store all the rowKeys that need to be reindexed
-    var allDuplicates = new ArrayBuffer[String]
+    val buffer = new ArrayBuffer[String] // The buffer to store all the rowKeys that need to be reindexed
+    val allDuplicates = new ArrayBuffer[String]
     //"taxonConceptLsid":"urn:lsid:catalogueoflife.org:taxon:df43e19e-29c1-102b-9a4a-00304854f820:ac2010"
     val conceptPattern = """"taxonConceptLsid":"([A-Za-z0-9\-:\.]*)"""".r
     var oldDuplicates: Set[String] = null
@@ -384,29 +369,12 @@ class DuplicationDetection {
     reindexWriter.close
     oldDuplicatesWriter.flush
     oldDuplicatesWriter.close
-
-    //now load all the records that passed duplication detection
-    //NC will load thepassed records external to the duplication process.
-    /*val passer = new QaPasser(QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD, 1), 10,deleteColumns = Some(List("associatedOccurrences.p","duplicationStatus.p","duplicationType.p")))
-    val buf = new ArrayBuffer[String]()
-    new File(passedFilename).foreachLine(line =>{
-      buf+= line
-      if (buf.size ==1000){
-        passer.markRecords(buf.toList)
-        buf.clear()
-      }
-
-
-      //each line represents a row key that is not considered a tool
-      //Config.occurrenceDAO.addSystemAssertion(line, QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD, 1), replaceExistCode = true)
-      //Config.persistenceManager.deleteColumns(line, "occ","associatedOccurrences.p","duplicationStatus.p","duplicationType.p")
-
-    })
-    passer.markRecords(buf.toList)
-    passer.stop()*/
   }
 
-  //loads the dupicates from the lsid based on the tmp file being populated - this is based on a single lsid being in the file
+  /**
+   * Loads the duplicates from the lsid based on the tmp file being populated.
+   * This is based on a single lsid being in the file
+   */
   def loadDuplicates(lsid: String, threads: Int, dupFilename: String, reindexWriter: FileWriter, oldDupWriter: FileWriter) {
     //get a list of the current records that are considered duplicates
     val (oldDuplicates, oldDupMap) = getCurrentDuplicates(lsid)
@@ -432,10 +400,11 @@ class DuplicationDetection {
     reindexWriter.close
     oldDupWriter.flush
     oldDupWriter.close
-
   }
 
-  //Loads the specific tool - allows duplicates to be loaded in a threaded manner
+  /**
+   * Loads the specific tool - allows duplicates to be loaded in a threaded manner
+   */
   def loadDuplicate(dup: String, writer: FileWriter, buffer: ArrayBuffer[String], allDuplicates: ArrayBuffer[String]) = {
     //turn the tool into the object
     val primaryRecord = mapper.readValue[DuplicateRecordDetails](dup, classOf[DuplicateRecordDetails])
@@ -458,8 +427,6 @@ class DuplicationDetection {
         Config.persistenceManager.put(primaryRecord.taxonConceptLsid + "|" + primaryRecord.year + "|" + primaryRecord.month + "|" + primaryRecord.day, "duplicates", primaryRecord.uuid, dup)
         Config.persistenceManager.put(primaryRecord.rowKey, "occ", Map("associatedOccurrences.p" -> uuidList.mkString("|"), "duplicationStatus.p" -> "R"))
 
-
-
         newduplicates.foreach(r => {
           val types = if (r.dupTypes != null) r.dupTypes.toList.map(t => t.getId.toString).toArray[String] else Array[String]()
           Config.persistenceManager.put(r.rowKey, "occ", Map("associatedOccurrences.p" -> primaryRecord.uuid, "duplicationStatus.p" -> "D", "duplicationType.p" -> mapper.writeValueAsString(types)))
@@ -470,11 +437,9 @@ class DuplicationDetection {
           }
         })
       }
-    }
-    catch {
+    } catch {
       case e: Exception => e.printStackTrace(); println(dup)
     }
-
   }
 
   def downloadRecords(sourceFileName: String, lsid: String, field: String) {
@@ -493,28 +458,16 @@ class DuplicationDetection {
   def detect(sourceFileName: String, duplicateWriter: FileWriter, passedWriter: FileWriter, lsid: String, shouldDownloadRecords: Boolean = false, field: String = "species_guid", cleanup: Boolean = false) {
     DuplicationDetection.logger.info("Starting to detect duplicates for " + lsid)
 
-    //    val directory = baseDir + "/" +  lsid.replaceAll("[\\.:]","_") + "/"
-    //    val dirFile = new File(directory)
-    //    FileUtils.forceMkdir(dirFile)
-    //    val filename = directory + filePrefix
-    //    val dupFilename =directory + duplicatesFile
-    //val duplicateWriter = new FileWriter(new File(dupFilename))
-
     if (shouldDownloadRecords) {
       downloadRecords(sourceFileName, lsid, field)
-      //      val file = new File(sourceFileName)
-      //      FileUtils.forceMkdir(file.getParentFile)
-      //      val fileWriter = new FileWriter(file)
-      //      DuplicationDetection.logger.info("Starting to download the occurrences for " + lsid)
-      //      ExportByFacetQuery.downloadSingleTaxon(lsid, fieldsToExport ,field,if(field == "species_guid") speciesFilters else subspeciesFilters,Some("row_key"),Some("asc"), fileWriter)
-      //      fileWriter.close
     }
+
     //open the tmp file that contains the information about the lsid
     val reader = new CSVReader(new FileReader(sourceFileName), '\t', '`', '~')
-
     var currentLine = reader.readNext //first line is header
     val buff = new ArrayBuffer[DuplicateRecordDetails]
     var counter = 0
+
     while (currentLine != null) {
       if (currentLine.size >= 16) {
         counter += 1
@@ -538,8 +491,7 @@ class DuplicationDetection {
         val oldDuplicateOf = StringUtils.trimToNull(currentLine(15).replaceAll("\\[", "").replaceAll("\\]", ""))
         buff += new DuplicateRecordDetails(rowKey, uuid, taxon_lsid, year, month, day, currentLine(6), currentLine(7),
           currentLine(8), currentLine(9), currentLine(10), currentLine(11), rawName, collector, oldStatus, oldDuplicateOf)
-      }
-      else {
+      } else {
         DuplicationDetection.logger.warn("lsid " + lsid + " line " + counter + " has incorrect column number: " + currentLine.size)
       }
       currentLine = reader.readNext
@@ -565,14 +517,9 @@ class DuplicationDetection {
 
     duplicateWriter.flush
     duplicateWriter.close
-    //    //index the tool records
-    //    IndexRecords.indexList(new File(dupFilename))
-    //remove the directory that we used
-    //    if(cleanup)
-    //      FileUtils.deleteDirectory(dirFile)
   }
 
-  /*
+  /**
    * Changes the stored values for the "old" duplicates that are no longer considered duplicates
    */
   def revertNonDuplicateRecords(oldDuplicates: Set[String], oldDupMap: Map[String, String], currentDuplicates: Set[String], write: FileWriter, oldWriter: FileWriter) {
@@ -588,7 +535,9 @@ class DuplicationDetection {
     })
   }
 
-  //gets a list of current duplicates so that records no longer considered a tool can be reset
+  /**
+   * Gets a list of current duplicates so that records no longer considered a tool can be reset
+   */
   def getCurrentDuplicates(lsid: String): (Set[String], Map[String, String]) = {
     val startKey = lsid + "|"
     val endKey = lsid + "|~"
@@ -613,87 +562,6 @@ class DuplicationDetection {
 
     (buf.toSet, uuidMap.toMap[String, String])
   }
-
-  class GenericConsumer[T](q: BlockingQueue[T], id: Int, proc: (T, Int) => Unit) extends Thread {
-    var shouldStop = false
-
-    override def run() {
-      while (!shouldStop || q.size() > 0) {
-        try {
-          //wait 1 second before assuming that the queue is empty
-          val value = q.poll(1, java.util.concurrent.TimeUnit.SECONDS)
-          if (value != null) {
-            DuplicationDetection.logger.debug("Generic Consumer " + id + " is handling " + value)
-            proc(value, id)
-          }
-        }
-        catch {
-          case e: Exception => e.printStackTrace()
-        }
-      }
-      println("Stopping " + id)
-    }
-  }
-
-  //A generic threaded consumer that takes a string and calls the supplied proc
-  class StringConsumer(q: BlockingQueue[String], id: Int, proc: String => Unit) extends Thread {
-    var shouldStop = false;
-
-    override def run() {
-      while (!shouldStop || q.size() > 0) {
-        try {
-          //wait 1 second before assuming that the queue is empty
-          val guid = q.poll(1, java.util.concurrent.TimeUnit.SECONDS)
-          if (guid != null) {
-            DuplicationDetection.logger.debug("Guid Consumer " + id + " is handling " + guid)
-            proc(guid)
-          }
-        }
-        catch {
-          case e: Exception => e.printStackTrace()
-        }
-      }
-      println("Stopping " + id)
-    }
-  }
-
-  class CountAwareFacetConsumer(q: BlockingQueue[String], id: Int, proc: Array[String] => Unit, countSize: Int = 0, minSize: Int = 1) extends Thread {
-    var shouldStop = false
-
-    override def run() {
-      val buf = new ArrayBuffer[String]()
-      var counter = 0
-      var batchSize = 0
-      while (!shouldStop || q.size() > 0) {
-        try {
-          //wait 1 second before assuming that the queue is empty
-          val value = q.poll(1, java.util.concurrent.TimeUnit.SECONDS)
-          if (value != null) {
-            DuplicationDetection.logger.debug("Count Aware Consumer " + id + " is handling " + value)
-            val values = value.split("\t")
-            val count = Integer.parseInt(values(1))
-            if (count >= minSize) {
-              counter += count
-              batchSize += 1
-              buf += values(0)
-              if (counter >= countSize || batchSize == 200) {
-                val array = buf.toArray
-                buf.clear()
-                counter = 0
-                batchSize = 0
-                proc(array)
-              }
-            }
-          }
-        }
-        catch {
-          case e: Exception => e.printStackTrace()
-        }
-      }
-      println("Stopping " + id)
-    }
-  }
-
 
   //Each year is handled separately so they can be processed in a threaded manner
   class YearGroupDetection(year: String, records: List[DuplicateRecordDetails], duplicateWriter: FileWriter, passedWriter: FileWriter) extends Runnable {

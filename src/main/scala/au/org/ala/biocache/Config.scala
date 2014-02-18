@@ -13,7 +13,8 @@ import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import au.org.ala.biocache.persistence.{PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
 
 /**
- * Simple singleton wrapper for Guice.
+ * Simple singleton wrapper for Guice that reads from a properties file
+ * and initialises the biocache.
  */
 object Config {
 
@@ -22,20 +23,25 @@ object Config {
   var inj:Injector = Guice.createInjector(configModule)
   def getInstance(classs:Class[_]) = inj.getInstance(classs)
 
+  //persistence
+  def persistenceManager = getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
+
+  //daos
   def occurrenceDAO = getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
   def outlierStatsDAO = getInstance(classOf[OutlierStatsDAO]).asInstanceOf[OutlierStatsDAO]
   def deletedRecordDAO = getInstance(classOf[DeletedRecordDAO]).asInstanceOf[DeletedRecordDAO]
   def duplicateDAO = getInstance(classOf[DuplicateDAO]).asInstanceOf[DuplicateDAO]
   def validationRuleDAO = getInstance(classOf[ValidationRuleDAO]).asInstanceOf[ValidationRuleDAO]
-  def persistenceManager = getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
-  def nameIndex = getInstance(classOf[CBIndexSearch]).asInstanceOf[CBIndexSearch]
   def indexDAO = getInstance(classOf[IndexDAO]).asInstanceOf[IndexDAO]
 
+  //name index
+  def nameIndex = getInstance(classOf[CBIndexSearch]).asInstanceOf[CBIndexSearch]
+
+  //load sensitive data service
   lazy val sdsFinder = {
     val sdsUrl = configModule.properties.getProperty("sds.url","http://sds.ala.org.au/sensitive-species-data.xml")
     SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl, nameIndex)
   }
-  lazy val listToolUrl = configModule.properties.getProperty("list.tool.url","http://lists.ala.org.au/ws")
 
   val allowLayerLookup = {
     val str = configModule.properties.getProperty("allow.layer.lookup")
@@ -52,15 +58,11 @@ object Config {
 
   val mediaFileStore = configModule.properties.getProperty("media.dir","/data/biocache-media/")
 
-  lazy val excludeSensitiveValuesFor = configModule.properties.getProperty("exclude.sensitive.values","")
-  //NQ 2013-12-16: Can't use http://collections.ala.org.au/ws because the collection/institution code lookup does NOT include the ws suffix
-  lazy val registryURL = configModule.properties.getProperty("registry.url","http://collections.ala.org.au/ws")
+  val excludeSensitiveValuesFor = configModule.properties.getProperty("exclude.sensitive.values","")
 
-  lazy val biocacheServiceURL = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
+  val allowCollectoryUpdates = configModule.properties.getProperty("allow.registry.updates","false")
 
-  lazy val allowCollectoryUpdates = configModule.properties.getProperty("allow.registry.updates","false")
-
-  lazy val extraMiscFields = configModule.properties.getProperty("extra.misc.fields","")
+  val extraMiscFields = configModule.properties.getProperty("extra.misc.fields","")
 
   lazy val fieldsToSample = {
     val str = configModule.properties.getProperty("sample.fields")
@@ -92,12 +94,21 @@ object Config {
     }
   }
 
+  val listToolUrl = configModule.properties.getProperty("list.tool.url","http://lists.ala.org.au/ws")
+
+  val registryUrl = configModule.properties.getProperty("registry.url","http://collections.ala.org.au/ws")
+
   lazy val flickrUsersUrl = configModule.properties.getProperty("flickr.users.url", "http://auth.ala.org.au/userdetails/external/flickr")
+
   lazy val reindexUrl = configModule.properties.getProperty("reindex.url")
+
   lazy val reindexData = configModule.properties.getProperty("reindex.data")
+
   lazy val reindexViewDataResourceUrl = configModule.properties.getProperty("reindex.data.resource.url")
+
   lazy val layersServiceUrl = configModule.properties.getProperty("layers.service.url")
-  lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root")
+
+  lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
 
   def getProperty(prop:String) = configModule.properties.getProperty(prop)
 
@@ -112,6 +123,7 @@ class ConfigModule extends AbstractModule {
   protected val logger = LoggerFactory.getLogger("ConfigModule")
 
   val properties = {
+
     val properties = new Properties()
     //NC 2013-08-16: Supply the properties file as a system property via -Dbiocache.config=<file>
     //or the default /data/biocache/config/biocache-config.properties file is used.

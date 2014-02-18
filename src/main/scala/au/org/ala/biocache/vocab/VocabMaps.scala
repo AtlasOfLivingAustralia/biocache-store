@@ -3,7 +3,7 @@ package au.org.ala.biocache.vocab
 import scala.collection.JavaConversions
 
 /**
- * A vacabulary mapping trait. Supports tests for compatible terms.
+ * A vocabulary mapping trait. Supports tests for compatible terms.
  */
 trait VocabMaps {
 

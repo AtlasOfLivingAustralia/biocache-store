@@ -1,8 +1,5 @@
 package au.org.ala.biocache.vocab
 
-/**
- * Created by mar759 on 18/02/2014.
- */
 trait ValueMap {
 
   var map:Map[String,String] = _

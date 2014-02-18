@@ -33,6 +33,7 @@ import au.org.ala.biocache.model.QualityAssertion
  * To change this template use File | Settings | File Templates.
  */
 object ExpertDistributionOutlierTool {
+
   val DISTRIBUTIONS_URL = Config.layersServiceUrl + "/distributions"
   val DISTRIBUTION_DETAILS_URL_TEMPLATE = Config.layersServiceUrl + "/distribution/lsid/{0}"
   val DISTANCE_URL_TEMPLATE = Config.layersServiceUrl + "/distribution/outliers/{0}"
@@ -56,13 +57,14 @@ object ExpertDistributionOutlierTool {
   val RECORDS_PAGE_SIZE = 5000
 
   def main(args: Array[String]) {
-    val tool = new ExpertDistributionOutlierTool();
+
+    val tool = new ExpertDistributionOutlierTool
     var speciesLsid: String = null
     var numThreads = 1
-    var passThreads=16
-    var test=false
-    var dir:Option[String] =None
-    var lastModifiedDate:Option[String]=None
+    var passThreads = 16
+    var test = false
+    var dir:Option[String] = None
+    var lastModifiedDate:Option[String] = None
 
     val parser = new OptionParser("Find expert distribution outliers") {
       opt("l", "specieslsid", "Species LSID. If supplied, outlier detection is only performed for occurrences of the species with the supplied taxon concept LSID ", {
@@ -90,7 +92,9 @@ object ExpertDistributionOutlierTool {
 }
 
 class ExpertDistributionOutlierTool {
+
   val logger = LoggerFactory.getLogger("ExpertDistributionOutlierTool")
+
   /**
    * Entry point for the tool. Find distribution outliers for all records, or for a single species identified by its LSID
    * @param speciesLsid If supplied, restrict identification of outliers to occurrence records associated by a single species, as identified by its LSID.
@@ -172,39 +176,41 @@ class ExpertDistributionOutlierTool {
   /**
    * @return The list of taxon concept LSIDS for which an expert distribution has been loaded into the ALA
    */
-  def getExpertDistributionLsids(): ListBuffer[String] = {
-      logger.info("Starting to get the expert distribution LSIDS")
-        val httpClient = new HttpClient()
-        val get = new GetMethod(ExpertDistributionOutlierTool.DISTRIBUTIONS_URL)
-        try {
-          val responseCode = httpClient.executeMethod(get)
-          if (responseCode == 200) {
-            val dataJSON = get.getResponseBodyAsString();
-            val mapper = new ObjectMapper();
-            val listClass = classOf[java.util.List[java.util.Map[String, String]]]
-            val distributionList = mapper.readValue(dataJSON, listClass)
+  def getExpertDistributionLsids : ListBuffer[String] = {
+    logger.info("Starting to get the expert distribution LSIDS")
+    val httpClient = new HttpClient()
+    val get = new GetMethod(ExpertDistributionOutlierTool.DISTRIBUTIONS_URL)
+    try {
+      val responseCode = httpClient.executeMethod(get)
+      if (responseCode == 200) {
+        val dataJSON = get.getResponseBodyAsString()
+        val mapper = new ObjectMapper()
+        val listClass = classOf[java.util.List[java.util.Map[String, String]]]
+        val distributionList = mapper.readValue(dataJSON, listClass)
 
-            val retBuffer = new ListBuffer[String]()
-            for (m <- distributionList.toArray) {
-              val lsid = m.asInstanceOf[java.util.Map[String, String]].get("lsid")
-              // Ignore any expert distributions for which we do not have an associated LSID.
-              if (lsid != null) {
-                retBuffer += lsid
-              }
-            }
-            logger.info("Finished getting the expert distributions: " + retBuffer.size)
-            retBuffer
-          } else {
-            throw new Exception("getExpertDistributionLsids Request failed (" + responseCode + ")")
+        val retBuffer = new ListBuffer[String]()
+        for (m <- distributionList.toArray) {
+          val lsid = m.asInstanceOf[java.util.Map[String, String]].get("lsid")
+          // Ignore any expert distributions for which we do not have an associated LSID.
+          if (lsid != null) {
+            retBuffer += lsid
           }
-        } finally {
-          get.releaseConnection()
         }
+        logger.info("Finished getting the expert distributions: " + retBuffer.size)
+        retBuffer
+      } else {
+        throw new Exception("getExpertDistributionLsids Request failed (" + responseCode + ")")
+      }
+    } finally {
+      get.releaseConnection()
+    }
   }
 }
 
 class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, qaPasser:QaPasser, directory:Option[String], distributionLsids:List[String], lastModifiedDate:Option[String]) extends Actor {
+
   val logger = LoggerFactory.getLogger("ExpertDistributionOutlierTool")
+
   def act() {
     logger.info("Worker(" + id + ") started")
     if(directory.isEmpty){
@@ -226,7 +232,6 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
               dispatcher !("PROCESSED", speciesLsid, rowKeysForIndexing, self)
             } catch {
               case ex: Exception => {
-
                 logger.error("Worker(" + id + ") experienced error finding distribution outliers for " + speciesLsid, ex)
                 dispatcher !("ERROR", speciesLsid, self)
               }
@@ -237,7 +242,7 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
           }
         }
       }
-    } else{
+    } else {
       //we will take out file and try to locate lsids to test
       handleFile(directory.get + File.separator + id + File.separator+"species.out",2,test)
       handleFile(directory.get + File.separator + id + File.separator+"subspecies.out",3,test)
@@ -255,7 +260,9 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
    * @param test Whether or not to perform a test load
    */
   def handleFile(fileName:String, guidIdx:Int, test:Boolean){
+
     logger.info("Starting to handle file: " + fileName)
+
     val uuidIdx = 1
     val rowIdx = 0
     val latIdx = 17
@@ -269,15 +276,16 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
     val map = scala.collection.mutable.Map[String, Map[String, Object]]()
     while (currentLine != null) {
       if (currentLsid != currentLine(guidIdx)){
-        if(map.size>0){
+        if(!map.isEmpty){
           val rowKeysForIndexing = findOutliersForLsid(currentLsid, test,Some(map))
           dispatcher !("PROCESSED", currentLsid, rowKeysForIndexing, self)
           map.clear()
         }
-          currentLsid = currentLine(guidIdx)
-          isValid = distributionLsids.contains(currentLsid)
-          logger.info("will gather all records for " + currentLsid + " " + isValid)
+        currentLsid = currentLine(guidIdx)
+        isValid = distributionLsids.contains(currentLsid)
+        logger.info("will gather all records for " + currentLsid + " " + isValid)
       }
+
       if(isValid){
         //add it to the map
         val uncertainty = StringUtils.trimToNull(currentLine(coorIdx))
@@ -287,12 +295,11 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
       currentLine = reader.readNext
     }
 
-    if (map.size>0){
+    if (!map.isEmpty){
       val rowKeysForIndexing = findOutliersForLsid(currentLsid, test,Some(map))
       dispatcher !("PROCESSED", currentLsid, rowKeysForIndexing, self)
     }
     logger.info("Finished handling file " + fileName)
-
   }
 
   /**
@@ -311,9 +318,8 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
     // Some distributions have an extremely large number of records associated with them. Handle the records one "page" at a time.
     logger.info("Get records for " + lsid)
     var recordsMap = if(occPoints.isDefined) occPoints.get else getRecordsOutsideDistribution(lsid, wkt)
+
     logger.info("Finished getting records fo " + lsid)
-
-
 
     logger.info(recordsMap.size + " records for " + lsid)
 
@@ -322,20 +328,19 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
 
       //maximum of 1000 points to be tested at once.
       val limitedMaps = coords.grouped(1000)//recordsMap.grouped(500)
-      var ids =0
+      var ids = 0
       var outlierDistances: scala.collection.mutable.Map[String, Double] =scala.collection.mutable.Map[String, Double]()
       val queue = new ArrayBlockingQueue[scala.collection.mutable.Map[String, Map[String, Object]]](100)
       val pool:Array[GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]]] = Array.fill(10){
-          val thread = new GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]](queue, ids, (value,id)=>{
-            logger.info("Starting to retrieve outlier distances for " + lsid + " on thread " + id + " for " + value.size + " points")
-            val outlierRecordDistances = getOutlierRecordDistances(lsid, value, wkt)
-            outlierDistances.synchronized{
-              outlierDistances ++= outlierRecordDistances
-              //logger.info(outlierDistances.toString)
-            }
-            logger.info("Finished getting the distances for " + lsid + " on thread " + id)
-
-          })
+        val thread = new GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]](queue, ids, (value,id)=>{
+          logger.info("Starting to retrieve outlier distances for " + lsid + " on thread " + id + " for " + value.size + " points")
+          val outlierRecordDistances = getOutlierRecordDistances(lsid, value, wkt)
+          outlierDistances.synchronized{
+            outlierDistances ++= outlierRecordDistances
+            //logger.info(outlierDistances.toString)
+          }
+          logger.info("Finished getting the distances for " + lsid + " on thread " + id)
+        })
         thread.start()
         ids+=1
         thread
@@ -428,49 +433,6 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
       org.geotools.geometry.jts.JTS.orthodromicDistance(points(0), points(1),org.geotools.referencing.crs.DefaultGeographicCRS.WGS84)
     })
     scala.collection.mutable.Map[String,Double]() ++ newMap.filter(_._2 >0)
-  }
-
-  /**
-   * For a series of occurrence records associated with a single taxon concept lsid, find which records are outside the expert distribution associated with
-   * the taxon concept lsid, and how far outside the expert distribution the outliers occur.
-   * @param lsid the taxon concept LSID
-   * @param recordsMap the occurrence records data
-   * @return A map of outlier record uid to distance outside the expert distribution
-   * @deprecated Due to inefficiencies with this method
-   */
-  def getOutlierRecordDistancesOld(lsid: String, recordsMap: scala.collection.mutable.Map[String, Map[String, Object]]): scala.collection.mutable.Map[String, Double] = {
-
-    val mapper = new ObjectMapper
-    val recordsMapWithoutRowKeys = new java.util.HashMap[String, java.util.Map[String, Object]]()
-    for ((k, v) <- recordsMap) {
-      recordsMapWithoutRowKeys.put(k, ((v - "rowKey") - "coordinateUncertaintyInMeters"))
-    }
-
-    val recordsMapWithoutRowKeysJSON = mapper.writeValueAsString(recordsMapWithoutRowKeys)
-
-    val httpClient = new HttpClient()
-
-    val url = MessageFormat.format(ExpertDistributionOutlierTool.DISTANCE_URL_TEMPLATE, lsid)
-    val post = new PostMethod(url)
-    post.addParameter("pointsJson", recordsMapWithoutRowKeysJSON)
-    try {
-      val responseCode = httpClient.executeMethod(post)
-      if (responseCode == 200) {
-        val dataJSON = post.getResponseBodyAsString();
-        val mapper = new ObjectMapper();
-        val mapClass = classOf[java.util.Map[String, Double]]
-        val distancesMapJava = mapper.readValue(dataJSON, mapClass)
-        val distancesMap: scala.collection.mutable.Map[String, Double] = distancesMapJava
-
-        distancesMap
-      } else {
-        logger.error(post.getResponseBodyAsString())
-        logger.error(post.getResponseHeaders.toString())
-        throw new Exception("getOutlierRecordDistances Request failed (" + responseCode + ")")
-      }
-    } finally {
-      post.releaseConnection()
-    }
   }
 
   /**
@@ -570,73 +532,6 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
     }
     rowKeysForIndexing
   }
-  /**
-   * Mark outlier records as outliers in the biocache. Note that a record is not considered an outlier if its distance outside the expert distribution is less than
-   * the record's coordinate uncertainty in metres.
-   * @param lsid The taxon concept lsid associated with the occurrence records and expert distribution
-   * @param outlierDistances A map of outlier record uid to distance outside the expert distribution
-   * @param recordsMap the occurrence records data
-   * @deprecated this method relies on each occurrence record being tested as an outlier instead of consolidating it to unique points.
-   */
-  def markOutlierOccurrencesOld(lsid: String, outlierDistances: scala.collection.mutable.Map[String, Double], recordsMap: scala.collection.mutable.Map[String, Map[String, Object]], test:Boolean): ListBuffer[String] = {
-
-    val newOutlierRowKeys = new ListBuffer[String]()
-    val rowKeysForIndexing = new ListBuffer[String]
-
-    // Mark records as outliers
-    for ((uuid, distance) <- outlierDistances) {
-
-      //Round distance from distribution to nearest metre. Any occurrences outside the distribution by less than a metre are not considered outliers.
-      val roundedDistance = scala.math.round(distance)
-
-      if (roundedDistance > 0) {
-        var coordinateUncertaintyInMeters: Double = 0;
-        if (recordsMap(uuid)("coordinateUncertaintyInMeters") != null) {
-          coordinateUncertaintyInMeters = recordsMap(uuid)("coordinateUncertaintyInMeters").asInstanceOf[java.lang.Double]
-        }
-
-        // The occurrence is only considered an outlier if its distance from the distribution is greater than its coordinate uncertainty
-        if ((roundedDistance - coordinateUncertaintyInMeters) > ExpertDistributionOutlierTool.OUTLIER_THRESHOLD) {
-
-          val rowKey = recordsMap(uuid)("rowKey").asInstanceOf[String]
-
-          logger.info("Outlier: " + uuid + "(" + rowKey + ") " + roundedDistance + " metres")
-          if(!test){
-            // Add data quality assertion
-            Config.occurrenceDAO.addSystemAssertion(rowKey, QualityAssertion(AssertionCodes.SPECIES_OUTSIDE_EXPERT_RANGE, roundedDistance + " metres outside of expert distribution range"))
-
-            // Record distance against record
-            Config.persistenceManager.put(rowKey, "occ", Map("distanceOutsideExpertRange.p" -> roundedDistance.toString()))
-          }
-
-          newOutlierRowKeys += rowKey
-        }
-      }
-    }
-
-    rowKeysForIndexing ++= newOutlierRowKeys
-
-    // Remove outlier information from any records that are no longer outliers
-    val oldRowKeysJson: String = Config.persistenceManager.get(lsid, "distribution_outliers", ExpertDistributionOutlierTool.DISTRIBUTION_OUTLIERS_COLUMN_FAMILY_KEY).getOrElse(null)
-    if (oldRowKeysJson != null) {
-      val oldRowKeys = Json.toList(oldRowKeysJson, classOf[String].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[List[String]]
-
-      val noLongerOutlierRowKeys = oldRowKeys diff newOutlierRowKeys
-
-      for (rowKey <- noLongerOutlierRowKeys) {
-        logger.warn(rowKey + " is no longer an outlier")
-        Config.persistenceManager.deleteColumns(rowKey, "occ", "distanceOutsideExpertRange.p")
-        Config.occurrenceDAO.removeSystemAssertion(rowKey, AssertionCodes.SPECIES_OUTSIDE_EXPERT_RANGE)
-        rowKeysForIndexing += rowKey
-      }
-    }
-
-    // Store row keys for the LSID in the distribution_outliers column family
-    val newRowKeysJson = Json.toJSON(newOutlierRowKeys.toList)
-    Config.persistenceManager.put(lsid, "distribution_outliers", ExpertDistributionOutlierTool.DISTRIBUTION_OUTLIERS_COLUMN_FAMILY_KEY, newRowKeysJson)
-
-    rowKeysForIndexing
-  }
 
   /**
    * Retrieves the expert distribution and bounding box for the supplied lsid.
@@ -665,7 +560,4 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
       get.releaseConnection()
     }
   }
-
 }
-
-

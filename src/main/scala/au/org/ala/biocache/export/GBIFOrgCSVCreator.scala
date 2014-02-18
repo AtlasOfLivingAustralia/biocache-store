@@ -105,7 +105,7 @@ class GBIFOrgCSVCreator {
     }
 
     def getDataResourceUids : Seq[String] = {
-      val url = Config.biocacheServiceURL + "/occurrences/search?q=*:*&facets=data_resource_uid&pageSize=0&flimit=10000"
+      val url = Config.biocacheServiceUrl + "/occurrences/search?q=*:*&facets=data_resource_uid&pageSize=0&flimit=10000"
       val jsonString = Source.fromURL(url).getLines.mkString
       val json = JSON.parseFull(jsonString).get.asInstanceOf[Map[String, String]]
       val results = json.get("facetResults").get.asInstanceOf[List[Map[String, String]]].head.get("fieldResult").get.asInstanceOf[List[Map[String, String]]]
