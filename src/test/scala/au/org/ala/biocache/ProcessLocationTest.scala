@@ -25,7 +25,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     raw.location.stateProvince = "NSW"
     raw.location.locality = "My test locality"
     (new LocationProcessor).process("test", raw, processed)
-    println(processed.toMap)
+//    println(processed.toMap)
     expectResult(true) {
       processed.occurrence.dataGeneralizations.length() > 0
     }
@@ -130,8 +130,8 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     raw.location.decimalLongitude = "144.81060"
     raw.location.coordinatePrecision = "100.66";
     val qas = (new LocationProcessor).process("test", raw, processed)
-    println(processed.location.coordinateUncertaintyInMeters)
-    println(qas(0))
+//    println(processed.location.coordinateUncertaintyInMeters)
+//    println(qas(0))
     expectResult(true) {
      qas.find(_.code == 25) != None
       //qas(0).code
@@ -148,7 +148,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     raw.location.decimalLongitude = "144.81060"
     raw.location.coordinateUncertaintyInMeters = "100 meters";
     val qas = (new LocationProcessor).process("test", raw, processed)
-    println(processed.location.coordinateUncertaintyInMeters)
+//    println(processed.location.coordinateUncertaintyInMeters)
     expectResult(1) {
       qas.find(_.code == 27).get.qaStatus
     }
