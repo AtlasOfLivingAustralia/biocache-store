@@ -1,7 +1,7 @@
 package au.org.ala.biocache.model
 
 /**
- * Created by mar759 on 17/02/2014.
+ * POSO representing a measurement unit
  */
 abstract sealed class MeasurementUnit
 

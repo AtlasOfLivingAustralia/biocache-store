@@ -7,7 +7,7 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.{Processed, Versions}
 
 /**
- * Utility for processing a single record.
+ * Utility for processing a single record. Useful for testing purposes.
  */
 object ProcessSingleRecord {
   val logger = LoggerFactory.getLogger("ProcessSingleRecord")

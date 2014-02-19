@@ -5,24 +5,29 @@ import au.org.ala.biocache.util._
 import scala.Some
 
 /**
- * Created by mar759 on 17/02/2014.
+ * Utility to delete records.
  */
 object DeleteRecords {
 
   val occurrenceDAO = Config.occurrenceDAO
   val persistenceManager = Config.persistenceManager
 
-  def main(args: Array[String]){
+  def main(args: Array[String]) {
 
-    var query:Option[String]=None
-    var dr:Option[String]=None
-    var file:Option[String]=None
+    var query: Option[String] = None
+    var dr: Option[String] = None
+    var file: Option[String] = None
     val parser = new OptionParser("delete records options") {
-      opt("q", "query", "The query to run to obtain the records for deletion e.g. 'year:[2001 TO *]' or 'taxon_name:Macropus'",
-          { v:String => query = Some(v) }
+      opt("q", "query", "The query to run to obtain the records for deletion e.g. 'year:[2001 TO *]' or 'taxon_name:Macropus'", {
+        v: String => query = Some(v)
+      }
       )
-      opt("dr", "resource", "The data resource to process", {v:String => dr = Some(v)})
-      opt("f","file","The file of row keys to delete", {v:String => file = Some(v)})
+      opt("dr", "resource", "The data resource to process", {
+        v: String => dr = Some(v)
+      })
+      opt("f", "file", "The file of row keys to delete", {
+        v: String => file = Some(v)
+      })
     }
     if (parser.parse(args)) {
       val deletor: Option[RecordDeletor] = {

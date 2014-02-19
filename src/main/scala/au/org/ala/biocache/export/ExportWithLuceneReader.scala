@@ -11,12 +11,10 @@ object ExportForOutliers {
 
     var indexDirectory = ""    
     var exportDirectory = ""
-    var separator = '\t'
-    
+
     val parser = new OptionParser("Test for outliers") {
-      arg("indexDirectory", "The Lucene/SOLR index to export from e.g. /data/solr/bio-proto/data/index", {v:String => indexDirectory = v})
+      arg("indexDirectory", "The Lucene/SOLR index to export from e.g. /data/solr/biocache/data/index", {v:String => indexDirectory = v})
       arg("exportDirectory", "The directory to export to", {v:String => exportDirectory = v})
-      //opt("s", "separator", "Field separator character e.g. '\t' or ','", {v:String => separator = v })
     }
     if(parser.parse(args)){    
     	runExtract(indexDirectory,exportDirectory)
@@ -86,7 +84,6 @@ object ExportForOutliers {
   }
 }
 
-
 object ExportSpecies {
 
   def main(args:Array[String]){
@@ -94,7 +91,7 @@ object ExportSpecies {
     val indexReader = IndexReader.open(FSDirectory.open(new File(args.head)))
     var counter = 0
     val maxDocId = indexReader.maxDoc()
-    var separator:Char = '\t'
+    val separator = '\t'
 
     while(counter < maxDocId){
       val doc = indexReader.document(counter)
@@ -131,7 +128,7 @@ object ExportSubspecies {
     val indexReader = IndexReader.open(FSDirectory.open(new File(args.head)))
     var counter = 0
     val maxDocId = indexReader.maxDoc()
-    var separator:Char = '\t'
+    val separator = '\t'
 
     while(counter < maxDocId){
       val doc = indexReader.document(counter)

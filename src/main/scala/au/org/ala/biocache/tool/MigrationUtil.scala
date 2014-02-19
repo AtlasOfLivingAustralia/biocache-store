@@ -3,6 +3,9 @@ package au.org.ala.biocache.tool
 import au.org.ala.biocache.persistence.CassandraPersistenceManager
 import au.org.ala.biocache.util.OptionParser
 
+/**
+ * Data migration util between two cassandra instances.
+ */
 object MigrationUtil {
 
   val elPattern = """el[0-9]{1,}\.p""".r

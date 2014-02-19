@@ -20,16 +20,19 @@ import au.org.ala.biocache.vocab.AssertionCodes
 import org.apache.commons.lang3.time.DateUtils
 
 /**
- *
  * Duplication detection is only possible if latitude and longitude are provided.
- * Step 1
+ *
+ * Step 1:
  * a) Get a distinct  list of species lsids that have been matched
  * b) Get a distinct list of subspecies lsids (without species lsisds) that have been matched
+ *
  * Step 2
  * a) Break down all the records into groups based on the occurrence year - all null year (thus date) records will be handled together.
+ *
  * Step 3
  * a) within the year groupings break down into groups based on months - all nulls will be placed together
  * b) within month groupings break down into groups based on event date - all nulls will be placed together
+ *
  * Step 4
  * a) With the smallest grained group from Step 3 group all the similar "collectors" together null or unknown collectors will be handled together
  * b) With the collector groups determine which of the
@@ -496,6 +499,7 @@ class DuplicationDetection {
       }
       currentLine = reader.readNext
     }
+
     DuplicationDetection.logger.info("Read in " + counter + " records for " + lsid)
     //at this point we have all the records for a species that should be considered for duplication
     val allRecords = buff.toList
@@ -595,19 +599,14 @@ class DuplicationDetection {
                 if (dayList.size > 1) {
                   //need to check for duplicates
                   buffGroups ++= checkDuplicates(dayList)
-                }
-                else {
+                } else {
                   buffGroups += dayList.head
                 }
-                //}
               }
-
             }
-          }
-          else {
+          } else {
             buffGroups += monthList.head
           }
-          //}
         }
       }
       DuplicationDetection.logger.debug("Number of distinct records for year " + year + " is " + buffGroups.size)
@@ -720,9 +719,6 @@ class DuplicationDetection {
       recordGroup.foreach(otherRecord => {
         if (otherRecord.duplicateOf == null && record.rowKey != otherRecord.rowKey) {
           val otherpoints = Array(otherRecord.point1, otherRecord.point0_1, otherRecord.point0_01, otherRecord.point0_001, otherRecord.point0_0001, otherRecord.latLong)
-          //          val spatial =  isSpatialDuplicate(points,otherpoints)
-          //          if(spatial)
-          //              println("Testing " + record.rowKey + " against " + otherRecord.rowKey + " " +  isSpatialDuplicate(points,otherpoints) +" "+points.toList + " " + otherpoints.toList)
           if (isSpatialDuplicate(points, otherpoints) && isCollectorDuplicate(record, otherRecord)) {
             otherRecord.duplicateOf = record.rowKey
             record.addDuplicate(otherRecord)
@@ -742,32 +738,30 @@ class DuplicationDetection {
         if (isEmptyUnknownCollector(r2.collector))
           r2.addDupType(DuplicationTypes.MISSING_COLLECTOR)
         true
-      }
-      else {
+      } else {
         val (col1, col2) = prepareCollectorsForLevenshtein(r1.collector, r2.collector)
         val distance = StringUtils.getLevenshteinDistance(col1, col2)
         //allow 3 differences in the collector name
         if (distance <= 3) {
-
           //println("DISTANCE: " + distance)
           if (distance > 0) {
             //println("COL1: " + collector1 + " COL2: " + collector2)
             r2.addDupType(DuplicationTypes.FUZZY_COLLECTOR)
-          }
-          else
+          } else {
             r2.addDupType(DuplicationTypes.EXACT_COLLECTOR)
+          }
           true
-        }
-        else
+        } else {
           false
+        }
       }
     }
 
     def prepareCollectorsForLevenshtein(c1: String, c2: String): (String, String) = {
       //remove all the non alphanumeric characters
-      var c11 = alphaNumericPattern.replaceAllIn(c1, "")
-      var c21 = alphaNumericPattern.replaceAllIn(c2, "")
-      var length = if (c11.size > c21.size) c21.size else c11.size
+      val c11 = alphaNumericPattern.replaceAllIn(c1, "")
+      val c21 = alphaNumericPattern.replaceAllIn(c2, "")
+      val length = if (c11.size > c21.size) c21.size else c11.size
       (c11.substring(0, length), c21.substring(0, length))
     }
 
@@ -783,18 +777,16 @@ class DuplicationDetection {
                 //indicates that we have a precision difference
                 if (points(i) == points(i + 1) || pointsb(i) == points(i + 1))
                   return true
-              }
-              else
+              } else {
                 return true
+              }
             }
             //now check if we have a rounding error by look at the subsequent coordinates...
             return false
-          }
-          else {
+          } else {
             //at the largest granularity the coordinates are different
-            return false;
+            return false
           }
-
         }
       }
       true

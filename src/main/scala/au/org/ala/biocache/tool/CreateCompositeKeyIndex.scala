@@ -8,6 +8,7 @@ import scala.collection.mutable.ListBuffer
 
 /**
  * Cassandra specific tool for creating a composite key.
+ * @Deprecated Cassandra specific
  */
 class CreateCompositeKeyIndex {
 
@@ -16,7 +17,6 @@ class CreateCompositeKeyIndex {
                log:Boolean = false){
 
       val fieldsToRequest = keyOn ++ propertiesToStore
-
       val pm:CassandraPersistenceManager = Config.persistenceManager.asInstanceOf[CassandraPersistenceManager]
       val columnFamilyManager = Pelops.createColumnFamilyManager(pm.cluster, keyspace)
 

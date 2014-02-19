@@ -7,12 +7,13 @@ import au.org.ala.biocache.Config
  * Created by mar759 on 17/02/2014.
  */
 class DeletedRecordDAOImpl extends DeletedRecordDAO {
+
   /**
    * returns all the uuids that have been deleted since startDate inclusive.
    */
-  override def getUuidsForDeletedRecords(startDate:String) : Array[String] ={
+  def getUuidsForDeletedRecords(startDate:String) : Array[String] = {
     val recordBuffer = new ArrayBuffer[String]
-    Config.persistenceManager.pageOverColumnRange("dellog",(rowKey,map)=>{
+    Config.persistenceManager.pageOverColumnRange("dellog",(rowKey,map) => {
       recordBuffer ++= map.values
       true
     },startDate,"",1000,"dr","dr~")

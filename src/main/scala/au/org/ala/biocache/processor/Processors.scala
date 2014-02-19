@@ -3,7 +3,7 @@ package au.org.ala.biocache.processor
 import au.org.ala.biocache.vocab.AssertionCodes
 
 /**
- * Singleton that maintains the workflow
+ * Singleton that maintains the workflow of processors
  */
 object Processors {
 

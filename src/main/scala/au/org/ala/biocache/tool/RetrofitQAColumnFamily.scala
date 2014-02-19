@@ -27,5 +27,4 @@ object RetrofitQAColumnFamily {
       true
     }, "", "", 1000, "uuid", "rowKey", "userQualityAssertion")
   }
-
 }

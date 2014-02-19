@@ -5,14 +5,12 @@ import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 import au.org.ala.biocache.vocab.AssertionCodes
 
 /**
- * Created by mar759 on 17/02/2014.
- */
-/*
-A processor to ensure that the offline test that were performed get recorded correctly
+ * A processor to ensure that the offline test that were performed get recorded correctly
  */
 class OfflineTestProcessor extends Processor {
 
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
+
      if(lastProcessed.isDefined){
        //get the current system assertions
        val currentProcessed = lastProcessed.get

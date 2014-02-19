@@ -60,8 +60,10 @@ object DwcCSVLoader {
   }
 }
 
+/**
+ * Class of loading a CSV with darwin core term headers.
+ */
 class DwcCSVLoader extends DataLoader {
-
 
   def loadLocalFile(dataResourceUid:String, filePath:String,logRowKeys:Boolean=false, testFile:Boolean=false){
     val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
@@ -115,8 +117,7 @@ class DwcCSVLoader extends DataLoader {
       else separatorString.toCharArray.head
     }
     val escape = params.getOrElse("csv_escape_char","|").head
-    val reader =  new CSVReader(new InputStreamReader(new org.apache.commons.io.input.BOMInputStream(new FileInputStream(file))), separator, quotechar, escape)
-
+    val reader = new CSVReader(new InputStreamReader(new org.apache.commons.io.input.BOMInputStream(new FileInputStream(file))), separator, quotechar, escape)
 
     logger.info("Using CSV reader with the following settings quotes: " + quotechar + " separator: " + separator + " escape: " + escape)
     //match the column headers to dwc terms
@@ -185,7 +186,7 @@ class DwcCSVLoader extends DataLoader {
           if(test){
             newInstCodes.add(map.getOrElse("institutionCode", "<NULL>"))
             newCollCodes.add(map.getOrElse("collectionCode", "<NULL>"))
-            val (uuid, isnew) =Config.occurrenceDAO.createOrRetrieveUuid(createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces))
+            val (uuid, isnew) = Config.occurrenceDAO.createOrRetrieveUuid(createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces))
             if(isnew)
               newCount +=1
           }

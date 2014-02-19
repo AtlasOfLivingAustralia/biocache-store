@@ -5,7 +5,7 @@ import scala.collection.immutable.Map
 import au.org.ala.biocache.util.Json
 
 /**
- * Created by mar759 on 18/02/2014.
+ * A POSO with nested POSOs
  */
 trait CompositePOSO extends POSO {
 

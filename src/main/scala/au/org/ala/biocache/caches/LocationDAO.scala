@@ -8,7 +8,7 @@ import au.org.ala.biocache.model.Location
 import au.org.ala.biocache.vocab.StateProvinces
 
 /**
- * DAO for location lookups.
+ * DAO for location lookups (lat, long -> locality).
  */
 object LocationDAO {
 

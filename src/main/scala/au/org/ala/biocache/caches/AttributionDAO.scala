@@ -14,9 +14,7 @@ import au.org.ala.biocache.util.Json
 import au.org.ala.biocache.vocab.DwC
 
 /**
- * A DAO for attribution data. The source of this data should be the collectory.
- *
- * There is probably only a couple of hundred
+ * A DAO for attribution data. The source of this data should be the registry.
  */
 object AttributionDAO {
 

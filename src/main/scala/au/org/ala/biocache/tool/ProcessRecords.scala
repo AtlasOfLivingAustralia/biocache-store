@@ -15,27 +15,37 @@ import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
 
 /**
- * 1. Classification matching
+ * Runnable for starting record processing.
+ *
+ * <ol>
+ * <li> Classification matching
  * 	- include a flag to indicate record hasnt been matched to NSLs
+ * </li>
  * 
- * 2. Parse locality information
+ * <li> Parse locality information
  * 	- "Vic" -> Victoria
+ * </li>
  * 
- * 3. Point matching
+ * <li> Point matching
  * 	- parse latitude/longitude
  * 	- retrieve associated point mapping
  * 	- check state supplied to state point lies in
  * 	- marine/non-marine/limnetic (need a webservice from BIE)
+ * </li>
  * 
- * 4. Type status normalization
+ * <li> Type status normalization
  * 	- use GBIF's vocabulary
+ * </li>
  * 
- * 5. Date parsing
+ * <li> Date parsing
  * 	- date validation
  * 	- support for date ranges
+ * </li>
  * 
- * 6. Collectory lookups for attribution chain
- * 
+ * <li> Collectory lookups for attribution chain </li>
+ *
+ * </ol>
+ *
  * Tests to conform to: http://bit.ly/eqSiFs
  */
 object ProcessRecords {

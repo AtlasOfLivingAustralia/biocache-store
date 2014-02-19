@@ -11,12 +11,17 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
 
+/**
+ * Companion object for the DwCACreator class.
+ */
 object DwCACreator {
+
+  val logger = LoggerFactory.getLogger("DwCACreator")
 
   def main(args: Array[String]): Unit = {
 
     var resourceUid = ""
-    var directory =""
+    var directory = ""
 
     val parser = new OptionParser("Create Darwin Core Archive") {
       arg("<data resource UID>", "The UID of the data resource to load or 'all' to generate for all", {v: String => resourceUid = v})
@@ -26,9 +31,9 @@ object DwCACreator {
       val dwcc = new DwCACreator
       if("all".equalsIgnoreCase(resourceUid)){
         try {
-        getDataResourceUids.foreach( dwcc.create(directory, _) )
+          getDataResourceUids.foreach( dwcc.create(directory, _) )
         } catch {
-          case e:Exception => e.printStackTrace()
+          case e:Exception => logger.error(e.getMessage(), e)
         }
       } else {
         dwcc.create(directory, resourceUid)
@@ -46,10 +51,14 @@ object DwCACreator {
 }
 
 /**
- * TODO support for dwc fields in collectory metadata. When not available use the default fields
+ * Class for creating a Darwin Core Archive from data in the biocache.
+ *
+ * TODO support for dwc fields in registry metadata. When not available use the default fields.
  */
 class DwCACreator {
-  val logger = LoggerFactory.getLogger("DataLoader")
+
+  val logger = LoggerFactory.getLogger("DwCACreator")
+
   val defaultFields = List("uuid", "catalogNumber", "collectionCode", "institutionCode", "scientificName", "recordedBy",
       "taxonRank", "kingdom", "phylum", "class", "order", "family", "genus", "specificEpithet", "infraspecificEpithet",
       "decimalLatitude", "decimalLongitude", "coordinatePrecision", "coordinateUncertaintyInMeters", "maximumElevationInMeters", "minimumElevationInMeters",
@@ -93,14 +102,14 @@ class DwCACreator {
   def addMeta(zop:ZipOutputStream) ={
     zop.putNextEntry(new ZipEntry("meta.xml"))
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-              <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
-              <files>
-                    <location>raw_occurrence_record.csv</location>
-              </files>
-                    <id index="0"/>
-                    {defaultFields.tail.map(f =>   <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
-              </core>
-              </archive>
+      <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
+      <files>
+            <location>raw_occurrence_record.csv</location>
+      </files>
+            <id index="0"/>
+            {defaultFields.tail.map(f =>   <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
+      </core>
+    </archive>
     //add the XML
     zop.write("""<?xml version="1.0"?>""".getBytes)
     zop.write("\n".getBytes)

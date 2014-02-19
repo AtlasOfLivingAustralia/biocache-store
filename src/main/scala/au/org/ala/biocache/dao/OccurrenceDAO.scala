@@ -6,7 +6,7 @@ import au.org.ala.biocache.model.{QualityAssertion, Version, FullRecord}
 import au.org.ala.biocache.vocab.ErrorCode
 
 /**
- * Created by mar759 on 17/02/2014.
+ * DAO for occurrences
  */
 trait OccurrenceDAO extends DAO {
 

@@ -3,8 +3,9 @@ package au.org.ala.biocache.util
 /**
  * Created by mar759 on 17/02/2014.
  */
-class ListDelete(rowKeys:List[String]) extends RecordDeletor{
-  override def deleteFromPersistent() ={
+class ListDelete(rowKeys:List[String]) extends RecordDeletor {
+
+  override def deleteFromPersistent() = {
     rowKeys.foreach(rowKey=>{
       //pm.delete(rowKey, "occ")
       //use the occ DAO to delete so that the record is added to the dellog cf

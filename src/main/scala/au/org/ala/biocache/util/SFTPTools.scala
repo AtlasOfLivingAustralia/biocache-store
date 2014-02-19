@@ -13,7 +13,9 @@ import java.util.Date
 import au.org.ala.biocache.Config
 
 object SFTPTools {
+
   import JavaConversions._
+
   val logger = LoggerFactory.getLogger("SFTPTools")
   //SFTP items
   val connectionPattern = """sftp://([a-zA-Z]*):([a-zA-Z]*)@([a-zA-z\.]*):([a-zA-Z/]*)""".r
@@ -27,10 +29,10 @@ object SFTPTools {
 
     val (user,password,host,directory) ={
       url match{
-      case connectionPattern(user, password, host, directory) =>{
+      case connectionPattern(user, password, host, directory) => {
         (user, password, host, directory)
       }
-      case sftpPattern(host,directory) =>{
+      case sftpPattern(host,directory) => {
         val u=Config.getProperty("uploadUser")
         val p =Config.getProperty("uploadPassword")
         if(StringUtils.isEmpty(u) || StringUtils.isEmpty(p))
@@ -93,7 +95,9 @@ object SFTPTools {
     vector.asInstanceOf[java.util.Vector[ChannelSftp#LsEntry]].toList.sorted(o.reverse)//.sort()
   }
 
-  //SCP the remote file from the supplied host into localFile
+  /**
+   * SCP the remote file from the supplied host into localFile
+   */
   def scpFile(host:String, user:String, password:String, remoteFile:String, localFile:File):Option[(String,Date)]= {
     if(StringUtils.isEmpty(user) || StringUtils.isEmpty(password))
       logger.error("SCP User or password has not been supplied. Please supply as part of the biocache.properties")

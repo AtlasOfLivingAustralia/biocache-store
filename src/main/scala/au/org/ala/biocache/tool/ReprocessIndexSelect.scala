@@ -7,7 +7,7 @@ import au.org.ala.biocache.index.{IndexRecords, IndexDAO}
 import au.org.ala.biocache.util.OptionParser
 
 /**
- * Reprocesses and Reindexes a select set of records.  The records will
+ * Reprocesses and reindexes a select set of records.  The records will
  * be obtained through a query to the index.
  */
 object ReprocessIndexSelect {

@@ -4,7 +4,7 @@ import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 import au.org.ala.biocache.vocab.{TypeStatus, AssertionCodes}
 
 /**
- * Created by mar759 on 17/02/2014.
+ * Process type status information
  */
 class TypeStatusProcessor extends Processor {
   /**

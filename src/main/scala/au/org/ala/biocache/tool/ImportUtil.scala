@@ -9,7 +9,9 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
 
 /**
- * Load a CSV file into the BioCache store
+ * Load a CSV file into the BioCache store.
+ *
+ * Note: This is only intended to be used for development purposes.
  */
 object ImportUtil {
 
@@ -35,7 +37,6 @@ object ImportUtil {
       opt("json","import the values as json",{json=true})
       intOpt("s", "skip-line", "number of lines to skip before importing", { v: Int => linesToSkip = v })
       intOpt("id", "id-column-idx", "id column index. indexed from 0", { v: Int => idColumnIdx = v })
-
     }
 
     if (parser.parse(args)) {

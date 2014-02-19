@@ -4,6 +4,9 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 import au.org.ala.biocache.vocab.{BasisOfRecord, AssertionCodes}
 
+/**
+ * A processor of basis of record information.
+ */
 class BasisOfRecordProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("BasisOfRecordProcessor")

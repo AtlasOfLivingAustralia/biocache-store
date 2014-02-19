@@ -10,14 +10,15 @@ import au.org.ala.biocache.parser.CollectorNameParser
 import au.org.ala.biocache.load.MediaStore
 
 /**
- * Created by mar759 on 17/02/2014.
+ * A processor of miscellaneous information.
  */
 class MiscellaneousProcessor extends Processor {
-  val LIST_DELIM = ";".r;
+
+  val LIST_DELIM = ";".r
   val interactionPattern = """([A-Za-z]*):([\x00-\x7F\s]*)""".r
 
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
-    var assertions = new ArrayBuffer[QualityAssertion]
+    val assertions = new ArrayBuffer[QualityAssertion]
     processImages(guid, raw, processed, assertions)
     processInteractions(guid, raw, processed)
     processEstablishmentMeans(raw, processed, assertions)

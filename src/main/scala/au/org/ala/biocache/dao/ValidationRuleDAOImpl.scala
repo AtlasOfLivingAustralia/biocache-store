@@ -11,6 +11,7 @@ import au.org.ala.biocache.persistence.PersistenceManager
 
 
 class ValidationRuleDAOImpl extends ValidationRuleDAO {
+
   import BiocacheConversions._
   @Inject
   var persistenceManager: PersistenceManager = _

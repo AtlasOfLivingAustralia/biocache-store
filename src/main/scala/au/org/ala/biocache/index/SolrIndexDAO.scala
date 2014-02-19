@@ -22,16 +22,21 @@ import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.{SpeciesGroups, ErrorCodeCategory, AssertionCodes}
 import au.org.ala.biocache.util.Json
 
-
 /**
  * DAO for indexing to SOLR
  */
-class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclude.sensitive.values") excludeSensitiveValuesFor: String, @Named("extra.misc.fields") defaultMiscFields: String) extends IndexDAO {
+class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
+                             @Named("exclude.sensitive.values") excludeSensitiveValuesFor: String,
+                             @Named("extra.misc.fields") defaultMiscFields: String) extends IndexDAO {
 
   import scala.collection.JavaConverters._
   import scala.collection.JavaConversions._
 
   override val logger = LoggerFactory.getLogger("SolrIndexDAO")
+
+  val nameRegex="""(?:name":")([a-zA-z0-9]*)""".r
+  val  codeRegex = """(?:code":)([0-9]*)""".r
+  val qaStatusRegex = """(?:qaStatus":)([0-9]*)""".r
 
   val arrDefaultMiscFields = if (defaultMiscFields == null) Array[String]() else defaultMiscFields.split(",")
   var cc: CoreContainer = _
@@ -158,7 +163,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
     var pageSize = 5000
     while (counter < fullResults) {
 
-      var q: SolrQuery = new SolrQuery(queryString)
+      val q = new SolrQuery(queryString)
       q.setFacet(false)
       q.setStart(counter)
       q.setFilterQueries(filterQueries: _*)
@@ -188,7 +193,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
     }
   }
 
-  def emptyIndex() {
+  def emptyIndex {
     init
     try {
       solrServer.deleteByQuery("*:*")
@@ -203,8 +208,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
       logger.debug("Deleting " + field +":" + value)
       solrServer.deleteByQuery(field + ":\"" + value + "\"")
       solrServer.commit
-    }
-    catch {
+    } catch {
       case e: Exception => logger.error("Problem removing from index...", e)
     }
   }
@@ -216,8 +220,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
       solrServer.deleteByQuery(query)
       if (commit)
         solrServer.commit
-    }
-    catch {
+    } catch {
       case e: Exception => e.printStackTrace
     }
   }
@@ -250,14 +253,13 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
   /**
    * Shutdown the index by stopping the indexing thread and shutting down the index core
    */
-  def shutdown() = {
-
+  def shutdown {
     //threads.foreach(t => t.stopRunning)
     if (cc != null)
       cc.shutdown
   }
 
-  def optimise(): String = {
+  def optimise : String = {
     init
     solrServer.optimize
     printNumDocumentsInIndex
@@ -282,8 +284,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
 
   val multifields = Array("duplicate_inst", "establishment_means", "species_group", "assertions", "data_hub_uid", "interactions", "outlier_layer",
     "species_habitats", "multimedia", "all_image_url", "collectors", "duplicate_record", "duplicate_type","taxonomic_issue")
-  val typeNotSuitableForModelling = Array("invalid", "historic", "vagrant", "irruptive")
 
+  val typeNotSuitableForModelling = Array("invalid", "historic", "vagrant", "irruptive")
 
   def extractPassAndFailed(json:String):(List[Int], List[(String,String)])={
     val codes = codeRegex.findAllMatchIn(json).map(_.group(1).toInt).toList
@@ -299,9 +301,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
 
     (codes, assertions)
   }
-  val nameRegex="""(?:name":")([a-zA-z0-9]*)""".r
-  val  codeRegex = """(?:code":)([0-9]*)""".r
-  val qaStatusRegex = """(?:qaStatus":)([0-9]*)""".r
+
   /**
    * A SOLR specific implementation of indexing from a map.
    */
@@ -342,14 +342,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
             miscIndexProperties.foreach(prop =>{
-              prop match{
-                case it if it.endsWith("_i") || it.endsWith("_d") || it.endsWith("_s") =>{
+              prop match {
+                case it if it.endsWith("_i") || it.endsWith("_d") || it.endsWith("_s") => {
                   val v = map.get(it.take(it.length-2))
                   if(v.isDefined){
                     doc.addField(it, v.get.toString())
                   }
                 }
-                case _ =>{
+                case _ => {
                   val v = map.get(prop)
                   if(v.isDefined){
                     doc.addField(prop + "_s", v.get.toString())
@@ -357,13 +357,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
                 }
               }
             })
-            //NC 2013-04-23: The code below is adding all the miscProperties as index values, it does not limit it to the values supplied
-            //            map.foreach({
-            //              case (k, v) => {
-            //                if (v != null)
-            //                  doc.addField(k + "_s", v.toString()) //fix for number format issue ?
-            //              }
-            //            })
           }
         }
 
@@ -412,15 +405,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
 
         //now index the System QA assertions
         //NC 2013-08-01: It is very inefficient to make a JSONArray of QualityAssertions We will parse the raw string instead.
-        /* val systemAssertions = Json.toArray(map.getOrElse(FullRecordMapper.qualityAssertionColumn, "[]"), classOf[QualityAssertion].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[QualityAssertion]]
-        val types = systemAssertions.groupBy(_.getQaStatus)
-        types.getOrElse(0, Array()).foreach(qa=> doc.addField(if(AssertionCodes.getByCode(qa.getCode).get.category == ErrorCodeCategory.Missing) "assertions_missing" else "assertions", qa.getName()))
-        types.getOrElse(1, Array()).foreach(qa => doc.addField("assertions_passed", qa.getName()))
-        val unchecked = AssertionCodes.getMissingCodes((systemAssertions.map(it=>AssertionCodes.getByCode(it.code).getOrElse(null))).toSet)
-        unchecked.foreach(ec => doc.addField("assertions_unchecked", ec.name))
-        //add system assertions boolean value
-        doc.addField("system_assertions", types.contains(0)) */
-
         val qaJson  = map.getOrElse(FullRecordMapper.qualityAssertionColumn, "[]")
         val(qa, status) = extractPassAndFailed(qaJson)
         var sa = false
@@ -451,10 +435,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
           doc.addField(key, value)
         }}
 
-        //"system_assertions"
-        //now index the QA names for the
-        //
-        //
         // user if userQA = true
         val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false")
         if ("true".equals(hasUserAssertions)) {
@@ -484,7 +464,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
         cls.foreach {
           case (key, value) => doc.addField(key, value)
         }
-
 
         //TODO Think about moving species group stuff here.
         //index the additional species information - ie species groups
@@ -622,9 +601,9 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
 
   class AddDocThread(queue: ArrayBlockingQueue[java.util.List[SolrInputDocument]], id: Int) extends Thread {
 
-    private var shouldRun = true;
+    private var shouldRun = true
 
-    def stopRunning = {
+    def stopRunning {
       shouldRun = false
     }
 
@@ -641,17 +620,15 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
               //only the first thread should commit
               if (id == 0) solrServer.commit
               docs = null
-            }
-            catch {
-              case e:Exception => logger.debug("Error committing to index", e)//do nothing
+            } catch {
+              case e:Exception => logger.debug("Error committing to index", e) //do nothing
             }
           }
-        }
-        else {
+        } else {
           try {
-            Thread.sleep(250);
+            Thread.sleep(250)
           } catch {
-            case e:Exception => logger.debug("Error sleeping thread", e)//do nothing
+            case e:Exception => logger.debug("Error sleeping thread", e) //do nothing
           }
         }
       }
@@ -673,7 +650,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String, @Named("exclu
     def streamSolrDocument(doc: SolrDocument) {
       val map = new java.util.HashMap[String, Object]
       doc.getFieldValueMap().keySet().asScala.foreach(s => {
-        var value = if (multivaluedFields.isDefined && multivaluedFields.get.contains(s)){
+        val value = if (multivaluedFields.isDefined && multivaluedFields.get.contains(s)){
           doc.getFieldValues(s)
         } else {
           doc.getFieldValue(s)

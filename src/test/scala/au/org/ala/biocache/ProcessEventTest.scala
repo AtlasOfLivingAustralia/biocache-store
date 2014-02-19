@@ -6,8 +6,8 @@ import org.apache.commons.lang.time.DateUtils
 import java.util.Date
 import java.text.SimpleDateFormat
 import au.org.ala.biocache.processor.EventProcessor
-import au.org.ala.biocache.parser.DateUtil
 import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.util.DateUtil
 
 /**
  * Tests for event date parsing. To run these tests create a new scala application

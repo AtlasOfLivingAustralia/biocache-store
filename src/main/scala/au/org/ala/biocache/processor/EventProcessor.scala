@@ -5,13 +5,13 @@ import org.apache.commons.lang.time.{DateFormatUtils, DateUtils}
 import java.util.{GregorianCalendar, Date}
 import org.apache.commons.lang.StringUtils
 import scala.Some
-import au.org.ala.biocache.parser.{DateParser, DateUtil}
+import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 import au.org.ala.biocache.vocab.AssertionCodes
-import au.org.ala.biocache.util.StringHelper
+import au.org.ala.biocache.util.{DateUtil, StringHelper}
 
 /**
- * Created by mar759 on 17/02/2014.
+ * Processor for event (date) information.
  */
 class EventProcessor extends Processor {
 

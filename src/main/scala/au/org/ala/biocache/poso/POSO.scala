@@ -8,6 +8,10 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.util.{BiocacheConversions, StringHelper, Json}
 import au.org.ala.biocache.parser.DateParser
 
+/**
+ * A trait for POSOs that allows for setting of values using
+ * reflection.
+ */
 trait POSO {
 
   val logger = LoggerFactory.getLogger("POSO")

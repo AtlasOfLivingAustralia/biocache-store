@@ -3,7 +3,7 @@ package au.org.ala.biocache.dao
 import au.org.ala.biocache.outliers.{RecordJackKnifeStats, SampledRecord, JackKnifeStats}
 
 /**
- * Created by mar759 on 17/02/2014.
+ * DAO for outlier stats
  */
 trait OutlierStatsDAO {
 

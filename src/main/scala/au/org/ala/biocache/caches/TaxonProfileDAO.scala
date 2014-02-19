@@ -2,7 +2,7 @@ package au.org.ala.biocache.caches
 
 import au.org.ala.biocache._
 import scala.Some
-import au.org.ala.biocache.model.{TaxonProfile, SensitiveSpecies, ConservationSpecies}
+import au.org.ala.biocache.model.{TaxonProfile, SensitiveSpecies, ConservationStatus}
 import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.util.Json
 
@@ -45,7 +45,7 @@ object TaxonProfileDAO {
               }
               case "conservation" => {
                   if(keyValue._2 != null && keyValue._2.size >0){
-                      taxonProfile.conservation = Json.toArray(keyValue._2, classOf[ConservationSpecies].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[ConservationSpecies]]
+                      taxonProfile.conservation = Json.toArray(keyValue._2, classOf[ConservationStatus].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[ConservationStatus]]
 
                   }
               }

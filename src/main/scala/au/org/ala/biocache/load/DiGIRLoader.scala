@@ -8,7 +8,9 @@ import au.org.ala.biocache.vocab.DwC
 import au.org.ala.biocache.model.Versions
 
 /**
- * A work in progress... not actually supporting paging ATM
+ * A work in progress... not actually supporting paging ATM.
+ *
+ * We should look into wrapping the GBIF harvesting library.
  */
 object DiGIRLoader {
 

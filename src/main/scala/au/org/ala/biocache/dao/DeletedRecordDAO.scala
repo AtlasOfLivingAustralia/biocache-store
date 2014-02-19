@@ -1,7 +1,7 @@
 package au.org.ala.biocache.dao
 
 /**
- * Created by mar759 on 17/02/2014.
+ * DAO for deleted records
  */
 trait DeletedRecordDAO {
 

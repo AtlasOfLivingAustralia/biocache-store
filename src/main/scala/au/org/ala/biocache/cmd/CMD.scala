@@ -15,7 +15,7 @@ import org.apache.commons.httpclient.{NameValuePair, HttpClient}
 import scala.Some
 
 /**
- * Created by mar759 on 17/02/2014.
+ * Singleton for running commands.
  */
 object CMD {
 
@@ -230,7 +230,6 @@ object CMD {
             val extraArgs:Array[String] =  if(test) Array("--test") else Array()
             val (hasRowKeys, filename) = hasRowKey(dr)
 
-
             //delete columns that were not updated in the last day
             val lastLoadDate = org.apache.commons.lang.time.DateFormatUtils.format(getLastLoadDate, "yyyy-MM-dd")
             if (hasRowKeys){
@@ -241,7 +240,6 @@ object CMD {
           } else {
             println("Unable to delete-obsolete without a data resource uid being provided")
           }
-
         }
         case it if (it startsWith "delete-resource") => {
           val args = it.split(" ").map(x => x.trim).toArray.tail
@@ -404,13 +402,13 @@ object CMD {
     padAndPrint(s"[${s=s+1;s}]  exit")
   }
 
-  def getLastLoadDate :java.util.Date ={
+  def getLastLoadDate : java.util.Date = {
     //At the moment return the current date minus 24 hours.
     //TODO obtain this from the last checked or data currency dates. - But not always updated and we don't want to lose data
     org.apache.commons.lang.time.DateUtils.addDays(new java.util.Date(), -1)
   }
 
-  def getDeleteRowFile(resourceUid:String) : Option[String] ={
+  private def getDeleteRowFile(resourceUid:String) : Option[String] = {
     def filename = Config.deletedFileStore + File.separator + resourceUid + File.separator + "deleted.txt"
     if(new File(filename).exists()){
       Some(filename)

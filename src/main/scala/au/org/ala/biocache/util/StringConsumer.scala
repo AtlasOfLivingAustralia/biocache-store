@@ -4,7 +4,9 @@ import java.util.concurrent.BlockingQueue
 import au.org.ala.biocache.tool.DuplicationDetection
 import org.slf4j.LoggerFactory
 
-//A generic threaded consumer that takes a string and calls the supplied proc
+/**
+ * A generic threaded consumer that takes a string and calls the supplied proc
+ */
 class StringConsumer(q: BlockingQueue[String], id: Int, proc: String => Unit) extends Thread {
 
   protected val logger = LoggerFactory.getLogger("StringConsumer")

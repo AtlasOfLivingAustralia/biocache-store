@@ -14,7 +14,8 @@ import au.org.ala.biocache.persistence.{PostgresPersistenceManager, PersistenceM
 
 /**
  * Simple singleton wrapper for Guice that reads from a properties file
- * and initialises the biocache.
+ * and initialises the biocache configuration including database connections
+ * and search indexes.
  */
 object Config {
 
@@ -63,6 +64,8 @@ object Config {
   val allowCollectoryUpdates = configModule.properties.getProperty("allow.registry.updates","false")
 
   val extraMiscFields = configModule.properties.getProperty("extra.misc.fields","")
+
+  val technicalContact = configModule.properties.getProperty("technical.contact", "support@ala.org.au")
 
   lazy val fieldsToSample = {
     val str = configModule.properties.getProperty("sample.fields")
@@ -116,9 +119,9 @@ object Config {
 }
 
 /**
- * Guice module
+ * Guice configuration module.
  */
-class ConfigModule extends AbstractModule {
+private class ConfigModule extends AbstractModule {
 
   protected val logger = LoggerFactory.getLogger("ConfigModule")
 

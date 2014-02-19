@@ -3,9 +3,9 @@ package au.org.ala.biocache.tool
 import au.org.ala.biocache.util.RecordDeletor
 
 /**
- * Created by mar759 on 17/02/2014.
+ * A utility to delete a data resource
  */
-class DataResourceDelete(dataResource:String) extends RecordDeletor{
+class DataResourceDelete(dataResource:String) extends RecordDeletor {
 
     override def deleteFromPersistent {
         //page over all the records for the data resource deleting them

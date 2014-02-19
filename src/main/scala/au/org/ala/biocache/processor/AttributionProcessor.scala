@@ -6,6 +6,9 @@ import au.org.ala.biocache.caches.AttributionDAO
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 import au.org.ala.biocache.vocab.AssertionCodes
 
+/**
+ * A processor of attribution information.
+ */
 class AttributionProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("AttributionProcessor")

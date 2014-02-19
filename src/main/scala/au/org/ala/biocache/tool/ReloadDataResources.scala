@@ -7,7 +7,9 @@ import au.org.ala.biocache.load.Loader
 import au.org.ala.biocache.util.OptionParser
 
 /**
- * Reloads/processes an existing data resource records
+ * Reloads/processes an existing data resource records.
+ * This deletes the data for a specific resource and then reloads.
+ * Only to be used for data resources without stable identifiers.
  */
 object ReloadDataResources {
 
@@ -21,7 +23,7 @@ object ReloadDataResources {
     var process: Boolean = false
     var index: Boolean = false
 
-    val parser = new OptionParser("index records options") {
+    val parser = new OptionParser("Reload data resource") {
       arg("<data resource UID>", "The UID of the data resource to load", {
         v: String => dataResource = v
       })

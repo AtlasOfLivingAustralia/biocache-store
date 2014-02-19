@@ -14,22 +14,30 @@ class DuplicateRecordDetails(@BeanProperty var rowKey:String, @BeanProperty var 
   def this() = this(null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 
   @BeanProperty var status = "U"
-  @BeanProperty var druid:String = if(rowKey != null) rowKey.split("\\|")(0) else null
+  @BeanProperty var druid:String = {
+    if(rowKey != null){
+      rowKey.split("\\|")(0)
+    } else {
+      null
+    }
+  }
   var duplicateOf:String = null
   //stores the precision so that coordinate dup types can be established - we don't want to persist this property
   var precision = 0
   @BeanProperty var duplicates:util.ArrayList[DuplicateRecordDetails]=null
   @BeanProperty var dupTypes:util.ArrayList[DupType]=_
 
-  def addDuplicate(dup:DuplicateRecordDetails) ={
-    if(duplicates == null)
+  def addDuplicate(dup:DuplicateRecordDetails){
+    if(duplicates == null){
       duplicates = new util.ArrayList[DuplicateRecordDetails]
+    }
     duplicates.add(dup)
   }
 
   def addDupType(dup:DupType){
-    if(dupTypes == null)
+    if(dupTypes == null){
       dupTypes = new util.ArrayList[DupType]()
+    }
     dupTypes.add(dup)
   }
 }

@@ -22,7 +22,7 @@ import scala.Some
 import au.org.ala.biocache.util.{Json, StringHelper}
 
 /**
- * Created by mar759 on 17/02/2014.
+ * Processor of location information.
  */
 class LocationProcessor extends Processor {
 
@@ -124,7 +124,6 @@ class LocationProcessor extends Processor {
           processSensitivity(raw, processed, location, contextualLayers)
         } catch {
           case e: Exception => logger.error("Problem processing using the SDS for record " + guid, e)
-          e.printStackTrace()
         }
       }
       assertions += QualityAssertion(AssertionCodes.LOCATION_NOT_SUPPLIED,1)

@@ -1,6 +1,5 @@
 package au.org.ala.biocache.model
 
-
 /**
  * Enumeration of record versions.
  * sealed = cannot be extended unless declared in this source file.

@@ -3,9 +3,9 @@ package au.org.ala.biocache.model
 import scala.beans.BeanProperty
 
 /**
- * Created by mar759 on 17/02/2014.
+ * POSO representing a conservation status.
  */
-class ConservationSpecies(
+class ConservationStatus(
   @BeanProperty var region:String,
   @BeanProperty var regionId:String,
   @BeanProperty var status:String,

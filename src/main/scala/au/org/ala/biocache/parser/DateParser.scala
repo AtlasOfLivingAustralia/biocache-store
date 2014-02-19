@@ -7,37 +7,7 @@ import org.slf4j.Logger
 import java.util.Date
 import java.text.ParseException
 import scala.Predef._
-
-object DateUtil {
-  def getCurrentYear = DateFormatUtils.format(new Date(), "yyyy").toInt
-  def isFutureDate(date:EventDate) = {
-    val (str, format):(String, Array[String]) ={
-      date match{
-        case dt if dt.startDate != "" => (dt.startDate, Array("yyyy-MM-dd"))
-        case dt if dt.startYear!= "" && dt.startMonth != "" => (dt.startYear +"-" + dt.startMonth, Array("yyyy-MM"))
-        case dt if dt.startYear != "" => (dt.startYear, Array("yyyy"))
-        case _ => (null, Array())
-      }
-    }
-    //check for future date
-    if(str != null){
-      val date = DateUtils.parseDate(str, format)
-      if(date != null && date.after(new Date())){
-        true
-      } else {
-        false
-      }
-    } else {
-      false
-    }
-//    val date = DateUtils.parseDate(str, Array("yyyy-MM-dd"))
-//    if (date!=null && date.after(new Date())){
-//      true
-//    } else {
-//      false
-//    }
-  }
-}
+import au.org.ala.biocache.util.DateUtil
 
 /**
  * Date parser that uses scala extractors to handle the different formats.
@@ -150,7 +120,7 @@ object DateParser {
 case class EventDate(startDate: String, startDay: String, startMonth: String, startYear: String,
                      endDate: String, endDay: String, endMonth: String, endYear: String, singleDate: Boolean)
 
-/**yyyy-MM-dd */
+/** Extractor for the format yyyy-MM-dd */
 object ISOWithMonthNameDate /*extends (String=>Option[EventDate]) */ {
 
   /**
@@ -174,7 +144,7 @@ object ISOWithMonthNameDate /*extends (String=>Option[EventDate]) */ {
   }
 }
 
-/**yyyy-MM-dd */
+/** Extractor for the format yyyy-MM-dd */
 object ISOSingleYear {
 
   def formats = Array("yyyy")
@@ -197,7 +167,7 @@ object ISOSingleYear {
   }
 }
 
-/**yyyy-MM-dd */
+/** Extractor for the formatyyyy-MM-dd */
 class SingleDate {
 
   def baseFormats = Array("yyyy-MM-dd","yyyy/MM/dd")
@@ -234,7 +204,7 @@ object ISOSingleDate extends SingleDate
 
 object NonISOSingleDate extends SingleDate with NonISO
 
-/**yyyy-MM-dd */
+/** Extractor for the format yyyy-MM-dd */
 object ISOMonthDate {
 
   /**
@@ -258,7 +228,7 @@ object ISOMonthDate {
   }
 }
 
-/**yyyy-MM-dd/yyyy-MM-dd */
+/** Extractor for the format yyyy-MM-dd/yyyy-MM-dd */
 object ISODateRange {
 
   val formats = Array("yyyy-MM-dd", "yyyy-MM-dd'T'hh:mm-ss", "yyyy-MM-dd'T'hh:mm'Z'")
@@ -288,7 +258,7 @@ object ISODateRange {
   }
 }
 
-/**yyyy-MM/yyyy-MM */
+/** Extractor for the format yyyy-MM/yyyy-MM */
 object ISOMonthYearDateRange {
 
   def unapply(str: String): Option[EventDate] = {
@@ -317,7 +287,7 @@ object ISOMonthYearDateRange {
   }
 }
 
-/**yyyy-MM/MM */
+/** Extractor for the format yyyy-MM/MM */
 object ISOMonthDateRange {
 
   def unapply(str: String): Option[EventDate] = {
@@ -343,7 +313,7 @@ object ISOMonthDateRange {
   }
 }
 
-/**yyyy-MM-dd/dd */
+/** Extractor for the format yyyy-MM-dd/dd */
 object ISODateTimeRange {
 
   def unapply(str: String): Option[EventDate] = {
@@ -372,7 +342,7 @@ object ISODateTimeRange {
   }
 }
 
-//Fri Aug 12 15:19:20 EST 2011
+/** Extractor for the format Fri Aug 12 15:19:20 EST 2011 */
 object ISOVerboseDateTime {
 
   def unapply(str: String): Option[EventDate] = {
@@ -395,7 +365,7 @@ object ISOVerboseDateTime {
   }
 }
 
-//Mon Apr 23 00:00:00 EST 1984/Sun Apr 29 00:00:00 EST 1984
+/** Extractor for the format Mon Apr 23 00:00:00 EST 1984/Sun Apr 29 00:00:00 EST 1984 */
 object ISOVerboseDateTimeRange {
 
   def unapply(str: String): Option[EventDate] = {
@@ -425,7 +395,7 @@ object ISOVerboseDateTimeRange {
 }
 
 
-/**yyyy-MM-dd/MM-dd */
+/** Extractor for the format yyyy-MM-dd/MM-dd */
 object ISODayMonthRange {
 
   def unapply(str: String): Option[EventDate] = {
@@ -453,7 +423,7 @@ object ISODayMonthRange {
   }
 }
 
-/**yyyy-MM-dd/dd */
+/** Extractor for the format yyyy-MM-dd/dd */
 object ISODayDateRange {
 
   def unapply(str: String): Option[EventDate] = {
@@ -480,7 +450,7 @@ object ISODayDateRange {
   }
 }
 
-/**yyyy/yyyy and yyyy/yy and yyyy/y*/
+/** Extractor for the format yyyy/yyyy and yyyy/yy and yyyy/y */
 object ISOYearRange {
 
   def unapply(str: String): Option[EventDate] = {
@@ -521,3 +491,4 @@ object ISOYearRange {
     }
   }
 }
+

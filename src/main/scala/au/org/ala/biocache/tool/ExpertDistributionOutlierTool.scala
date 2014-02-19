@@ -26,11 +26,7 @@ import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.model.QualityAssertion
 
 /**
- * Created with IntelliJ IDEA.
- * User: ChrisF
- * Date: 5/10/12
- * Time: 2:07 PM
- * To change this template use File | Settings | File Templates.
+ * Companion object for ExpertDistributionOutlierTool
  */
 object ExpertDistributionOutlierTool {
 
@@ -38,14 +34,9 @@ object ExpertDistributionOutlierTool {
   val DISTRIBUTION_DETAILS_URL_TEMPLATE = Config.layersServiceUrl + "/distribution/lsid/{0}"
   val DISTANCE_URL_TEMPLATE = Config.layersServiceUrl + "/distribution/outliers/{0}"
 
-  //val RECORDS_QUERY_TEMPLATE = "taxon_concept_lsid:{0} AND geospatial_kosher:true"
-  //val RECORDS_FILTER_QUERY_TEMPLATE = "-geohash:\"Intersects({0})\""
-
   val RECORDS_QUERY_TEMPLATE = "species_guid:{0} OR subspecies_guid:{0}"
   val RECORDS_FILTER_QUERY_TEMPLATE = "geospatial_kosher:true"
   val DATE_RANGE_FILTER = "last_load_date:[{0} TO *]"
-
-  //val RECORDS_URL_TEMPLATE = Config.biocacheServiceUrl + "/occurrences/search?q=taxon_concept_lsid:{0}&fq=-geohash:%22Intersects%28{1}%29%22&fl=id,row_key,latitude,longitude,coordinate_uncertainty&facet=off&startIndex={2}&pageSize={3}"
 
   // key to use when storing outlier row keys for an LSID in the distribution_outliers column family
   val DISTRIBUTION_OUTLIERS_COLUMN_FAMILY_KEY = "rowkeys"
@@ -91,6 +82,9 @@ object ExpertDistributionOutlierTool {
   }
 }
 
+/**
+ * Class for testing records against expert distributions.
+ */
 class ExpertDistributionOutlierTool {
 
   val logger = LoggerFactory.getLogger("ExpertDistributionOutlierTool")
@@ -100,9 +94,11 @@ class ExpertDistributionOutlierTool {
    * @param speciesLsid If supplied, restrict identification of outliers to occurrence records associated by a single species, as identified by its LSID.
    */
   def findOutliers(speciesLsid: String, numThreads: Int, test:Boolean, qaPasser:QaPasser, directory:Option[String],lastModifiedDate:Option[String]) {
+
     logger.info("Starting to detect the outliers...")
-    val countDownLatch = new CountDownLatch(numThreads);
+    val countDownLatch = new CountDownLatch(numThreads)
     val reindexFile = new FileWriter(new File("/data/offline/expert_index_row_keys.out"))
+
     actor {
 
       var workQueue = scala.collection.mutable.Queue[String]()
@@ -130,7 +126,7 @@ class ExpertDistributionOutlierTool {
         }
       }
 
-      var completedThreads = 0;
+      var completedThreads = 0
       loopWhile(completedThreads < numThreads) {
         receive {
           case ("SEND JOB", actor: ExpertDistributionActor) => {

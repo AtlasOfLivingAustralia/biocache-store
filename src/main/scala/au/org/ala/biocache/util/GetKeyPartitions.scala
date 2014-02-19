@@ -12,15 +12,13 @@ object GetKeyPartitions {
       Pelops.addPool("ALA-Partition-Calculator", cluster, "occ")
       val selector = Pelops.createSelector("ALA-Partition-Calculator")
       var startKey = new Bytes("".getBytes)
-      var endKey = new Bytes("".getBytes)
+      val endKey = new Bytes("".getBytes)
       val slicePredicate = Selector.newColumnsPredicate(Array[String]():_*)
       var keyRange = Selector.newKeyRange(startKey, endKey, pageSize + 1)
-      var hasMore = true
       var counter = 0
       //Please note we are not paging by UTF8 because it is much slower
       var columnMap = selector.getColumnsFromRows("occ", keyRange, slicePredicate, ConsistencyLevel.ONE)
-      var continue = true
-      while (!columnMap.isEmpty && continue) {
+      while (!columnMap.isEmpty) {
         val columnsObj = List(columnMap.keySet.toArray : _*)
         //convert to scala List
         val keys = columnsObj.asInstanceOf[List[Bytes]]
@@ -31,6 +29,8 @@ object GetKeyPartitions {
         columnMap = selector.getColumnsFromRows("occ", keyRange, slicePredicate, ConsistencyLevel.ONE)
         columnMap.remove(startKey)
       }
-      if(counter > 0) println("Finished paging. Total count: "+counter)
+      if(counter > 0){
+        println("Finished paging. Total count: " + counter)
+      }
   }
 }

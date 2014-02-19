@@ -11,6 +11,9 @@ import au.org.ala.biocache.model.{QualityAssertion, FullRecord, Classification}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.{Kingdoms, SpeciesGroups, DwC, AssertionCodes}
 
+/**
+ * A processor of taxonomic information.
+ */
 class ClassificationProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("ClassificationProcessor")

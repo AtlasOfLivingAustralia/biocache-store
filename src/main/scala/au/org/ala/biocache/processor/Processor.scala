@@ -4,7 +4,9 @@ import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 
 /**
  * Trait to be implemented by all processors.
- * This is a simple Command Pattern.
+ * This is a simple Command Pattern implementation.
+ *
+ * Processors are changed in order to support a chain of processors.
  */
 trait Processor {
 

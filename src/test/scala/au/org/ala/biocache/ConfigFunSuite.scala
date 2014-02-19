@@ -3,7 +3,7 @@ package au.org.ala.biocache
 import org.scalatest.FunSuite
 import com.google.inject.Guice
 import au.org.ala.biocache.caches.TaxonProfileDAO
-import au.org.ala.biocache.model.{TaxonProfile, ConservationSpecies}
+import au.org.ala.biocache.model.{TaxonProfile, ConservationStatus}
 import au.org.ala.biocache.persistence.PersistenceManager
 import org.slf4j.LoggerFactory
 
@@ -22,8 +22,8 @@ class ConfigFunSuite extends FunSuite {
   val taxonProfile = new TaxonProfile
   taxonProfile.setGuid("urn:lsid:biodiversity.org.au:afd.taxon:3809b1ca-8b60-4fcb-acf5-ca4f1dc0e263")
   taxonProfile.setScientificName("Victaphanta compacta")
-  taxonProfile.setConservation(Array(new ConservationSpecies("Victoria", "aus_states/Victoria", "Endangered", "Endangered")
-    , new ConservationSpecies("Victoria", "aus_states/Victoria", null, "Listed under FFG Act")))
+  taxonProfile.setConservation(Array(new ConservationStatus("Victoria", "aus_states/Victoria", "Endangered", "Endangered")
+    , new ConservationStatus("Victoria", "aus_states/Victoria", null, "Listed under FFG Act")))
   TaxonProfileDAO.add(taxonProfile)
 
   val tp = new TaxonProfile

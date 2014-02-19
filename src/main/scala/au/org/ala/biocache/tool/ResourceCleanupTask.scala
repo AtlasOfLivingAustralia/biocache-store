@@ -14,7 +14,6 @@ import au.org.ala.biocache.util.{OptionParser, FileHelper}
  *
  * Marking records as deleted and removing not updated raw fields
  * Removing "Deleted records" 
- *
  */
 object ResourceCleanupTask {
 

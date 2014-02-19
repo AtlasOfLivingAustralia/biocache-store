@@ -6,9 +6,9 @@ import au.org.ala.biocache.load.FullRecordMapper
 /**
  * A deletor that marks occurrence records, for a specific data resource, as deleted before
  * removing them at a later time.
- *
  */
-class DataResourceVirtualDelete(dataResource:String) extends RecordDeletor{
+class DataResourceVirtualDelete(dataResource:String) extends RecordDeletor {
+
     override def deleteFromPersistent {
         var count = 0
         val start = System.currentTimeMillis

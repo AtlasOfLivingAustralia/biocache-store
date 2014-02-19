@@ -6,7 +6,7 @@ import au.org.ala.biocache.index.IndexRecords
 import java.io.{BufferedReader, InputStreamReader}
 
 /**
- * Created by mar759 on 17/02/2014.
+ * Tool for running a script against the biocache.
  */
 object ScriptTool {
 

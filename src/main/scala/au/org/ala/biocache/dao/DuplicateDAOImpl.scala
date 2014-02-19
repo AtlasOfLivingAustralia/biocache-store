@@ -7,9 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.model.DuplicateRecordDetails
 
-/**
- * Created by mar759 on 17/02/2014.
- */
 class DuplicateDAOImpl extends DuplicateDAO {
   import BiocacheConversions._
   protected val logger = LoggerFactory.getLogger("DuplicateDAO")

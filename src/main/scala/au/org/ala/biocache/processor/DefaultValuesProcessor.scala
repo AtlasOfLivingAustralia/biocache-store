@@ -10,9 +10,6 @@ import au.org.ala.biocache.load.FullRecordMapper
  * This processor should be run before the others so that the default values are populated before reporting missing values
  *
  * This processor also restore the default values.  IMPLICATION is the LocationProcessor needs to be run to allow sensitive species to
- *
- * TODO CHANGE this if we move to a phase based processing mechanism
- *
  */
 class DefaultValuesProcessor extends Processor {
   def process(guid: String, raw: FullRecord, processed: FullRecord,lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {

@@ -2,7 +2,6 @@ package au.org.ala.biocache.parser
 
 import au.org.ala.biocache.parser.LatOrLong.LatOrLong
 
-
 /**
  * Parser for coordinates in deg, min sec format
  */

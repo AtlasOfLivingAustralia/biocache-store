@@ -14,7 +14,7 @@ class TaxonProfile (
   @BeanProperty var left:String,
   @BeanProperty var right:String,
   @BeanProperty var sensitive:Array[SensitiveSpecies],
-  @BeanProperty var conservation:Array[ConservationSpecies])
+  @BeanProperty var conservation:Array[ConservationStatus])
   extends Cloneable {
   def this() = this(null,null,null,null,null,null,null, null,null)
   override def clone : TaxonProfile = super.clone.asInstanceOf[TaxonProfile]

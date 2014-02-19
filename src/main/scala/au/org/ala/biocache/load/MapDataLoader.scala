@@ -8,6 +8,7 @@ import au.org.ala.biocache.model.Versions
  * Created by mar759 on 17/02/2014.
  */
 class MapDataLoader extends DataLoader {
+
   import JavaConversions._
 
   def load(dataResourceUid:String, values:List[java.util.Map[String,String]], uniqueTerms:List[String]):List[String]={

@@ -24,7 +24,7 @@ object ExportUtil {
     var startkey =""
     var endkey = ""
     var distinct = false
-    var json =false
+    var json = false
     var maxRecords = Integer.MAX_VALUE
 
     val parser = new OptionParser("export") {
@@ -120,37 +120,5 @@ object ExportUtil {
   def exportRecordDefaultValues(writer:CSVWriter, fieldsToExport:List[String], defaultMap:Map[String,String], valuesMap:Map[String,String]){
     val line:Array[String] = (for(field <- fieldsToExport) yield valuesMap.getOrElse(field,if(defaultMap.contains(field)) valuesMap.getOrElse(defaultMap.get(field).get,"") else "")).toArray
     writer.writeNext(line)
-  }
-}
-
-
-object GenericColumnExporter {
-  def main(args: Array[String]) {
-     var filePath=""
-     var entity =""
-     val parser = new OptionParser("export") {
-          arg("<entity>", "the entity (column family in cassandra) to export from", { v: String => entity = v })
-          arg("<file-path>", "file to export to", { v: String => filePath = v })
-     }
-     if(parser.parse(args)){
-       val cols = getColumns(entity)
-       val outWriter = new FileWriter(new File(filePath))
-       val writer = new CSVWriter(outWriter, '\t', '"')
-       ExportUtil.export(writer,entity, cols, List(),List(),maxRecords=Integer.MAX_VALUE)
-     }
-  }
-  def getColumns(entity:String):List[String]={
-    println("Getting the columns for " +entity)
-    val pm = Config.persistenceManager
-    val myset = new HashSet[String]
-    var count=0
-    pm.pageOverAll(entity, (guid,map)=>{
-      myset ++= map.keySet
-      count+=1
-      true
-    },"","",1000)
-    println("Finished cycling through " + count +" records")
-    println("The columns to export " + myset)
-    myset.toList
   }
 }
