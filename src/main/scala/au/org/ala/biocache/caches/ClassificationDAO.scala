@@ -7,7 +7,7 @@ import au.org.ala.data.model.LinnaeanRankClassification
 import au.org.ala.biocache.model.Classification
 
 import au.org.ala.data.model.LinnaeanRankClassification
-import au.org.ala.util.ReflectBean
+import au.org.ala.biocache.util.ReflectBean
 import au.org.ala.checklist.lucene.model.{NameSearchResult,MetricsResultDTO}
 import au.org.ala.checklist.lucene.{CBIndexSearch, HomonymException, SearchResultException}
 import scala.io.Source

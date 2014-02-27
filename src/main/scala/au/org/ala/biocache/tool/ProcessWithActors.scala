@@ -22,18 +22,20 @@ object ProcessWithActors {
     logger.info("Starting processing...")
     var threads:Int = 4
     var startUuid:Option[String] = None
+    var endUuid:Option[String] = None
     var check = false
     var dr:Option[String] = None
 
     val parser = new OptionParser("process records options") {
-        intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
-        opt("s", "start","The record to start with", {v:String => startUuid = Some(v)})
-        opt("dr", "resource", "The data resource to process", {v:String =>dr = Some(v)})
+      intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
+      opt("s", "start","The record to start with", {v:String => startUuid = Some(v)})
+      opt("e", "end","The record to end with", {v:String => endUuid = Some(v)})
+      opt("dr", "resource", "The data resource to process", {v:String =>dr = Some(v)})
     }
     
     if(parser.parse(args)){
-        logger.info("Processing " + dr.getOrElse("") + " from " + startUuid + " with " + threads + "actors")
-        processRecords(threads, startUuid, dr, check)
+      logger.info("Processing " + dr.getOrElse("") + " from " + startUuid + "to " +endUuid+ " with " + threads + "actors")
+      processRecords(threads, startUuid, dr, check, lastKey = endUuid)
     }
     //shutdown the persistence
     persistenceManager.shutdown
@@ -111,20 +113,21 @@ object ProcessWithActors {
     }
   }
   
-
   def performPaging(proc: (Option[(FullRecord, FullRecord)] => Boolean),startKey:String="", endKey:String="",
                     pageSize: Int = 1000){
       occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
           proc(rawAndProcessed)
       },startKey,endKey)
   }
+
   /**
    * Process the records using the supplied number of threads
    */
-  def processRecords(threads: Int, firstKey:Option[String], dr: Option[String], checkDeleted:Boolean=false, callback:ObserverCallback = null): Unit = {
-    
-    val endUuid = if(dr.isEmpty) "" else dr.get +"|~"
-    
+  def processRecords(threads: Int, firstKey:Option[String], dr: Option[String], checkDeleted:Boolean=false,
+                     callback:ObserverCallback = null, lastKey:Option[String]=None): Unit = {
+
+    val endUuid = if (lastKey.isDefined) lastKey.get else if(dr.isEmpty) "" else dr.get +"|~"
+
     val startUuid = {
 	    if(firstKey.isEmpty && !dr.isEmpty) {
 	        dr.get +"|"

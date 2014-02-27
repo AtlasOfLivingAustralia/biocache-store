@@ -52,8 +52,10 @@ object ValidationRuleRunner {
 class ValidationRuleRunner {
 
   import BiocacheConversions._
-  val BIOCACHE_QUERY_URL = Config.biocacheServiceUrl + "/occurrences/search{0}&facet=off{1}&pageSize={2}&startIndex={3}&fl=row_key"
+
   val logger = LoggerFactory.getLogger("ValidationRuleRunner")
+
+  val BIOCACHE_QUERY_URL = Config.biocacheServiceUrl + "/occurrences/search{0}&facet=off{1}&pageSize={2}&startIndex={3}&fl=row_key"
   
   def applySingle(rowKey:String, unapply:Boolean=false, reindexOnly:Boolean=false, tempFilePath:String="/tmp/queryAssertionReindex.txt"){
     //get the query for the supplied key

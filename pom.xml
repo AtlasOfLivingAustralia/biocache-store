@@ -531,6 +531,11 @@
 					</sourceIncludes>
 				</configuration>
 			</plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>2.4</version>
+            </plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
@@ -542,7 +547,7 @@
 						<manifest>
 							<addClasspath>true</addClasspath>
 							<classpathPrefix>lib/</classpathPrefix>
-							<mainClass>au.org.ala.util.CommandLineTool</mainClass>
+							<mainClass>au.org.ala.biocache.cmd.CommandLineTool</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
@@ -579,9 +584,6 @@
 			<plugin>
 				<groupId>org.scala-tools</groupId>
 				<artifactId>maven-scala-plugin</artifactId>
-				<!--<configuration>-->
-					<!--<vscalaVersion>1.0</vscalaVersion>-->
-				<!--</configuration>-->
 			</plugin>
 		</plugins>
 	</reporting>

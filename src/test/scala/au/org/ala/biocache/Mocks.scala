@@ -8,6 +8,7 @@ import au.org.ala.biocache.dao.{OccurrenceDAOImpl, OccurrenceDAO}
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.util.Json
+import java.util
 
 class MockPersistenceManager extends PersistenceManager {
 
