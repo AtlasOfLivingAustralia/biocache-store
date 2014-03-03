@@ -360,6 +360,15 @@
 				<!--</exclusion>-->
 			<!--</exclusions>-->
 		</dependency>
+        <!--
+           The following dependency is required for a SOLR embedded service only
+           See http://lucene.472066.n3.nabble.com/EmbeddedSolrServer-java-lang-NoClassDefFoundError-javax-servlet-ServletRequest-td483937.html
+         -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>2.5</version>
+        </dependency>
         <dependency>
           <groupId>com.vividsolutions</groupId>
           <artifactId>jts</artifactId>
