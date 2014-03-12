@@ -125,9 +125,9 @@ object SpeciesGroups {
    */
   def createSpeciesGroup(title:String, rank:String, values:Array[String], excludedValues:Array[String], parent:String):SpeciesGroup={
     val lftRgts = values.map((v:String) =>{
-      var snr:au.org.ala.checklist.lucene.model.NameSearchResult ={ try{Config.nameIndex.searchForRecord(v, au.org.ala.data.util.RankType.getForName(rank))}
+      var snr:au.org.ala.names.model.NameSearchResult ={ try{Config.nameIndex.searchForRecord(v, au.org.ala.names.model.RankType.getForName(rank))}
       catch{
-        case e:au.org.ala.checklist.lucene.HomonymException => e.getResults()(0)
+        case e:au.org.ala.names.search.HomonymException => e.getResults()(0)
         case _:Exception => null
       }}
       if(snr != null){
