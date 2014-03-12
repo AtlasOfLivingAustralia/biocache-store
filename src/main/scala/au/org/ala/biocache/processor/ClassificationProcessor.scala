@@ -3,7 +3,7 @@ package au.org.ala.biocache.processor
 import org.slf4j.LoggerFactory
 import scala.collection.JavaConversions
 import scala.collection.mutable.{ArrayBuffer, HashMap}
-import au.org.ala.data.model.LinnaeanRankClassification
+import au.org.ala.names.model.LinnaeanRankClassification
 import org.apache.commons.lang.StringUtils
 import au.org.ala.biocache.caches.{TaxonProfileDAO, ClassificationDAO, AttributionDAO}
 import au.org.ala.biocache.util.BiocacheConversions
@@ -69,7 +69,7 @@ class ClassificationProcessor extends Processor {
     taxon != null && taxon.equalsIgnoreCase(classification.getProperty(field).getOrElse(""))
   }
 
-  def setMatchStats(nameMetrics:au.org.ala.checklist.lucene.model.MetricsResultDTO, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
+  def setMatchStats(nameMetrics:au.org.ala.names.model.MetricsResultDTO, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
     //set the parse type and errors for all results before continuing
     processed.classification.nameParseType = if(nameMetrics.getNameType != null)nameMetrics.getNameType.toString else "UNKNOWN"
     //add the taxonomic issues for the match
@@ -209,7 +209,7 @@ class ClassificationProcessor extends Processor {
             assertions += QualityAssertion(AssertionCodes.NAME_NOT_IN_NATIONAL_CHECKLISTS, 1)
           }
 
-        } else if(nameMetrics.getErrors.contains(au.org.ala.checklist.lucene.model.ErrorType.HOMONYM)){
+        } else if(nameMetrics.getErrors.contains(au.org.ala.names.model.ErrorType.HOMONYM)){
           logger.debug("[QualityAssertion] A homonym was detected (with  no higher level match), classification for Kingdom: " +
             raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
             ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)

@@ -156,8 +156,8 @@ class TestConfigModule extends com.google.inject.AbstractModule {
     bind(classOf[OccurrenceDAO]).to(classOf[OccurrenceDAOImpl]).in(com.google.inject.Scopes.SINGLETON)
     bind(classOf[IndexDAO]).to(classOf[SolrIndexDAO]).in(com.google.inject.Scopes.SINGLETON)
     try {
-      val nameIndex = new au.org.ala.checklist.lucene.CBIndexSearch(properties.getProperty("name.index.dir"))
-      bind(classOf[au.org.ala.checklist.lucene.CBIndexSearch]).toInstance(nameIndex)
+      val nameIndex = new au.org.ala.names.search.ALANameSearcher(properties.getProperty("name.index.dir"))
+      bind(classOf[au.org.ala.names.search.ALANameSearcher]).toInstance(nameIndex)
     } catch {
       case e: Exception => e.printStackTrace()
     }

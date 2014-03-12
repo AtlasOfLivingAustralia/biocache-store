@@ -2,14 +2,13 @@ package au.org.ala.biocache.caches
 
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
-import au.org.ala.checklist.lucene.model.{NameSearchResult, MetricsResultDTO}
-import au.org.ala.data.model.LinnaeanRankClassification
+import au.org.ala.names.model.{NameSearchResult, MetricsResultDTO,LinnaeanRankClassification}
 import au.org.ala.biocache.model.Classification
 
-import au.org.ala.data.model.LinnaeanRankClassification
+
 import au.org.ala.biocache.util.ReflectBean
-import au.org.ala.checklist.lucene.model.{NameSearchResult,MetricsResultDTO}
-import au.org.ala.checklist.lucene.{CBIndexSearch, HomonymException, SearchResultException}
+
+import au.org.ala.names.search.{ALANameSearcher, HomonymException, SearchResultException}
 import scala.io.Source
 import org.slf4j.LoggerFactory
 import java.net.URLEncoder

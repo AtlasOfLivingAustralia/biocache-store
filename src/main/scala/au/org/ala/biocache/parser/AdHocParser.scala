@@ -10,9 +10,9 @@ import scala.collection.mutable.ListBuffer
 import au.org.ala.biocache.model.{MeasurementUnit, QualityAssertion, Versions}
 import au.org.ala.biocache.load.FullRecordMapper
 import scala.beans.BeanProperty
-import au.org.ala.data.model.LinnaeanRankClassification
+import au.org.ala.names.model.LinnaeanRankClassification
 import au.org.ala.biocache.Config
-import au.org.ala.checklist.lucene.HomonymException
+import au.org.ala.names.search.HomonymException
 import au.org.ala.biocache.parser.EventDate
 import scala.Some
 import au.org.ala.biocache.parser.ProcessedValue

@@ -2,7 +2,7 @@ package au.org.ala.biocache
 
 import org.slf4j.LoggerFactory
 import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
-import au.org.ala.checklist.lucene.CBIndexSearch
+import au.org.ala.names.search.ALANameSearcher
 import au.org.ala.sds.SensitiveSpeciesFinderFactory
 import org.ala.layers.client.Client
 import java.util.Properties
@@ -36,7 +36,7 @@ object Config {
   def indexDAO = getInstance(classOf[IndexDAO]).asInstanceOf[IndexDAO]
 
   //name index
-  def nameIndex = getInstance(classOf[CBIndexSearch]).asInstanceOf[CBIndexSearch]
+  def nameIndex = getInstance(classOf[ALANameSearcher]).asInstanceOf[ALANameSearcher]
 
   //load sensitive data service
   lazy val sdsFinder = {
@@ -168,8 +168,8 @@ private class ConfigModule extends AbstractModule {
       val nameIndexLocation = properties.getProperty("name.index.dir")
       logger.debug("Loading name index from " + nameIndexLocation)
 
-      val nameIndex = new CBIndexSearch(nameIndexLocation)
-      bind(classOf[CBIndexSearch]).toInstance(nameIndex)
+      val nameIndex = new ALANameSearcher(nameIndexLocation)
+      bind(classOf[ALANameSearcher]).toInstance(nameIndex)
     } catch {
       case e: Exception => logger.warn("Lucene indexes arent currently available. Message: " + e.getMessage())
     }

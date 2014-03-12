@@ -5,7 +5,7 @@ import au.com.bytecode.opencsv.CSVReader
 import java.io.FileReader
 import collection.mutable.ArrayBuffer
 import java.text.MessageFormat
-import au.org.ala.data.model.LinnaeanRankClassification
+import au.org.ala.names.model.LinnaeanRankClassification
 import au.org.ala.biocache.caches.{WebServiceLoader, TaxonSpeciesListDAO, TaxonProfileDAO}
 import au.org.ala.biocache.model.TaxonProfile
 import scala.util.parsing.json.JSON

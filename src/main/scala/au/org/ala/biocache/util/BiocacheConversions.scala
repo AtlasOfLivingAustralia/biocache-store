@@ -1,6 +1,6 @@
 package au.org.ala.biocache.util
 
-import au.org.ala.checklist.lucene.model.NameSearchResult
+import au.org.ala.names.model.NameSearchResult
 import java.util.Date
 import org.apache.commons.lang.time.DateFormatUtils
 import org.slf4j.LoggerFactory
