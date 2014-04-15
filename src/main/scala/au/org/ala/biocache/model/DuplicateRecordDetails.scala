@@ -21,9 +21,9 @@ class DuplicateRecordDetails(@BeanProperty var rowKey:String, @BeanProperty var 
       null
     }
   }
-  var duplicateOf:String = null
-  //stores the precision so that coordinate dup types can be established - we don't want to persist this property
-  var precision = 0
+  @BeanProperty var duplicateOf:String = null
+
+  @BeanProperty var precision = 0
   @BeanProperty var duplicates:util.ArrayList[DuplicateRecordDetails]=null
   @BeanProperty var dupTypes:util.ArrayList[DupType]=_
 
