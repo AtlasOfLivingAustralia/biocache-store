@@ -142,7 +142,7 @@ class ClassificationProcessor extends Processor {
           var attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
           if (attribution.isEmpty)
             attribution = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
-
+          var hintsPassed = true
           if (!attribution.isEmpty) {
             logger.debug("Checking taxonomic hints")
             val taxonHints = attribution.get.taxonomicHints
@@ -151,6 +151,7 @@ class ClassificationProcessor extends Processor {
               val (isValid, comment) = isMatchValid(classification, attribution.get.retrieveParseHints)
               if (!isValid) {
                 logger.info("Conflict in matched classification. Matched: " + guid + ", Matched: " + comment + ", Taxonomic hints in use: " + taxonHints.toList)
+                hintsPassed =false
                 processed.classification.nameMatchMetric = "matchFailedHint"
                 assertions += QualityAssertion(AssertionCodes.RESOURCE_TAXONOMIC_SCOPE_MISMATCH, comment)
               } else if (attribution.get.retrieveParseHints.size >0){
@@ -162,11 +163,14 @@ class ClassificationProcessor extends Processor {
 
           //check for default match before updating the classification.
           val hasDefaultMatch = processed.defaultValuesUsed && nsr.getRank() != null && hasMatchToDefault(nsr.getRank().getRank(), nsr.getRankClassification().getScientificName(), processed.classification)
-          //store ".p" values
-          processed.classification = nsr
+          //store ".p" values if thr taxonomic hinst passed
+          if(hintsPassed) {
+            processed.classification = nsr
+          }
           //check to see if the classification has been matched to a default value
-          if (hasDefaultMatch)
+          if (hasDefaultMatch) {
             processed.classification.nameMatchMetric = "defaultHigherMatch" //indicates that a default value was used to make the higher level match
+          }
 
           //try to apply the vernacular name
           val taxonProfile = TaxonProfileDAO.getByGuid(nsr.getLsid)
