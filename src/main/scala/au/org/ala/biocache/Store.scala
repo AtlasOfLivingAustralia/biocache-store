@@ -9,7 +9,7 @@ import org.ala.layers.dao.IntersectCallback
 import collection.mutable.ArrayBuffer
 import au.org.ala.biocache.util._
 import au.org.ala.biocache.dao.{OutlierStatsDAO, OccurrenceDAO}
-import au.org.ala.biocache.load.{MediaStore, SimpleLoader, MapDataLoader}
+import au.org.ala.biocache.load.{Loader, MediaStore, SimpleLoader, MapDataLoader}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.index.{IndexRecords, IndexFields}
 import au.org.ala.biocache.vocab._
@@ -34,6 +34,7 @@ import au.org.ala.biocache.outliers.RecordJackKnifeStats
 import au.org.ala.biocache.outliers.SampledRecord
 import au.org.ala.biocache.vocab.ErrorCode
 import au.org.ala.biocache.tool.{DataResourceDelete, RecordProcessor, ProcessWithActors, Sampling}
+import org.slf4j.LoggerFactory
 
 /**
  * This is the interface to use for java applications or any application using this as a library.
@@ -51,7 +52,7 @@ import au.org.ala.biocache.tool.{DataResourceDelete, RecordProcessor, ProcessWit
  * ...and lots more.
  */
 object Store {
-
+  val logger = LoggerFactory.getLogger("Store")
   private val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
   private val outlierStatsDAO = Config.getInstance(classOf[OutlierStatsDAO]).asInstanceOf[OutlierStatsDAO]
   private val deletedRecordDAO = Config.deletedRecordDAO
@@ -563,6 +564,45 @@ object Store {
   def getLayerId(name :String ):String={
     if(name != null) Layers.nameToIdMap.getOrElse(name.toLowerCase, null)
     else null
+  }
+
+  /**
+   * Ingest the supplied data resources when null is provided all available
+   * data resources will be ingested.
+   * @param dataResources
+   * @param numThreads
+   */
+  def ingest(dataResources:Array[String], numThreads:Int=4){
+    //when null is provided as a argument we need to get a list of the available data resources
+    val l = new Loader
+    if(dataResources != null){
+      dataResources.foreach(dr => performIngest(dr, l,numThreads))
+    } else{
+      l.resourceList.foreach(resource =>{
+        val uid = resource.getOrElse("uid", "")
+        val name = resource.getOrElse("name", "")
+        logger.info(s"Ingesting resource $name, uid: $uid")
+        performIngest(uid, l, numThreads)
+      })
+    }
+  }
+
+  /**
+   * Perform the ingest for a singel data resource
+   * @param uid
+   * @param l
+   * @param numThreads
+   */
+  def performIngest(uid:String, l:Loader, numThreads:Int){
+    //load
+    logger.info("Loading : " + uid)
+    l.load(uid)
+    logger.info("Sampling " + uid)
+    Sampling.main(Array("-dr", uid))
+    logger.info("Processing " + uid)
+    ProcessWithActors.processRecords(numThreads, None, Some(uid))
+    logger.info("Indexing " +uid)
+    IndexRecords.index(None, None, Some(uid), false, false)
   }
 
   /**
