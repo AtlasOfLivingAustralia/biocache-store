@@ -49,7 +49,7 @@ def main(args:Array[String]){
                     case Some(v) => l.loadLocalFile(dataResourceUid, v, processIds)
                 }
                 //initialise the delete
-                //update the collectory information               
+                //update the collectory information
                 l.updateLastChecked(dataResourceUid)
             }
             catch{
@@ -113,14 +113,14 @@ class AutoDwcCSVLoader extends DataLoader{
         //From the file extract the files to load
         val baseDir = file.getParent
         val csvLoader = new DwcCSVLoader
-        if(file.getName.endsWith(".tar.gz") || file.getName().endsWith(".zip")){
+        if(file.getName.endsWith(".tar.gz") || file.getName.endsWith(".tgz")|| file.getName().endsWith(".zip")){
             //set up the lists of data and id files
             val dataFiles = new scala.collection.mutable.ListBuffer[File]
             //val idFiles = new scala.collection.mutable.ListBuffer[File]
             
             //now find a list of files that obey the data load file
             val tarInputStream = {
-              if(file.getName.endsWith("tar.gz")){
+              if(file.getName.endsWith("tar.gz") || file.getName.endsWith(".tgz")){
                   //gunzip the file
                   val unzipedFile= file.extractGzip
                   new ArchiveStreamFactory().createArchiveInputStream("tar", new FileInputStream(unzipedFile))
@@ -130,11 +130,18 @@ class AutoDwcCSVLoader extends DataLoader{
               }
               }
             var entry = tarInputStream.getNextEntry
+            var hasImages = false;
             while(entry != null){
                 val name:String = FilenameUtils.getName(entry.getName)
                 logger.debug("FILE from archive name: " +name)
                 name match{
                     case loadPattern(filename) => dataFiles += extractTarFile(tarInputStream, baseDir,entry.getName)
+                    case it if MediaStore.endsWithOneOf(MediaStore.imageExtension, it) => {
+                      //supports images supplied in the archive. Relies on the images paths being supplied in associatedMedia
+                      // as a path relative to the directory of the CSV file
+                      extractTarFile(tarInputStream, baseDir, entry.getName)
+                      hasImages = true
+                    }
                     case _ => //do nothing with the file
                 }
                 entry = tarInputStream.getNextEntry
@@ -257,6 +264,7 @@ class AutoDwcCSVLoader extends DataLoader{
     }
     def extractTarFile(io:InputStream,baseDir:String, filename:String):File={        
         //construct the file
+        logger.info("Extracting " + filename + " to " + baseDir)
         val file = new File(baseDir+ System.getProperty("file.separator") + filename)
         FileUtils.forceMkdir(file.getParentFile)
         val fos = new FileOutputStream(file)
