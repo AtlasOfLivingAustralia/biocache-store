@@ -34,6 +34,9 @@ import scala.collection.mutable.ArrayBuffer
    2) Ingest into the biocache
  *
  *
+ * The BIE resources listed below have some issues related to them. Most of them are not include in the default list
+ * of data resource to load from the BIE. Only dr446/dr585 is being included.
+ *
  * dr360.csv - Flckr images from BIE only 1686 records these arwe not going to be loaded at the moment.
  *
  * dr441.csv - 11188 Morphbank images that have been harvested into the BIE with different keywords. These will be
@@ -43,10 +46,12 @@ import scala.collection.mutable.ArrayBuffer
  *
  * dr445 - Mosquitoes of Australia data set change uid to dr533 which is no longer contributing to the ALA so we will ignore it for now.
  *
+ * dr440 - These are the images that were uploaded via the ALA web, they don't have external URLs and should potentially be added via CS field data
+ *
  * @author Natasha Quimby
  */
 object BieCsvLoader {
-  val bieDrString = "dr396,dr414,dr429,dr449,dr462,dr572,dr382,dr399,dr415,dr430,dr450,dr463,dr613,dr384,dr401,dr416,dr431,dr451,dr585,dr627,dr385,dr402,dr417,dr432,dr452,dr469,dr660,dr386,dr403,dr418,dr440,dr453,dr521,dr665,dr387,dr405,dr419,dr455,dr524,dr674,dr388,dr406,dr421,dr443,dr457,dr526,dr389,dr408,dr422,dr458,dr532,dr390,dr410,dr427,dr447,dr459,dr534,dr394,dr413,dr428,dr448,dr461,dr545"
+  val bieDrString = "dr396,dr414,dr429,dr449,dr462,dr572,dr382,dr399,dr415,dr430,dr450,dr463,dr613,dr384,dr401,dr416,dr431,dr451,dr585,dr627,dr385,dr402,dr417,dr432,dr452,dr469,dr660,dr386,dr403,dr418,dr453,dr521,dr665,dr387,dr405,dr419,dr455,dr524,dr674,dr388,dr406,dr421,dr443,dr457,dr526,dr389,dr408,dr422,dr458,dr532,dr390,dr410,dr427,dr447,dr459,dr534,dr394,dr413,dr428,dr448,dr461,dr545"
   //val drs = bieDrString.split(",")
 
   def main(args: Array[String]) {
@@ -74,7 +79,7 @@ object BieCsvLoader {
       if(dataResources.contains(dr)){
         println(s"Warning the biocache already contains a Record resource for $dr")
         buf += dr
-      } else {
+     } else {
         val fileUrl = s"http://www2.ala.org.au/datasets/occurrence/bie/$dr/$dr.csv"
         //2) Check to see if the file exists
         val connection = new URL(fileUrl).openConnection().asInstanceOf[HttpURLConnection]
@@ -107,17 +112,15 @@ object BieCsvLoader {
     try {
 
         val map =new  scala.collection.mutable.HashMap[String,Object]()
-        /*
-        "connectionParameters":{"protocol":"DwC","csv_text_enclosure":"\"","termsForUniqueKey":["scientificName","eventID"],"csv_eol":"\n","csv_delimiter":",","automation":false,"incremental":true,"strip":false,"csv_escape_char":"|","url":"http://www2.ala.org.au/datasets/occurrence/dr359/BLA_Atlas_Nov13_DwC.zip"}
-         */
+        //create the connection params map to add to the overall update map
         val connectParams = Map("protocol"->"DwC","csv_text_enclosure"->"\"", "termsForUniqueKey"->Array("occurrenceID"),
           "csv_eol"->"\n", "csv_delimiter"->",", "csv_escape_char"->"\\", "url"->fileUrl)
-
+        //create the default darwin core values map to add to the overall update map
+        val defaultDwcValues = Map("basisOfRecord"->"Image")
         map ++= Map("user"-> Config.getProperty("registry.username"), "api_key"-> Config.getProperty("registry.apikey"),
-          "resourceType"->"records" , "connectionParameters"->connectParams)
+          "resourceType"->"records" , "connectionParameters"->connectParams, "defaultDarwinCoreValues"->defaultDwcValues)
         val data = mapper.writeValueAsString(map)//Json.toJSONMap(map.toMap)
         //turn the map of values into JSON representation
-        //val data = map.map(pair => "\""+pair._1 +"\":\"" +pair._2 +"\"").mkString("{",",", "}")
         println(data)
         val response = Http.postData(Config.registryUrl + "/dataResource/" +resourceUid,data).header("content-type", "application/json")
         println("Data resource " + resourceUid + " " + response.responseCode)
