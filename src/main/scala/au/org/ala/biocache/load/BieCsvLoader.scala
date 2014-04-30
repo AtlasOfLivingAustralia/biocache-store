@@ -16,7 +16,7 @@ package au.org.ala.biocache.load
 
 import java.net.{HttpURLConnection, URL}
 import au.org.ala.biocache.{Store, Config}
-import scalaj.http.Http
+import scalaj.http.{HttpOptions, Http}
 import au.org.ala.biocache.util.Json
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.annotation.JsonInclude.Include
@@ -47,11 +47,12 @@ import scala.collection.mutable.ArrayBuffer
  * dr445 - Mosquitoes of Australia data set change uid to dr533 which is no longer contributing to the ALA so we will ignore it for now.
  *
  * dr440 - These are the images that were uploaded via the ALA web, they don't have external URLs and should potentially be added via CS field data
+ * I have put this data resource back in but it can always be deleted if required
  *
  * @author Natasha Quimby
  */
 object BieCsvLoader {
-  val bieDrString = "dr396,dr414,dr429,dr449,dr462,dr572,dr382,dr399,dr415,dr430,dr450,dr463,dr613,dr384,dr401,dr416,dr431,dr451,dr585,dr627,dr385,dr402,dr417,dr432,dr452,dr469,dr660,dr386,dr403,dr418,dr453,dr521,dr665,dr387,dr405,dr419,dr455,dr524,dr674,dr388,dr406,dr421,dr443,dr457,dr526,dr389,dr408,dr422,dr458,dr532,dr390,dr410,dr427,dr447,dr459,dr534,dr394,dr413,dr428,dr448,dr461,dr545"
+  val bieDrString = "dr396,dr414,dr429,dr449,dr462,dr572,dr382,dr399,dr415,dr430,dr450,dr463,dr613,dr384,dr401,dr416,dr431,dr451,dr585,dr627,dr385,dr402,dr417,dr432,dr452,dr469,dr660,dr386,dr403,dr418,dr453,dr521,dr665,dr387,dr405,dr419,dr455,dr524,dr674,dr388,dr406,dr421,dr443,dr457,dr526,dr389,dr408,dr422,dr458,dr532,dr390,dr410,dr427,dr447,dr459,dr534,dr394,dr413,dr428,dr448,dr461,dr545,dr440"
   //val drs = bieDrString.split(",")
 
   def main(args: Array[String]) {
@@ -123,6 +124,7 @@ object BieCsvLoader {
         //turn the map of values into JSON representation
         println(data)
         val response = Http.postData(Config.registryUrl + "/dataResource/" +resourceUid,data).header("content-type", "application/json")
+        response.option(HttpOptions.connTimeout(5000)).option(HttpOptions.readTimeout(5000))
         println("Data resource " + resourceUid + " " + response.responseCode)
       true
     } catch {
