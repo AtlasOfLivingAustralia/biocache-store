@@ -34,7 +34,7 @@ trait POSO {
             property.setter.invoke(this, array)
           } catch {
             case e: Exception => {
-              logger.error("Problem deserialising value: " + value + " - " + e.getMessage, e)
+              logger.error("Problem de-serialising value: " + name  + " : " + value + " - " + e.getMessage, e)
             }
           }
         }
@@ -49,7 +49,7 @@ trait POSO {
               property.setter.invoke(this, fromJson.get.asInstanceOf[Map[String, String]])
           }
           catch {
-            case e: Exception => logger.warn("Unable to set POSO map property. " + e.getMessage)
+            case e: Exception => logger.warn("Unable to set POSO map property. Property: " + name  + " : " + value + " Error:" + e.getMessage)
           }
         }
         case "java.util.Map" => property.setter.invoke(this, Json.toJavaStringMap(value))
@@ -58,7 +58,7 @@ trait POSO {
           if(date.isDefined)
             property.setter.invoke(this, date.get)        
         }
-        case _ => logger.warn("Unhandled data type: " + property.typeName)
+        case _ => logger.warn("Unhandled data type: " + property.typeName + " Property: " + name  + " : " + value )
       }
     }
     case None => {} //println("Property not mapped: " +name +", on " + this.getClass.getName)

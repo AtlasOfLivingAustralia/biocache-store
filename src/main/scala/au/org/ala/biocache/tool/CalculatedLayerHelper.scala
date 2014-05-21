@@ -10,18 +10,15 @@ import actors.Actor._
 import java.util.concurrent.CountDownLatch
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.cmd.Tool
 
 /**
- * Created with IntelliJ IDEA.
- * User: ChrisF
- * Date: 29/11/12
- * Time: 4:13 PM
- * To change this template use File | Settings | File Templates.
+ * A utility for generating Endemism, Species Richness and Occurrence Density spatial layers.
  */
-object CalculatedLayerHelper {
+object CalculatedLayerHelper extends Tool {
 
-  //val FACET_DOWNLOAD_URL_TEMPLATE = Config.biocacheServiceUrl + "/occurrences/facets/download?q={0}&facets={1}"
-  //val FACET_DOWNLOAD_URL_TEMPLATE = "http://ala-rufus.it.csiro.au/biocache-service/occurrences/facets/download?q={0}&facets={1}"
+  def cmd = "endemism"
+  def desc = "Generate endemism layer"
 
   // All occurrences
   val SPECIES_GUID_QUERY = "species_guid:*"
@@ -37,14 +34,15 @@ object CalculatedLayerHelper {
   val POINT_001_FACET = "point-0.001"
 
   def main(args: Array[String]) {
-    val helper = new CalculatedLayerHelper();
-    var outputFileDirectory: String = null;
-    var speciesCellCountsFilePrefix: String = null;
-    var cellSpeciesFilePrefix: String = null;
-    var cellOccurrenceCountsFilePrefix: String = null;
-    var numThreads = 1;
 
-    val parser = new OptionParser("Find expert distribution outliers") {
+    val helper = new CalculatedLayerHelper()
+    var outputFileDirectory: String = null
+    var speciesCellCountsFilePrefix: String = null
+    var cellSpeciesFilePrefix: String = null
+    var cellOccurrenceCountsFilePrefix: String = null
+    var numThreads = 1
+
+    val parser = new OptionParser(help) {
       arg("outputFileDirectory", "Directory in which to write the output files", {
         v: String => outputFileDirectory = v
       })
@@ -79,7 +77,6 @@ object CalculatedLayerHelper {
     def addToList(name: String, count: Int): Boolean = {
       valuesList += name
       valuesCountMap.put(name, count)
-
       true
     }
 
@@ -104,7 +101,7 @@ class CalculatedLayerHelper {
 
   def calculateCellValues(numThreads: Int, outputFileDirectory: String, speciesCellCountsFilePrefix: String, cellSpeciesFilePrefix: String, cellOccurrenceCountsFilePrefix: String, filterQuery: String, numDecimalPlacesToRoundTo:Int) {
 
-    val countDownLatch = new CountDownLatch(numThreads);
+    val countDownLatch = new CountDownLatch(numThreads)
 
     //Dispatcher actor
     actor {

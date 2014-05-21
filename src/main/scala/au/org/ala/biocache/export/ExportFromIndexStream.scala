@@ -3,8 +3,15 @@ package au.org.ala.biocache.export
 import au.org.ala.biocache.util.OptionParser
 import java.io.{File, FileWriter}
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.cmd.Tool
 
-object ExportFromIndexStream {
+/**
+ * Utility for exporting a list of fields from the index using SOLR streaming.
+ */
+object ExportFromIndexStream extends Tool {
+
+  def cmd = "export-stream"
+  def desc = "Export from search indexes using streaming"
 
   var outputFilePath = ""
   var query = "*:*"
@@ -13,11 +20,11 @@ object ExportFromIndexStream {
   var orderFields = Array("row_key")
 
   def main(args: Array[String]) {
-    val parser = new OptionParser("export index stream") {
-      arg("<output-file>", "The file name for the export file", {
+    val parser = new OptionParser(help) {
+      arg("output-file", "The file name for the export file", {
         v: String => outputFilePath = v
       })
-      arg("<list of fields>", "CSV list of fields to export", {
+      arg("list-of-fields", "CSV list of fields to export", {
         v: String => fieldsToExport = v.split(",").toArray
       })
       opt("q", "query", "The SOLR query to use", {

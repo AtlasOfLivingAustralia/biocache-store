@@ -12,11 +12,15 @@ import au.org.ala.biocache.util.{Json, OptionParser, BiocacheConversions}
 import au.org.ala.biocache.model.ValidationRule
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.index.IndexRecords
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Executable that applies the validation rules provided by users.
  */
-object ValidationRuleRunner {
+object ValidationRuleRunner extends Tool {
+
+  def cmd = "apply-validation"
+  def desc = "Apply the validation rules"
 
   def main(args: Array[String]) {
 
@@ -28,7 +32,7 @@ object ValidationRuleRunner {
     var test = false
     var retrofit =false
     var tempFilePath = "/tmp/queryAssertionReindex.txt"
-    val parser = new OptionParser("Application of Validation Rules") {
+    val parser = new OptionParser(help) {
       opt("a", "apiKey","The apiKey whose assertions should be applied", {v:String => apiKey = Some(v)})
       opt("i","record id", "The uuid or the rowKey for the validation rule to apply", {v:String => id = Some(v)})
       opt("retro","Retrofit the id's",{retrofit=true})
@@ -106,7 +110,7 @@ class ValidationRuleRunner {
     //val queryPattern = """\?q=([\x00-\x7F\s]*)&wkt=([\x00-\x7F\s]*)""".r
     val start = apiKey + "|"
     val end = start + "~"
-    var buffer = new ArrayBuffer[String]
+    val buffer = new ArrayBuffer[String]
 
     val reindexWriter = new FileWriter(tempFilePath)
     logger.info("Starting...")

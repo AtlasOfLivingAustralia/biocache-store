@@ -7,12 +7,35 @@ import java.io.File
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.util.{OptionParser, FileHelper}
+import au.org.ala.biocache.cmd.Tool
+
+object ProcessAll extends Tool {
+
+  def cmd = "process-all"
+  def desc = "Process all records"
+
+  def main(args:Array[String]){
+
+    var threads:Int = 4
+    val parser = new OptionParser(help) {
+      intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
+    }
+    if(parser.parse(args)){
+      ProcessWithActors.processRecords(4, None, None)
+    }
+  }
+}
 
 /**
  * A simple threaded implementation of the processing.
  */
-object ProcessWithActors {
+object ProcessWithActors extends Tool {
+
   import FileHelper._
+
+  def cmd = "process"
+  def desc = "Process records (geospatial, taxonomy)"
+
   val occurrenceDAO = Config.occurrenceDAO
   val persistenceManager = Config.persistenceManager
   val logger = LoggerFactory.getLogger("ProcessWithActors")
@@ -23,19 +46,20 @@ object ProcessWithActors {
     var threads:Int = 4
     var startUuid:Option[String] = None
     var endUuid:Option[String] = None
-    var check = false
+    var checkDeleted = false
     var dr:Option[String] = None
 
-    val parser = new OptionParser("process records options") {
+    val parser = new OptionParser(help) {
       intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
       opt("s", "start","The record to start with", {v:String => startUuid = Some(v)})
       opt("e", "end","The record to end with", {v:String => endUuid = Some(v)})
-      opt("dr", "resource", "The data resource to process", {v:String =>dr = Some(v)})
+      opt("dr", "resource", "The data resource to process", {v:String => dr = Some(v)})
+      booleanOpt("cd", "checkDeleted", "Check deleted records", {v:Boolean => checkDeleted = v})
     }
     
     if(parser.parse(args)){
       logger.info("Processing " + dr.getOrElse("") + " from " + startUuid + "to " +endUuid+ " with " + threads + "actors")
-      processRecords(threads, startUuid, dr, check, lastKey = endUuid)
+      processRecords(threads, startUuid, dr, checkDeleted, lastKey = endUuid)
     }
     //shutdown the persistence
     persistenceManager.shutdown
@@ -48,6 +72,7 @@ object ProcessWithActors {
     }
     size
   }
+
   /**
    * Processes the supplied row keys in a Thread
    */
@@ -56,7 +81,7 @@ object ProcessWithActors {
     val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids); ids +=1; p.start }
     logger.info("Starting to process a list of records...");
     val start = System.currentTimeMillis
-    var startTime = System.currentTimeMillis
+    val startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     var buff = new ArrayBuffer[String]
     //use this variable to evenly distribute the actors work load
@@ -82,25 +107,25 @@ object ProcessWithActors {
       if (count % 1000 == 0) {
         finishTime = System.currentTimeMillis
         logger.info(count
-            + " >> Last key : " + line
-            + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
-            + ", time taken for "+1000+" records: " + (finishTime - startTime).toFloat / 1000f
-            + ", total time: "+ (finishTime - start).toFloat / 60000f +" minutes"
+          + " >> Last key : " + line
+          + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
+          + ", time taken for " + 1000 + " records: " + (finishTime - startTime).toFloat / 1000f
+          + ", total time: " + (finishTime - start).toFloat / 60000f + " minutes"
         )
       }
     })
 
     //add the remaining records from the buff
-    if(buff.size>0){
+    if(!buff.isEmpty){
       pool(0).asInstanceOf[Consumer] ! buff.toArray
-      batches+=1
+      batches += 1
     }
 
     logger.info(count
-            + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
-            + ", time taken for "+1000+" records: " + (finishTime - startTime).toFloat / 1000f
-            + ", total time: "+ (finishTime - start).toFloat / 60000f +" minutes"
-        )
+      + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
+      + ", time taken for "+ 1000 + " records: " + (finishTime - startTime).toFloat / 1000f
+      + ", total time: "+ (finishTime - start).toFloat / 60000f + " minutes"
+    )
     logger.info("Finished.")
 
     //kill the actors
@@ -115,9 +140,9 @@ object ProcessWithActors {
   
   def performPaging(proc: (Option[(FullRecord, FullRecord)] => Boolean),startKey:String="", endKey:String="",
                     pageSize: Int = 1000){
-      occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
-          proc(rawAndProcessed)
-      },startKey,endKey)
+    occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
+        proc(rawAndProcessed)
+    },startKey,endKey)
   }
 
   /**
@@ -138,7 +163,7 @@ object ProcessWithActors {
     var ids = 0
     val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids); ids +=1; p.start }
     
-    logger.info("Starting with " + startUuid +" endingwith " + endUuid)
+    logger.info("Starting with " + startUuid +" ending with " + endUuid)
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -170,7 +195,6 @@ object ProcessWithActors {
         batches += 1
         //find a ready actor...
         while(!actor.ready){ Thread.sleep(50) }
-
         actor ! buff.toArray
         buff.clear
       }
@@ -216,7 +240,7 @@ class Consumer (master:Actor,val id:Int)  extends Actor  {
 
   val logger = LoggerFactory.getLogger("Consumer")
 
-  logger.info("Initialising thread: "+id)
+  logger.info("Initialising thread: " + id)
   val processor = new RecordProcessor
   val occurrenceDAO = Config.occurrenceDAO
   var received, processedRecords = 0
@@ -255,26 +279,26 @@ class Consumer (master:Actor,val id:Int)  extends Actor  {
           processedRecords += 1
         }
         case keys:Array[String]=>{
-            //get the raw and Processed records for the row key
-            received +=1
-            val start = System.currentTimeMillis  
-            var counter:Float=0
-            for(key <- keys){
-                counter +=1
-                val records = occurrenceDAO.getRawProcessedByRowKey(key)
-                if(!records.isEmpty){
-                    processor.processRecord(records.get(0), records.get(1))
-                }
+          //get the raw and Processed records for the row key
+          received +=1
+          val start = System.currentTimeMillis
+          var counter:Float=0
+          for(key <- keys){
+            counter +=1
+            val records = occurrenceDAO.getRawProcessedByRowKey(key)
+            if(!records.isEmpty){
+                processor.processRecord(records.get(0), records.get(1))
             }
-            val finished = System.currentTimeMillis
-            logger.info("Actor "+id +">>> Last Key: "+keys.last+", records per sec: " + counter / (((finished - start).toFloat) / 1000f))
-            processedRecords+=1
+          }
+          val finished = System.currentTimeMillis
+          logger.info("Actor "+id +">>> Last Key: "+keys.last+", records per sec: " + counter / (((finished - start).toFloat) / 1000f))
+          processedRecords+=1
         }
         case s:String => {
-            if(s == "exit"){
-              logger.info("Killing (Actor.act) thread: "+id)
-              exit()
-            }
+          if(s == "exit"){
+            logger.info("Killing (Actor.act) thread: "+id)
+            exit()
+          }
         }
       }
     }

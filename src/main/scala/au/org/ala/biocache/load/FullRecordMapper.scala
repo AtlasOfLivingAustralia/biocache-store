@@ -9,6 +9,8 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.poso.POSO
 import au.org.ala.biocache.util.Json
+import org.slf4j.LoggerFactory
+
 //
 //object FullRecordMapper {
 //  def apply(): FullRecordMapper = new FullRecordMapper
@@ -19,7 +21,7 @@ import au.org.ala.biocache.util.Json
  * which represents a record.
  */
 object FullRecordMapper {
-
+  val logger = LoggerFactory.getLogger("FullRecordMapper")
   val entityName = "occ"
   val qualityAssertionColumn = "qualityAssertion"
   val userQualityAssertionColumn = "userQualityAssertion"
@@ -119,8 +121,9 @@ object FullRecordMapper {
       if(targetName != ""){
         val value = valueMap.get(sourceName)
         //get the setter method
-        if(value.isDefined && value.get != null)
+        if(value.isDefined && value.get != null) {
           poso.setProperty(targetName, value.get.toString)
+        }
       }
     })
   }
@@ -210,8 +213,18 @@ object FullRecordMapper {
           case it if deletedColumn.equals(it) => fullRecord.deleted = "true".equals(fieldValue)
           case it if dateDeletedColumn.equals(it) => fullRecord.dateDeleted
           case it if lastUserAssertionDateColumn.equals(fieldName) => fullRecord.setLastUserAssertionDate(fieldValue)
-          case it if version == Processed && isProcessedValue(fieldName) => fullRecord.setProperty(removeSuffix(fieldName), fieldValue)
-          case it if version == Raw && fullRecord.hasProperty(fieldName) => fullRecord.setProperty(fieldName, fieldValue)
+          case it if version == Processed && isProcessedValue(fieldName) => {
+            val success = fullRecord.setProperty(removeSuffix(fieldName), fieldValue)
+            if(!success) {
+              logger.warn("Unable to set " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
+            }
+          }
+          case it if version == Raw && fullRecord.hasProperty(fieldName) => {
+            val success = fullRecord.setProperty(fieldName, fieldValue)
+            if(!success) {
+              logger.warn("Unable to set " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
+            }
+          }
           case it if version == Raw &&  !isProcessedValue(fieldName) => {
             //any property that is not recognised is lumped into miscProperties
             //println("*********** field added to misc properties '" + fieldName+"', '"+fieldValue + "'")

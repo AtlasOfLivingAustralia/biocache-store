@@ -45,7 +45,7 @@ object DwCALoader {
     val parser = new OptionParser("load darwin core archive") {
       arg("<data resource UID>", "The UID of the data resource to load", {v: String => resourceUid = v})
       opt("l", "local", "skip the download and use local file", {v:String => localFilePath = Some(v) } )
-      booleanOpt("b", "bypassConnParamLookup", "bypass connection param lookup", {v:Boolean => bypassConnParamLookup = v } )
+      booleanOpt("b", "bypassConnParamLookup", "bypass connection parameter lookup in the registry (collectory)", {v:Boolean => bypassConnParamLookup = v } )
       opt("log","log row keys to file - allows processing/indexing of changed records",{logRowKeys = true})
       opt("test", "test the file only do not load", {testFile=true})
     }

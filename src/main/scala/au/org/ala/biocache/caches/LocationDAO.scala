@@ -130,7 +130,7 @@ object LocationDAO {
 
             val returnValue = Some((location, el, cl))
 
-            lock.synchronized {lru.put(uuid,returnValue)}
+            lock.synchronized { lru.put(uuid,returnValue) }
 
             returnValue
           }
@@ -151,7 +151,7 @@ object LocationDAO {
     }
   }
 
-  def doLayerIntersectForPoint(latitude:String, longitude:String) : Option[(Location, Map[String,String], Map[String,String])] = {
+  private def doLayerIntersectForPoint(latitude:String, longitude:String) : Option[(Location, Map[String,String], Map[String,String])] = {
 
     //do a layers-store lookup
     val layerIntersectDAO = Client.getLayerIntersectDao()
@@ -163,7 +163,7 @@ object LocationDAO {
       //create a map to store in loc
       val mapBuffer = new HashMap[String, String]
       mapBuffer += (latitudeCol -> latitude)
-      mapBuffer += (longitude-> longitude)
+      mapBuffer += (longitude -> longitude)
       mapBuffer ++= (Config.fieldsToSample zip values).filter(x => x._2.trim.length != 0 && x._2 != "n/a")
       val propertyMap = mapBuffer.toMap
       val guid = getLatLongKey(latitude, longitude)
@@ -179,7 +179,7 @@ object LocationDAO {
           case Some(term) => location.stateProvince = term.canonical
           case None => {
             /*do nothing for now */
-            logger.warn("Unrecognised stateprovince value retrieved from layer cl927: " + stateProvinceValue)
+            logger.warn("Unrecognised state province value retrieved from layer cl927: " + stateProvinceValue)
           }
         }
       }

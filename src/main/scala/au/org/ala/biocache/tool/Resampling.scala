@@ -5,16 +5,20 @@ import scala.collection.mutable.HashSet
 import java.io.{FileReader, FileWriter}
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * A re-sampler for sensitive records.
  */
-object ResampleRecordsByQuery {
+object ResampleRecordsByQuery extends Tool {
+
+  def cmd = "resample"
+  def desc = "Resample records based on query"
 
   def main(args:Array[String]){
 
     var query:String = ""
-    val parser = new OptionParser("index records options") {
+    val parser = new OptionParser(help) {
       arg("q", "The SOLR query to process", {v:String => query = v})
     }
 
@@ -118,18 +122,11 @@ object ResampleSensitiveRecords extends ResampleRecords {
  * A resampler for records that have had their coordinates changed during processing.
  */
 object ResampleChangedCoordinates {
-  def changeCoordinatesFilter(map:Map[String,String]) : Boolean ={
-    val rawLat = map.getOrElse("decimalLatitude","")
-    val rawLon = map.getOrElse("decimalLongitude","")
-    val proLat = map.getOrElse("decimalLatitude.p","")
-    val proLon = map.getOrElse("decimalLongitude.p","")
-    if(rawLat!="" && rawLon != "" && proLat != "" && proLon != "")
-      rawLat != proLat || rawLon != proLon
-    else
-      false
-  }
+
   def main(args:Array[String]){
+
     var dataResourceUid:String = ""
+
     val parser = new OptionParser("index records options") {
         opt("dr","data-resource-uid", "The data resource to process", {v:String => dataResourceUid = v})
     }
@@ -140,15 +137,29 @@ object ResampleChangedCoordinates {
         if (dataResourceUid != "") dataResourceUid +"|"
         else ""
       }
-      val endKey = {
-        if (dataResourceUid != "") dataResourceUid +"|~"
-        else ""
+      val endKey = if (dataResourceUid != "") {
+        dataResourceUid +"|~"
+      } else {
+        ""
       }
 
       val r = new ResampleRecords
       r.resamplePointsByFilter(changeCoordinatesFilter, Array("decimalLatitude","decimalLongitude"),startKey, endKey)
     }
   }
+
+  def changeCoordinatesFilter(map:Map[String,String]) : Boolean ={
+    val rawLat = map.getOrElse("decimalLatitude","")
+    val rawLon = map.getOrElse("decimalLongitude","")
+    val proLat = map.getOrElse("decimalLatitude.p","")
+    val proLon = map.getOrElse("decimalLongitude.p","")
+    if(rawLat!="" && rawLon != "" && proLat != "" && proLon != "") {
+      rawLat != proLat || rawLon != proLon
+    } else {
+      false
+    }
+  }
+
 }
 
 /**

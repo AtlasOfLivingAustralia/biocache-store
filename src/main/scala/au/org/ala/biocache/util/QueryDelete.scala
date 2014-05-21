@@ -3,13 +3,14 @@ package au.org.ala.biocache.util
 import java.io.{FileOutputStream, BufferedOutputStream, File}
 
 /**
- * Created by mar759 on 17/02/2014.
+ * Utility to delete records matching a query.
  */
 class QueryDelete(query: String) extends RecordDeletor {
 
   import FileHelper._
 
   override def deleteFromPersistent() = {
+
     val file = new File("/data/tmp/delrowkeys.out")
     var count = 0
     val start = System.currentTimeMillis
@@ -25,7 +26,7 @@ class QueryDelete(query: String) extends RecordDeletor {
     })
     val finished = System.currentTimeMillis
 
-    println("Deleted " + count + " records in " + (finished - start).toFloat / 60000f + " minutes.")
+    logger.info("Deleted " + count + " records in " + (finished - start).toFloat / 60000f + " minutes.")
   }
 
   override def deleteFromIndex = indexer.removeByQuery(query)

@@ -54,7 +54,7 @@ class ReflectBean(ref: AnyRef)  {
       val typ = method.getParameterTypes()(0)
       var v2 = value.asInstanceOf[AnyRef]
 
-      typ.getName  match{
+      typ.getName match{
         case "java.lang.Integer" => v2 = any2Int(v2)
         case "java.lang.Double" => v2 = any2Double(v2)
         case "java.util.Date" => v2 = any2Date(v2)

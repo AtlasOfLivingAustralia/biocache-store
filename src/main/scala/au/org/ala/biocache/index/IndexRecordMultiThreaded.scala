@@ -19,6 +19,7 @@ import au.org.ala.biocache.vocab.{ErrorCode, AssertionCodes}
 import au.org.ala.biocache.util.{Json, OptionParser}
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.tool.RecordProcessor
+import org.slf4j.LoggerFactory
 
 object CreateIndexesAndMerge extends Counter {
 
@@ -27,10 +28,14 @@ object CreateIndexesAndMerge extends Counter {
   }
 
   def createIndexesAndMerge() {
-    IndexMergeTool.main(Array("/data/solr/bio-proto-merged/data/index",
-      "/data/solr-create/bio-proto-thread-0/data/index",
-      "/data/solr-create/bio-proto-thread-1/data/index",
-      "/data/solr-create/bio-proto-thread-2/data/index"))
+    IndexMergeTool.main(
+      Array(
+        "/data/solr/bio-proto-merged/data/index",
+        "/data/solr-create/bio-proto-thread-0/data/index",
+        "/data/solr-create/bio-proto-thread-1/data/index",
+        "/data/solr-create/bio-proto-thread-2/data/index"
+      )
+    )
   }
 }
 
@@ -50,9 +55,11 @@ trait Counter {
 }
 
 /**
- * A trait that will calculate the ranges to use for a mulit threads
+ * A trait that will calculate the ranges to use for a multiple threaded process.
  */
 trait RangeCalculator {
+
+  val logger = LoggerFactory.getLogger("RangeCalculator")
 
   /**
    * For a give webservice URL, calculate a partitioning per thread
@@ -63,7 +70,7 @@ trait RangeCalculator {
     val json = JSON.parseFull(Source.fromURL(new URL(firstRequest)).mkString)
     if (!json.isEmpty) {
       val totalRecords = json.get.asInstanceOf[Map[String, Object]].getOrElse("totalRecords", 0).asInstanceOf[Double].toInt
-      println("Total records: " + totalRecords)
+      logger.info("Total records: " + totalRecords)
 
       val pageSize = totalRecords.toInt / threads
 
@@ -78,7 +85,7 @@ trait RangeCalculator {
           .asInstanceOf[List[Map[String, Object]]]
 
         val rowKey = facetResults.head.get("fieldResult").get.asInstanceOf[List[Map[String, String]]].head.getOrElse("label", "")
-        println("Retrieved row key: " + rowKey)
+        logger.info("Retrieved row key: " + rowKey)
 
         if (i > 0) {
           buff(i - 1) = (lastKey, rowKey)
@@ -110,124 +117,11 @@ trait RangeCalculator {
     }
     buff.toArray[(String, String)]
   }
-
-}
-
-object RecordActionMultiThreaded extends Counter with RangeCalculator {
-
-  def main(args: Array[String]) {
-
-    var numThreads = 8
-    var pageSize = 200
-    var ranges: Array[(String, String)] = Array()
-    var dirPrefix = "/data"
-    var keys: Option[Array[String]] = None
-    var columns: Option[Array[String]] = None
-    var action = ""
-    var start, end = ""
-    var dr: Option[String] = None
-    var validActions = List("range", "process", "index", "col", "repair", "datum")
-
-    val parser = new OptionParser("multi-thread index") {
-      arg("<action>", "The action to perform by the Multithreader; either range, process or index, col", {
-        v: String => action = v
-      })
-      intOpt("t", "threads", "The number of threads to perform the indexing on", {
-        v: Int => numThreads = v
-      })
-      intOpt("ps", "pagesize", "The pagesSize for the records", {
-        v: Int => pageSize = v
-      })
-      opt("p", "prefix", "The prefix to apply to the solr directories", {
-        v: String => dirPrefix = v
-      })
-      opt("k", "keys", "A comma separated list of keys on which to perform the range threads. Prevents the need to query SOLR for the ranges.", {
-        v: String => keys = Some(v.split(","))
-      })
-      opt("s", "start", "The rowKey in which to start the range", {
-        v: String => start = v
-      })
-      opt("e", "end", "The rowKey in which to end the range", {
-        v: String => end = v
-      })
-      opt("dr", "dr", "The data resource over which to obtain the range", {
-        v: String => dr = Some(v)
-      })
-      opt("c", "columns", "The columns to export", {
-        v: String => columns = Some(v.split(","))
-      })
-    }
-    if (parser.parse(args)) {
-      if (validActions.contains(action)) {
-        val (query, start, end) = if (dr.isDefined) ("data_resource_uid:" + dr.get, dr.get + "|", dr.get + "|~") else ("*:*", "", "")
-        Config.persistenceManager.get("test", "occ", "blah")
-        ranges = if (keys.isEmpty) calculateRanges(numThreads, query, start, end) else generateRanges(keys.get, start, end)
-        if (action == "range")
-          println(ranges.mkString("\n"))
-
-        else if (action != "range") {
-          var counter = 0
-          val threads = new ArrayBuffer[Thread]
-          val columnRunners = new ArrayBuffer[ColumnReporterRunner]
-          val solrDirs = new ArrayBuffer[String]
-          solrDirs += (dirPrefix + "/solr/bio-proto-merged/data/index")
-          ranges.foreach(r => {
-            println("start: " + r._1 + ", end key: " + r._2)
-
-            val ir = {
-              if (action == "datum") {
-                new DatumRecordsRunner(this, counter, r._1, r._2)
-              }
-              else if (action == "repair") {
-                new RepairRecordsRunner(this, counter, r._1, r._2)
-              }
-              else if (action == "index") {
-                solrDirs += (dirPrefix + "/solr-create/bio-proto-thread-" + counter + "/data/index")
-                new IndexRunner(this, counter, r._1, r._2, dirPrefix + "/solr-template/bio-proto/conf", dirPrefix + "/solr-create/bio-proto-thread-" + counter + "/conf", pageSize)
-                //new IndexRunner(this, counter,  r._1,  r._2, dirPrefix+"/solr-template/bio-proto/biocache/conf", dirPrefix+"/solr-create/bio-proto-thread-"+counter+"/biocache/conf", pageSize)
-              } else if (action == "process") {
-                new ProcessRecordsRunner(this, counter, r._1, r._2)
-              } else if (action == "col") {
-                if (columns.isEmpty)
-                  new ColumnReporterRunner(this, counter, r._1, r._2)
-                else {
-                  new ColumnExporter(this, counter, r._1, r._2, columns.get.toList)
-                }
-              } else
-                new Thread()
-            }
-            val t = new Thread(ir)
-            t.start
-            threads += t
-            if (ir.isInstanceOf[ColumnReporterRunner]) {
-              columnRunners += ir.asInstanceOf[ColumnReporterRunner]
-            }
-            //solrDirs + (dirPrefix+"/solr-create/bio-proto-thread-"+counter +"/data/index")
-            counter += 1
-          })
-
-          //wait for threads to complete and merge all indexes
-          threads.foreach(thread =>
-            thread.join
-          )
-          if (action == "index") {
-            IndexMergeTool.main(solrDirs.toArray)
-            Config.persistenceManager.shutdown
-            println("Waiting to see if shutdown")
-            System.exit(0)
-          } else if (action == "col") {
-            var allSet: Set[String] = Set()
-            columnRunners.foreach(c => allSet ++= c.myset)
-            allSet = allSet.filterNot(it => it.endsWith(".p") || it.endsWith(".qa"))
-            println(allSet)
-          }
-        }
-      }
-    }
-  }
 }
 
 class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, endKey: String, columns: List[String]) extends Runnable {
+
+  val logger = LoggerFactory.getLogger("ColumnExporter")
 
   def run {
 
@@ -252,7 +146,7 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
     }, startKey, endKey, 1000, columns: _*)
 
     val fin = System.currentTimeMillis
-    println("[Exporter Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+    logger.info("[Exporter Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
   }
 
   def exportRecord(writer: CSVWriter, fieldsToExport: List[String], guid: String, map: Map[String, String]) {
@@ -263,6 +157,7 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
 
 class ColumnReporterRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
 
+  val logger = LoggerFactory.getLogger("ColumnReporterRunner")
   val myset = new HashSet[String]
 
   def run {
@@ -284,13 +179,13 @@ class ColumnReporterRunner(centralCounter: Counter, threadId: Int, startKey: Str
       true
     }, startKey, endKey, 1000)
     val fin = System.currentTimeMillis
-    println("[Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
-    println("[THREAD " + threadId + "] " + myset)
+    logger.info("[Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+    logger.info("[THREAD " + threadId + "] " + myset)
   }
 }
 
 class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
-
+  val logger = LoggerFactory.getLogger("RepairRecordsRunner")
   var counter = 0
 
   def run {
@@ -299,7 +194,7 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    println("Starting to repair from " + startKey + " to " + endKey)
+    logger.info("Starting to repair from " + startKey + " to " + endKey)
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
       counter += 1
 
@@ -309,7 +204,7 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
         if (qa.isEmpty) {
           //need to add the QA
           Config.occurrenceDAO.addSystemAssertion(guid, QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD, "Record has been inferred as closely related to  " + map.getOrElse("associatedOccurrences.p", "")), false, false)
-          println("REINDEX:::" + guid)
+          logger.info("REINDEX:::" + guid)
         }
       }
       if (counter % pageSize == 0 && counter > 0) {
@@ -353,8 +248,8 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
   }
 }
 
-
 class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
+  val logger = LoggerFactory.getLogger("DatumRecordsRunner")
   val processor = new RecordProcessor
   var ids = 0
   val threads = 2
@@ -368,7 +263,7 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     //var buff = new ArrayBuffer[(FullRecord,FullRecord)]
-    println("Starting thread " + threadId + " from " + startKey + " to " + endKey)
+    logger.info("Starting thread " + threadId + " from " + startKey + " to " + endKey)
     def locProcess = new LocationProcessor
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
       counter += 1
@@ -381,7 +276,7 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
         def locqa = Json.toIntArray(map.getOrElse("loc.qa", "[]"))
         if (locProcess.getNumberOfDecimalPlacesInDouble(lat) != locProcess.getNumberOfDecimalPlacesInDouble(lon) && locqa.contains(45)) {
           numIssue += 1
-          println("FIXME from THREAD " + threadId + "\t" + guid)
+          logger.info("FIXME from THREAD " + threadId + "\t" + guid)
         }
       }
 
@@ -394,14 +289,14 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
       true;
     }, startKey, endKey, 1000, "decimalLatitude", "decimalLongitude", "rowKey", "uuid", "geodeticDatum", "loc.qa")
     val fin = System.currentTimeMillis
-    println("[Datum Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
-    println("Finished.")
+    logger.info("[Datum Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+    logger.info("Finished.")
   }
 }
 
 
 class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
-
+  val logger = LoggerFactory.getLogger("ProcessRecordsRunner")
   val processor = new RecordProcessor
   var ids = 0
   val threads = 2
@@ -428,12 +323,14 @@ class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Str
       true
     }, startKey, endKey, 1000)
     val fin = System.currentTimeMillis
-    println("[Processor Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
-    println("Finished.")
+    logger.info("[Processor Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+    logger.info("Finished.")
   }
 }
 
 class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String, sourceConfDirPath: String, targetConfDir: String, pageSize: Int = 200) extends Runnable {
+
+  val logger = LoggerFactory.getLogger("IndexRunner")
 
   def run {
 
@@ -450,7 +347,7 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     //FileUtils.copyFileToDirectory(new File(sourceConfDir.getParentFile.getParent+"/solr.xml"), newIndexDir.getParentFile.getParentFile)
 
     //val pageSize = 1000
-    println("Set SOLR Home: " + newIndexDir.getParent)
+    logger.info("Set SOLR Home: " + newIndexDir.getParent)
     val indexer = new SolrIndexDAO(newIndexDir.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
     indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
 
@@ -465,15 +362,18 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
 
       val commit = counter % 10000 == 0
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
-      if (check) {
-        check = false
-        if (!guid.equals(startKey)) {
+      try {
+        if (check) {
+          check = false
+          if (!guid.equals(startKey)) {
+            indexer.indexFromMap(guid, map, commit = commit)
+          }
+        } else {
           indexer.indexFromMap(guid, map, commit = commit)
         }
-      } else {
-        indexer.indexFromMap(guid, map, commit = commit)
+      } catch {
+        case e:Exception => logger.error("Problem indexing record: " + guid +""  + e.getMessage())
       }
-
 
       if (counter % pageSize == 0 && counter > 0) {
         centralCounter.addToCounter(pageSize)
@@ -488,6 +388,6 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     indexer.finaliseIndex(true, true)
 
     finishTime = System.currentTimeMillis
-    println("Total indexing time " + ((finishTime - start).toFloat) / 1000f + " seconds")
+    logger.info("Total indexing time for this thread" + ((finishTime - start).toFloat) / 1000f + " seconds")
   }
 }

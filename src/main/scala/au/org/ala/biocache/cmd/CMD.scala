@@ -1,13 +1,12 @@
 package au.org.ala.biocache.cmd
 
-import au.org.ala.biocache.load.{DownloadMedia, Loader, DwcCSVLoader}
+import au.org.ala.biocache.load.{Thumbnailer, DownloadMedia, Loader, DwcCSVLoader}
 import au.org.ala.biocache.export._
 import au.org.ala.biocache.tool._
 import au.org.ala.biocache.util._
-import scala.Some
 import au.org.ala.biocache.index.IndexRecords
 import java.io.File
-import au.org.ala.biocache.outliers.SpeciesOutlierTests
+import au.org.ala.biocache.outliers.ReverseJacknifeProcessor
 import au.org.ala.biocache.qa.ValidationRuleRunner
 import au.org.ala.biocache.Config
 import org.apache.commons.httpclient.methods.PostMethod
@@ -16,6 +15,8 @@ import scala.Some
 
 /**
  * Singleton for running commands.
+ *
+ * This class will be replaced by CMD2 eventually.
  */
 object CMD {
 
@@ -117,6 +118,17 @@ object CMD {
             case e: Exception => println(e.getMessage())
           }
         }
+        case it if (it.startsWith("index-uuid-file ") && input.split(" ").length >= 2) => {
+          val args = input.split(" ").tail
+          try {
+            if (args.length == 1) {
+              println("Indexing from " + args(0))
+              IndexRecords.indexListOfUUIDs(new File(args(0)))
+            }
+          } catch {
+            case e: Exception => println(e.getMessage())
+          }
+        }
         case it if (it.startsWith("index-live ") && input.split(" ").length == 2) => {
           val dr = it.split(" ").map(x => x.trim).toList.last
           indexDataResourceLive(dr)
@@ -136,8 +148,10 @@ object CMD {
           drs.foreach(dr => {
             val (hasRowKeys, filename) = hasRowKey(dr)
             if (!hasRowKeys){
+              println("Row key file not detected")
               IndexRecords.index(None, None, Some(dr), false, false)
             } else {
+              println("Row key file detected: " + filename)
               IndexRecords.indexListThreaded(new File(filename.get), 4)
             }
           })
@@ -183,11 +197,11 @@ object CMD {
           ImportUtil.main(args)
         }
         case it if (it startsWith "sample-all") => {
-          println("****** Warning - this requires at least 8g of memory allocation -Xmx8g -Xms8g")
+          println("****** Warning - this requires at least 8g of memory allocation -Xmx8g -Xms8g (dependent on max grid file size)")
           Sampling.main(Array())
         }
         case it if (it startsWith "sample") => {
-          println("****** Warning - this requires at least 8g of memory allocation -Xmx8g -Xms8g")
+          println("****** Warning - this requires at least 8g of memory allocation -Xmx8g -Xms8g (dependent on max grid file size)")
           val args = it.split(" ").map(x => x.trim).toArray.tail
           val dr = args(0)
           val (hasRowKeys, filename) = hasRowKey(dr)
@@ -198,7 +212,7 @@ object CMD {
           }
         }
         case it if (it startsWith "resample") => {
-          println("****** Warning - this requires at least 8g of memory allocation -Xmx8g -Xms8g")
+          println("****** Warning - this requires at least 8g of memory allocation -Xmx8g -Xms8g (dependent on max grid file size)")
           val query = it.replaceFirst("resample", "")
           ResampleRecordsByQuery.main(Array(query))
         }
@@ -212,7 +226,7 @@ object CMD {
         }
         case it if (it.startsWith("jackknife") || it.startsWith("jacknife")) => {
           val args = it.split(" ").map(x => x.trim).toArray.tail
-          SpeciesOutlierTests.main(args)
+          ReverseJacknifeProcessor.main(args)
         }
         case it if (it.startsWith("distribution-outliers") || it.startsWith("distribution-outliers")) => {
           val args = it.split(" ").map(x => x.trim).toArray.tail
@@ -229,7 +243,6 @@ object CMD {
             val test = args.length>1
             val extraArgs:Array[String] =  if(test) Array("--test") else Array()
             val (hasRowKeys, filename) = hasRowKey(dr)
-
             //delete columns that were not updated in the last day
             val lastLoadDate = org.apache.commons.lang.time.DateFormatUtils.format(getLastLoadDate, "yyyy-MM-dd")
             if (hasRowKeys){
@@ -257,8 +270,15 @@ object CMD {
           val args = it.split(" ").map(x => x.trim).toArray.tail
           val delDate = org.apache.commons.lang.time.DateFormatUtils.format(getLastLoadDate, "yyyy-MM-dd")
           //when no date provided use today minus 1 day.
-          val args2:Array[String] = if(args.size == 1) Array(args(0), "rows", "-d", delDate) else if(args.size == 2) Array(args(0), "rows" ,"-d", args(1)) else if(args.size>2) Array(args(0), "rows" ,"-d", args(1), "--test") else Array()
-
+          val args2:Array[String] = if(args.size == 1) {
+            Array(args(0), "rows", "-d", delDate)
+          } else if(args.size == 2) {
+            Array(args(0), "rows" ,"-d", args(1))
+          } else if(args.size>2) {
+            Array(args(0), "rows" ,"-d", args(1), "--test")
+          } else {
+            Array()
+          }
           ResourceCleanupTask.main(args2)
         }
         case it if (it startsWith "remove-deleted-index") => {
@@ -324,6 +344,14 @@ object CMD {
           val qa = new ValidationRuleRunner()
           qa.apply(apiKey)
         }
+        case it if (it.startsWith("thumbnail") ) => {
+          val args = input.split(" ").tail
+          Thumbnailer.main(args)
+        }
+        case it if (it.startsWith("image-export") ) => {
+          val args = input.split(" ").tail
+          ImageExport.main(args)
+        }
         case _ => printHelp
       }
     } catch {
@@ -387,7 +415,7 @@ object CMD {
     padAndPrint(s"[${s=s+1;s}]  load-local-csv <dr-uid> <filepath>... - Load a local file into biocache. For development use only. Not to be used in production.")
     padAndPrint(s"[${s=s+1;s}]  test-load <dr-uid1> <dr-uid2>... - Performs some testing on the load process.  Please read the output to determine whether or not a load should proceed.")
     padAndPrint(s"[${s=s+1;s}]  download-media - Force the (re)download of media associated with a resource.")
-    padAndPrint(s"[${s=s+1;s}]  tool - Run duplication detection over the records.")
+    padAndPrint(s"[${s=s+1;s}]  duplication detection tool - Run duplication detection over the records.")
     padAndPrint(s"[${s=s+1;s}]  jackknife - Run jackknife outlier detection.")
     padAndPrint(s"[${s=s+1;s}]  distribution outliers -l <speciesLsid> - Run expert distribution outlier detection. If species LSID is supplied, outlier detection is only performed for occurrences of the species with the supplied taxon concept LSID")
     padAndPrint(s"[${s=s+1;s}]  apply-validation <apiKey> - applies the validation rules for the supplied apiKey")
@@ -399,6 +427,8 @@ object CMD {
     padAndPrint(s"[${s=s+1;s}]  force-index <dr-uid1> <dr-uid2>  - forces a complete reindex of the supplied data resource (ignoring incremental file)")
     padAndPrint(s"[${s=s+1;s}]  index-query <query to index> - Indexes all the records that satisfy the supplied query")
     padAndPrint(s"[${s=s+1;s}]  delete-obsolete <dr> - deletes the obsolete columns based on a last load date within the last 24 hours")
+    padAndPrint(s"[${s=s+1;s}]  thumbnail - (re)thumbnail directory")
+    padAndPrint(s"[${s=s+1;s}]  image-export - export images")
     padAndPrint(s"[${s=s+1;s}]  exit")
   }
 
@@ -453,7 +483,9 @@ object CMD {
   }
 
   def printTable(table: List[Map[String, String]]) {
-
+    if(table.isEmpty){
+      return
+    }
     val keys = table(0).keys.toList
     val valueLengths = keys.map(k => {
       (k, table.map(x => x(k).length).max)

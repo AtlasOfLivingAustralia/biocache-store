@@ -2,9 +2,14 @@ package au.org.ala.biocache.util
 
 import au.org.ala.biocache.tool.DuplicationDetection
 import java.util.concurrent.BlockingQueue
+import org.slf4j.LoggerFactory
 
 class GenericConsumer[T](q:BlockingQueue[T], id:Int, proc: (T,Int) =>Unit) extends Thread {
+
+  val logger = LoggerFactory.getLogger("GenericConsumer")
+
   var shouldStop = false
+
   override def run(){
     while(!shouldStop || q.size()>0){
       try{
@@ -19,6 +24,6 @@ class GenericConsumer[T](q:BlockingQueue[T], id:Int, proc: (T,Int) =>Unit) exten
         case e:Exception=> e.printStackTrace()
       }
     }
-    println("Stopping " + id)
+    logger.debug("Stopping " + id)
   }
 }

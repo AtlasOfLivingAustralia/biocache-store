@@ -10,6 +10,7 @@ import au.org.ala.biocache.export.ExportByFacetQuery
  * This should be a much quicker process than the full duplication detection
  */
 class IncrementalDuplicationDetection(lastDupDate: String) extends DuplicationDetection {
+
   /**
    * Incremental duplication detection has different logic around downloading the records for consideration
    */
@@ -18,7 +19,11 @@ class IncrementalDuplicationDetection(lastDupDate: String) extends DuplicationDe
     FileUtils.forceMkdir(file.getParentFile)
     val fileWriter = new FileWriter(file)
     DuplicationDetection.logger.info("Starting to download the occurrences for " + lsid)
-    def filters = (if (field == "species_guid") speciesFilters else subspeciesFilters) ++ Array("last_load_date:[" + lastDupDate + " TO *]")
+    def filters = if (field == "species_guid") {
+      speciesFilters
+    } else {
+      subspeciesFilters++ Array("last_load_date:[" + lastDupDate + " TO *]")
+    }
     ExportByFacetQuery.downloadSingleTaxon(lsid, fieldsToExport, field, filters, Some("row_key"), Some("asc"), fileWriter)
     fileWriter.close
   }

@@ -35,13 +35,12 @@ object QaPasser {
 
   def main(args:Array[String]){
     var qa:Option[QualityAssertion] = None
-    var deleteColumns:Option[List[String]] =None
-    var threads=16
-    var file="/data/offline/rowkeys"
+    var deleteColumns:Option[List[String]] = None
+    var threads = 16
+    var file = "/data/offline/rowkeys"
     val parser = new OptionParser(""){
       arg("<file>","The file to load the rowkeys from",{v:String => file = v})
       arg("<qa>", "The QA to pass", { v: String => {
-        //QualityAssertion(AssertionCodes.SPECIES_OUTSIDE_EXPERT_RANGE
           val errorCode=AssertionCodes.getByName(v)
           if(errorCode.isDefined){
             qa = Some(QualityAssertion(errorCode.get,1))
@@ -61,6 +60,7 @@ object QaPasser {
     }
   }
 }
+
 class QaPasser(qa:QualityAssertion, numThreads:Int, isUuid:Boolean=false, deleteColumns:Option[List[String]]=None) {
   val logger = LoggerFactory.getLogger("QaPasser")
   val queue = new ArrayBlockingQueue[String](500000)

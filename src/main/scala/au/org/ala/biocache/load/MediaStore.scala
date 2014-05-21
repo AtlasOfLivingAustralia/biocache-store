@@ -11,6 +11,7 @@ import java.awt.image.BufferedImage
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * A file store for media files.
@@ -70,7 +71,7 @@ object MediaStore {
   }
 
   def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean = {
-    url.startsWith(Config.mediaFileStore) && endsWithOneOf(acceptedExtensions, url.toLowerCase)
+    ( url.startsWith(Config.mediaFileStore) || url.startsWith("file:///" + Config.mediaFileStore) ) && endsWithOneOf(acceptedExtensions, url.toLowerCase)
   }
 
   def endsWithOneOf(acceptedExtensions: Array[String], url: String): Boolean = {
@@ -86,6 +87,8 @@ object MediaStore {
   }
 
   def convertPathToUrl(str: String, baseUrlPath: String) = str.replaceAll(Config.mediaFileStore, baseUrlPath)
+
+  def convertPathToUrl(str: String) = str.replaceAll(Config.mediaFileStore, Config.mediaBaseUrl)
 
   def exists(uuid: String, resourceUID: String, urlToMedia: String): (String, Boolean) = {
     val path = createFilePath(uuid, resourceUID, urlToMedia)
@@ -141,7 +144,7 @@ object MediaStore {
         val buffer: Array[Byte] = new Array[Byte](1024)
         var numRead = 0
         while ( {
-          numRead = in.read(buffer);
+          numRead = in.read(buffer)
           numRead != -1
         }) {
           out.write(buffer, 0, numRead)
@@ -151,9 +154,16 @@ object MediaStore {
         //is this file an image???
         if (isValidImageURL(urlToMedia)) {
           Thumbnailer.generateAllSizes(new File(fullPath))
+        } else {
+          logger.warn("Invalid media file. Not generating derivatives for: " + fullPath)
         }
       } else {
         logger.info("File previously saved to: " + fullPath)
+        if (isValidImageURL(urlToMedia)) {
+          Thumbnailer.generateAllSizes(new File(fullPath))
+        } else {
+          logger.warn("Invalid media file. Not generating derivatives for: " + fullPath)
+        }
       }
       //store the media
       Some(fullPath)
@@ -212,134 +222,5 @@ object LARGE extends ImageSize {
   def size = 650f;
 }
 
-/**
- * A utility for thumbnailling images
- */
-object Thumbnailer {
-  final val logger = LoggerFactory.getLogger("Thumbnailer")
-  System.setProperty("com.sun.media.jai.disableMediaLib", "true")
 
-  /**
-   * Runnable for generating thumbnails
-   */
-  def main(args: Array[String]) {
-    var directoryPath = ""
-    var filePath = ""
 
-    val parser = new OptionParser("Thumbnail generator") {
-      opt("f", "absolute-file-path", "File path to image to generate thumbnails for", {
-        v: String => filePath = v
-      })
-      opt("d", "absolute-directory-path", "Directory path to recursively", {
-        v: String => directoryPath = v
-      })
-    }
-    if (parser.parse(args)) {
-      if (filePath != "") {
-        generateAllSizes(new File(filePath))
-      }
-      if (directoryPath != "") {
-        recursivelyGenerateThumbnails(new File(directoryPath))
-      }
-    }
-  }
-
-  /**
-   * Recursively crawl directories and generate thumbnails
-   */
-  def recursivelyGenerateThumbnails(directory: File) {
-    //dont generate thumbnails for thumbnails
-    logger.info("Starting with directory: " + directory.getAbsolutePath)
-    if (directory.isDirectory) {
-      var children = directory.list
-      if (children == null) {
-        children = Array[String]()
-      }
-      logger.info("Recursive Dir: " + directory.getName + ", size of subDirs: " + children.length);
-      for (i <- 0 until children.length) {
-        recursivelyGenerateThumbnails(new File(directory, children(i)))
-      }
-    } else {
-      //generate a thumbnail if this is an image
-      if (MediaStore.isValidImageURL(directory.getAbsolutePath)) {
-        generateAllSizes(directory)
-      }
-    }
-  }
-
-  /**
-   * Generate thumbnails of all sizes
-   */
-  def generateAllSizes(source: File) {
-    val fileName = source.getName
-    if (!fileName.contains(THUMB.suffix) && !fileName.contains(SMALL.suffix) && !fileName.contains(LARGE.suffix)) {
-      generateThumbnail(source, THUMB)
-      generateThumbnail(source, SMALL)
-      generateThumbnail(source, LARGE)
-    }
-  }
-
-  /**
-   * Generate an image of the specified size.
-   */
-  def generateThumbnail(source: File, imageSize: ImageSize) {
-    val extension = FilenameUtils.getExtension(source.getAbsolutePath)
-    val targetFilePath = source.getAbsolutePath.replace("." + extension, imageSize.suffix + "." + extension)
-    val target = new File(targetFilePath)
-    generateThumbnail(source, target, imageSize.size)
-  }
-
-  /**
-   * Generatea thumbanail to the specified file.
-   */
-  def generateThumbnail(source: File, target: File, thumbnailSize: Float) {
-    val t = new ThumbnailableImage(source)
-    t.writeThumbnailToFile(target, thumbnailSize)
-  }
-}
-
-/**
- * An image that can be thumbnailed
- */
-class ThumbnailableImage(imageFile: File) {
-
-  final val logger = LoggerFactory.getLogger("ThumbnailableImage")
-  final val fss = new FileSeekableStream(imageFile)
-  final val originalImage = JAI.create("stream", fss)
-
-  /**
-   * Write a thumbnail to file
-   */
-  def writeThumbnailToFile(newThumbnailFile: File, edgeLength: Float) {
-    try{
-      val height = originalImage.getHeight
-      val width = originalImage.getWidth
-      val renderedImage = originalImage.createSnapshot.asInstanceOf[javax.media.jai.RenderedOp]
-      if (!(height < edgeLength && width < edgeLength)) {
-        val denom = {
-          if (height > width) height
-          else width
-        }
-        val modifier = edgeLength / denom
-        val w = (width * modifier).toInt
-        val h = (height * modifier).toInt
-        val i = renderedImage.getAsBufferedImage.getScaledInstance(w, h, Image.SCALE_SMOOTH)
-        val bufferedImage = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB)
-        val g = bufferedImage.createGraphics
-        g.drawImage(i, null, null)
-        g.dispose
-        i.flush
-        val modifiedImage = JAI.create("awtImage", bufferedImage.asInstanceOf[Image])
-        val fOut = new FileOutputStream(newThumbnailFile)
-        ImageIO.write(modifiedImage, "jpg", fOut)
-        fOut.flush
-        fOut.close
-      } else {
-        FileUtils.copyFile(imageFile, newThumbnailFile)
-      }
-    } catch {
-      //NC:2013-07-05: Need to catch this exception in case there is an issue with one of the images.
-      case e: Exception => logger.error("Unable to generate thumbnail for " + imageFile.getAbsoluteFile , e)
-    }
-  }
-}

@@ -24,11 +24,15 @@ import java.util.Date
 import au.org.ala.biocache.util.{Json, GenericConsumer, OptionParser}
 import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.model.QualityAssertion
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Companion object for ExpertDistributionOutlierTool
  */
-object ExpertDistributionOutlierTool {
+object ExpertDistributionOutlierTool extends Tool {
+  
+  def cmd = "distribution-outliers"
+  def desc = "Find expert distribution outliers"
 
   val DISTRIBUTIONS_URL = Config.layersServiceUrl + "/distributions"
   val DISTRIBUTION_DETAILS_URL_TEMPLATE = Config.layersServiceUrl + "/distribution/lsid/{0}"
@@ -41,11 +45,13 @@ object ExpertDistributionOutlierTool {
   // key to use when storing outlier row keys for an LSID in the distribution_outliers column family
   val DISTRIBUTION_OUTLIERS_COLUMN_FAMILY_KEY = "rowkeys"
 
-  // Threshold value to use for detection of outliers. An occurrence is only considered an outlier if it is found to be over 50km outside of the expert distribution
-  val OUTLIER_THRESHOLD = 50000
+  // Threshold value to use for detection of outliers. An occurrence is
+  // only considered an outlier if it is found to be over 50km outside of the expert distribution
+  var distanceThreshold = 50000
 
-  // Some distributions have an extremely large number of records associated with them. Handle the records one "page" at a time.
-  val RECORDS_PAGE_SIZE = 5000
+  // Some distributions have an extremely large number of records associated
+  // with them. Handle the records one "page" at a time.
+  var recordsPageSize = 5000
 
   def main(args: Array[String]) {
 
@@ -57,14 +63,14 @@ object ExpertDistributionOutlierTool {
     var dir:Option[String] = None
     var lastModifiedDate:Option[String] = None
 
-    val parser = new OptionParser("Find expert distribution outliers") {
+    val parser = new OptionParser(help) {
       opt("l", "specieslsid", "Species LSID. If supplied, outlier detection is only performed for occurrences of the species with the supplied taxon concept LSID ", {
         v: String => speciesLsid = v
       })
-      intOpt("t", "numThreads", "Number of threads to use when detecting outliers", {
-        v: Int => numThreads = v
-      })
-      intOpt("pt","passThreads","Number of threads to write the passed records on.", {v:Int => passThreads = v})
+      intOpt("t", "numThreads", "Number of threads to use when detecting outliers", { v:Int => numThreads = v})
+      intOpt("pt","passThreads","Number of threads to write the passed records on.", { v:Int => passThreads = v})
+      intOpt("thresh", "distanceThreshold", "An occurrence is only considered an outlier if it is found to be over a this distance outside of the expert distribution. Default = 50000, =50km",  {v:Int => distanceThreshold = v} )
+      intOpt("page","pageSize","Number of records to use in page.", { v:Int => recordsPageSize = v})
       opt("test","Test the outliers but don't write to Cassandra", {test =true})
       opt("d","dir","The directory in which the offline dumps are located", {v:String => dir = Some(v)})
       intOpt("day","numDaysMod","Number of days since the last modified.  This will limit the records that are marked as passed.", { v:Int=>
@@ -462,7 +468,7 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
           val coorValue = value.getOrElse("coordinateUncertaintyInMeters","0")
           val coordinateUncertaintyInMeters:Double = if(coorValue != null) coorValue.asInstanceOf[java.lang.Double] else 0d
           // The occurrence is only considered an outlier if its distance from the distribution is greater than its coordinate uncertainty
-          if ((roundedDistance - coordinateUncertaintyInMeters) > ExpertDistributionOutlierTool.OUTLIER_THRESHOLD) {
+          if ((roundedDistance - coordinateUncertaintyInMeters) > ExpertDistributionOutlierTool.distanceThreshold) {
             logger.info("Outlier: (" + rowKey + ") " + roundedDistance + " metres")
             if(!test){
               // Add data quality assertion

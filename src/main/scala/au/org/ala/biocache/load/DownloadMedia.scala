@@ -4,17 +4,22 @@ import au.org.ala.biocache.util.{Json, OptionParser}
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.FullRecord
 import scala.collection.mutable.ArrayBuffer
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Utility for downloading the media associated with a resource and caching
  * locally.
  */
-object DownloadMedia {
+object DownloadMedia extends Tool {
+
+  def cmd = "download-media"
+  def desc = "Download the associated media for a resource"
+
 
   def main(args:Array[String]){
     var dr: String = ""
     var rowKey: String = ""
-    val parser = new OptionParser("Download the associated media for a resource") {
+    val parser = new OptionParser(help) {
       opt("dr","data-resource-uid", "The resource to page over and download the media for", { v: String => dr = v })
       opt("rowkey","row-key-record", "The rowkey for record", { v: String => rowKey = v })
     }

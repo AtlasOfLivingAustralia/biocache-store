@@ -23,8 +23,8 @@ class AttributionTest extends ConfigFunSuite{
     test("Collection lookup"){
         var raw = new FullRecord
         var processed = new FullRecord
-        raw.attribution.dataResourceUid="dr367"
-        raw.occurrence.collectionCode="WINC"
+        raw.attribution.dataResourceUid = "dr367"
+        raw.occurrence.collectionCode = "WINC"
         (new AttributionProcessor).process("test", raw, processed)
         expectResult("dp33"){processed.attribution.dataProviderUid}
         expectResult("co74"){processed.attribution.collectionUid}

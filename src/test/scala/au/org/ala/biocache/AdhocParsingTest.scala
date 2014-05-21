@@ -26,10 +26,4 @@ class AdhocParsingTest extends ConfigFunSuite {
     expectResult("verbatimLatitude") { headers(0) }
     expectResult("verbatimLongitude") { headers(1) }
   }
-
-//  test("taxon rank parsing"){
-//    val headers = AdHocParser.guessColumnHeaders(Array("WGS84","species"))
-//    expect("geodeticDatum") {headers(0)}
-//    expect("taxonRank") {headers(1)}
-//  }
 }

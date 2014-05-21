@@ -18,47 +18,62 @@ trait CompositePOSO extends POSO {
 
   override def getPropertyNames: List[String] = nestedProperties.toList
 
-  override def setProperty(name: String, value: String) = lookup.get(name) match {
+  override def setProperty(name: String, value: String) : Boolean = {
 
-    case Some(property) => {
-      //println(name + " :  " + property.typeName + " : " +  value)
-      if (property.typeName == "scala.collection.immutable.Map") {
-        val jsonOption = JSON.parseFull(value)
-        if (!jsonOption.isEmpty) {
-          try {
-            property.setter.invoke(this, jsonOption.get.asInstanceOf[Map[String, String]])
-          } catch {
-            case e: Exception => logger.error(e.getMessage, e)
-          }
-        }
-      } else if (property.typeName == "[Ljava.lang.String;") {
-        val jsonOption = JSON.parseFull(value)
-        if (!jsonOption.isEmpty && jsonOption.get.isInstanceOf[Array[String]]) {
-          try {
-            val stringArray = jsonOption.get.asInstanceOf[Array[String]]
-            if (!stringArray.isEmpty) {
-              property.setter.invoke(this, jsonOption.get.asInstanceOf[Array[String]])
+    var success = true
+    lookup.get(name) match {
+
+      case Some(property) => {
+        //println(name + " :  " + property.typeName + " : " +  value)
+        if (property.typeName == "scala.collection.immutable.Map") {
+          val jsonOption = JSON.parseFull(value)
+          if (!jsonOption.isEmpty) {
+            try {
+              property.setter.invoke(this, jsonOption.get.asInstanceOf[Map[String, String]])
+            } catch {
+              case e: Exception => {
+                success = false
+                logger.error(e.getMessage, e)
+              }
             }
-          } catch {
-            case e: Exception => logger.error(e.getMessage, e)
           }
-        }
-      } else if (property.typeName == "java.util.Map") {
-        val stringMap = Json.toJavaStringMap(value)
-        if (!stringMap.isEmpty) {
-          try {
-            property.setter.invoke(this, stringMap)
-          } catch {
-            case e: Exception => logger.error(e.getMessage, e)
+        } else if (property.typeName == "[Ljava.lang.String;") {
+          val jsonOption = JSON.parseFull(value)
+          if (!jsonOption.isEmpty && jsonOption.get.isInstanceOf[Array[String]]) {
+            try {
+              val stringArray = jsonOption.get.asInstanceOf[Array[String]]
+              if (!stringArray.isEmpty) {
+                property.setter.invoke(this, jsonOption.get.asInstanceOf[Array[String]])
+              }
+            } catch {
+              case e: Exception => {
+                success = false
+                logger.error(e.getMessage, e)
+              }
+            }
           }
+        } else if (property.typeName == "java.util.Map") {
+          val stringMap = Json.toJavaStringMap(value)
+          if (!stringMap.isEmpty) {
+            try {
+              property.setter.invoke(this, stringMap)
+            } catch {
+              case e: Exception => {
+                success = false
+                logger.error(e.getMessage, e)
+              }
+            }
+          }
+        } else {
+          //NC The print statement below can be enabled for debug purposes but please don't
+          //check it back without commenting it out because it creates a lot of output when loading a DwcA
+          //println(property.name + " : "+property.typeName + " : " + value)
+          property.setter.invoke(this, value)
         }
-      } else {
-        //NC The print statement below can be enabled for debug purposes but please don't check it back without commenting it out because it creates a lot of output when loading a DwcA
-        //println(property.name + " : "+property.typeName + " : " + value)
-        property.setter.invoke(this, value)
       }
+      case None => setNestedProperty(name, value)
     }
-    case None => setNestedProperty(name, value)
+    success
   }
 
   override def getProperty(name: String): Option[String] = lookup.get(name) match {

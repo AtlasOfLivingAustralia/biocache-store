@@ -4,11 +4,15 @@ import au.org.ala.biocache.util.OptionParser
 import au.com.bytecode.opencsv.CSVReader
 import java.io.{FileWriter, FileReader, File}
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Utility to export from index based on facet and optional filter.
  */
-object ExportByFacetQuery {
+object ExportByFacetQuery extends Tool {
+
+  def cmd = "export-facet-query"
+  def desc = "Exports records based a file of inputs and specified field to facet query"
 
   def main(args: Array[String]) {
 
@@ -18,17 +22,17 @@ object ExportByFacetQuery {
     var fieldsToExport = Array[String]()
     var filterQueries: Array[String] = Array()
 
-    val parser = new OptionParser("ExportByFacetQuery - Exports records based a file of inputs and specified field to facet query") {
-      arg("<facet-field>", "The field to facet on", {
+    val parser = new OptionParser(help) {
+      arg("facet-field", "The field to facet on", {
         v: String => facetField = v
       })
-      arg("<facet-input-file>", "The field to facet on", {
+      arg("facet-input-file", "The field to facet on", {
         v: String => facetInputFile = v
       })
-      arg("<record-output-file>", "The file to dump records to", {
+      arg("record-output-file", "The file to dump records to", {
         v: String => recordOutputFile = v
       })
-      arg("<list of fields>", "Space separated list of fields to export", {
+      arg("list of fields", "Space separated list of fields to export", {
         v: String => fieldsToExport = v.split(" ").toArray
       })
       opt("fq", "filter query", "An additional filter query to use when exporting", {

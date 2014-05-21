@@ -9,11 +9,16 @@ import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.util.{Json, OptionParser}
 import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.cmd.Tool
 
 /**
- * Utility for exporting data from the biocache.
+ * Utility for exporting data from the biocache database.
  */
-object ExportUtil {
+object ExportUtil extends Tool {
+
+  def cmd = "export"
+  def desc = "Export data as CSV or JSON"
+
   val logger = LoggerFactory.getLogger("ExportUtil")
   def main(args: Array[String]) {
 
@@ -27,9 +32,9 @@ object ExportUtil {
     var json = false
     var maxRecords = Integer.MAX_VALUE
 
-    val parser = new OptionParser("export") {
-      arg("<entity>", "the entity (column family in cassandra) to export from", { v: String => entity = v })
-      arg("<file-path>", "file to export to", { v: String => filePath = v })
+    val parser = new OptionParser(help) {
+      arg("entity", "the entity (column family in cassandra) to export from. e.g. occ", { v: String => entity = v })
+      arg("file-path", "file to export to", { v: String => filePath = v })
       opt("c", "columns", "<column1 column2 ...>", "space separated list of columns to export", {
         columns: String => fieldsToExport = columns.split(" ").toList
       })
@@ -37,7 +42,7 @@ object ExportUtil {
         columns: String => fieldsRequired = columns.split(" ").toList
       })
       opt("s", "start", "The row key to start with", {s:String =>startkey = s})
-      opt("e", "end", "The row key to end with", {s:String =>endkey = s})
+      opt("e", "end", "The row key to end with", {s:String => endkey = s})
       opt("distinct", "distinct values for the columns only", {distinct=true})
       opt("json","export the values as json",{json=true})
       intOpt("m", "max-records", "number of records to export", { v: Int => maxRecords = v })
@@ -46,12 +51,13 @@ object ExportUtil {
     if (parser.parse(args)) {
       val outWriter = new FileWriter(new File(filePath))
       val writer = new CSVWriter(outWriter, '\t', '"')
-      if(json)
-        exportJson(outWriter,entity, startkey, endkey, maxRecords)
-      else if(distinct)
+      if(json) {
+        exportJson(outWriter, entity, startkey, endkey, maxRecords)
+      } else if(distinct) {
         exportDistinct(writer, entity, fieldsToExport, startkey, endkey)
-      else
-        export(writer, entity, fieldsToExport, fieldsRequired,List(), maxRecords=maxRecords)
+      } else {
+        export(writer, entity, fieldsToExport, fieldsRequired, List(), maxRecords = maxRecords)
+      }
       writer.flush
       writer.close
     }

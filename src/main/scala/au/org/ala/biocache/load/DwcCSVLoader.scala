@@ -8,11 +8,15 @@ import scala.Some
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import au.org.ala.biocache.model.Versions
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Companion object for the DwcCSVLoader class
  */
-object DwcCSVLoader {
+object DwcCSVLoader extends Tool {
+
+  def cmd = "load-local-csv"
+  def desc = "Load local CSV file. Not for production use."
     
   def main(args:Array[String]){
 
@@ -23,8 +27,8 @@ object DwcCSVLoader {
     var testFile = false
     var logRowKeys = false
 
-    val parser = new OptionParser("import darwin core headed CSV") {
-      arg("<data-resource-uid>", "the data resource to import", {v: String => dataResourceUid = v})
+    val parser = new OptionParser(help) {
+      arg("data-resource-uid", "the data resource to import", {v: String => dataResourceUid = v})
       opt("l", "local", "skip the download and use local file", {v:String => localFilePath = Some(v) } )
       booleanOpt("u", "updateLastChecked", "update registry with last loaded date", {v:Boolean => updateLastChecked = v } )
       booleanOpt("b", "bypassConnParamLookup", "bypass connection param lookup", {v:Boolean => bypassConnParamLookup = v } )
@@ -51,10 +55,10 @@ object DwcCSVLoader {
       } catch {
         case e:Exception => e.printStackTrace
       } finally {
-        l.pm.shutdown
-        Console.flush()
-        Console.err.flush()
-        exit(0)
+//        l.pm.shutdown
+//        Console.flush()
+//        Console.err.flush()
+//        exit(0)
       }
     }
   }
@@ -187,8 +191,9 @@ class DwcCSVLoader extends DataLoader {
             newInstCodes.add(map.getOrElse("institutionCode", "<NULL>"))
             newCollCodes.add(map.getOrElse("collectionCode", "<NULL>"))
             val (uuid, isnew) = Config.occurrenceDAO.createOrRetrieveUuid(createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces))
-            if(isnew)
-              newCount +=1
+            if(isnew) {
+              newCount += 1
+            }
           }
 
           if(!test){
@@ -201,14 +206,14 @@ class DwcCSVLoader extends DataLoader {
                 //if the file name isnt a HTTP URL construct file absolute file paths
                 if(!fileName.startsWith("http://")){
                   val filePathBuffer = new ArrayBuffer[String]
-                  filePathBuffer += "file:///"+file.getParent+File.separator+fileName
+                  filePathBuffer += "file:///" + file.getParent + File.separator + fileName
 
                   //val filePath = MediaStore.save(fr.uuid, dataResourceUid, "file:///"+file.getParent+File.separator+fileName)
                   //do multiple formats exist? check for files of the same name, different extension
                   val directory = file.getParentFile
                   val differentFormats = directory.listFiles(new SameNameDifferentExtensionFilter(fileName))
                   differentFormats.foreach(file => {
-                    filePathBuffer += "file:///" + file.getParent+File.separator + file.getName
+                    filePathBuffer += "file:///" + file.getParent + File.separator + file.getName
                   })
 
                   filePathBuffer.toArray[String]
@@ -216,10 +221,10 @@ class DwcCSVLoader extends DataLoader {
                   Array(fileName)
                 }
               }).flatten
-
+              logger.info("Loading: " + filePathsInStore.mkString("; "))
               fr.occurrence.associatedMedia = filePathsInStore.mkString(";")
             }
-            load(dataResourceUid, fr, uniqueTermsValues,true, false,stripSpaces,rowKeyWriter)
+            load(dataResourceUid, fr, uniqueTermsValues, true, false, stripSpaces, rowKeyWriter)
           }
 
           if (counter % 1000 == 0 && counter > 0) {
@@ -232,7 +237,7 @@ class DwcCSVLoader extends DataLoader {
         } else {
           noSkipped += 1
           logger.warn("Skipping line: " + counter + ", missing unique term value. Number skipped: "+ noSkipped)
-          uniqueTerms.foreach(t => print("," + t +":"+map.getOrElse(t,"")))
+          uniqueTerms.foreach(t => print("," + t +":" + map.getOrElse(t,"")))
           println
         }
       } else {
@@ -244,18 +249,22 @@ class DwcCSVLoader extends DataLoader {
       //read next
       currentLine = reader.readNext
     }
+
     if(rowKeyWriter.isDefined){
       rowKeyWriter.get.flush
       rowKeyWriter.get.close
     }
+
     //check to see if the inst/coll codes are new
     if(test){
       val unknownInstitutions = newInstCodes &~ institutionCodes
       val unknownCollections = newCollCodes &~ collectionCodes
-      if(unknownInstitutions.size > 0)
+      if(!unknownInstitutions.isEmpty) {
         logger.warn("Warning there are new institution codes in the set. " + unknownInstitutions)
-      if(unknownCollections.size > 0)
+      }
+      if(!unknownCollections.isEmpty) {
         logger.warn("Warning there are new collection codes in the set. " + unknownCollections)
+      }
       logger.info("There are " + counter + " records in the file. The number of NEW records: " + newCount)
     }
     logger.info("Load finished for " + file.getName())

@@ -8,6 +8,7 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.util.{OptionParser, FileHelper}
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Provides the cleanup mechanisms for a data resource.  Includes:
@@ -15,9 +16,12 @@ import au.org.ala.biocache.util.{OptionParser, FileHelper}
  * Marking records as deleted and removing not updated raw fields
  * Removing "Deleted records" 
  */
-object ResourceCleanupTask {
+object ResourceCleanupTask extends Tool {
 
   import FileHelper._
+
+  def cmd = "resource-cleanup"
+  def desc = "Resource cleanup tool"
 
   def main(args: Array[String]) {
     var druid = ""
@@ -34,11 +38,11 @@ object ResourceCleanupTask {
     var isInclusiveList = true // the record need to include all the columns
     var filename: Option[String] = None
 
-    val parser = new OptionParser("cleanup") {
-      arg("<data resource>", "The data resource on which to perform the clean up.", {
+    val parser = new OptionParser(help) {
+      arg("data-resource-uid", "The data resource on which to perform the clean up.", {
         v: String => druid = v
       })
-      arg("<type>", "The type of cleanup to perform. Either all, columns, rows, delete. \n\t\tcolumns - removes the columns that were not modified since the last date \n\t\trows - marks records as deleted when they have not been reloaded since the supplied date \n\t\tdelete - removes the deleted record from occ and places them into the dellog ", {
+      arg("type", "The type of cleanup to perform. Either all, columns, rows, delete. \n\t\tcolumns - removes the columns that were not modified since the last date \n\t\trows - marks records as deleted when they have not been reloaded since the supplied date \n\t\tdelete - removes the deleted record from occ and places them into the dellog ", {
         v: String => v match {
           case "all" => removeRows = true; removeColumns = true; removeDeleted = true
           case "columns" => removeColumns = true;

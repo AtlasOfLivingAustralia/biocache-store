@@ -440,7 +440,8 @@ case class OptionParser(
     "  " + descriptions.mkString(NL + "  ") + NL
   }
 
-  def showUsage = Console.err.println(usage)
+//  def showUsage = Console.err.println(usage)
+def showUsage = println(usage)
 
   private def argumentNames: Seq[String] = argList match {
     case Some(x: Argument) => List(x.valueName)
@@ -470,6 +471,11 @@ case class OptionParser(
     var answer = true
     var argListCount = 0
     var indexOutOfBounds = false
+
+    if(!args.isEmpty && (args(0).toLowerCase() == "-h" || args(0).toLowerCase() == "-help" || args(0).toLowerCase() == "--h" || args(0).toLowerCase() == "--help")){
+      showUsage
+      return false
+    }
 
     while (i < args.length) {
       val arg = args(i)

@@ -10,25 +10,30 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
+import au.org.ala.biocache.cmd.{NoArgsTool, Tool}
 
 /**
  * Runnable for optimising the index.
  */
-object OptimiseIndex {
+object OptimiseIndex extends NoArgsTool {
+
+  def cmd = "optimise"
+  def desc = "Optimise search index. Not for production use."
+
+  val logger = LoggerFactory.getLogger("OptimiseIndex")
   def main(args: Array[String]): Unit = {
-    println("Starting optimise....")
-    val indexer = Config.getInstance(classOf[IndexDAO]).asInstanceOf[IndexDAO]
-    indexer.optimise
-    println("Optimise complete.")
+    proceed(args, ()=> Config.indexDAO.optimise)
   }
 }
 /**
- * Index the Cassandra Records to conform to the fields
- * as defined in the schema.xml file.
+ * Index the records to conform to the fields as defined in the schema.xml file.
  *
  * @author Natasha Carter
  */
-object IndexRecords {
+object IndexRecords extends Tool {
+
+  def cmd = "index"
+  def desc = "Index records. Not suitable for full re-indexing (>5m)"
 
   import FileHelper._
 
@@ -47,9 +52,9 @@ object IndexRecords {
     var pageSize = 1000
     var uuidFile:String = ""
     var rowKeyFile:String = ""
-    var threads=1
+    var threads = 1
     var test= false
-    val parser = new OptionParser("index records options") {
+    val parser = new OptionParser(help) {
         opt("empty", "empty the index first", {empty=true})
         opt("check","check to see if the record is deleted before indexing",{check=true})
         opt("s", "start","The record to start with", {v:String => startUuid = Some(v)})
@@ -95,29 +100,28 @@ object IndexRecords {
             pageSize:Int = 1000,
             miscIndexProperties:Seq[String] = Array[String](),
             callback:ObserverCallback = null,
-             test:Boolean = false) {
+            test:Boolean = false) {
 
-    val startKey = {
-        if(startUuid.isEmpty && !dataResource.isEmpty) {
-          dataResource.get +"|"
-        } else {
-          startUuid.getOrElse("")
-        }
+    val startKey = if(startUuid.isEmpty && !dataResource.isEmpty) {
+      dataResource.get +"|"
+    } else {
+      startUuid.getOrElse("")
     }
 
     var date:Option[Date]=None
     if(!startDate.isEmpty){
-        date = DateParser.parseStringToDate(startDate.get +" 00:00:00")
-        if(date.isEmpty)
-            throw new Exception("Date is in incorrect format. Try yyyy-mm-dd")
-        logger.info("Indexing will be restricted to records changed after " + date.get)
+      date = DateParser.parseStringToDate(startDate.get +" 00:00:00")
+      if(date.isEmpty) {
+        throw new Exception("Date is in incorrect format. Try yyyy-mm-dd")
+      }
+      logger.info("Indexing will be restricted to records changed after " + date.get)
     }
 
     val endKey = if(dataResource.isEmpty || endUuid.isDefined) endUuid.getOrElse("") else dataResource.get +"|~"
     if(startKey == ""){
-       logger.info("Starting full index")
+      logger.info("Starting full index")
     } else {
-       logger.info("Starting to index " + startKey + " until " + endKey)
+      logger.info("Starting to index " + startKey + " until " + endKey)
     }
     indexRange(startKey, endKey, date, checkDeleted, miscIndexProperties = miscIndexProperties, callback = callback, test=test)
     //index any remaining items before exiting
@@ -132,21 +136,20 @@ object IndexRecords {
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     performPaging( (guid, map) => {
-        counter += 1
-        //println("Indexing doc: " + counter)
-        //val fullMap = new HashMap[String, String]
-        //fullMap ++= map
-        ///convert EL and CL properties at this stage
-        val shouldcommit = counter % 10000 == 0
-        indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, test=test)
-        if (counter % pageSize == 0) {
-          if(callback !=null) callback.progressMessage(counter)
-          finishTime = System.currentTimeMillis
-          logger.info(counter + " >> Last key : " + guid + ", records per sec: " +
-            pageSize.toFloat / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
+      counter += 1
+      ///convert EL and CL properties at this stage
+      val shouldcommit = counter % 10000 == 0
+      indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, test=test)
+      if (counter % pageSize == 0) {
+        if(callback !=null) {
+          callback.progressMessage(counter)
         }
-        true
+        finishTime = System.currentTimeMillis
+        logger.info(counter + " >> Last key : " + guid + ", records per sec: " +
+          pageSize.toFloat / (((finishTime - startTime).toFloat) / 1000f))
+        startTime = System.currentTimeMillis
+      }
+      true
     }, startUuid, endUuid, checkDeleted = checkDeleted, pageSize = pageSize)
 
     finishTime = System.currentTimeMillis
@@ -174,6 +177,7 @@ object IndexRecords {
       }, startKey, endKey, pageSize)
     }
   }
+
   /**
    * Indexes the supplied list of rowkeys
    */
@@ -194,77 +198,53 @@ object IndexRecords {
     })
     indexer.finaliseIndex(false, false)//commit but don't optimise or shutdown
   }
-  
-  def indexListThreaded(rowKeys:File, threads:Int){
+
+  /**
+   * Use multiple threads to run the indexing against a file of row keys.
+   *
+   * @param rowKeys
+   * @param threads
+   */
+  def indexListThreaded(rowKeys: File, threads: Int) {
     val queue = new ArrayBlockingQueue[String](100)
-    var ids =0
-     val pool:Array[StringConsumer] = Array.fill(threads){
-     var counter=0 
-     var startTime = System.currentTimeMillis
-     var finishTime = System.currentTimeMillis
-     indexer.init
-     val p = new StringConsumer(queue,ids,{rowKey =>
-        counter +=1
+    var ids = 0
+    val pool: Array[StringConsumer] = Array.fill(threads) {
+      var counter = 0
+      var startTime = System.currentTimeMillis
+      var finishTime = System.currentTimeMillis
+      indexer.init
+      val p = new StringConsumer(queue, ids, { rowKey =>
+        counter += 1
         val map = persistenceManager.get(rowKey, "occ")
         val shouldcommit = counter % 1000 == 0
-        if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit=shouldcommit)
+        if (!map.isEmpty) {
+          indexer.indexFromMap(rowKey, map.get, commit = shouldcommit)
+        }
         //debug counter
         if (counter % 1000 == 0) {
           finishTime = System.currentTimeMillis
-          println(counter + " >> Last key : " + rowKey + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
+          logger.info(counter + " >> Last key : " + rowKey + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
           startTime = System.currentTimeMillis
         }
-      });ids +=1;p.start;p }
-    rowKeys.foreachLine(line =>{
+      })
+      ids += 1
+      p.start
+      p
+    }
+    rowKeys.foreachLine(line => {
       //add to the queue
       queue.put(line.trim)
-    }) 
-    pool.foreach(t =>t.shouldStop = true)
+    })
+    pool.foreach(t => t.shouldStop = true)
     pool.foreach(_.join)
     indexer.finaliseIndex(false, false)
   }
-  
-  /*
-   * def processFileThreaded(file:java.io.File, threads:Int){
-    val queue = new ArrayBlockingQueue[String](100)
-    var ids =0
-     val pool:Array[StringConsumer] = Array.fill(threads){
-     var counter=0 
-     var startTime = System.currentTimeMillis
-     var finishTime = System.currentTimeMillis
-            
-      val p = new StringConsumer(queue,ids,{guid =>
-        counter +=1
-        val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
-        if (!rawProcessed.isEmpty){
-        val rp = rawProcessed.get
-        processRecord(rp(0), rp(1))
-        
-        //debug counter
-        if (counter % 1000 == 0) {
-          finishTime = System.currentTimeMillis
-          println(counter + " >> Last key : " + rp(0).uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
-        }
-      }
-      });ids +=1;p.start;p }
-    
-    file.foreachLine(line =>{
-      //add to the queue
-      queue.put(line.trim)
-    }) 
-    pool.foreach(t =>t.shouldStop = true)
-    pool.foreach(_.join)
-    Config.persistenceManager.shutdown
-    Config.indexDAO.shutdown
-  }
-   */
 
   /**
    * Indexes the supplied list of rowKeys
    */
   def indexList(file: File, shutdown:Boolean=true) {
-    println("Starting the reindex by row key....")
+    logger.info("Starting the reindex by row key....")
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -273,8 +253,8 @@ object IndexRecords {
       counter += 1
       val rowKey = if (line.head == '"' && line.last == '"') line.substring(1,line.length-1) else line
       val map = persistenceManager.get(rowKey, "occ")
-      val shouldcommit = counter % 10000 == 0
-      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit=shouldcommit)
+      val shouldCommit = counter % 10000 == 0
+      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit=shouldCommit)
       if (counter % 1000 == 0) {
         finishTime = System.currentTimeMillis
         logger.info(counter + " >> Last key : " + line + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
@@ -288,7 +268,7 @@ object IndexRecords {
    * Indexes the supplied list of rowKeys
    */
   def indexListOfUUIDs(file: File) {
-    println("Starting the reindex by UUIDs....")
+    logger.info("Starting the reindex by UUIDs....")
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -298,9 +278,9 @@ object IndexRecords {
       counter += 1
 
       val map = persistenceManager.getByIndex(uuid, "occ", "uuid")
-      val shouldcommit = counter % 10000 == 0
+      val shouldCommit = counter % 10000 == 0
 
-      if (!map.isEmpty) indexer.indexFromMap(uuid, map.get, commit=shouldcommit)
+      if (!map.isEmpty) indexer.indexFromMap(uuid, map.get, commit=shouldCommit)
       if (counter % 1000 == 0) {
         finishTime = System.currentTimeMillis
         logger.info(counter + " >> Last key : " + line + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
@@ -308,8 +288,8 @@ object IndexRecords {
       }
     })
 
-    println("Finalising index.....")
+    logger.info("Finalising index.....")
     indexer.finaliseIndex(false, true)
-    println("Finalised index.")
+    logger.info("Finalised index.")
   }
 }

@@ -3,11 +3,15 @@ package au.org.ala.biocache.tool
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util._
 import scala.Some
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Utility to delete records.
  */
-object DeleteRecords {
+object DeleteRecords extends Tool {
+
+  def cmd = "delete-records"
+  def desc = "Delete records from the system via query, resource or file of IDs"
 
   val occurrenceDAO = Config.occurrenceDAO
   val persistenceManager = Config.persistenceManager
@@ -17,11 +21,10 @@ object DeleteRecords {
     var query: Option[String] = None
     var dr: Option[String] = None
     var file: Option[String] = None
-    val parser = new OptionParser("delete records options") {
+    val parser = new OptionParser(help) {
       opt("q", "query", "The query to run to obtain the records for deletion e.g. 'year:[2001 TO *]' or 'taxon_name:Macropus'", {
         v: String => query = Some(v)
-      }
-      )
+      })
       opt("dr", "resource", "The data resource to process", {
         v: String => dr = Some(v)
       })

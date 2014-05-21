@@ -1,6 +1,33 @@
 package au.org.ala.biocache.tool
 
-import au.org.ala.biocache.util.RecordDeletor
+import au.org.ala.biocache.util.{OptionParser, RecordDeletor}
+import au.org.ala.biocache.cmd.Tool
+
+object DataResourceDelete extends Tool {
+
+  def cmd = "delete-resource"
+  def desc = "Delete one or more data resources"
+
+  def main(args:Array[String]){
+    var resources = Array[String]()
+    val parser = new OptionParser(help) {
+      arg("data-resource-uid", "Comma separated list of UID data resource to delete, e.g. dr1", {
+        v:String => resources = v.split(",").map(v => v.trim)
+      })
+    }
+
+    if(parser.parse(args)) {
+      resources.foreach(drUid => {
+        val drvd = new DataResourceDelete(drUid)
+        println("Delete from storage: " + drUid)
+        drvd.deleteFromPersistent
+        println("Delete from index: " + drUid)
+        drvd.deleteFromIndex
+        println("Finished delete for : " + drUid)
+      })
+    }
+  }
+}
 
 /**
  * A utility to delete a data resource
@@ -15,9 +42,8 @@ class DataResourceDelete(dataResource:String) extends RecordDeletor {
         val endUuid = startUuid + "~"
 
         pm.pageOverSelect("occ", (guid,map)=>{
-//            pm.delete(guid, "occ")
             //use the occ DAO to delete so that the record is added to the dellog cf
-            occurrenceDAO.delete(guid,false,true)
+            occurrenceDAO.delete(guid, false, true)
             count= count +1
             true
         }, startUuid, endUuid, 1000, "rowKey", "uuid")

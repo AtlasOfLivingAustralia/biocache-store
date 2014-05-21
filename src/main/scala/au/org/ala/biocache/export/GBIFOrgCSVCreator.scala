@@ -8,22 +8,26 @@ import java.io.File
 import util.parsing.json.JSON
 import au.org.ala.biocache.load.SimpleLoader
 import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * This utility generates a CSV listing of data resources to supply to GBIF.
  */
-object GBIFOrgCSVCreator {
+object GBIFOrgCSVCreator extends Tool {
+
+  def cmd = "gbif-csv"
+  def desc = "Generates a CSV to allow GBIF to import resources"
 
   def main(args: Array[String]): Unit = {
 
     var resourceUids = ""
     var fileName = ""
 
-    val parser = new OptionParser("Create Darwin Core Archive") {
-      arg("<data resource UID>", "Comma separated list of data resources or all", {
+    val parser = new OptionParser(help) {
+      arg("data-resource-uid", "Comma separated list of data resources or all", {
         v: String => resourceUids = v
       })
-      arg("<file name>", "The name of the file to create", {
+      arg("file-name", "The name of the file to create", {
         v: String => fileName = v
       })
     }

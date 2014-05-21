@@ -6,8 +6,12 @@ import org.apache.commons.lang3.time.DateUtils
 import java.util.Date
 import java.io.{File, FileWriter}
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.cmd.Tool
 
-object ExportFacet {
+object ExportFacet extends Tool {
+
+  def cmd = "export-facet"
+  def desc = "Exports a facet to file"
 
   var facetField = "species_guid"
   var facetQuery = "*:*"
@@ -21,11 +25,11 @@ object ExportFacet {
 
   var fieldsToExport = Array[String]()
 
-  val parser = new OptionParser("ExportFacet - Exports a facet to file") {
-    arg("<facet-field>", "The field to facet on", {
+  val parser = new OptionParser(help) {
+    arg("facet-field", "The field to facet on", {
       v: String => facetField = v
     })
-    arg("<facet-output-file>", "The field to facet on", {
+    arg("facet-output-file", "The field to facet on", {
       v: String => facetOutputFile = v
     })
     opt("fq", "filter query", "Filter query to use", {
@@ -56,9 +60,13 @@ object ExportFacet {
       // first_loaded_date:[2012-03-26T00:00:00Z%20TO%20*]
       val sfd = new SimpleDateFormat("yyyy-MM-dd")
       var facetFilterQuery = ""
-      if (lastDay) facetFilterQuery = indexDateField + ":[" + sfd.format(DateUtils.addDays(new Date(), -1)) + "T00:00:00Z TO *]"
-      else if (lastWeek) facetFilterQuery = indexDateField + ":[" + sfd.format(DateUtils.addWeeks(new Date(), -1)) + "T00:00:00Z TO *]"
-      else if (lastMonth) facetFilterQuery = indexDateField + ":[" + sfd.format(DateUtils.addMonths(new Date(), -1)) + "T00:00:00Z TO *]"
+      if (lastDay) {
+        facetFilterQuery = indexDateField + ":[" + sfd.format(DateUtils.addDays(new Date(), -1)) + "T00:00:00Z TO *]"
+      } else if (lastWeek) {
+        facetFilterQuery = indexDateField + ":[" + sfd.format(DateUtils.addWeeks(new Date(), -1)) + "T00:00:00Z TO *]"
+      } else if (lastMonth) {
+        facetFilterQuery = indexDateField + ":[" + sfd.format(DateUtils.addMonths(new Date(), -1)) + "T00:00:00Z TO *]"
+      }
 
       //do the facet query
       val facetWriter = new FileWriter(new File(facetOutputFile))
@@ -72,8 +80,9 @@ object ExportFacet {
       }, facetField, facetQuery, Array(facetFilterQuery))
       facetWriter.flush
       facetWriter.close
-      if (closeIndex)
+      if (closeIndex) {
         Config.indexDAO.shutdown
+      }
     }
   }
 }

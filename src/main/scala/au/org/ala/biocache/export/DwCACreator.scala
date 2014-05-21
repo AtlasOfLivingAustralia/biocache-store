@@ -11,11 +11,15 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
 import util.matching.Regex
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Companion object for the DwCACreator class.
  */
-object DwCACreator {
+object DwCACreator extends Tool {
+
+  def cmd = "createdwc"
+  def desc = "Create Darwin Core Archive"
 
   val logger = LoggerFactory.getLogger("DwCACreator")
 
@@ -24,9 +28,9 @@ object DwCACreator {
     var resourceUid = ""
     var directory = ""
 
-    val parser = new OptionParser("Create Darwin Core Archive") {
-      arg("<data resource UID>", "The UID of the data resource to load or 'all' to generate for all", {v: String => resourceUid = v})
-      arg("<directory to dump>", "skip the download and use local file", {v:String => directory = v } )
+    val parser = new OptionParser(help) {
+      arg("data-resource-uid", "The UID of the data resource to load or 'all' to generate for all", {v: String => resourceUid = v})
+      arg("directory-to-dump", "skip the download and use local file", {v:String => directory = v } )
     }
     if(parser.parse(args)){
       val dwcc = new DwCACreator

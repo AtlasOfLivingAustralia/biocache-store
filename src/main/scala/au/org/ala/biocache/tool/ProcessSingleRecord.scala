@@ -5,12 +5,33 @@ import org.codehaus.jackson.map.ObjectMapper
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.{Processed, Versions}
+import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Utility for processing a single record. Useful for testing purposes.
  */
-object ProcessSingleRecord {
+object ProcessSingleRecord extends Tool {
+
   val logger = LoggerFactory.getLogger("ProcessSingleRecord")
+
+  def cmd = "process-single"
+  def desc = "Process a single record"
+
+  def main(args: Array[String]) {
+
+    var uuid = ""
+
+    val parser = new OptionParser(help) {
+      arg("uuid", "record UUID", {
+        v: String => uuid = v
+      })
+    }
+
+    if (parser.parse(args)) {
+      processRecord(uuid)
+    }
+  }
 
   def processRecord(uuid: String) {
     val processor = new RecordProcessor
@@ -19,7 +40,7 @@ object ProcessSingleRecord {
       records = Config.occurrenceDAO.getAllVersionsByUuid(uuid)
     }
     if (!records.isEmpty) {
-      println("Processing record.....")
+      logger.info("Processing record.....")
       processor.processRecord(records.get(0), records.get(1))
       val processedRecord = Config.occurrenceDAO.getByRowKey(records.get(1).rowKey, Processed)
       val objectMapper = new ObjectMapper
@@ -31,18 +52,6 @@ object ProcessSingleRecord {
       logger.info("UUID or row key not stored....")
     }
     print("\n\nSupply a Row Key for a record: ")
-  }
-
-  def main(args: Array[String]) {
-
-    logger.info("Supply a UUID or a Row Key for a record: ")
-    var uuid = readStdIn
-    while (uuid != "q" && uuid != "exit") {
-      processRecord(uuid)
-      uuid = readStdIn
-    }
-    println("Exiting...")
-    exit(1)
   }
 
   def readStdIn = (new BufferedReader(new InputStreamReader(System.in))).readLine.trim

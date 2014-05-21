@@ -26,6 +26,6 @@ class StringConsumer(q: BlockingQueue[String], id: Int, proc: String => Unit) ex
         case e: Exception => e.printStackTrace()
       }
     }
-    println("Stopping " + id)
+    logger.debug("Stopping " + id)
   }
 }

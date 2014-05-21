@@ -57,12 +57,16 @@ object AttributionDAO {
   }
 
    def getDataProviderAsMap(value:String):Map[String,String]={
-     val json = Source.fromURL(Config.registryUrl+"/dataProvider/" + value + ".json").getLines.mkString
+     val url = Config.registryUrl + "/dataProvider/" + value
+     logger.debug(url)
+     val json = Source.fromURL(url).getLines.mkString
      JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
    }
 
    def getDataResourceAsMap(value:String):Map[String,String]={
-     val json = Source.fromURL(Config.registryUrl+"/dataResource/" + value + ".json").getLines.mkString
+     val url = Config.registryUrl + "/dataResource/" + value
+     logger.debug(url)
+     val json = Source.fromURL(url).getLines.mkString
      JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
    }
 
@@ -165,7 +169,8 @@ object AttributionDAO {
 
         //lookup the collectory against the WS
         logger.info("Looking up collectory web service for " + uuid)
-        val wscontent = WebServiceLoader.getWSStringContent(Config.registryUrl+"/lookup/inst/"+URLEncoder.encode(institutionCode)+"/coll/"+URLEncoder.encode(collectionCode)+".json")
+        val url = Config.registryUrl+"/lookup/inst/"+URLEncoder.encode(institutionCode)+"/coll/"+URLEncoder.encode(collectionCode)
+        val wscontent = WebServiceLoader.getWSStringContent(url)
         val wsmap = Json.toMap(wscontent)
 
         if(!wsmap.isEmpty && !wsmap.contains("error")){

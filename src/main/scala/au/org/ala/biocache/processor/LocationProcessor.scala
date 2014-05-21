@@ -83,11 +83,11 @@ class LocationProcessor extends Processor {
       checkCoordinateUncertainty(raw, processed, assertions)
 
       //generate coordinate accuracy if not supplied
-      var point = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
+      val point = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
 
       if (!point.isEmpty) {
         val (location, environmentalLayers, contextualLayers) = point.get
-        processed.locationDetermined = true;
+        processed.locationDetermined = true
         //add state information
         processed.location.stateProvince = location.stateProvince
         processed.location.ibra = location.ibra
@@ -785,7 +785,7 @@ class LocationProcessor extends Processor {
   def processSensitivity(raw: FullRecord, processed: FullRecord, location: Location, contextualLayers: Map[String, String]) = {
     //needs to be performed for all records whether or not they are in Australia
     //get a map representation of the raw record...
-    var rawMap = scala.collection.mutable.Map[String, String]()
+    val rawMap = scala.collection.mutable.Map[String, String]()
     raw.objectArray.foreach(poso => {
       val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
       rawMap.putAll(map)
@@ -796,7 +796,7 @@ class LocationProcessor extends Processor {
       rawMap.put("stateProvince", location.stateProvince)
     }
 
-    //put the required contexual layers in the map
+    //put the required contextual layers in the map
     au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key => {
       rawMap.put(key, contextualLayers.getOrElse(key, "n/a"))
     })
@@ -811,7 +811,7 @@ class LocationProcessor extends Processor {
 
     val exact = getExactSciName(raw)
     //now get the ValidationOutcome from the Sensitive Data Service
-    val outcome = sds.testMapDetails(sdsFinder,rawMap, exact, processed.classification.taxonConceptID)
+    val outcome = sds.testMapDetails(sdsFinder, rawMap, exact, processed.classification.taxonConceptID)
 
     if (outcome != null && outcome.isValid && outcome.isSensitive) {
 
@@ -831,15 +831,14 @@ class LocationProcessor extends Processor {
               au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key =>osv.remove(key))
             val newv = Json.toJSON(osv)
             (k -> newv)
-          } else (k -> v.toString)
-
+          } else {
+            (k -> v.toString)
+          }
         })
-        //logger.debug("AFTER : " + stringMap)
         //take away the values that need to be added to the processed record NOT the raw record
         val uncertainty = map.get("generalisationInMetres")
         if (!uncertainty.isEmpty) {
-          //we know that we have sensitised
-          //add the uncertainty to the currently processed uncertainty
+          //we know that we have sensitised, add the uncertainty to the currently processed uncertainty
           if (StringUtils.isNotEmpty(uncertainty.get.toString)) {
             val currentUncertainty = if (StringUtils.isNotEmpty(processed.location.coordinateUncertaintyInMeters)) java.lang.Float.parseFloat(processed.location.coordinateUncertaintyInMeters) else 0
             val newuncertainty = currentUncertainty + java.lang.Integer.parseInt(uncertainty.get.toString)
@@ -854,8 +853,8 @@ class LocationProcessor extends Processor {
         stringMap -= "informationWithheld"
         stringMap -= "dataGeneralizations"
 
+        //remove the day from the values if present
         if (stringMap.contains("day") || stringMap.contains("eventDate")) {
-          //remove the day from the values
           raw.event.day = ""
           processed.event.day = ""
           processed.event.eventDate = ""
@@ -864,13 +863,13 @@ class LocationProcessor extends Processor {
         //update the raw record with whatever is left in the stringMap
         Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap)
 
-        //TODO may need to fix locality information... change ths so that the generalisation
-        // is performed before the point matching to gazetteer..
+        //TODO may need to fix locality information... change this so that the generalisation
+        //is performed before the point matching to gazetteer..
         //We want to associate the ibra layers to the sensitised point
         //update the required locality information
         logger.debug("**************** Performing lookup for new point ['" + raw.rowKey
           + "'," + processed.location.decimalLongitude + "," + processed.location.decimalLatitude + "]")
-        val newPoint = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude);
+        val newPoint = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
         newPoint match {
           case Some((loc, el, cl)) => processed.location.lga = loc.lga
           case _ => processed.location.lga = null //unset the lga
@@ -882,131 +881,13 @@ class LocationProcessor extends Processor {
         outcome.getReport().getMessages().foreach(message=>{
           infoMessage += message.getCategory() + "\t" + message.getMessageText() + "\n"
         })
-        processed.occurrence.informationWithheld=infoMessage
+        processed.occurrence.informationWithheld = infoMessage
       }
     } else {
       //Species is NOT sensitive
       //if the raw record has originalSensitive values we need to re-initialise the value
       if (raw.occurrence.originalSensitiveValues != null && !raw.occurrence.originalSensitiveValues.isEmpty) {
         Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""))
-      }
-    }
-  }
-
-  /** Performs all the sensitivity processing.  Returns the new point ot be working with */
-  def processSensitivityOldVersion(raw: FullRecord, processed: FullRecord, location: Location, contextualLayers: Map[String, String]) = {
-
-    //Perform sensitivity actions if the record was located in Australia
-    //removed the check for Australia because some of the loc cache records have a state without country (-43.08333, 147.66670)
-    if (location.stateProvince != null) {
-      //location.country == "Australia"){
-      val sensitiveTaxon = {
-        //check to see if the rank of the matched taxon is above a species
-        val exact = getExactSciName(raw)
-        if (processed.classification.taxonConceptID != null && exact != null) {
-          val lsidVersion = sdsFinder.findSensitiveSpeciesByLsid(processed.classification.taxonConceptID)
-          if (lsidVersion != null)
-            lsidVersion
-          else
-            sdsFinder.findSensitiveSpeciesByExactMatch(exact)
-        } else if (exact != null){
-          sdsFinder.findSensitiveSpeciesByExactMatch(exact)
-        } else {
-          null
-        }
-      }
-
-      //only proceed if the taxon has been identified as sensitive
-      if (sensitiveTaxon != null) {
-        //get a map representation of the raw record...
-        var rawMap = scala.collection.mutable.Map[String, String]()
-        raw.objectArray.foreach(poso => {
-          val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
-          rawMap.putAll(map)
-        })
-        //put the state information that we have from the point
-        rawMap.put("stateProvince", location.stateProvince)
-
-        //put the required contexual layers in the map
-        au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key => {
-          rawMap.put(key, contextualLayers.getOrElse(key, "n/a"))
-        })
-
-        val service = ServiceFactory.createValidationService(sensitiveTaxon)
-        //TODO fix for different types of outcomes...
-        val voutcome = service.validate(rawMap)
-        if (voutcome.isValid && voutcome.isSensitive) {
-
-          if (voutcome.getResult != null) {
-            //conservation sensitive species will have a map of new values in the result
-            //the map that is returned needs to be used to update the raw record
-            val map: scala.collection.mutable.Map[java.lang.String, Object] = voutcome.getResult
-            //logger.debug("SDS return map: "+map)
-            //convert it to a string string map
-            val stringMap = map.collect({
-              case (k, v) if v != null => if (k == "originalSensitiveValues") {
-                val osv = v.asInstanceOf[java.util.HashMap[String, String]]
-                //add the original "processed" coordinate uncertainty to the sensitive values so that it can be available if necessary
-                if (processed.location.coordinateUncertaintyInMeters != null)
-                  osv.put("coordinateUncertaintyInMeters.p", processed.location.coordinateUncertaintyInMeters)
-                val newv = Json.toJSON(osv)
-                (k -> newv)
-              } else (k -> v.toString)
-
-            })
-            //logger.debug("AFTER : " + stringMap)
-            //take away the values that need to be added to the processed record NOT the raw record
-            val uncertainty = map.get("generalisationInMetres")
-            if (!uncertainty.isEmpty) {
-              //we know that we have sensitised
-              //add the uncertainty to the currently processed uncertainty
-              if (StringUtils.isNotEmpty(uncertainty.get.toString)) {
-                val currentUncertainty = if (StringUtils.isNotEmpty(processed.location.coordinateUncertaintyInMeters)) java.lang.Float.parseFloat(processed.location.coordinateUncertaintyInMeters) else 0
-                val newuncertainty = currentUncertainty + java.lang.Integer.parseInt(uncertainty.get.toString)
-                processed.location.coordinateUncertaintyInMeters = newuncertainty.toString
-              }
-              processed.location.decimalLatitude = stringMap.getOrElse("decimalLatitude", "")
-              processed.location.decimalLongitude = stringMap.getOrElse("decimalLongitude", "")
-              stringMap -= "generalisationInMetres"
-            }
-            processed.occurrence.informationWithheld = stringMap.getOrElse("informationWithheld", "")
-            processed.occurrence.dataGeneralizations = stringMap.getOrElse("dataGeneralizations", "")
-            stringMap -= "informationWithheld"
-            stringMap -= "dataGeneralizations"
-
-            if (stringMap.contains("day") || stringMap.contains("eventDate")) {
-              //remove the day from the values
-              raw.event.day = ""
-              processed.event.day = ""
-              processed.event.eventDate = ""
-            }
-
-            //update the raw record with whatever is left in the stringMap
-            Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap)
-
-            //TODO may need to fix locality information... change ths so that the generalisation
-            // is performed before the point matching to gazetteer..
-            //We want to associate the ibra layers to the sensitised point
-            //update the required locality information
-            logger.debug("**************** Performing lookup for new point ['" + raw.rowKey
-              + "'," + processed.location.decimalLongitude + "," + processed.location.decimalLatitude + "]")
-            val newPoint = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude);
-            newPoint match {
-              case Some((loc, el, cl)) => processed.location.lga = loc.lga
-              case _ => processed.location.lga = null //unset the lga
-            }
-          } else {
-            //TO do something with the PEST
-            if (voutcome.getReport() != null)
-              processed.occurrence.informationWithheld = "PEST: " + voutcome.getReport().toString()
-          }
-        }
-      } else {
-        //Species is NOT sensitive
-        //if the raw record has originalSensitive values we need to re-initialise the value
-        if (raw.occurrence.originalSensitiveValues != null && !raw.occurrence.originalSensitiveValues.isEmpty) {
-          Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""))
-        }
       }
     }
   }

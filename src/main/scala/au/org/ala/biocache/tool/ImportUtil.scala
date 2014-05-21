@@ -7,13 +7,17 @@ import au.com.bytecode.opencsv.CSVReader
 import org.apache.commons.lang.StringUtils
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Load a CSV file into the BioCache store.
  *
  * Note: This is only intended to be used for development purposes.
  */
-object ImportUtil {
+object ImportUtil extends Tool {
+
+  def cmd = "import"
+  def desc = "Import data (not for production use)"
 
   def main(args: Array[String]) {
 
@@ -21,16 +25,17 @@ object ImportUtil {
     var fieldsToImport = List[String]()
     var filesToImport = List[String]()
     var linesToSkip = 0
-    var quotechar: Option[Char] = None
-    var separator= '\t'
+    var quoteChar: Option[Char] = None
+    var charSeparator= '\t'
     var idColumnIdx = 0
     var json =false
 
-    val parser = new OptionParser("import") {
-      arg("<entity>", "the entity (column family in cassandra) to export from", { v: String => entity = v })
-      arg("<files-to-import>", "the file(s) to import, space separated", { v: String => filesToImport = v.split(" ").toList })
+    val parser = new OptionParser(help) {
+      arg("entity", "the entity (column family in cassandra) to export from", { v: String => entity = v })
+      arg("files-to-import", "the file(s) to import, space separated", { v: String => filesToImport = v.split(" ").toList })
       opt("c", "columns", "<column1 column2 ...>", "column headers", { columns: String => fieldsToImport = columns.split(",").toList })
-      //opt("sp", "separator", "column separator", "column separator for file to import", { v: String => separator = v.charAt(0) })
+      opt("sp", "separator", "column separator", "column separator for file to import", { v: String => charSeparator = v.charAt(0) })
+      opt("qc", "quotechar", "quote character", "column separator for file to import", { v: String => quoteChar = Some(v.charAt(0)) })
       opt("cf", "column header file", "e.g. /data/headers.txt", "column headers", {
         v: String => fieldsToImport = FileUtils.readFileToString(new File(v)).trim.split(',').toList
       })
@@ -46,7 +51,7 @@ object ImportUtil {
         if(json)
           importJson(entity,_)
         else
-          importFile(entity, fieldsToImport, separator, quotechar, _, idColumnIdx)
+          importFile(entity, fieldsToImport, charSeparator, quoteChar, _, idColumnIdx)
       }
       pm.shutdown
     }

@@ -17,6 +17,7 @@ import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.index.IndexRecords
+import au.org.ala.biocache.cmd.Tool
 
 class Timings {
   val logger = LoggerFactory.getLogger("Timings")
@@ -32,9 +33,12 @@ class Timings {
 }
 
 /**
- * Runnable for testing for outliers.
+ * Runnable tool for testing for outliers and updating the data store.
  */
-object SpeciesOutlierTests {
+object ReverseJacknifeProcessor extends Tool {
+
+  def cmd = "jacknife"
+  def desc = "Run jacknife processing"
 
   import FileHelper._
 
@@ -54,7 +58,7 @@ object SpeciesOutlierTests {
     var taxonIDsFilepath:String = ""
     var fullDumpFilePath:String = ""
     var headerForDumpFile:List[String] = List("taxonConceptID","uuid","decimalLatitude","decimalLongitude","el882","el889","el887","el865","el894")
-    var idsToIndexFile = "/tmp/idsToReIndex.txt"
+    var idsToIndexFile = Config.tmpWorkDir + "/idsToReIndex.txt"
     var persistResults = false
     var numPassThreadWriters = 16
     var numSourceThreads = 4
@@ -62,7 +66,7 @@ object SpeciesOutlierTests {
     var index = false
     var lastModifiedDate:Option[String] = None
 
-    val parser = new OptionParser("Reverse jackknife for outliers") {
+    val parser = new OptionParser(help) {
       opt("t", "taxonID","The LSID of the species to check for outliers. This wll download from LIVE", {v:String => taxonID = v})
       opt("f","taxonIDsFilepath", "Filepath to taxon IDs. This will perform downloads for each taxonID", {v:String => taxonIDsFilepath = v})
       opt("fd","fullDumpFile", "Filepath to full extract of data", {v:String => fullDumpFilePath = v})
@@ -160,10 +164,16 @@ object SpeciesOutlierTests {
    * @param dumpFilePath
    * @param columnHeaders
    */
-  def runOutlierTestingForDumpFile(dumpFilePath:String, columnHeaders:List[String] = List(), 
-      idsToIndexFile:String = "/tmp/idsToReIndex.txt", persistResults:Boolean=false, queue:ArrayBlockingQueue[String], index:Boolean=false, lastModifiedDate:Option[String]=None , field:String="species_guid",
-      passFile:String ="/tmp/layer-outlier-pass.out"){
-    //only continue if the filesize>0
+  def runOutlierTestingForDumpFile(dumpFilePath:String,
+                                   columnHeaders:List[String] = List(),
+                                   idsToIndexFile:String = "/tmp/idsToReIndex.txt",
+                                   persistResults:Boolean=false,
+                                   queue:ArrayBlockingQueue[String],
+                                   index:Boolean=false,
+                                   lastModifiedDate:Option[String]=None,
+                                   field:String="species_guid",
+                                   passFile:String ="/tmp/layer-outlier-pass.out"){
+
     if(new File(dumpFilePath).length()>0L){
       val uuidIndexFile = new File(idsToIndexFile)
       val idsWriter = new FileWriter(uuidIndexFile)
@@ -394,15 +404,15 @@ object SpeciesOutlierTests {
     val variableResults = results.map(x => (x._1, x._2))
     val record2OutlierLayer:Seq[(SampledRecord, String)] = invertLayer2Record(variableResults)
 
-    val previous = {
-      try {
-        Config.persistenceManager.get(taxonID, "outliers", "jackKnifeOutliers")
-      } catch {
-        case _:Exception => None
-      }
+    val previous = try {
+      Config.persistenceManager.get(taxonID, "outliers", "jackKnifeOutliers")
+    } catch {
+      case _:Exception => None
     }
 
-    if (!previous.isEmpty) Config.persistenceManager.put(taxonID, "outliers", "previous", previous.get)
+    if (!previous.isEmpty) {
+      Config.persistenceManager.put(taxonID, "outliers", "previous", previous.get)
+    }
 
     //mark up records
     Config.persistenceManager.put(taxonID, "outliers", "jackKnifeOutliers", mapper.writeValueAsString(variableResults))
@@ -454,13 +464,13 @@ object SpeciesOutlierTests {
         List[String]()
       }
     }
+
     logger.debug("previousIDs: " + previousIDs)
     val currentIDs = record2OutlierLayer.map(_._1.id)
 
     //IDs in the previous not in current need to be reset
     val newIDs = previousIDs diff currentIDs
     logger.debug("previous : " + previousIDs.size + " current " + currentIDs.size + " new : " + newIDs.size)
-
     logger.debug("[WARNING] Number of old IDs not marked as outliers anymore: " + newIDs.size)
 
     newIDs.foreach(recordID =>  {
@@ -542,7 +552,9 @@ object SpeciesOutlierTests {
    */
   def performJacknife(variableName: String, file: File, headersFields:Seq[String] = List.empty): (Seq[SampledRecord],Option[JackKnifeStats]) = {
     val r = new CSVReader(new FileReader(file))
-    if (r.readNext() == null) return (List[SampledRecord](), None)
+    if (r.readNext() == null) {
+      return (List[SampledRecord](), None)
+    }
     val headers = if(headersFields.isEmpty){
       r.readNext().toList
     } else {

@@ -18,6 +18,7 @@ import au.com.bytecode.opencsv.CSVReader
 import au.org.ala.biocache.model.{DuplicationTypes, DuplicateRecordDetails, QualityAssertion}
 import au.org.ala.biocache.vocab.AssertionCodes
 import org.apache.commons.lang3.time.DateUtils
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Duplication detection is only possible if latitude and longitude are provided.
@@ -37,12 +38,15 @@ import org.apache.commons.lang3.time.DateUtils
  * a) With the smallest grained group from Step 3 group all the similar "collectors" together null or unknown collectors will be handled together
  * b) With the collector groups determine which of the
  */
-object DuplicationDetection {
+object DuplicationDetection extends Tool {
 
   import FileHelper._
 
   val logger = LoggerFactory.getLogger("DuplicateDetection")
   var rootDir = "/data/tool/"
+
+  def cmd = "duplicate-detection"
+  def desc = "Detects duplication based on a matched species and updates the database with details."
 
   def main(args: Array[String]) {
     var all = false
@@ -57,7 +61,7 @@ object DuplicationDetection {
     var offlineDir = "/data/offline/exports"
 
     //Options to perform on all "species", select species, use existing file or download
-    val parser = new OptionParser("Duplication Detection - Detects duplication based on a matched species.") {
+    val parser = new OptionParser(help) {
       opt("all", "detect duplicates for all species", {
         all = true
       })
@@ -95,8 +99,7 @@ object DuplicationDetection {
       val lastRunDate: Option[String] = if (incremental) Config.duplicateDAO.getLastDuplicationRun() else None
       if (removeObsoleteData) {
         removeObsoleteDuplicates(speciesFile)
-      }
-      else if (all) {
+      } else if (all) {
         //download all the species guids
         val filename = rootDir + "dd_all_species_guids"
         //val args = if(lastRunDate.isDefined) Array("species_guid",filename, "-fq","last_load_date:["+lastRunDate.get+" TO *]","--open") else Array("species_guid",filename,"--open")
@@ -104,8 +107,7 @@ object DuplicationDetection {
         //ExportFacet.main(args)
         //now detect the duplicates
         detectDuplicates(new File(filename), threads, exist, cleanup, load, offlineDir)
-      }
-      else if (guid.isDefined) {
+      } else if (guid.isDefined) {
         //just a single detection - ignore the thread settings etc...
         val dd = new DuplicationDetection
         val datafilename = rootDir + "dd_data_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
@@ -116,7 +118,7 @@ object DuplicationDetection {
         if (load) {
           dd.loadDuplicates(guid.get, threads, dupfilename, new FileWriter(indexfilename), new FileWriter(olddup))
           IndexRecords.indexList(new File(indexfilename), false)
-          updateLastDuplicateTime()
+          updateLastDuplicateTime
         } else {
           dd.detect(datafilename, new FileWriter(dupfilename), new FileWriter(passedfilename), guid.get, shouldDownloadRecords = !exist, cleanup = cleanup)
         }
@@ -132,8 +134,7 @@ object DuplicationDetection {
 
   def removeObsoleteDuplicates(filename: Option[String]) {
     val olddupfilename = filename.getOrElse(rootDir + "olddups.txt")
-    val file = new File(olddupfilename)
-    file.foreachLine(line => {
+    new File(olddupfilename).foreachLine(line => {
       val parts = line.split("\t")
       val uuid = parts(1)
       Config.duplicateDAO.deleteObsoleteDuplicate(uuid)
@@ -183,7 +184,7 @@ object DuplicationDetection {
     pool.foreach(_.join)
     if (load) {
       //need to update the last duplication detection time
-      updateLastDuplicateTime()
+      updateLastDuplicateTime
       //need to merge all the obsolete duplicates into 1 file
       val baseFile = new File(rootDir + "olddups.txt")
       for (i <- 0 to threads - 1) {
@@ -195,7 +196,7 @@ object DuplicationDetection {
     Config.indexDAO.shutdown
   }
 
-  def updateLastDuplicateTime() {
+  def updateLastDuplicateTime {
     val date = DateUtils.truncate(new java.util.Date(), java.util.Calendar.DAY_OF_MONTH)
     val cal = new java.util.GregorianCalendar()
     cal.setTime(date)
@@ -221,9 +222,7 @@ class DuplicationDetection {
   // we have decided that a subspecies can be evalutated as part of the species level duplicates
   val subspeciesFilters = Array("lat_long:[* TO *]", "-species_guid:[* TO *]")
 
-  val mapper = new ObjectMapper
-  //mapper.registerModule(DefaultScalaModule)
-  mapper.setSerializationInclusion(Include.NON_NULL)
+  val mapper = (new ObjectMapper).setSerializationInclusion(Include.NON_NULL)
 
   /**
    * Takes the a dumpfile that was generated from the ExportAllRecordFacetFilter in mutiple threads
@@ -322,7 +321,6 @@ class DuplicationDetection {
     var ids = 0
     val buffer = new ArrayBuffer[String] // The buffer to store all the rowKeys that need to be reindexed
     val allDuplicates = new ArrayBuffer[String]
-    //"taxonConceptLsid":"urn:lsid:catalogueoflife.org:taxon:df43e19e-29c1-102b-9a4a-00304854f820:ac2010"
     val conceptPattern = """"taxonConceptLsid":"([A-Za-z0-9\-:\.]*)"""".r
     var oldDuplicates: Set[String] = null
     var oldDupMap: Map[String, String] = null

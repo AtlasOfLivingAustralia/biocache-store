@@ -5,12 +5,16 @@ import java.io.{BufferedOutputStream, FileOutputStream}
 import java.io.File
 import au.org.ala.biocache.index.{IndexRecords, IndexDAO}
 import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Reprocesses and reindexes a select set of records.  The records will
  * be obtained through a query to the index.
  */
-object ReprocessIndexSelect {
+object ReprocessIndexSelect extends Tool {
+
+  def cmd = "index-query"
+  def desc = "Reindex the records that match a query"
 
   def main(args: Array[String]): Unit = {
     var query: Option[String] = None;
@@ -18,7 +22,7 @@ object ReprocessIndexSelect {
     var exist = false;
     var indexOnly = false
     var startUuid: Option[String] = None
-    val parser = new OptionParser("index records options") {
+    val parser = new OptionParser(help) {
       opt("q", "query", "The query to run e.g. 'year:[2001 TO *]' or 'taxon_name:Macropus'", {
         v: String => query = Some(v)
       })

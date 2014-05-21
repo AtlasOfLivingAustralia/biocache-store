@@ -3,9 +3,10 @@ package au.org.ala.biocache.util
 import au.org.ala.biocache.tool.DuplicationDetection
 import scala.collection.mutable.ArrayBuffer
 import java.util.concurrent.BlockingQueue
+import org.slf4j.LoggerFactory
 
 class CountAwareFacetConsumer(q: BlockingQueue[String], id: Int, proc: Array[String] => Unit, countSize: Int = 0, minSize: Int = 1) extends Thread {
-
+  val logger = LoggerFactory.getLogger("CountAwareFacetConsumer")
   var shouldStop = false
 
   override def run() {
@@ -37,6 +38,6 @@ class CountAwareFacetConsumer(q: BlockingQueue[String], id: Int, proc: Array[Str
         case e: Exception => e.printStackTrace()
       }
     }
-    println("Stopping " + id)
+    logger.debug("Stopping " + id)
   }
 }

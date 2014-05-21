@@ -2,11 +2,15 @@ package au.org.ala.biocache.tool
 
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.cmd.Tool
 
 /**
  * Utility to delete one or more columns.
  */
-object DeleteColumn {
+object DeleteColumn extends Tool {
+
+  def cmd = "delete-columns"
+  def desc = "Delete a column"
 
   def main(args: Array[String]): Unit = {
 
@@ -15,11 +19,11 @@ object DeleteColumn {
     var entityName = ""
     var columnsToDelete = Array[String]()
 
-    val parser = new OptionParser("delete column options") {
-        arg("<entity>", "the entity (column family in cassandra) to export from", { v: String => entityName = v })
-        arg("<cols to delete>","A CSV list of columns to be deleted",{v:String => columnsToDelete = v.split(",")})
-        opt("s", "start","The record to start with", {v:String => startUuid = v})
-        opt("e", "end", "The record to end with", {v:String =>endUuid=v})
+    val parser = new OptionParser(help) {
+      arg("entity", "the entity (column family in cassandra) to export from", { v: String => entityName = v })
+      arg("cols-to-delete","A CSV list of columns to be deleted",{v:String => columnsToDelete = v.split(",")})
+      opt("s", "start","The record to start with", {v:String => startUuid = v})
+      opt("e", "end", "The record to end with", {v:String =>endUuid=v})
     }
     if (parser.parse(args)) {
       //val entityName = args(0)

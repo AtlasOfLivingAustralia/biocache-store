@@ -35,10 +35,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   override val logger = LoggerFactory.getLogger("SolrIndexDAO")
 
   val nameRegex="""(?:name":")([a-zA-z0-9]*)""".r
-  val  codeRegex = """(?:code":)([0-9]*)""".r
+  val codeRegex = """(?:code":)([0-9]*)""".r
   val qaStatusRegex = """(?:qaStatus":)([0-9]*)""".r
 
-  val arrDefaultMiscFields = if (defaultMiscFields == null) Array[String]() else defaultMiscFields.split(",")
+  val arrDefaultMiscFields = if (defaultMiscFields == null) {
+    Array[String]()
+  } else {
+    defaultMiscFields.split(",")
+  }
   var cc: CoreContainer = _
   var solrServer: SolrServer = _
   var cloudServer: org.apache.solr.client.solrj.impl.CloudSolrServer = _
@@ -57,7 +61,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   override def init() {
 
     if (solrServer == null) {
-      logger.info("Initialising the solr server " + solrHome + " " + cloudServer + " " + solrServer)
+      logger.info("Initialising the solr server " + solrHome + " cloudserver:" + cloudServer + " solrServer:" + solrServer)
       if(!solrHome.startsWith("http://")){
         if(solrHome.contains(":")) {
           //assume that it represents a SolrCloud
@@ -144,14 +148,15 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     logger.info("Finished streaming : " +new java.util.Date().toString + " " + params)
   }
 
-  def pageOverIndex(proc: java.util.Map[String, AnyRef] => Boolean, fieldToRetrieve: Array[String], queryString: String = "*:*", filterQueries: Array[String] = Array(), sortField: Option[String] = None, sortDir: Option[String] = None, multivaluedFields: Option[Array[String]] = None) {
+  def pageOverIndex(proc: java.util.Map[String, AnyRef] => Boolean,
+                    fieldToRetrieve: Array[String], queryString: String = "*:*", filterQueries: Array[String] = Array(),
+                    sortField: Option[String] = None, sortDir: Option[String] = None, multivaluedFields: Option[Array[String]] = None) {
     init
 
-    var startIndex = 0
-    var query: SolrQuery = new SolrQuery(queryString)
+    val query = new SolrQuery(queryString)
     query.setFacet(false)
     query.setRows(0)
-    query.setStart(startIndex)
+    query.setStart(0)
     query.setFilterQueries(filterQueries: _*)
     query.setFacet(false)
     fieldToRetrieve.foreach(f => query.addField(f))
@@ -314,7 +319,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     if (shouldIndex(map, startDate)) {
       val values = getOccIndexModel(guid, map)
       if (values.length > 0 && values.length != header.length) {
-        logger.warn("values don't matcher header: " + values.length + ":" + header.length + ", values:header")
+        logger.warn("Values don't matcher header: " + values.length + ":" + header.length + ", values:header")
         logger.warn("Headers: " + header.toString())
         logger.warn("Values: " + values.toString())
         exit(1)
@@ -322,16 +327,17 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       if (values.length > 0) {
         val doc = new SolrInputDocument()
         for (i <- 0 to values.length - 1) {
-          if (values(i) != "") {
+          if (values(i) != "" && header(i) != "") {
             if (multifields.contains(header(i))) {
               //multiple values in this field
               for (value <- values(i).split('|')) {
-                if (value != "")
+                if (value != "") {
                   doc.addField(header(i), value)
+                }
               }
-            }
-            else
+            } else {
               doc.addField(header(i), values(i))
+            }
           }
         }
 
@@ -341,11 +347,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
-            miscIndexProperties.foreach(prop =>{
+            miscIndexProperties.foreach(prop => {
               prop match {
                 case it if it.endsWith("_i") || it.endsWith("_d") || it.endsWith("_s") => {
                   val v = map.get(it.take(it.length-2))
-                  if(v.isDefined){
+                  if(v.isDefined && StringUtils.isNotBlank(it)){
                     doc.addField(it, v.get.toString())
                   }
                 }
@@ -395,8 +401,9 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                   //remove the suffix
                   val item = if (value.contains("_")) value.substring(0, value.lastIndexOf("_")) else value
                   val fvalue = map.getOrElse(value, map.getOrElse(item, "")).toString()
-                  if (fvalue.size > 0)
+                  if (fvalue.size > 0 && StringUtils.isNotBlank(value)) {
                     doc.addField(value, fvalue)
+                  }
                 }
               }
             })
@@ -415,7 +422,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
             sa = true
             //get the error code to see if it is "missing"
             //println(test +" " + guid)
-            def indexField = if(AssertionCodes.getByName(test).get.category == ErrorCodeCategory.Missing) "assertions_missing" else "assertions"
+            def indexField = if(AssertionCodes.getByName(test).get.category == ErrorCodeCategory.Missing) {
+              "assertions_missing"
+            } else {
+              "assertions"
+            }
             doc.addField(indexField, test)
           }
         }
@@ -429,10 +440,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         val (speciesLists,extraValues) = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p",""))
         speciesLists.foreach(v=>{
           doc.addField("species_list_uid",v)
-          //doc.addField(v, "true")
         })
         extraValues.foreach {case (key, value) => {
-          doc.addField(key, value)
+          if(StringUtils.isNotBlank(key)) {
+            doc.addField(key, value)
+          }
         }}
 
         // user if userQA = true
@@ -478,17 +490,18 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         if(!test){
           if (!batch) {
             solrServer.add(doc)
-            solrServer.commit
+            solrServer.commit(false, false, true)
           } else {
             solrDocList.synchronized {
-              if (!StringUtils.isEmpty(values(0)))
+              if (!StringUtils.isEmpty(values(0))){
                 solrDocList.add(doc)
+              }
 
-              if (solrDocList.size == 1000 || (commit && solrDocList.size > 0)) {
+              if (solrDocList.size == 1000 || (commit && !solrDocList.isEmpty)) {
 
                 solrServer.add(solrDocList)
                 if (commit || solrDocList.size >= 10000){
-                  solrServer.commit
+                  solrServer.commit(false, false, true)
                 }
                 solrDocList.clear
               }
@@ -618,7 +631,9 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
               logger.info("Thread " + id + " is adding " + docs.size + " documents to the index.")
               solrServer.add(docs)
               //only the first thread should commit
-              if (id == 0) solrServer.commit
+              if (id == 0) {
+                solrServer.commit(false, false, true)
+              }
               docs = null
             } catch {
               case e:Exception => logger.debug("Error committing to index", e) //do nothing

@@ -4,15 +4,19 @@ import org.apache.lucene.index.IndexReader
 import org.apache.lucene.store.FSDirectory
 import java.io.{FileWriter, File}
 import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.cmd.Tool
 
-object ExportForOutliers {
+object ExportForOutliers extends Tool {
+
+  def cmd = "export-for-outlier"
+  def desc = "Export outliers (requires local filesystem access to "
 
   def main(args:Array[String]){
 
     var indexDirectory = ""    
     var exportDirectory = ""
 
-    val parser = new OptionParser("Test for outliers") {
+    val parser = new OptionParser(help) {
       arg("indexDirectory", "The Lucene/SOLR index to export from e.g. /data/solr/biocache/data/index", {v:String => indexDirectory = v})
       arg("exportDirectory", "The directory to export to", {v:String => exportDirectory = v})
     }

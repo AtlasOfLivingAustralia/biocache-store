@@ -59,6 +59,8 @@ object Config {
 
   val mediaFileStore = configModule.properties.getProperty("media.dir","/data/biocache-media/")
 
+  val mediaBaseUrl = configModule.properties.getProperty("media.url","http://biocache.ala.org.au/biocache-media")
+
   val excludeSensitiveValuesFor = configModule.properties.getProperty("exclude.sensitive.values","")
 
   val allowCollectoryUpdates = configModule.properties.getProperty("allow.registry.updates","false")
@@ -68,8 +70,11 @@ object Config {
   val technicalContact = configModule.properties.getProperty("technical.contact", "support@ala.org.au")
 
   lazy val fieldsToSample = {
+
     val str = configModule.properties.getProperty("sample.fields")
-    val defaultFields = configModule.properties.getProperty("default.sample.fields")
+
+    val defaultFields = configModule.properties.getProperty("default.sample.fields", "")
+
     if (str == null || str.trim == "" ){
       val dbfields = try {
         Client.getLayerIntersectDao.getConfig.getFieldsByDB
@@ -99,7 +104,11 @@ object Config {
     }
   }
 
+  val speciesSubgroupsUrl = configModule.properties.getProperty("species.subgroups.url","http://bie.ala.org.au/subgroups.json")
+
   val listToolUrl = configModule.properties.getProperty("list.tool.url","http://lists.ala.org.au/ws")
+
+  val tmpWorkDir = configModule.properties.getProperty("tmp.work.dir","/tmp")
 
   val registryUrl = configModule.properties.getProperty("registry.url","http://collections.ala.org.au/ws")
 
@@ -118,6 +127,8 @@ object Config {
   def getProperty(prop:String) = configModule.properties.getProperty(prop)
 
   def getProperty(prop:String, default:String) = configModule.properties.getProperty(prop,default)
+
+  def outputConfig = configModule.properties.list(System.out)
 }
 
 /**
@@ -160,22 +171,21 @@ private class ConfigModule extends AbstractModule {
     //bind concrete implementations
     bind(classOf[OccurrenceDAO]).to(classOf[OccurrenceDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[OutlierStatsDAO]).to(classOf[OutlierStatsDAOImpl]).in(Scopes.SINGLETON)
-    logger.debug("Initialise SOLR")
+    logger.debug("Initialising SOLR")
     bind(classOf[IndexDAO]).to(classOf[SolrIndexDAO]).in(Scopes.SINGLETON)
     bind(classOf[DeletedRecordDAO]).to(classOf[DeletedRecordDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[DuplicateDAO]).to(classOf[DuplicateDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[ValidationRuleDAO]).to(classOf[ValidationRuleDAOImpl]).in(Scopes.SINGLETON)
-    logger.debug("Initialise name matching indexes")
+    logger.debug("Initialising name matching indexes")
     try {
       val nameIndexLocation = properties.getProperty("name.index.dir")
       logger.debug("Loading name index from " + nameIndexLocation)
-
       val nameIndex = new ALANameSearcher(nameIndexLocation)
       bind(classOf[ALANameSearcher]).toInstance(nameIndex)
     } catch {
-      case e: Exception => logger.warn("Lucene indexes arent currently available. Message: " + e.getMessage())
+      case e: Exception => logger.warn("Lucene indexes are not currently available. Please check 'name.index.dir' property in config. Message: " + e.getMessage())
     }
-    logger.debug("Initialise persistence manager")
+    logger.debug("Initialising persistence manager")
     properties.getProperty("db") match {
       //case "mock" => bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(Scopes.SINGLETON)
       case "postgres" => bind(classOf[PersistenceManager]).to(classOf[PostgresPersistenceManager]).in(Scopes.SINGLETON)

@@ -6,25 +6,67 @@ import scala.util.parsing.json.JSON
 import scala.collection.JavaConversions
 import scala.collection.mutable.HashMap
 import au.org.ala.biocache
-import au.org.ala.biocache.cmd.CMD
+import au.org.ala.biocache.cmd.{NoArgsTool, Tool, CMD}
 import au.org.ala.biocache.util.{OptionParser, StringHelper}
+import org.slf4j.LoggerFactory
 
 /**
  * Runnable loader that just takes a resource UID and delegates based on the protocol.
  */
-object Loader {
+object Loader extends Tool {
+
+  val logger = LoggerFactory.getLogger("Loader")
+  def cmd = "load"
+  def desc = "Load a data resource"
 
   def main(args:Array[String]){
 
     var dataResourceUid:String = ""
-    val parser = new OptionParser("index records options") {
-        arg("data-resource-uid","The data resource to process", {v:String => dataResourceUid = v})
+    var forceLoad = false
+    var testLoad = false
+    val parser = new OptionParser(help) {
+      arg("data-resource-uid","The data resource to process", {v:String => dataResourceUid = v})
+      booleanOpt("fl", "force-load", "Force the (re)load of media", {v:Boolean => forceLoad = v})
+      booleanOpt("t", "test-load", "Test the (re)load of media", {v:Boolean => testLoad = v})
+    }
+
+    if(parser.parse(args)){
+      logger.info("Starting to load resource: " + dataResourceUid)
+      val l = new Loader
+      l.load(dataResourceUid, testLoad, forceLoad)
+      logger.info("Completed loading resource: " + dataResourceUid)
+      biocache.Config.persistenceManager.shutdown
+    }
+  }
+}
+
+object Healthcheck extends NoArgsTool {
+  def cmd = "healthcheck"
+  def desc = "Run a healthcheck on the configured resources"
+  def main(args:Array[String]) = proceed(args, () => (new Loader()).healthcheck)
+}
+
+object ListResources extends NoArgsTool {
+  def cmd = "list"
+  def desc = "List configured data resources"
+  def main(args:Array[String]) = proceed(args, () => (new Loader()).printResourceList)
+}
+
+object DescribeResource extends Tool {
+
+  def cmd = "describe"
+  def desc = "Describe the configuration for a data resource"
+
+  def main(args:Array[String]){
+    var dataResourceUid:String = ""
+    val parser = new OptionParser(help) {
+      arg("data-resource-uid", "The UID data resource to process, e.g. dr1", {v:String => dataResourceUid = v})
     }
 
     if(parser.parse(args)){
       println("Starting to load resource: " + dataResourceUid)
       val l = new Loader
-      l.load(dataResourceUid)
+      l.describeResource(List(dataResourceUid))
       println("Completed loading resource: " + dataResourceUid)
       biocache.Config.persistenceManager.shutdown
     }
@@ -44,14 +86,18 @@ class Loader extends DataLoader {
       println("Protocol: "+ protocol)
       println("URL: " + url.mkString(";"))
       println("Unique terms: " + uniqueTerms.mkString(","))
-      params.foreach({case(k,v) => println(k+": "+v)})
-        customParams.foreach({case(k,v) => println(k +": "+v)})
-        println("---------------------------------------")
+      params.foreach { println(_)}
+      customParams.foreach{ println(_)}
+      println("---------------------------------------")
     })
   }
 
   def printResourceList {
-    CMD.printTable(resourceList)
+    if(!resourceList.isEmpty){
+      CMD.printTable(resourceList)
+    } else {
+      println("No resources are registered in the registry.")
+    }
   }
 
   def resourceList : List[Map[String, String]] = {
@@ -135,7 +181,7 @@ class Loader extends DataLoader {
     val json = Source.fromURL(Config.registryUrl+"/dataResource/harvesting.json").getLines.mkString
     val drs = JSON.parseFull(json).get.asInstanceOf[List[Map[String, String]]]
     // UID, name, protocol, URL,
-    var digirCache = new HashMap[String, Map[String, String]]()
+    val digirCache = new HashMap[String, Map[String, String]]()
     //iterate through the resources
     drs.foreach(dr => {
 
