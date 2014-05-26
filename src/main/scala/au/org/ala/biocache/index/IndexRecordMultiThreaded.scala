@@ -268,7 +268,6 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
       counter += 1
 
-
       if (StringUtils.isNotBlank(map.getOrElse("geodeticDatum", ""))) {
         //check the precision of the lat/lon
         def lat = map.getOrElse("decimalLatitude", "0")

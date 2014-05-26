@@ -680,8 +680,16 @@ class DuplicationDetection {
 
       //set the duplication type based data resource uid
       duplicates.foreach(d => {
-        d.status = if (d.druid == representativeRecord.druid) "D1" else "D2"
-        d.addDupType(if (d.precision == representativeRecord.precision) DuplicationTypes.EXACT_COORD else DuplicationTypes.DIFFERENT_PRECISION)
+        d.status = if (d.druid == representativeRecord.druid) {
+          "D1"
+        } else {
+          "D2"
+        }
+        d.addDupType(if (d.precision == representativeRecord.precision) {
+          DuplicationTypes.EXACT_COORD
+        } else {
+          DuplicationTypes.DIFFERENT_PRECISION
+        })
       })
 
       (representativeRecord, duplicates.toList)

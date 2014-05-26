@@ -4,8 +4,18 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.Config
 import scala.collection.mutable.ArrayBuffer
-import org.apache.lucene.misc.IndexMergeTool
 import au.org.ala.biocache.cmd.Tool
+import org.apache.lucene.store.FSDirectory
+import java.io.File
+import org.apache.lucene.index.{IndexWriterConfig, IndexWriter}
+import org.apache.lucene.index.IndexWriter
+import org.apache.lucene.index.IndexWriterConfig
+import org.apache.lucene.index.IndexWriterConfig.OpenMode
+import org.apache.lucene.store.Directory
+import org.apache.lucene.util.Version
+import org.apache.commons.io.FileUtils
+import org.apache.lucene.misc.IndexMergeTool
+;
 
 /**
  * A multi-threaded bulk processor that uses the search indexes to create a set a
@@ -17,7 +27,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
   def cmd = "bulk-processor"
   def desc = "Bulk processor for regenerating indexes and reprocessing the entire cache"
 
-  override val logger = LoggerFactory.getLogger("Indexer-Multithread")
+  override val logger = LoggerFactory.getLogger("BulkProcessor")
 
   def main(args: Array[String]) {
 
@@ -30,6 +40,9 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var start, end = ""
     var dr: Option[String] = None
     val validActions = List("range", "process", "index", "col", "repair", "datum")
+    var forceMerge = true
+    var mergeSegments = 1
+    var deleteSources = false
 
     val parser = new OptionParser(help) {
       arg("<action>", "The action to perform. Supported values :  range, process or index, col", {
@@ -59,6 +72,15 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
       opt("c", "columns", "The columns to export", {
         v: String => columns = Some(v.split(","))
       })
+      booleanOpt("fm", "forceMerge", "Force merge of segments. Default is " + forceMerge + ". For index only.", {
+        v: Boolean => forceMerge = v
+      })
+      intOpt("ms", "max segments", "Max merge segments. Default " + mergeSegments + ". For index only.", {
+        v: Int => mergeSegments = v
+      })
+      booleanOpt("ds", "delete-sources", "Delete sources if successful. Defaults to " + deleteSources + ". For index only.", {
+        v: Boolean => deleteSources = v
+      })
     }
 
     if (parser.parse(args)) {
@@ -84,7 +106,6 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           val threads = new ArrayBuffer[Thread]
           val columnRunners = new ArrayBuffer[ColumnReporterRunner]
           val solrDirs = new ArrayBuffer[String]
-          solrDirs += (dirPrefix + "/solr/bio-proto-merged/data/index")
           ranges.foreach(r => {
             logger.info("start: " + r._1 + ", end key: " + r._2)
 
@@ -129,7 +150,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
           if (action == "index") {
             //TODO - might be worth avoiding optimisation
-            IndexMergeTool.main(solrDirs.toArray)
+            IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
             Config.persistenceManager.shutdown
             logger.info("Waiting to see if shutdown")
             System.exit(0)
@@ -141,6 +162,104 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           }
         }
       }
+    }
+  }
+}
+
+/**
+ * Thin wrapper around SOLR index merge tool that allows it to be incorporated
+ * into the CMD2.
+ *
+ * TODO add support for directory patterns e.g. /data/solr-create/biocache-thread-{wildcard}/data/index
+ */
+object IndexMergeTool extends Tool {
+
+  def cmd = "index-merge"
+  def desc = "Merge indexes "
+  val logger = LoggerFactory.getLogger("IndexMergeTool")
+
+  def main(args:Array[String]){
+
+    var mergeDir = ""
+    var directoriesToMerge = Array[String]()
+    var forceMerge = true
+    var mergeSegments = 1
+    var deleteSources = false
+    var ramBuffer = 4096.0d
+
+    val parser = new OptionParser(help) {
+      arg("<merge-dr>", "The output path for the merged index", {
+        v: String => mergeDir = v
+      })
+      arg("<to-merge>", "Pipe separated list of directories to merge", {
+        v: String => directoriesToMerge = v.split('|').map(x => x.trim)
+      })
+      booleanOpt("fm", "forceMerge", "Force merge of segments. Default is " + forceMerge, {
+        v: Boolean => forceMerge = v
+      })
+      intOpt("ms", "max-segments", "Max merge segments. Default " + mergeSegments, {
+        v: Int => mergeSegments = v
+      })
+      doubleOpt("ram", "ram-buffer", "RAM buffer size. Default " + ramBuffer, {
+        v: Double => ramBuffer = v
+      })
+      booleanOpt("ds", "delete-sources", "Delete sources if successful. Defaults to " + deleteSources, {
+        v: Boolean => deleteSources = v
+      })
+    }
+    if (parser.parse(args)) {
+      merge(mergeDir, directoriesToMerge, forceMerge, mergeSegments, deleteSources, ramBuffer)
+    }
+  }
+
+  /**
+   * Merge method that wraps SOLR merge API
+   * @param mergeDir
+   * @param directoriesToMerge
+   * @param forceMerge
+   * @param mergeSegments
+   */
+  def merge(mergeDir: String, directoriesToMerge: Array[String], forceMerge: Boolean, mergeSegments: Int, deleteSources:Boolean, rambuffer:Double = 4096.0d) {
+    val start = System.currentTimeMillis()
+
+    logger.info("Merging to directory:  " + mergeDir)
+    directoriesToMerge.foreach(x => println("Directory included in merge: " + x))
+
+    val mergeDirFile = new File(mergeDir)
+    if (mergeDirFile.exists()) {
+      //clean out the directory
+      mergeDirFile.listFiles().foreach(f => FileUtils.forceDelete(f))
+    } else {
+      FileUtils.forceMkdir(mergeDirFile)
+    }
+
+    val mergedIndex = FSDirectory.open(mergeDirFile)
+
+    val writerConfig = (new IndexWriterConfig(Version.LUCENE_CURRENT, null))
+      .setOpenMode(OpenMode.CREATE)
+      .setRAMBufferSizeMB(rambuffer)
+
+    val writer = new IndexWriter(mergedIndex, writerConfig)
+    val indexes = directoriesToMerge.map(dir => FSDirectory.open(new File(dir)))
+
+    logger.info("Adding indexes...")
+    writer.addIndexes(indexes:_*)
+
+    if (forceMerge) {
+      logger.info("Full merge...")
+      writer.forceMerge(mergeSegments)
+    } else {
+      logger.info("Skipping merge...")
+    }
+
+    writer.close()
+    val finish = System.currentTimeMillis()
+    logger.info("Merge complete:  " + mergeDir + ". Time taken: " +((finish-start)/1000)/60 + " minutes")
+
+    if(deleteSources){
+      logger.info("Deleting source directories")
+      directoriesToMerge.foreach(dir => FileUtils.forceDelete(new File(dir)))
+      logger.info("Deleted source directories")
     }
   }
 }

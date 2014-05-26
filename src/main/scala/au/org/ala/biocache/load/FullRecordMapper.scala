@@ -216,24 +216,20 @@ object FullRecordMapper {
           case it if version == Processed && isProcessedValue(fieldName) => {
             val success = fullRecord.setProperty(removeSuffix(fieldName), fieldValue)
             if(!success) {
-              logger.warn("Unable to set " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
+              logger.error("Unable to set " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
             }
           }
           case it if version == Raw && fullRecord.hasProperty(fieldName) => {
             val success = fullRecord.setProperty(fieldName, fieldValue)
             if(!success) {
-              logger.warn("Unable to set " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
+              logger.error("Unable to set " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
             }
           }
           case it if version == Raw &&  !isProcessedValue(fieldName) => {
-            //any property that is not recognised is lumped into miscProperties
-            //println("*********** field added to misc properties '" + fieldName+"', '"+fieldValue + "'")
             fullRecord.miscProperties.put(fieldName, fieldValue)
           }
           case _ => {
-            //println("*********** field not recognised or supported. " + fieldName+", "+fieldValue)
-            //                      //any property that is not recognised is lumped into miscProperties
-            //                      miscProperties.put(fieldName, fieldValue)
+            logger.warn("Field not recognised or supported " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
           }
         }
       }

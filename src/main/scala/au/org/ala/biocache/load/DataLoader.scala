@@ -13,6 +13,7 @@ import org.gbif.dwc.terms.TermFactory
 import scala.collection.mutable.ArrayBuffer
 import scalaj.http.Http
 import au.org.ala.biocache.model.FullRecord
+import java.net.URL
 
 /**
  * A trait with utility code for loading data
@@ -68,18 +69,24 @@ trait DataLoader {
     }
   }
 
-  def getDataResourceDetailsAsMap(resourceUid:String) : Map[String, String] = {
-    val json = Source.fromURL(Config.registryUrl + "/dataResource/" + resourceUid + ".json").getLines.mkString
+  def getDataResourceDetailsAsMap(uid:String) : Map[String, String] = {
+    //FIXME workaround - collectory currently return ISO instead of UTF8
+    val json = Source.fromInputStream(new URL(Config.registryUrl + "/dataResource/" + uid).openStream())(io.Codec("ISO-8859-1")).mkString
+//    val json = Source.fromURL(Config.registryUrl + "/dataResource/" + uid, "UTF-8").mkString
     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
   }
 
   def getDataProviderDetailsAsMap(uid:String) : Map[String, String] = {
-    val json = Source.fromURL(Config.registryUrl + "/dataProvider/" + uid + ".json").getLines.mkString
+    //FIXME workaround - collectory currently return ISO instead of UTF8
+    val json = Source.fromInputStream(new URL(Config.registryUrl + "/dataProvider/" + uid).openStream())(io.Codec("ISO-8859-1")).mkString
+//    val json = Source.fromURL(Config.registryUrl + "/dataProvider/" + uid, "UTF-8").mkString
     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
   }
 
   def getInstitutionDetailsAsMap(uid:String) : Map[String, String] = {
-    val json = Source.fromURL(Config.registryUrl + "/institution/" + uid + ".json").getLines.mkString
+    //FIXME workaround - collectory currently return ISO instead of UTF8
+    val json = Source.fromInputStream(new URL(Config.registryUrl + "/institution/" + uid).openStream())(io.Codec("ISO-8859-1")).mkString
+//    val json = Source.fromURL(Config.registryUrl + "/institution/" + uid, "UTF-8").mkString
     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
   }
 

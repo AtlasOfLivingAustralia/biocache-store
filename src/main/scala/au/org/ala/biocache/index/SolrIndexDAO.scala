@@ -175,7 +175,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       q.setFacet(false)
       if (sortField.isDefined) {
         val dir = sortDir.getOrElse("asc")
-        q.setSortField(sortField.get, if (dir == "asc") org.apache.solr.client.solrj.SolrQuery.ORDER.asc else org.apache.solr.client.solrj.SolrQuery.ORDER.desc)
+        q.setSortField(sortField.get, if (dir == "asc") {
+          org.apache.solr.client.solrj.SolrQuery.ORDER.asc
+        } else {
+          org.apache.solr.client.solrj.SolrQuery.ORDER.desc
+        })
       }
 
       if (counter + pageSize > fullResults) {
@@ -191,7 +195,12 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       while (iter.hasNext) {
         val solrDocument = iter.next()
         val map = new java.util.HashMap[String, Object]
-        solrDocument.getFieldValueMap().keySet().asScala.foreach(s => map.put(s, if (multivaluedFields.isDefined && multivaluedFields.get.contains(s)) solrDocument.getFieldValues(s) else solrDocument.getFieldValue(s)))
+        solrDocument.getFieldValueMap().keySet().asScala.foreach(s => map.put(s,
+          if (multivaluedFields.isDefined && multivaluedFields.get.contains(s))
+            solrDocument.getFieldValues(s)
+          else
+            solrDocument.getFieldValue(s))
+        )
         proc(map)
       }
       counter += pageSize
@@ -303,7 +312,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       logger.debug("QA statuses:" + qaStatuses.toString)
       logger.debug("Assertions:" + assertions.toString)
     }
-
     (codes, assertions)
   }
 
@@ -322,7 +330,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         logger.warn("Values don't matcher header: " + values.length + ":" + header.length + ", values:header")
         logger.warn("Headers: " + header.toString())
         logger.warn("Values: " + values.toString())
-        exit(1)
+        sys.exit(1)
       }
       if (values.length > 0) {
         val doc = new SolrInputDocument()
