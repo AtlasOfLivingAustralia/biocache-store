@@ -3,7 +3,6 @@ package au.org.ala.biocache
 import java.io.OutputStream
 import collection.JavaConversions
 import java.util.Date
-import outliers.JackKnifeStats
 import au.org.ala.biocache.qa.ValidationRuleRunner
 import org.ala.layers.dao.IntersectCallback
 import collection.mutable.ArrayBuffer
@@ -13,19 +12,6 @@ import au.org.ala.biocache.load.{Loader, MediaStore, SimpleLoader, MapDataLoader
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.index.{IndexRecords, IndexFields}
 import au.org.ala.biocache.vocab._
-import au.org.ala.biocache.outliers.JackKnifeStats
-import scala.Some
-import au.org.ala.biocache.outliers.RecordJackKnifeStats
-import au.org.ala.biocache.outliers.SampledRecord
-import au.org.ala.biocache.vocab.ErrorCode
-import au.org.ala.biocache.parser.ProcessedValue
-import au.org.ala.biocache.outliers.JackKnifeStats
-import au.org.ala.biocache.vocab.SpeciesGroup
-import scala.Some
-import au.org.ala.biocache.parser.ProcessedValue
-import au.org.ala.biocache.outliers.RecordJackKnifeStats
-import au.org.ala.biocache.outliers.SampledRecord
-import au.org.ala.biocache.vocab.ErrorCode
 import au.org.ala.biocache.outliers.JackKnifeStats
 import au.org.ala.biocache.vocab.SpeciesGroup
 import scala.Some
@@ -59,7 +45,7 @@ object Store {
   private val duplicateDAO = Config.duplicateDAO
   private val validationRuleDAO = Config.validationRuleDAO
   //TODO need a better mechanism for doing this....
-  private val propertiesToHide = Set("originalSensitiveValues","originalDecimalLatitude","originalDecimalLongitude", "orginalLocationRemarks", "originalVerbatimLatitude", "originalVerbatimLongitude")
+  private val propertiesToHide = Set("originalSensitiveValues","originalDecimalLatitude","originalDecimalLongitude", "originalLocationRemarks", "originalVerbatimLatitude", "originalVerbatimLongitude")
   private var readOnly = false
 
   import JavaConversions._

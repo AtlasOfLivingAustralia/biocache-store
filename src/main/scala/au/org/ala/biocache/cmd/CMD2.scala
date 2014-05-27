@@ -161,6 +161,7 @@ object CMD2 {
     ProcessWithActors,
     ReprocessIndexSelect,
     ResampleRecordsByQuery,
+    ReloadSampling,
     ResourceCleanupTask,
     Sampling,
     ShowConfig,

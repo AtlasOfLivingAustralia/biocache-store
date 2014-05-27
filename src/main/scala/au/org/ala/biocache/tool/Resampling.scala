@@ -4,8 +4,58 @@ import au.com.bytecode.opencsv.{CSVWriter,CSVReader}
 import scala.collection.mutable.HashSet
 import java.io.{FileReader, FileWriter}
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.util.{Json, OptionParser}
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.caches.LocationDAO
+import org.slf4j.LoggerFactory
+
+
+object ReloadSampling extends Tool {
+
+  val logger = LoggerFactory.getLogger("ReloadSampling")
+
+  def cmd = "load-sampling"
+
+  def desc = "Re-samples the coordinates in occ table with contents of loc table. " +
+    "This assumes the loc table has been refreshed with " +
+    "more recent sampling data (new layers)."
+
+  def main(args:Array[String]){
+
+    var startKey:String = ""
+    var endKey:String = ""
+
+    val parser = new OptionParser(help) {
+      opt("s", "start", "The row key to start with", {s:String => startKey = s})
+      opt("e", "end", "The row key to end with", {s:String => endKey = s})
+    }
+
+    if(parser.parse(args)){
+      logger.info("Starting the import of sample data...")
+      var counter = 0
+      Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
+        val lat = map.getOrElse("decimalLatitude.p","")
+        val lon = map.getOrElse("decimalLongitude.p","")
+        if(lat != null && lon != null){
+          val point = LocationDAO.getByLatLon(lat, lon)
+          if(!point.isEmpty){
+            val (location, environmentalLayers, contextualLayers) = point.get
+            Config.persistenceManager.put(guid, "occ", Map(
+              "el.p"-> Json.toJSON(environmentalLayers),
+              "cl.p" -> Json.toJSON(contextualLayers))
+            )
+          }
+          counter += 1
+          if(counter % 10000 == 0){
+            logger.info("Import of sample data " + counter + " Last key " + guid)
+          }
+        }
+        true
+      }, startKey, endKey, 1000, "decimalLatitude.p", "decimalLongitude.p" )
+      logger.info("Import of sampling complete: " + counter + "processed")
+    }
+  }
+}
 
 /**
  * A re-sampler for sensitive records.
@@ -159,7 +209,6 @@ object ResampleChangedCoordinates {
       false
     }
   }
-
 }
 
 /**

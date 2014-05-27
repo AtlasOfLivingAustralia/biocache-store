@@ -10,12 +10,6 @@ import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.poso.POSO
 import au.org.ala.biocache.util.Json
 import org.slf4j.LoggerFactory
-
-//
-//object FullRecordMapper {
-//  def apply(): FullRecordMapper = new FullRecordMapper
-//}
-
 /**
  * This object maps the data from key value pairs into the FullRecord object
  * which represents a record.
@@ -56,19 +50,19 @@ object FullRecordMapper {
 
     //add the special cases to the map
     if(fullRecord.miscProperties!=null && !fullRecord.miscProperties.isEmpty && version == Raw){
-      properties.put("miscProperties", Json.toJSON(fullRecord.miscProperties))        //store them as JSON array
+      properties.put(miscPropertiesColumn, Json.toJSON(fullRecord.miscProperties))        //store them as JSON array
     }
     if(fullRecord.firstLoaded != null && !fullRecord.firstLoaded.isEmpty && version == Raw){
       properties.put("firstLoaded", fullRecord.firstLoaded)
     }
     if(fullRecord.dateDeleted != null && !fullRecord.dateDeleted.isEmpty && version == Raw){
-      properties.put("dateDeleted", fullRecord.firstLoaded)
+      properties.put(dateDeletedColumn, fullRecord.firstLoaded)
     }
     if(fullRecord.el!=null && !fullRecord.el.isEmpty && version == Processed){
-      properties.put("el.p", Json.toJSON(fullRecord.el))        //store them as JSON array
+      properties.put(environmentalLayersColumn, Json.toJSON(fullRecord.el))        //store them as JSON array
     }
     if(fullRecord.cl!=null && !fullRecord.cl.isEmpty && version == Processed){
-      properties.put("cl.p", Json.toJSON(fullRecord.cl))        //store them as JSON array
+      properties.put(contextualLayersColumn, Json.toJSON(fullRecord.cl))        //store them as JSON array
     }
     properties.put("uuid", fullRecord.uuid)
     properties.put("rowKey", fullRecord.rowKey)
@@ -86,9 +80,8 @@ object FullRecordMapper {
    */
   def mapObjectToProperties(anObject: AnyRef, version:Version = Raw): Map[String, String] = {
     anObject match {
-      //case m:Mappable => m.getMap
       case p:POSO => { p.toMap.map({ case(key, value) => (markNameBasedOnVersion(key,version) -> value) }) }
-      case _ => throw new Exception("Unrecognised object. Object isnt a Mappable or a POSO. Class : " + anObject.getClass.getName)
+      case _ => throw new Exception("Unrecognised object. Object is not a Mappable or a POSO. Class : " + anObject.getClass.getName)
     }
   }
   /**

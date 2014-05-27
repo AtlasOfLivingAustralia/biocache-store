@@ -71,6 +71,7 @@ class LocationProcessor extends Processor {
     //handle the situation where the coordinates have already been sensitised
     setProcessedCoordinates(raw, processed, assertions)
 
+    //parse altitude and depth values
     processAltitudeAndDepth(guid, raw, processed, assertions)
 
     //Continue processing location if a processed longitude and latitude exists
@@ -136,11 +137,11 @@ class LocationProcessor extends Processor {
       }
     }
 
-    processLocations(raw,processed,assertions)
+    processLocations(raw, processed, assertions)
 
     //validate the gereference values
-    //TODO reenable georeferencing processing after we have categorised issues better.
-    validateGeoreferenceValues(raw,processed,assertions)
+    //TODO re-enable georeferencing processing after we have categorised issues better.
+    validateGeoreferenceValues(raw, processed, assertions)
 
     assertions.toArray
   }

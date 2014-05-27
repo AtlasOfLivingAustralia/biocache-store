@@ -95,7 +95,7 @@ object LocationDAO {
 
     val cachedObject = lock.synchronized { lru.get(uuid) }
 
-    if(cachedObject!=null){
+    if(cachedObject != null){
         cachedObject.asInstanceOf[Option[(Location, Map[String, String], Map[String, String])]]
     } else {
         val map = persistenceManager.get(uuid,columnFamily)
@@ -106,24 +106,25 @@ object LocationDAO {
             location.decimalLongitude = longitude
 
             //map this to sensible values we are used to
-            val stateProvinceValue = map.getOrElse("cl927", null)
+            val stateProvinceValue = map.getOrElse(Config.stateProvinceLayerID, null)
             if (stateProvinceValue != null & stateProvinceValue != ""){
               StateProvinces.matchTerm(stateProvinceValue) match {
                 case Some(term) => location.stateProvince = term.canonical
                 case None => {
                   /*do nothing for now */
-                  logger.warn("Unrecognised state province value retrieved from layer cl927: " + stateProvinceValue)
+                  logger.warn("Unrecognised state province value retrieved from layer " + Config.stateProvinceLayerID + " : " + stateProvinceValue)
                 }
               }
             }
-            location.ibra = map.getOrElse("cl20", null)
-            location.imcra = map.getOrElse("cl21", null)
-            location.country = map.getOrElse("cl932", null) //NC 20130322 - this is the new layer that supersedes cl922
-            location.lga = map.getOrElse("cl23", null)
+            location.ibra = map.getOrElse(Config.terrestrialBioRegionsLayerID, null)
+            location.imcra = map.getOrElse(Config.marineBioRegionsLayerID, null)
+            location.country = map.getOrElse(Config.countriesLayerID, null) //NC 20130322 - this is the new layer that supersedes cl922
+            location.lga = map.getOrElse(Config.localGovLayerID, null)
 
             //if the country is null but the stateProvince has a value we can assume that it is an Australian point
-            if(location.country == null && location.stateProvince != null)
-                location.country = "Australia"
+            if(location.country == null && location.stateProvince != null) {
+              location.country = Config.defaultCountry
+            }
 
             val el = map.filter(x => x._1.startsWith("el"))
             val cl = map.filter(x => x._1.startsWith("cl"))
@@ -172,7 +173,7 @@ object LocationDAO {
       val location = new Location
       location.decimalLatitude = latitude
       location.decimalLongitude = longitude
-      val stateProvinceValue = propertyMap.getOrElse("cl927", null)
+      val stateProvinceValue = propertyMap.getOrElse(Config.stateProvinceLayerID, null)
       //now do the state vocab substitution
       if (stateProvinceValue != null & stateProvinceValue != ""){
         StateProvinces.matchTerm(stateProvinceValue) match {
@@ -183,9 +184,9 @@ object LocationDAO {
           }
         }
       }
-      location.ibra = propertyMap.getOrElse("cl20", null)
-      location.imcra = propertyMap.getOrElse("cl21", null)
-      location.country = propertyMap.getOrElse("cl922", null)
+      location.ibra = propertyMap.getOrElse(Config.terrestrialBioRegionsLayerID, null)
+      location.imcra = propertyMap.getOrElse(Config.marineBioRegionsLayerID, null)
+      location.country = propertyMap.getOrElse(Config.countriesLayerID, null)
 
       val el = propertyMap.filter(x => x._1.startsWith("el"))
       val cl = propertyMap.filter(x => x._1.startsWith("cl"))

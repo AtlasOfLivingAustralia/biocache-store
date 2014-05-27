@@ -11,6 +11,7 @@ import com.google.inject.name.Names
 import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import au.org.ala.biocache.persistence.{PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
+import au.org.ala.biocache.vocab.StateProvinces
 
 /**
  * Simple singleton wrapper for Guice that reads from a properties file
@@ -129,6 +130,16 @@ object Config {
   def getProperty(prop:String, default:String) = configModule.properties.getProperty(prop,default)
 
   def outputConfig = configModule.properties.list(System.out)
+
+  //layer defaults
+  val stateProvinceLayerID =  configModule.properties.getProperty("layer.state.province", "cl927")
+  val terrestrialBioRegionsLayerID =  configModule.properties.getProperty("layer.bio.regions", "cl20")
+  val marineBioRegionsLayerID =  configModule.properties.getProperty("layer.bio.regions", "cl21")
+  val countriesLayerID =  configModule.properties.getProperty("layer.countries", "cl932")
+  val localGovLayerID =  configModule.properties.getProperty("layer.countries", "cl23")
+
+  //used by location processor for associating a country with an occurrence record where only stateProvince supplied
+  val defaultCountry =  configModule.properties.getProperty("default.country", "Australia")
 }
 
 /**

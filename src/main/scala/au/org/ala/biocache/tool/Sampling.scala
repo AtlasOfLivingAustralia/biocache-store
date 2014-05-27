@@ -64,6 +64,7 @@ object Sampling extends Tool {
         v:Int => batchSize = v
       })
     }
+
     if (parser.parse(args)) {
       val s = new Sampling
       //for this data resource
@@ -119,6 +120,7 @@ object Sampling extends Tool {
 }
 
 class PointsReader(filePath:String) {
+
   val logger = LoggerFactory.getLogger("PointsReader")
 
   val csvReader = new CSVReader(new InputStreamReader(new FileInputStream(filePath), "UTF-8"))
