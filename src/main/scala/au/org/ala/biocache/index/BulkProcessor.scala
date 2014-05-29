@@ -21,6 +21,12 @@ import org.apache.lucene.misc.IndexMergeTool
  * A multi-threaded bulk processor that uses the search indexes to create a set a
  * ranges for record IDs. These ranges are then passed to individual threads
  * for processing.
+ *
+ * This tools is used for:
+ *
+ * 1) Reprocessing the entire dataset.
+ * 2) Resampling the entire dataset.
+ * 3) Creating a brand new complete index offline.
  */
 object BulkProcessor extends Tool with Counter with RangeCalculator {
 
@@ -39,7 +45,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var action = ""
     var start, end = ""
     var dr: Option[String] = None
-    val validActions = List("range", "process", "index", "col", "repair", "datum")
+    val validActions = List("range", "process", "index", "col", "repair", "datum", "load-sampling")
     var forceMerge = true
     var mergeSegments = 1
     var deleteSources = false
@@ -126,6 +132,8 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
                 )
               } else if (action == "process") {
                 new ProcessRecordsRunner(this, counter, r._1, r._2)
+              } else if (action == "load-sampling") {
+                new LoadSamplingRunner(this, counter, r._1, r._2)
               } else if (action == "col") {
                 if (columns.isEmpty) {
                   new ColumnReporterRunner(this, counter, r._1, r._2)

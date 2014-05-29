@@ -34,26 +34,26 @@ object ReprocessIndexSelect extends Tool {
 
     if (parser.parse(args)) {
       if (!query.isEmpty) {
-        reprocessindex(query.get, threads, exist, startUuid, indexOnly)
+        reprocessIndex(query.get, threads, exist, startUuid, indexOnly)
       } else {
         parser.showUsage
       }
     }
   }
 
-  def reprocessindex(query: String, threads: Int, exist: Boolean, startUuid: Option[String], indexOnly: Boolean) {
+  def reprocessIndex(query: String, threads: Int, exist: Boolean, startUuid: Option[String], indexOnly: Boolean) {
     //get the list of rowKeys to be processed.
     val indexer = Config.getInstance(classOf[IndexDAO]).asInstanceOf[IndexDAO]
-
-    val file = new File("rowkeys.out")
+    val file = new File(Config.tmpWorkDir + "/reprocess_index_rowkeys.out")
     if (!exist) {
-      val out = new BufferedOutputStream(new FileOutputStream(file));
+      val out = new BufferedOutputStream(new FileOutputStream(file))
       indexer.writeRowKeysToStream(query, out)
       out.flush
       out.close
     }
-    if (!indexOnly)
-      ProcessWithActors.processRecords(threads, file, startUuid)
+    if (!indexOnly) {
+      ProcessRecords.processRecords(file, threads, startUuid)
+    }
     IndexRecords.indexList(file)
   }
 }

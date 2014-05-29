@@ -13,13 +13,13 @@ import java.io.FileWriter
 import au.com.bytecode.opencsv.CSVWriter
 import scala.collection.mutable.HashSet
 import org.apache.commons.lang3.StringUtils
-import au.org.ala.biocache.processor.{Processors, LocationProcessor}
+import au.org.ala.biocache.processor.{RecordProcessor, Processors, LocationProcessor}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.{ErrorCode, AssertionCodes}
 import au.org.ala.biocache.util.{Json, OptionParser}
 import au.org.ala.biocache.model.QualityAssertion
-import au.org.ala.biocache.tool.RecordProcessor
 import org.slf4j.LoggerFactory
+import au.org.ala.biocache.caches.LocationDAO
 
 object CreateIndexesAndMerge extends Counter {
 
@@ -289,6 +289,42 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
     }, startKey, endKey, 1000, "decimalLatitude", "decimalLongitude", "rowKey", "uuid", "geodeticDatum", "loc.qa")
     val fin = System.currentTimeMillis
     logger.info("[Datum Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+    logger.info("Finished.")
+  }
+}
+
+class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
+  val logger = LoggerFactory.getLogger("LoadSamplingRunner")
+  var ids = 0
+  val threads = 2
+  var batches = 0
+
+  def run {
+    val pageSize = 1000
+    var counter = 0
+    val start = System.currentTimeMillis
+    logger.info("Starting thread " + threadId + " from " + startKey + " to " + endKey)
+    Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
+      val lat = map.getOrElse("decimalLatitude.p","")
+      val lon = map.getOrElse("decimalLongitude.p","")
+      if(lat != null && lon != null){
+        val point = LocationDAO.getByLatLon(lat, lon)
+        if(!point.isEmpty){
+          val (location, environmentalLayers, contextualLayers) = point.get
+          Config.persistenceManager.put(guid, "occ", Map(
+            "el.p"-> Json.toJSON(environmentalLayers),
+            "cl.p" -> Json.toJSON(contextualLayers))
+          )
+        }
+        counter += 1
+        if(counter % 10000 == 0){
+          logger.info("[LoadSamplingRunner Thread " + threadId + "] Import of sample data " + counter + " Last key " + guid)
+        }
+      }
+      true
+    }, startKey, endKey, 1000, "decimalLatitude.p", "decimalLongitude.p" )
+    val fin = System.currentTimeMillis
+    logger.info("[LoadSamplingRunner Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
     logger.info("Finished.")
   }
 }

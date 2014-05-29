@@ -20,8 +20,8 @@ import java.io.{FileInputStream, InputStreamReader, File}
 import au.org.ala.biocache.Config
 import io.Source
 import java.net.URL
-import au.org.ala.biocache.tool.RecordProcessor
 import au.org.ala.biocache.index.IndexRecords
+import au.org.ala.biocache.processor.RecordProcessor
 
 /**
  * Reprocesses and indexes a file a taxa.

@@ -33,12 +33,12 @@ object DownloadMedia extends Tool {
   }
 
   def processUrls(raw:FullRecord, processed:FullRecord, urls: Array[String]) {
-    val imageUrls = urls.filter(MediaStore.isValidImageURL(_))
+    val imageUrls = urls.filter(Config.mediaStore.isValidImageURL(_))
     val mediaStorePaths = new ArrayBuffer[String]
     imageUrls.foreach(imageUrl => {
       //download it, store it update processed
       try {
-        val path = MediaStore.save(raw.uuid, raw.attribution.dataResourceUid, imageUrl)
+        val path = Config.mediaStore.save(raw.uuid, raw.attribution.dataResourceUid, imageUrl)
         mediaStorePaths ++= path
       } catch {
         case e: Exception => println("Problem downloading from URL: " + imageUrl)

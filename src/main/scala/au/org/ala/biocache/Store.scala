@@ -19,8 +19,9 @@ import au.org.ala.biocache.parser.ProcessedValue
 import au.org.ala.biocache.outliers.RecordJackKnifeStats
 import au.org.ala.biocache.outliers.SampledRecord
 import au.org.ala.biocache.vocab.ErrorCode
-import au.org.ala.biocache.tool.{DataResourceDelete, RecordProcessor, ProcessWithActors, Sampling}
+import au.org.ala.biocache.tool.{DataResourceDelete, ProcessRecords, Sampling}
 import org.slf4j.LoggerFactory
+import au.org.ala.biocache.processor.RecordProcessor
 
 /**
  * This is the interface to use for java applications or any application using this as a library.
@@ -38,7 +39,9 @@ import org.slf4j.LoggerFactory
  * ...and lots more.
  */
 object Store {
+
   val logger = LoggerFactory.getLogger("Store")
+
   private val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
   private val outlierStatsDAO = Config.getInstance(classOf[OutlierStatsDAO]).asInstanceOf[OutlierStatsDAO]
   private val deletedRecordDAO = Config.deletedRecordDAO
@@ -468,7 +471,7 @@ object Store {
    * @param threads
    */
   def process(dataResourceUid:java.lang.String, threads:Int = 1, callback:ObserverCallback = null) = {
-    ProcessWithActors.processRecords(1, None , Some(dataResourceUid), callback=callback)
+    ProcessRecords.processRecords(1, None , Some(dataResourceUid), callback=callback)
   }
 
   /**
@@ -586,7 +589,7 @@ object Store {
     logger.info("Sampling " + uid)
     Sampling.main(Array("-dr", uid))
     logger.info("Processing " + uid)
-    ProcessWithActors.processRecords(numThreads, None, Some(uid))
+    ProcessRecords.processRecords(numThreads, None, Some(uid))
     logger.info("Indexing " +uid)
     IndexRecords.index(None, None, Some(uid), false, false)
   }
@@ -594,12 +597,13 @@ object Store {
   /**
    * Returns the spatial name for the supplied biocache layer id
    */
-  def getLayerName(id:String):String={
-    if(id != null)Layers.idToNameMap.getOrElse(id, null)
-    else null
+  def getLayerName(id:String):String = if(id != null) {
+      Layers.idToNameMap.getOrElse(id, null)
+    } else {
+      null
   }
 
-  def getAlternativeFormats(filePath:String): Array[String] = MediaStore.alternativeFormats(filePath)
+  def getAlternativeFormats(filePath:String): Array[String] = Config.mediaStore.alternativeFormats(filePath)
 
   def getJackKnifeStatsFor(guid:String) : java.util.Map[String, JackKnifeStats] = outlierStatsDAO.getJackKnifeStatsFor(guid)
 

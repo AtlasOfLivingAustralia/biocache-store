@@ -12,6 +12,7 @@ import au.org.ala.biocache.Config
 import org.apache.commons.httpclient.methods.PostMethod
 import org.apache.commons.httpclient.{NameValuePair, HttpClient}
 import scala.Some
+import au.org.ala.biocache.processor.RecordProcessor
 
 /**
  * Singleton for running commands.
@@ -47,7 +48,7 @@ object CMD {
              println("Sampling: " + uid)
              Sampling.main(Array("-dr", uid))
              println("Processing: " + uid)
-             ProcessWithActors.processRecords(4, None, Some(uid))
+             ProcessRecords.processRecords(4, None, Some(uid))
              println("Indexing: " + uid)
              IndexRecords.index(None, None, Some(uid), false, false)
              println("Finished ingest for: " + uid)
@@ -59,7 +60,7 @@ object CMD {
           drs.foreach(dr => {
            l.load(dr)
            Sampling.main(Array("-dr", dr))
-           ProcessWithActors.processRecords(4, None, Some(dr))
+           ProcessRecords.processRecords(4, None, Some(dr))
            IndexRecords.index(None, None, Some(dr), false, false)
           })
         }
@@ -76,7 +77,7 @@ object CMD {
           it.split(" ").map(x => x.trim).tail.foreach(uuid => ProcessSingleRecord.processRecord(uuid))
         }
         case it if (it == "process-all") => {
-          ProcessWithActors.processRecords(4, None, None)
+          ProcessRecords.processRecords(4, None, None)
         }
         case it if (it startsWith "process") || (it startsWith "process") => {
           val drs = it.split(" ").map(x => x.trim).toList.tail
@@ -84,10 +85,9 @@ object CMD {
             val (hasRowKeys, filename) = hasRowKey(dr)
             println("Processing " + dr + " incremental=" + hasRowKeys)
             if (!hasRowKeys)
-              ProcessWithActors.processRecords(4, None, Some(dr))
+              ProcessRecords.processRecords(4, None, Some(dr))
             else {
-              val p = new RecordProcessor
-              p.processFileThreaded(new java.io.File(filename.get), 4)
+              ProcessRecords.processFileOfRowKeys(new java.io.File(filename.get), 4)
             }
           }
           )
@@ -248,7 +248,7 @@ object CMD {
             if (hasRowKeys){
               ResourceCleanupTask.main(Array(dr, "columns","-d",lastLoadDate, "-f" ,filename.get) ++ extraArgs)
             } else {
-              ResourceCleanupTask.main(Array(dr, "columns","-d",lastLoadDate) ++ extraArgs)
+              ResourceCleanupTask.main(Array(dr, "columns","-d", lastLoadDate) ++ extraArgs)
             }
           } else {
             println("Unable to delete-obsolete without a data resource uid being provided")

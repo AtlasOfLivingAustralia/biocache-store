@@ -137,9 +137,9 @@ class MiscellaneousProcessor extends Processor {
     // val matchedGroups = groups.collect{case sg: SpeciesGroup if sg.values.contains(cl.getter(sg.rank)) => sg.name}
     if (urls != null) {
       val aurls = urls.split(";").map(url => url.trim)
-      processed.occurrence.images = aurls.filter(url => MediaStore.isValidImageURL(url) && MediaStore.doesFileExist(url))
-      processed.occurrence.sounds = aurls.filter(url => MediaStore.isValidSoundURL(url) && MediaStore.doesFileExist(url))
-      processed.occurrence.videos = aurls.filter(url => MediaStore.isValidVideoURL(url) && MediaStore.doesFileExist(url))
+      processed.occurrence.images = aurls.filter(url => Config.mediaStore.isValidImageURL(url) && Config.mediaStore.isAccessible(url))
+      processed.occurrence.sounds = aurls.filter(url => Config.mediaStore.isValidSoundURL(url) && Config.mediaStore.isAccessible(url))
+      processed.occurrence.videos = aurls.filter(url => Config.mediaStore.isValidVideoURL(url) && Config.mediaStore.isAccessible(url))
 
       if (aurls.length != (processed.occurrence.images.length + processed.occurrence.sounds.length + processed.occurrence.videos.length))
         assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL, "URL refers to an invalid file.")

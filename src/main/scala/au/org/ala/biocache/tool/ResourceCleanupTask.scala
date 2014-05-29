@@ -8,7 +8,8 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.util.{OptionParser, FileHelper}
-import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
+import org.slf4j.LoggerFactory
 
 /**
  * Provides the cleanup mechanisms for a data resource.  Includes:
@@ -16,16 +17,16 @@ import au.org.ala.biocache.cmd.Tool
  * Marking records as deleted and removing not updated raw fields
  * Removing "Deleted records" 
  */
-object ResourceCleanupTask extends Tool {
+object ResourceCleanupTask extends Tool with IncrementalTool {
 
   import FileHelper._
-
+  val logger = LoggerFactory.getLogger("ResourceCleanupTask")
   def cmd = "resource-cleanup"
   def desc = "Resource cleanup tool"
 
   def main(args: Array[String]) {
-    var druid = ""
 
+    var dataResourceUid = ""
     //default to the current date
     var lastLoadDate = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd") + "T00:00:00Z"
     var removeRows = false
@@ -37,12 +38,17 @@ object ResourceCleanupTask extends Tool {
     var columns = Array[String]() //stores the columns to keep or remove depending on the args
     var isInclusiveList = true // the record need to include all the columns
     var filename: Option[String] = None
+    var checkRowKeyFile = false
 
     val parser = new OptionParser(help) {
       arg("data-resource-uid", "The data resource on which to perform the clean up.", {
-        v: String => druid = v
+        v: String => dataResourceUid = v
       })
-      arg("type", "The type of cleanup to perform. Either all, columns, rows, delete. \n\t\tcolumns - removes the columns that were not modified since the last date \n\t\trows - marks records as deleted when they have not been reloaded since the supplied date \n\t\tdelete - removes the deleted record from occ and places them into the dellog ", {
+      arg("type", "The type of cleanup to perform." +
+        "Either all, columns, rows, delete. " +
+        "\n\t\tcolumns - removes the columns that were not modified since the " +
+        "last date \n\t\trows - marks records as deleted when they have not been reloaded " +
+        "since the supplied date \n\t\tdelete - removes the deleted record from occ and places them into the dellog ", {
         v: String => v match {
           case "all" => removeRows = true; removeColumns = true; removeDeleted = true
           case "columns" => removeColumns = true;
@@ -72,35 +78,47 @@ object ResourceCleanupTask extends Tool {
       opt("c", "cols", "<list of columns>", "Comma separated list of columns to perform the operation on", {
         value: String => columns = value.split(",")
       })
+      opt("crk", "check for row key file", { checkRowKeyFile = true })
     }
 
     if (parser.parse(args)) {
+
+      if(checkRowKeyFile && dataResourceUid != ""){
+        val (hasRowKeyFile, filePath) = hasRowKey(dataResourceUid)
+        filename = filePath
+      }
+
       val checkDate = DateParser.parseStringToDate(lastLoadDate)
-      println("Attempting to cleanup " + druid + " based on a last load date of " + checkDate + " rows: " + removeRows + " columns: " + removeColumns + " start: " + start + " end: " + end)
+      logger.info("Attempting to cleanup " + dataResourceUid + " based on a last load date of " + checkDate + " rows: " + removeRows + " columns: " + removeColumns + " start: " + start + " end: " + end)
       if (checkDate.isDefined && columns.length == 0) {
-        if (removeRows)
-          modifyRecord(druid, checkDate.get, start, end, test)
+        if (removeRows) {
+          modifyRecord(dataResourceUid, checkDate.get, start, end, test)
+        }
+
         if (removeColumns) {
           if (filename.isDefined) {
             removeObsoleteColumnsIncremental(new java.io.File(filename.get), checkDate.get.getTime(), test);
           } else {
-            removeObsoleteColumns(druid, checkDate.get.getTime(), start, end, test)
+            removeObsoleteColumns(dataResourceUid, checkDate.get.getTime(), start, end, test)
           }
         }
-        if (removeDeleted && !test)
-          removeDeletedRecords(druid, start, end)
-      }
-      else if (columns.length > 0) {
-        if (isInclusiveList)
-          removeRawRecordColumnsNotInList(druid, columns, start, end, test)
-        else
-          removeSpecifiedColumns(druid, columns, start, end)
+
+        if (removeDeleted && !test) {
+          removeDeletedRecords(dataResourceUid, start, end)
+        }
+
+      } else if (columns.length > 0) {
+        if (isInclusiveList) {
+          removeRawRecordColumnsNotInList(dataResourceUid, columns, start, end, test)
+        } else {
+          removeSpecifiedColumns(dataResourceUid, columns, start, end)
+        }
       }
     }
   }
 
   def removeRawRecordColumnsNotInList(dr: String, colsToKeep: Array[String], start: Option[String], end: Option[String], test: Boolean = false) {
-    println("Starting to remove raw record columns not in " + colsToKeep.toList)
+    logger.info("Starting to remove raw record columns not in " + colsToKeep.toList)
     val startUuid = start.getOrElse(dr + "|")
     val endUuid = end.getOrElse(startUuid + "~")
     val pm = Config.persistenceManager

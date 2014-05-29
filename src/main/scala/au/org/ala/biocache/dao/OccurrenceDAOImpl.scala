@@ -411,7 +411,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val filesToImport = fr.occurrence.associatedMedia.split(";")
       val associatedMediaBuffer = new ArrayBuffer[String]
       filesToImport.foreach(fileToStore => {
-        val filePath = MediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore)
+        val filePath = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore)
         if(!filePath.isEmpty) associatedMediaBuffer += filePath.get
       })
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")

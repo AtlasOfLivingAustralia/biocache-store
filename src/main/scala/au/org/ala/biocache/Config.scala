@@ -12,6 +12,7 @@ import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import au.org.ala.biocache.persistence.{PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
 import au.org.ala.biocache.vocab.StateProvinces
+import au.org.ala.biocache.load.LocalMediaStore
 
 /**
  * Simple singleton wrapper for Guice that reads from a properties file
@@ -26,18 +27,32 @@ object Config {
   def getInstance(classs:Class[_]) = inj.getInstance(classs)
 
   //persistence
-  def persistenceManager = getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
+  val persistenceManager = getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
 
   //daos
-  def occurrenceDAO = getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
-  def outlierStatsDAO = getInstance(classOf[OutlierStatsDAO]).asInstanceOf[OutlierStatsDAO]
-  def deletedRecordDAO = getInstance(classOf[DeletedRecordDAO]).asInstanceOf[DeletedRecordDAO]
-  def duplicateDAO = getInstance(classOf[DuplicateDAO]).asInstanceOf[DuplicateDAO]
-  def validationRuleDAO = getInstance(classOf[ValidationRuleDAO]).asInstanceOf[ValidationRuleDAO]
-  def indexDAO = getInstance(classOf[IndexDAO]).asInstanceOf[IndexDAO]
+  val occurrenceDAO = getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
+  val outlierStatsDAO = getInstance(classOf[OutlierStatsDAO]).asInstanceOf[OutlierStatsDAO]
+  val deletedRecordDAO = getInstance(classOf[DeletedRecordDAO]).asInstanceOf[DeletedRecordDAO]
+  val duplicateDAO = getInstance(classOf[DuplicateDAO]).asInstanceOf[DuplicateDAO]
+  val validationRuleDAO = getInstance(classOf[ValidationRuleDAO]).asInstanceOf[ValidationRuleDAO]
+  val indexDAO = getInstance(classOf[IndexDAO]).asInstanceOf[IndexDAO]
+
+  val mediaStore = {
+    val str = configModule.properties.getProperty("media.store.local", "true")
+    if(str.toBoolean){
+      logger.info("Using local media store")
+      LocalMediaStore
+    } else {
+      logger.info("Using remote media store")
+//      RemoteMediaStore
+      null
+    }
+  }
+
+  val remoteMediaStoreUrl = configModule.properties.getProperty("media.store.url", "http://images-dev.ala.org.au")
 
   //name index
-  def nameIndex = getInstance(classOf[ALANameSearcher]).asInstanceOf[ALANameSearcher]
+  val nameIndex = getInstance(classOf[ALANameSearcher]).asInstanceOf[ALANameSearcher]
 
   //load sensitive data service
   lazy val sdsFinder = {
@@ -132,14 +147,14 @@ object Config {
   def outputConfig = configModule.properties.list(System.out)
 
   //layer defaults
-  val stateProvinceLayerID =  configModule.properties.getProperty("layer.state.province", "cl927")
-  val terrestrialBioRegionsLayerID =  configModule.properties.getProperty("layer.bio.regions", "cl20")
-  val marineBioRegionsLayerID =  configModule.properties.getProperty("layer.bio.regions", "cl21")
-  val countriesLayerID =  configModule.properties.getProperty("layer.countries", "cl932")
-  val localGovLayerID =  configModule.properties.getProperty("layer.countries", "cl23")
+  val stateProvinceLayerID = configModule.properties.getProperty("layer.state.province", "cl927")
+  val terrestrialBioRegionsLayerID = configModule.properties.getProperty("layer.bio.regions", "cl20")
+  val marineBioRegionsLayerID = configModule.properties.getProperty("layer.bio.regions", "cl21")
+  val countriesLayerID = configModule.properties.getProperty("layer.countries", "cl932")
+  val localGovLayerID = configModule.properties.getProperty("layer.countries", "cl23")
 
   //used by location processor for associating a country with an occurrence record where only stateProvince supplied
-  val defaultCountry =  configModule.properties.getProperty("default.country", "Australia")
+  val defaultCountry = configModule.properties.getProperty("default.country", "Australia")
 }
 
 /**

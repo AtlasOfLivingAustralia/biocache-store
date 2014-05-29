@@ -222,7 +222,9 @@ object FullRecordMapper {
             fullRecord.miscProperties.put(fieldName, fieldValue)
           }
           case _ => {
-            logger.warn("Field not recognised or supported " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
+            //properties for raw will fall through when constructing a processed version
+            //and vice versa - expected behaviour, do nothing
+            //logger.debug("Field not recognised or supported " + fieldName + " with value '" + fieldValue + "' for record with rowkey: " + rowKey)
           }
         }
       }

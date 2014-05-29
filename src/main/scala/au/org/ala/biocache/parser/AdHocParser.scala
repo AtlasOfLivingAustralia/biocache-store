@@ -17,7 +17,7 @@ import au.org.ala.biocache.parser.EventDate
 import scala.Some
 import au.org.ala.biocache.parser.ProcessedValue
 import au.org.ala.biocache.parser.ParsedRecord
-import au.org.ala.biocache.tool.RecordProcessor
+import au.org.ala.biocache.processor.RecordProcessor
 
 /**
  * Parser for CSV style data which attempts to guess the data types in use.

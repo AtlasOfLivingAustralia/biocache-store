@@ -8,6 +8,7 @@ import au.org.ala.biocache.util.{Json, OptionParser}
 import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.caches.LocationDAO
 import org.slf4j.LoggerFactory
+import au.org.ala.biocache.processor.RecordProcessor
 
 
 object ReloadSampling extends Tool {

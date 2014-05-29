@@ -71,7 +71,7 @@ object ReloadDataResources {
     }
     //Step 3: Reprocess records
     if (process) {
-      ProcessWithActors.processRecords(4, None, Some(dataResourceUid), true) //want to process on the not deleted records
+      ProcessRecords.processRecords(4, None, Some(dataResourceUid), true) //want to process on the not deleted records
     }
     if (index) {
       //Step4: Remove current records from the index

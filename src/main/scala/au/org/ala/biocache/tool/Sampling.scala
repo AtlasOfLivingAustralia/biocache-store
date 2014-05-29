@@ -14,13 +14,13 @@ import au.org.ala.biocache.caches.LocationDAO
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.util.{OptionParser, Json, FileHelper}
 import org.drools.core.factmodel.traits.Trait
-import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
 import scala.Some
 
 /**
  * Executable for running the sampling for a data resource.
  */
-object Sampling extends Tool {
+object Sampling extends Tool with IncrementalTool {
 
   def cmd = "sample"
   def desc = "Sample coordinates against geospatial layers"
@@ -37,6 +37,7 @@ object Sampling extends Tool {
     var singleRowKey = ""
     var workingDir = "/tmp"
     var batchSize = 100000
+    var checkRowKeyFile = false
 
     val parser = new OptionParser(help) {
       opt("dr", "data-resource-uid", "the data resource to sample", {
@@ -54,19 +55,26 @@ object Sampling extends Tool {
       opt("keep", "Keep the files produced from the sampling",{
         keepFiles = true
       })
-      opt("rk","key","the single rowkey to sample",{
+      opt("rk","key", "the single rowkey to sample",{
         v:String => singleRowKey = v
       })
-      opt("wd","working-dir","the directory to write temporary files too. Defaults to /tmp",{
+      opt("wd","working-dir", "the directory to write temporary files too. Defaults to /tmp",{
         v:String => workingDir = v
       })
-      intOpt("bs","batch-size","Batch size when processing points. Defaults to " + batchSize,{
+      intOpt("bs","batch-size", "Batch size when processing points. Defaults to " + batchSize,{
         v:Int => batchSize = v
       })
+      opt("crk", "check for row key file", { checkRowKeyFile = true })
     }
 
     if (parser.parse(args)) {
       val s = new Sampling
+
+      if(dataResourceUid != "" && checkRowKeyFile){
+        val (hasRowKey, retrievedRowKeyFile) = ProcessRecords.hasRowKey(dataResourceUid)
+        rowKeyFile = retrievedRowKeyFile.getOrElse("")
+      }
+
       //for this data resource
       val fileSuffix = {
         if (dataResourceUid != "") {
@@ -89,6 +97,7 @@ object Sampling extends Tool {
           s.getDistinctCoordinatesForFile(locFilePath, rowKeyFile)
         }
       }
+
       val samplingFilePath = workingDir + "/sampling-" + fileSuffix + ".txt"
       //generate sampling
       s.sampling(locFilePath, samplingFilePath, singleLayerName=singleLayerName, batchSize=batchSize)
@@ -122,7 +131,6 @@ object Sampling extends Tool {
 class PointsReader(filePath:String) {
 
   val logger = LoggerFactory.getLogger("PointsReader")
-
   val csvReader = new CSVReader(new InputStreamReader(new FileInputStream(filePath), "UTF-8"))
 
   /**

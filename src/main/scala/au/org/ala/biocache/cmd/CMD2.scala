@@ -158,7 +158,7 @@ object CMD2 {
     OptimiseIndex,
     ProcessAll,
     ProcessSingleRecord,
-    ProcessWithActors,
+    ProcessRecords,
     ReprocessIndexSelect,
     ResampleRecordsByQuery,
     ReloadSampling,

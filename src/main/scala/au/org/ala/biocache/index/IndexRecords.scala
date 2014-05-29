@@ -10,27 +10,33 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
-import au.org.ala.biocache.cmd.{NoArgsTool, Tool}
+import au.org.ala.biocache.cmd.{IncrementalTool, NoArgsTool, Tool}
 
 /**
  * Runnable for optimising the index.
  */
 object OptimiseIndex extends NoArgsTool {
 
+  val logger = LoggerFactory.getLogger("OptimiseIndex")
+
   def cmd = "optimise"
   def desc = "Optimise search index. Not for production use."
 
-  val logger = LoggerFactory.getLogger("OptimiseIndex")
   def main(args: Array[String]): Unit = {
     proceed(args, ()=> Config.indexDAO.optimise)
   }
 }
+
 /**
  * Index the records to conform to the fields as defined in the schema.xml file.
  *
+ * This tool is used to index small datasets or minor updates to datasets
+ * in an incremental fashion if required. To complete new indexes
+ * for > 1m records see the <code>BulkProcessor</code> tool.
+ *
  * @author Natasha Carter
  */
-object IndexRecords extends Tool {
+object IndexRecords extends Tool with IncrementalTool {
 
   def cmd = "index"
   def desc = "Index records. Not suitable for full re-indexing (>5m)"
@@ -45,21 +51,23 @@ object IndexRecords extends Tool {
   def main(args: Array[String]): Unit = {
     var startUuid:Option[String] = None
     var endUuid:Option[String] = None
-    var dataResource:Option[String] = None
-    var empty:Boolean = false
-    var check:Boolean = false
+    var dataResourceUid:Option[String] = None
+    var empty = false
+    var check = false
     var startDate:Option[String] = None
     var pageSize = 1000
-    var uuidFile:String = ""
-    var rowKeyFile:String = ""
+    var uuidFile = ""
+    var rowKeyFile = ""
     var threads = 1
-    var test= false
+    var test = false
+    var checkRowKeyFile = false
+
     val parser = new OptionParser(help) {
         opt("empty", "empty the index first", {empty=true})
         opt("check","check to see if the record is deleted before indexing",{check=true})
         opt("s", "start","The record to start with", {v:String => startUuid = Some(v)})
         opt("e","end", "The record to end with",{v:String =>endUuid = Some(v)})
-        opt("dr", "resource", "The data resource to process", {v:String => dataResource = Some(v)})
+        opt("dr", "resource", "The data resource to process", {v:String => dataResourceUid = Some(v)})
         opt("date", "date", "The earliest modification date for records to be indexed. Date in the form yyyy-mm-dd",
           {v:String => startDate = Some(v)})
         intOpt("ps", "pageSize", "The page size for indexing", {v:Int => pageSize = v })
@@ -67,29 +75,51 @@ object IndexRecords extends Tool {
         opt("rf", "file-rowkeys-to-index","Absolute file path to fle containing rowkeys to index", {v:String => rowKeyFile = v})
         intOpt("t","threads","Number of threads to index from",{v:Int => threads = v})
         opt("test", "test the speed of creating the index the minus the actual SOLR indexing costs",{test = true})
+        opt("crk", "check for row key file",{ checkRowKeyFile = true })
     }
+
     if(parser.parse(args)){
-        //delete the content of the index
-        if(empty){
-           logger.info("Emptying index")
-           indexer.emptyIndex
-        }
-        if (uuidFile != ""){
-          indexListOfUUIDs(new File(uuidFile))
-        } else if (rowKeyFile != ""){
-          if(threads == 1)
-            indexList(new File(rowKeyFile))
-          else
-            indexListThreaded(new File(rowKeyFile), threads)
+      if(!dataResourceUid.isEmpty && checkRowKeyFile){
+        val (hasRowKey, retrievedRowKeyFile) = IndexRecords.hasRowKey(dataResourceUid.get)
+        rowKeyFile = retrievedRowKeyFile.getOrElse("")
+      }
+      //delete the content of the index
+      if(empty){
+         logger.info("Emptying index")
+         indexer.emptyIndex
+      }
+      if (uuidFile != ""){
+        indexListOfUUIDs(new File(uuidFile))
+      } else if (rowKeyFile != ""){
+        if(threads == 1) {
+          indexList(new File(rowKeyFile))
         } else {
-          index(startUuid, endUuid, dataResource, false, false, startDate, check, pageSize, test=test)
+          indexListThreaded(new File(rowKeyFile), threads)
         }
-        //shut down pelops and index to allow normal exit
-        indexer.shutdown
-        persistenceManager.shutdown
-     }
+      } else {
+        index(startUuid, endUuid, dataResourceUid, false, false, startDate, check, pageSize, test=test)
+      }
+      //shut down pelops and index to allow normal exit
+      indexer.shutdown
+      persistenceManager.shutdown
+    }
   }
 
+  /**
+   * Index the supplied range of records.
+   *
+   * @param startUuid
+   * @param endUuid
+   * @param dataResource
+   * @param optimise
+   * @param shutdown
+   * @param startDate
+   * @param checkDeleted
+   * @param pageSize
+   * @param miscIndexProperties
+   * @param callback
+   * @param test
+   */
   def index(startUuid:Option[String],
             endUuid:Option[String],
             dataResource:Option[String],
@@ -110,7 +140,7 @@ object IndexRecords extends Tool {
 
     var date:Option[Date]=None
     if(!startDate.isEmpty){
-      date = DateParser.parseStringToDate(startDate.get +" 00:00:00")
+      date = DateParser.parseStringToDate(startDate.get + " 00:00:00")
       if(date.isEmpty) {
         throw new Exception("Date is in incorrect format. Try yyyy-mm-dd")
       }
@@ -196,7 +226,7 @@ object IndexRecords extends Tool {
         startTime = System.currentTimeMillis
       }
     })
-    indexer.finaliseIndex(false, false)//commit but don't optimise or shutdown
+    indexer.finaliseIndex(false, false)  //commit but don't optimise or shutdown
   }
 
   /**

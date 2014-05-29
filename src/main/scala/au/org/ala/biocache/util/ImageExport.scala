@@ -68,7 +68,7 @@ object ImageExport extends Tool {
           if(!jsonParsed.isEmpty) {
             val filePathArray = jsonParsed.get.asInstanceOf[List[String]]
             filePathArray.foreach(filePath => {
-              val toWrite = Array(MediaStore.convertPathToUrl(filePath)) ++ additionalFields.map(field => { fields.getOrElse(field, "")} ).toArray[String]
+              val toWrite = Array(Config.mediaStore.convertPathToUrl(filePath)) ++ additionalFields.map(field => { fields.getOrElse(field, "")} ).toArray[String]
               csvWriter.writeNext(toWrite)
               images += 1
             })

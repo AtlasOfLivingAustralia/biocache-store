@@ -1,293 +1,364 @@
 package au.org.ala.biocache.tool
 
-import org.slf4j.LoggerFactory
+import scala.actors.Actor
+import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache._
-import java.util.UUID
-import java.io.FileReader
-import au.com.bytecode.opencsv.CSVReader
+import java.io.File
+import org.slf4j.LoggerFactory
+import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.util.{StringConsumer, OptionParser, FileHelper}
+import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
+import au.org.ala.biocache.index.IndexRecords
+import au.org.ala.biocache.processor.RecordProcessor
 import java.util.concurrent.ArrayBlockingQueue
-import au.org.ala.biocache.processor.Processors
-import scala.Some
-import au.org.ala.biocache.dao.OccurrenceDAO
-import au.org.ala.biocache
-import au.org.ala.biocache.model.{QualityAssertion, Processed, Versions, FullRecord}
-import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
 
-/**
- * Runnable for starting record processing.
- *
- * <ol>
- * <li> Classification matching
- * 	- include a flag to indicate record hasnt been matched to NSLs
- * </li>
- * 
- * <li> Parse locality information
- * 	- "Vic" -> Victoria
- * </li>
- * 
- * <li> Point matching
- * 	- parse latitude/longitude
- * 	- retrieve associated point mapping
- * 	- check state supplied to state point lies in
- * 	- marine/non-marine/limnetic (need a webservice from BIE)
- * </li>
- * 
- * <li> Type status normalization
- * 	- use GBIF's vocabulary
- * </li>
- * 
- * <li> Date parsing
- * 	- date validation
- * 	- support for date ranges
- * </li>
- * 
- * <li> Collectory lookups for attribution chain </li>
- *
- * </ol>
- *
- * Tests to conform to: http://bit.ly/eqSiFs
- */
-object ProcessRecords {
+object ProcessAll extends Tool {
 
-  val logger = LoggerFactory.getLogger("ProcessRecords")
+  def cmd = "process-all"
+  def desc = "Process all records"
 
+  def main(args:Array[String]){
 
-  /** Run record processing. */
-  def main(args: Array[String]): Unit = {
-
-    var fileName: String = ""
-    var threads =1
-    val parser = new OptionParser("index records options") {
-      opt("f", "fileName", "The record to start processing with", { v: String => fileName = v })
-      intOpt("t","threads" ," The number of concurrent threads to perform the FILE processing on.",{v:Int => threads=v})
+    var threads:Int = 4
+    val parser = new OptionParser(help) {
+      intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
     }
-
-    val p = new RecordProcessor
-    if (parser.parse(args)) {
-      if (fileName != "") {
-        if(threads ==1)
-          p.processFileOfRowKeys(fileName)
-        else
-          p.processFileThreaded(new java.io.File(fileName), threads)
-      } else {
-        p.processAll
-      }
+    if(parser.parse(args)){
+      ProcessRecords.processRecords(4, None, None)
     }
-    logger.info("Finished. Shutting down.")
-    Config.persistenceManager.shutdown
   }
 }
 
-class RecordProcessor {
+/**
+ * A simple threaded implementation of the processing.
+ */
+object ProcessRecords extends Tool with IncrementalTool {
 
   import FileHelper._
 
-  val logger = LoggerFactory.getLogger(classOf[RecordProcessor])
-  //The time that the processing started - used to populate lastProcessed
-  val processTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
-  val duplicates = List("D","D1","D2")
-  /**
-   * Processes a list of records
-   */
-  def processRecords(rowKeys:List[String]){
-    logger.debug("Starting to process all the records in the list: " + rowKeys)
-    var counter = 0
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
-    rowKeys.foreach(rowKey =>{
-      val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(rowKey)
-      if (!rawProcessed.isEmpty){
-        val rp = rawProcessed.get
-        processRecord(rp(0), rp(1))
+  def cmd = "process"
+  def desc = "Process records (geospatial, taxonomy)"
 
-        //debug counter
-        if (counter % 100 == 0) {
-          finishTime = System.currentTimeMillis
-          logger.debug(counter + " >> Last key : " + rp(0).uuid + ", records per sec: " + 100f / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
-        }
-      }
-    })
-  }
+  val occurrenceDAO = Config.occurrenceDAO
+  val persistenceManager = Config.persistenceManager
+  val logger = LoggerFactory.getLogger("ProcessRecords")
 
-  def downloadMedia(raw:FullRecord){
-     Config.occurrenceDAO.downloadMedia(raw)
-  }
+  def main(args : Array[String]) : Unit = {
 
-  /**
-   * Process all records in the store
-   */
-  def processFileOfRowKeys(fileName:String) {
-    logger.info("Starting processing from file......" + fileName)
-    var counter = 0
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
+    logger.info("Starting processing...")
+    var threads:Int = 4
+    var startUuid:Option[String] = None
+    var endUuid:Option[String] = None
+    var checkDeleted = false
+    var dataResourceUid:Option[String] = None
+    var checkRowKeyFile = false
+    var rowKeyFile = ""
 
-    val csvReader = new CSVReader(new FileReader(fileName))
-    var current = csvReader.readNext()
-
-    //page over all records and process
-    //occurrenceDAO.pageOverAll(Raw, record => {
-    while(current != null){
-      counter += 1
-
-      val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(current(0))
-      if (!rawProcessed.isEmpty){
-        val rp = rawProcessed.get
-        processRecord(rp(0), rp(1))
-
-        //debug counter
-        if (counter % 1000 == 0) {
-          finishTime = System.currentTimeMillis
-          println(counter + " >> Last key : " + rp(0).uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
-        }
-      }
-      current = csvReader.readNext()
+    val parser = new OptionParser(help) {
+      intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
+      opt("s", "start","The record to start with", {v:String => startUuid = Some(v)})
+      opt("e", "end","The record to end with", {v:String => endUuid = Some(v)})
+      opt("dr", "resource", "The data resource to process", {v:String => dataResourceUid = Some(v)})
+      booleanOpt("cd", "checkDeleted", "Check deleted records", {v:Boolean => checkDeleted = v})
+      opt("crk", "check for row key file",{ checkRowKeyFile = true })
     }
-    logger.info("Finished processing from file.")
-  }
-  
-  def processFileThreaded(file:java.io.File, threads:Int){
-    val queue = new ArrayBlockingQueue[String](100)
-    var ids =0
-     val pool:Array[StringConsumer] = Array.fill(threads){
-     var counter=0 
-     var startTime = System.currentTimeMillis
-     var finishTime = System.currentTimeMillis
-            
-      val p = new StringConsumer(queue,ids,{guid =>
-        counter +=1
-        val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
-        if (!rawProcessed.isEmpty){
-        val rp = rawProcessed.get
-        processRecord(rp(0), rp(1))
-        
-        //debug counter
-        if (counter % 1000 == 0) {
-          finishTime = System.currentTimeMillis
-          logger.info(counter + " >> Last key : " + rp(0).uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
-        }
-      }
-      });ids +=1;p.start;p }
     
-    file.foreachLine(line =>{
-      //add to the queue
-      queue.put(line.trim)
-    }) 
-    pool.foreach(t =>t.shouldStop = true)
-    pool.foreach(_.join)    
+    if(parser.parse(args)){
+
+      if(!dataResourceUid.isEmpty && checkRowKeyFile){
+        val (hasRowKey, retrievedRowKeyFile) = ProcessRecords.hasRowKey(dataResourceUid.get)
+        rowKeyFile = retrievedRowKeyFile.getOrElse("")
+      }
+
+      if(rowKeyFile != ""){
+        //process the row key file
+        processFileOfRowKeys(new java.io.File(rowKeyFile), threads)
+      } else {
+        logger.info("Processing " + dataResourceUid.getOrElse("") + " from " + startUuid + "to " +endUuid+ " with " + threads + "actors")
+        processRecords(threads, startUuid, dataResourceUid, checkDeleted, lastKey = endUuid)
+      }
+    }
+    //shutdown the persistence
+    persistenceManager.shutdown
+  }
+  
+  def getProcessedTotal(pool:Array[Actor]):Int = {
+    var size = 0
+    for(i<-0 to pool.length-1){
+      size += pool(i).asInstanceOf[Consumer].processedRecords
+    }
+    size
   }
 
   /**
-   * Process all records in the store
+   * Process a set of records with keys in the supplied file
+   * @param file
+   * @param threads
    */
-  def processAll {
-    var counter = 0
+  def processFileOfRowKeys(file: java.io.File, threads: Int) {
+    val queue = new ArrayBlockingQueue[String](100)
+    var ids = 0
+    val recordProcessor = new RecordProcessor
+    val pool: Array[StringConsumer] = Array.fill(threads) {
+      var counter = 0
+      var startTime = System.currentTimeMillis
+      var finishTime = System.currentTimeMillis
+
+      val p = new StringConsumer(queue, ids, { guid =>
+        counter += 1
+        val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
+        if (!rawProcessed.isEmpty) {
+          val rp = rawProcessed.get
+          recordProcessor.processRecord(rp(0), rp(1))
+
+          //debug counter
+          if (counter % 1000 == 0) {
+            finishTime = System.currentTimeMillis
+            logger.info(counter + " >> Last key : " + rp(0).uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
+            startTime = System.currentTimeMillis
+          }
+        }
+      })
+      ids += 1
+      p.start
+      p
+    }
+
+    file.foreachLine(line => queue.put(line.trim))
+    pool.foreach(t => t.shouldStop = true)
+    pool.foreach(_.join)
+  }
+
+  /**
+   * Processes the supplied row keys in a Thread
+   */
+  def processRecords(file:File, threads: Int, startUuid:Option[String]) : Unit = {
+    var ids = 0
+    val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids); ids +=1; p.start }
+    logger.info("Starting to process a list of records...");
+    val start = System.currentTimeMillis
+    val startTime = System.currentTimeMillis
+    var finishTime = System.currentTimeMillis
+    var buff = new ArrayBuffer[String]
+    //use this variable to evenly distribute the actors work load
+    var batches = 0
+    var count = 0
+    //val processor = new RecordProcessor
+    logger.info("Initialised actors...")
+    file.foreachLine(line => {
+        count += 1
+        if(startUuid.isEmpty || startUuid.get == line) {
+          buff += line
+        }
+
+        if(buff.size >= 50){
+          val actor = pool(batches % threads).asInstanceOf[Consumer]
+          batches += 1
+          count+=1
+          //find a ready actor...
+          while(!actor.ready){ Thread.sleep(50) }
+
+          actor ! buff.toArray
+          buff.clear
+        }
+
+      if (count % 1000 == 0) {
+        finishTime = System.currentTimeMillis
+        logger.info(count
+          + " >> Last key : " + line
+          + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
+          + ", time taken for " + 1000 + " records: " + (finishTime - startTime).toFloat / 1000f
+          + ", total time: " + (finishTime - start).toFloat / 60000f + " minutes"
+        )
+      }
+    })
+
+    //add the remaining records from the buff
+    if(!buff.isEmpty){
+      pool(0).asInstanceOf[Consumer] ! buff.toArray
+      batches += 1
+    }
+
+    logger.info(count
+      + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
+      + ", time taken for "+ 1000 + " records: " + (finishTime - startTime).toFloat / 1000f
+      + ", total time: "+ (finishTime - start).toFloat / 60000f + " minutes"
+    )
+    logger.info("Finished.")
+
+    //kill the actors
+    pool.foreach(actor => actor ! "exit")
+
+    //We can't shutdown the persistence manager until all of the Actors have completed their work
+    while(batches > getProcessedTotal(pool)){
+      logger.info(batches + " : " + getProcessedTotal(pool))
+      Thread.sleep(50)
+    }
+  }
+  
+  def performPaging(proc: (Option[(FullRecord, FullRecord)] => Boolean), startKey:String="", endKey:String="", pageSize: Int = 1000){
+    occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
+        proc(rawAndProcessed)
+    }, startKey, endKey)
+  }
+
+  /**
+   * Process the records using the supplied number of threads
+   */
+  def processRecords(threads: Int, firstKey:Option[String], dr: Option[String], checkDeleted:Boolean=false,
+                     callback:ObserverCallback = null, lastKey:Option[String]=None): Unit = {
+
+    val endUuid = if (lastKey.isDefined) lastKey.get else if(dr.isEmpty) "" else dr.get +"|~"
+
+    val startUuid = {
+	    if(firstKey.isEmpty && !dr.isEmpty) {
+	        dr.get +"|"
+	    } else {
+	       firstKey.getOrElse("")
+	    }
+    }
+    var ids = 0
+    val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids); ids +=1; p.start }
+    
+    logger.info("Starting with " + startUuid +" ending with " + endUuid)
+    val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
 
-    //page over all records and process
-    //occurrenceDAO.pageOverAll(Raw, record => {
-    Config.occurrenceDAO.pageOverRawProcessed(record => {
-      counter += 1
-      if (!record.isEmpty) {
-        
-        val (raw,processed) = record.get
-        //println(raw.rowKey)
-        processRecord(raw, processed)
+    logger.info("Initialised actors...")
 
-        //debug counter
-        if (counter % 1000 == 0) {
-          finishTime = System.currentTimeMillis
-          logger.info(counter + " >> Last key : " + raw.uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
+    var count = 0
+    var guid = "";
+    //use this variable to evenly distribute the actors work load
+    var batches = 0
+
+    var buff = new ArrayBuffer[(FullRecord,FullRecord)]
+
+    //occurrenceDAO.pageOverAll(Raw, fullRecord => {
+    //occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
+    performPaging(rawAndProcessed => {
+      if(guid == "") logger.info("First rowKey processed: " + rawAndProcessed.get._1.rowKey)
+      guid = rawAndProcessed.get._1.rowKey
+      count += 1
+
+      //we want to add the record to the buffer whether or not we send them to the actor
+      //add it to the buffer isnt a deleted record
+      if (!rawAndProcessed.isEmpty && !rawAndProcessed.get._1.deleted){
+        buff += rawAndProcessed.get
+      }
+
+      if(buff.size>=50){
+        val actor = pool(batches % threads).asInstanceOf[Consumer]
+        batches += 1
+        //find a ready actor...
+        while(!actor.ready){ Thread.sleep(50) }
+        actor ! buff.toArray
+        buff.clear
+      }
+
+      if(callback != null && count % 100 == 0) {
+        callback.progressMessage(count)
+      }
+
+      //debug counter
+      if (count % 1000 == 0) {
+        finishTime = System.currentTimeMillis
+        logger.info(count
+            + " >> Last key : " + rawAndProcessed.get._1.rowKey
+            + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
+            + ", time taken for "+1000+" records: " + (finishTime - startTime).toFloat / 1000f
+            + ", total time: "+ (finishTime - start).toFloat / 60000f +" minutes"
+        )
+        startTime = System.currentTimeMillis
+      }
+      true //indicate to continue
+    }, startUuid, endUuid)
+    
+    logger.info("Last row key processed: " + guid)
+    //add the remaining records from the buff
+    if(buff.nonEmpty){
+      pool(0).asInstanceOf[Consumer] ! buff.toArray
+      batches+=1
+    }
+    logger.info("Finished.")
+    //kill the actors
+    pool.foreach(actor => actor ! "exit")
+
+    //We can't shutdown the persistence manager until all of the Actors have completed their work
+    while(batches > getProcessedTotal(pool)){
+      Thread.sleep(50)
+    }
+  }
+}
+
+/**
+ * A consumer actor asks for new work.
+ */
+class Consumer (master:Actor,val id:Int)  extends Actor  {
+
+  val logger = LoggerFactory.getLogger("Consumer")
+
+  logger.info("Initialising thread: " + id)
+  val processor = new RecordProcessor
+  val occurrenceDAO = Config.occurrenceDAO
+  var received, processedRecords = 0
+
+  def ready = processedRecords == received
+
+  def act {
+    logger.info("In thread: "+id)
+    loop{
+      react {
+        case rawAndProcessed :(FullRecord,FullRecord) => {
+          val (raw, processed) = rawAndProcessed
+          received += 1
+          processor.processRecord(raw, processed)
+          processedRecords += 1
+        }
+        case batch:Array[(FullRecord,FullRecord)] => {
+          received += 1
+          //for((raw,processed) <- batch) { processor.processRecord(raw, processed) }
+          batch.foreach({case (raw, processed) =>
+            var retries = 0
+            var processedOK = false
+            while(!processedOK && retries<6){
+              try {
+                processor.processRecord(raw, processed)
+                processedOK = true
+              } catch {
+                case e:Exception => {
+                  logger.error("Error processing record: '"+raw.rowKey+"',  sleeping for 20 secs before retries", e)
+                  Thread.sleep(20000)
+                  retries += 1
+                }
+              }
+            }
+          })
+          processedRecords += 1
+        }
+        case keys:Array[String]=>{
+          //get the raw and Processed records for the row key
+          received +=1
+          val start = System.currentTimeMillis
+          var counter:Float=0
+          for(key <- keys){
+            counter +=1
+            val records = occurrenceDAO.getRawProcessedByRowKey(key)
+            if(!records.isEmpty){
+                processor.processRecord(records.get(0), records.get(1))
+            }
+          }
+          val finished = System.currentTimeMillis
+          logger.info("Actor "+id +">>> Last Key: "+keys.last+", records per sec: " + counter / (((finished - start).toFloat) / 1000f))
+          processedRecords+=1
+        }
+        case s:String => {
+          if(s == "exit"){
+            logger.info("Killing (Actor.act) thread: "+id)
+            exit()
+          }
         }
       }
-      true
-    })
-  }
-
-  /**
-   * Process a record, adding metadata and records quality systemAssertions.
-   * This version passes the original to optimise updates.
-   */
-  def processRecord(raw:FullRecord, currentProcessed:FullRecord){
-
-    val guid = raw.rowKey
-    val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
-    //NC: Changed so that a processed record only contains values that have been processed.
-    var processed = raw.createNewProcessedRecord
-    //var assertions = new ArrayBuffer[QualityAssertion]
-    var assertions = new scala.collection.mutable.HashMap[String, Array[QualityAssertion]]
-
-    //run each processor in the specified order
-    Processors.foreach(processor => {
-      assertions += ( processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
-    })
-    //mark the processed time
-    processed.lastModifiedTime = processTime
-    //store the occurrence
-    val systemAssertions = Some(assertions.toMap)
-    occurrenceDAO.updateOccurrence(guid, currentProcessed, processed, systemAssertions, Processed)
-  }
-
-  /**
-   * Process a record, adding metadata and records quality systemAssertions
-   */
-  def processRecord(raw:FullRecord) : (FullRecord, Map[String, Array[QualityAssertion]]) = {
-
-    //NC: Changed so that a processed record only contains values that have been processed.
-    var processed = raw.createNewProcessedRecord
-    var assertions = new scala.collection.mutable.HashMap[String, Array[QualityAssertion]]
-
-    Processors.foreach(processor => {
-      assertions += (processor.getName -> processor.process(raw.rowKey, raw, processed))
-    })
-  
-    //store the occurrence
-    (processed, assertions.toMap)
-  }
-  
-  /**
-   * Process a record, adding metadata and records quality systemAssertions
-   */
-  def processRecordAndUpdate(raw:FullRecord){
-
-    val (processed, assertions) = processRecord(raw)
-    val systemAssertions = Some(assertions)
-    //mark the processed time
-    processed.asInstanceOf[FullRecord].lastModifiedTime = processTime
-    //store the occurrence
-    Config.occurrenceDAO.updateOccurrence(raw.rowKey, processed, systemAssertions, Processed)
-    //updateRawIfSensitised(raw, processed, raw.rowKey)
-  }
-
-  def addRecordAndProcess(dataResourceUid:String, properties:Map[String,String]) : String = {
-    val uuid = properties.getOrElse("uuid", UUID.randomUUID().toString)
-    val rowKey = dataResourceUid + "|" + uuid
-    val raw = FullRecordMapper.createFullRecord(rowKey, properties,Versions.RAW)
-    raw.uuid = uuid
-    raw.attribution.dataResourceUid = dataResourceUid
-    Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
-    val processor = new RecordProcessor
-    processor.processRecordAndUpdate(raw)
-    uuid
-  }
-
-  def addRecord(dataResourceUid:String, properties:Map[String,String]) : String = {
-    val uuid = properties.getOrElse("uuid", UUID.randomUUID().toString)
-    val rowKey = dataResourceUid + "|" + uuid
-    val raw = FullRecordMapper.createFullRecord(rowKey, properties,Versions.RAW)
-    raw.uuid = uuid
-    raw.attribution.dataResourceUid = dataResourceUid
-    biocache.Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
-    val downloaded = biocache.Config.occurrenceDAO.downloadMedia(raw)
-    if(downloaded){
-      biocache.Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
     }
-    uuid
   }
 }

@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.util.OptionParser
 import java.io.File
 import org.apache.commons.io.FilenameUtils
+import au.org.ala.biocache.Config
 
 /**
  * A utility for thumbnailing images
@@ -12,7 +13,7 @@ import org.apache.commons.io.FilenameUtils
 object Thumbnailer extends Tool {
 
   def cmd = "thumbnail"
-  def desc = "Generate thumbnails for images"
+  def desc = "Generate thumbnails for images. For Local media storage only."
 
   final val logger = LoggerFactory.getLogger("Thumbnailer")
   System.setProperty("com.sun.media.jai.disableMediaLib", "true")
@@ -64,7 +65,7 @@ object Thumbnailer extends Tool {
       }
     } else {
       //generate a thumbnail if this is an image
-      if (MediaStore.isValidImageURL(directory.getAbsolutePath)) {
+      if (Config.mediaStore.isValidImageURL(directory.getAbsolutePath)) {
         generateAllSizes(directory, force)
       }
     }

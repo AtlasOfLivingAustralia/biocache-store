@@ -192,13 +192,12 @@ trait DataLoader {
       val filesToImport = fr.occurrence.associatedMedia.split(";")
       val associatedMediaBuffer = new ArrayBuffer[String]
       filesToImport.foreach(fileToStore => {
-        val (filePath, exists) = MediaStore.exists(fr.uuid, dataResourceUid, fileToStore)
+        val (filePath, exists) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
         if (!exists){
-          val savedTo = MediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore)
+          val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore)
           logger.info("Media file stored to: " + savedTo.getOrElse("**** not available ****"))
         } else {
           logger.info("Media file already stored: " + filePath)
-          Thumbnailer.generateAllSizes(new File(filePath))
         }
         associatedMediaBuffer += filePath
       })

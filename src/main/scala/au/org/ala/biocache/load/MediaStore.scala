@@ -14,13 +14,9 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
 
 /**
- * A file store for media files.
- *
- * @author Dave Martin
+ * Trait for Media stores to implement.
  */
-object MediaStore {
-
-  val logger = LoggerFactory.getLogger("MediaStore")
+trait MediaStore {
 
   //Regular expression used to parse an image URL - adapted from
   //http://stackoverflow.com/questions/169625/regex-to-check-if-valid-url-that-ends-in-jpg-png-or-gif#169656
@@ -32,26 +28,7 @@ object MediaStore {
   val soundExtension = Array(".wav", ".mp3", ".ogg", ".flac")
   val videoExtension = Array(".wmv", ".mp4", ".mpg", ".avi", ".mov")
 
-  val limit = 32000
-
-  def doesFileExist(urlString: String): Boolean = {
-
-    val urlToTest = if (urlString.startsWith(Config.mediaFileStore)) "file://" + urlString else urlString
-    var in: java.io.InputStream = null
-
-    try {
-      val url = new java.net.URL(urlToTest.replaceAll(" ", "%20"))
-      in = url.openStream
-      true
-    }
-    catch {
-      case _:Exception => false
-    } finally {
-      if (in != null) {
-        in.close()
-      }
-    }
-  }
+  val logger = LoggerFactory.getLogger("TraitMediaStore")
 
   def isValidImageURL(url: String): Boolean = {
     !imageParser.unapplySeq(url.trim.toLowerCase).isEmpty || isStoredMedia(imageExtension, url)
@@ -64,14 +41,10 @@ object MediaStore {
   def isValidVideoURL(url: String): Boolean = {
     !videoParser.unapplySeq(url.trim.toLowerCase).isEmpty || isStoredMedia(videoExtension, url)
   }
-  
+
   def isMediaFile(file:File): Boolean ={
     val name = file.getAbsolutePath()
     endsWithOneOf(imageExtension,name)||endsWithOneOf(soundExtension,name)||endsWithOneOf(videoExtension,name)
-  }
-
-  def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean = {
-    ( url.startsWith(Config.mediaFileStore) || url.startsWith("file:///" + Config.mediaFileStore) ) && endsWithOneOf(acceptedExtensions, url.toLowerCase)
   }
 
   def endsWithOneOf(acceptedExtensions: Array[String], url: String): Boolean = {
@@ -80,17 +53,121 @@ object MediaStore {
     } isEmpty)
   }
 
-  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) {
-    if (fullRecord.occurrence.images != null) {
-      fullRecord.occurrence.images = fullRecord.occurrence.images.map(x => convertPathToUrl(x, baseUrlPath))
+  /**
+   * Test to see if the supplied file is already stored in the media store.
+   *
+   * @param uuid
+   * @param resourceUID
+   * @param urlToMedia
+   * @return
+   */
+  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (String, Boolean)
+
+  /**
+   * Checks to see if the supplied media file is accessible on the file system
+   * or over http.
+   *
+   * @param urlString
+   * @return true if successful
+   */
+  def isAccessible(urlString: String): Boolean = {
+
+    val urlToTest = if (urlString.startsWith(Config.mediaFileStore)){
+      "file://" + urlString
+    } else {
+      urlString
     }
+
+    var in: java.io.InputStream = null
+
+    try {
+      val url = new java.net.URL(urlToTest.replaceAll(" ", "%20"))
+      in = url.openStream
+      true
+    } catch {
+      case e:Exception => {
+        logger.debug("File isnt accessible: " + e.getMessage())
+        false
+      }
+    } finally {
+      if (in != null) {
+        in.close()
+      }
+    }
+  }
+
+  /**
+   * Save the supplied media file returning a handle for retrieving
+   * the media file.
+   *
+   * @param uuid
+   * @param resourceUID
+   * @param urlToMedia
+   * @return
+   */
+  def save(uuid: String, resourceUID: String, urlToMedia: String): Option[String]
+
+  def alternativeFormats(filePath: String): Array[String]
+
+  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) : Unit
+
+  def convertPathToUrl(str: String, baseUrlPath: String) :String
+
+  def convertPathToUrl(str: String):String
+  
+  protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean
+}
+
+//object RemoteMediaStore extends MediaStore {
+//
+//  override val logger = LoggerFactory.getLogger("RemoteMediaStore")
+//
+//  def save(uuid: String, resourceUID: String, urlToMedia: String): Option[String] = {
+//    logger.error("Not implemented yet")
+//    None
+//  }
+//
+//  def alternativeFormats(filePath: String): Array[String]={
+//    logger.error("Not implemented yet")
+//    Array[String]()
+//  }
+//
+//  protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean = {
+//    logger.error("Not implemented yet")
+//    false
+//  }
+//
+//  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) = logger.error("Not implemented yet")
+//
+//  def convertPathToUrl(str: String, baseUrlPath: String)
+//
+//  def convertPathToUrl(str: String)
+//}
+
+/**
+ * A file store for media files that uses the local filesystem.
+ *
+ * @author Dave Martin
+ */
+object LocalMediaStore extends MediaStore {
+
+  override val logger = LoggerFactory.getLogger("LocalMediaStore")
+
+  val limit = 32000
+
+  protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean = {
+    ( url.startsWith(Config.mediaFileStore) || url.startsWith("file:///" + Config.mediaFileStore) ) && endsWithOneOf(acceptedExtensions, url.toLowerCase)
+  }
+
+  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) = if (fullRecord.occurrence.images != null) {
+    fullRecord.occurrence.images = fullRecord.occurrence.images.map(x => convertPathToUrl(x, baseUrlPath))
   }
 
   def convertPathToUrl(str: String, baseUrlPath: String) = str.replaceAll(Config.mediaFileStore, baseUrlPath)
 
   def convertPathToUrl(str: String) = str.replaceAll(Config.mediaFileStore, Config.mediaBaseUrl)
 
-  def exists(uuid: String, resourceUID: String, urlToMedia: String): (String, Boolean) = {
+  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (String, Boolean) = {
     val path = createFilePath(uuid, resourceUID, urlToMedia)
     (path, (new File(path)).exists)
   }
@@ -98,7 +175,7 @@ object MediaStore {
   /**
    * Create a file path for this UUID and resourceUID
    */
-  def createFilePath(uuid: String, resourceUID: String, urlToMedia: String): String = {
+  private def createFilePath(uuid: String, resourceUID: String, urlToMedia: String): String = {
     val subdirectory = (uuid.hashCode % limit).abs
 
     val absoluteDirectoryPath = Config.mediaFileStore +
@@ -114,7 +191,7 @@ object MediaStore {
         //HACK for CS URLs which dont make for nice file names
         urlToMedia.substring(urlToMedia.indexOf("fileName=") + "fileName=".length).replace(" ", "_")
       } else if (urlToMedia.contains("?id=") && urlToMedia.contains("imgType=")) {
-        // HACK for Morphbank URLs which don't make nice filenames
+        // HACK for Morphbank URLs which don't make nice file names
         urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace("?id=", "").replace("&imgType=", ".")
       } else if (urlToMedia.lastIndexOf("/") == urlToMedia.length - 1) {
         "raw"
@@ -126,7 +203,7 @@ object MediaStore {
   }
 
   /**
-   * Returns the file path
+   * Saves the file to local filesystem and returns the file path where the file is stored.
    */
   def save(uuid: String, resourceUID: String, urlToMedia: String): Option[String] = {
     //handle the situation where the urlToMedia does not exits -
@@ -146,7 +223,7 @@ object MediaStore {
         while ( {
           numRead = in.read(buffer)
           numRead != -1
-        }) {
+          }) {
           out.write(buffer, 0, numRead)
           out.flush
         }
@@ -194,33 +271,25 @@ object MediaStore {
 
 class SameNameDifferentExtensionFilter(name: String) extends FilenameFilter {
   val nameToMatch = FilenameUtils.removeExtension(FilenameUtils.getName(name)).toLowerCase
-
   def accept(dir: File, name: String) = FilenameUtils.removeExtension(name.toLowerCase) == nameToMatch
 }
 
 trait ImageSize {
   def suffix: String
-
   def size: Float
 }
 
 object THUMB extends ImageSize {
-  def suffix = "__thumb";
-
-  def size = 100f;
+  def suffix = "__thumb"
+  def size = 100f
 }
 
 object SMALL extends ImageSize {
-  def suffix = "__small";
-
-  def size = 314f;
+  def suffix = "__small"
+  def size = 314f
 }
 
 object LARGE extends ImageSize {
-  def suffix = "__large";
-
-  def size = 650f;
+  def suffix = "__large"
+  def size = 650f
 }
-
-
-

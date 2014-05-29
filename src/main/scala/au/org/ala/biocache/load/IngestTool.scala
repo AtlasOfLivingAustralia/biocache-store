@@ -1,7 +1,7 @@
 package au.org.ala.biocache.load
 
 import au.org.ala.biocache.util.OptionParser
-import au.org.ala.biocache.tool.{ProcessWithActors, Sampling}
+import au.org.ala.biocache.tool.{ProcessRecords, Sampling}
 import au.org.ala.biocache.index.IndexRecords
 import au.org.ala.biocache.cmd.Tool
 import org.slf4j.LoggerFactory
@@ -56,7 +56,7 @@ object IngestTool extends Tool {
     logger.info("Sampling: " + uid)
     Sampling.main(Array("-dr", uid))
     logger.info("Processing: " + uid)
-    ProcessWithActors.processRecords(4, None, Some(uid))
+    ProcessRecords.processRecords(4, None, Some(uid))
     logger.info("Indexing: " + uid)
     IndexRecords.index(None, None, Some(uid), false, false)
     logger.info("Finished ingest for: " + uid)

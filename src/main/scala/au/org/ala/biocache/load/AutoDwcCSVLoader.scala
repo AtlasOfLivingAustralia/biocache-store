@@ -143,7 +143,7 @@ class AutoDwcCSVLoader extends DataLoader {
         logger.debug("File from archive name: " + name)
         name match {
           case loadPattern(filename) => dataFiles += extractTarFile(tarInputStream, baseDir, entry.getName)
-          case it if MediaStore.endsWithOneOf(MediaStore.imageExtension, it) => {
+          case it if Config.mediaStore.endsWithOneOf(Config.mediaStore.imageExtension, it) => {
             //supports images supplied in the archive. Relies on the images paths being supplied in associatedMedia
             // as a path relative to the directory of the CSV file
             extractTarFile(tarInputStream, baseDir, entry.getName)

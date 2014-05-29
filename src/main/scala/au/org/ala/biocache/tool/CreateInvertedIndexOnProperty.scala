@@ -6,6 +6,7 @@ import org.scale7.cassandra.pelops.Pelops
 import org.apache.cassandra.thrift.{ConsistencyLevel, InvalidRequestException, CfDef}
 import scala.actors.Actor
 import scala.collection.mutable.ListBuffer
+import au.org.ala.biocache.processor.RecordProcessor
 
 /**
  * @Deprecated Cassandra specific

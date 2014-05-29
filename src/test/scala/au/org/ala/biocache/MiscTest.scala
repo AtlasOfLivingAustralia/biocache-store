@@ -63,23 +63,21 @@ class MiscTest extends ConfigFunSuite {
   }
 
   test("is valid image url") {
-    val url = "/data/biocache-media/dr344/12874/2ec04a49-7e44-4a0b-8351-5d37155e3ef7/o29275a.jpg"
     expectResult(true) {
-      (MediaStore.isValidImageURL(url))
+      (Config.mediaStore.isValidImageURL("/data/biocache-media/dr344/12874/2ec04a49-7e44-4a0b-8351-5d37155e3ef7/o29275a.jpg"))
     }
     //"""^(https?://(?:[a-zA-Z0-9\-]+(\.)+([a-zA-Z]{2,6})?(?:/[^/#]+)+\.?(?:jpg|gif|png|jpeg))$"""
-    var url2 = "http://74.50.62.163/images/display/biodiversity/vertebrates/id_images/web-birds/o29275a.jpg"
     expectResult(true) {
-      (MediaStore.isValidImageURL(url2))
+      (Config.mediaStore.isValidImageURL("http://74.50.62.163/images/display/biodiversity/vertebrates/id_images/web-birds/o29275a.jpg"))
     }
     expectResult(true) {
-      MediaStore.isValidImageURL("https://test.ala.org.au/images/image1/img.gif")
+      Config.mediaStore.isValidImageURL("https://test.ala.org.au/images/image1/img.gif")
     }
     expectResult(false) {
-      MediaStore.isValidImageURL("https://test.ala.org.au/images/image1/img.bmp")
+      Config.mediaStore.isValidImageURL("https://test.ala.org.au/images/image1/img.bmp")
     }
     expectResult(false) {
-      MediaStore.isValidImageURL("http://tests.ala.org.au/images/image1/img")
+      Config.mediaStore.isValidImageURL("http://tests.ala.org.au/images/image1/img")
     }
   }
 
