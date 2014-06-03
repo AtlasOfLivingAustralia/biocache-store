@@ -42,7 +42,7 @@ object Loader extends Tool {
 
 object Healthcheck extends NoArgsTool {
   def cmd = "healthcheck"
-  def desc = "Run a healthcheck on the configured resources"
+  def desc = "Run a health check on the configured resources"
   def main(args:Array[String]) = proceed(args, () => (new Loader()).healthcheck)
 }
 
@@ -111,17 +111,17 @@ class Loader extends DataLoader {
       val (protocol, url, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
       protocol.toLowerCase match {
         case "dwc" => {
-          println("Darwin core headed CSV loading")
+          logger.info("Darwin core headed CSV loading")
           val l = new DwcCSVLoader
           l.load(dataResourceUid, false,test,forceLoad)
         }
         case "dwca" => {
-          println("Darwin core archive loading")
+          logger.info("Darwin core archive loading")
           val l = new DwCALoader
           l.load(dataResourceUid, false,test,forceLoad)
         }
         case "digir" => {
-          println("digir webservice loading")
+          logger.info("digir webservice loading")
           val l = new DiGIRLoader
           if(!test)
             l.load(dataResourceUid)
@@ -129,7 +129,7 @@ class Loader extends DataLoader {
             println("TESTING is not supported for DiGIR")
         }
         case "flickr" => {
-          println("flickr webservice loading")
+          logger.info("flickr webservice loading")
           val l = new FlickrLoader
           if(!test)
             l.load(dataResourceUid, true)
@@ -137,7 +137,7 @@ class Loader extends DataLoader {
             println("TESTING is not supported for Flickr")
         }
         case "customwebservice" => {
-          println("custom webservice loading")
+          logger.info("custom webservice loading")
           if(!test){
             val className = customParams.getOrElse("classname", null)
             if (className == null) {
@@ -156,18 +156,18 @@ class Loader extends DataLoader {
           }
         }
         case "autofeed" => {
-          println("AutoFeed Darwin core headed CSV loading")
+          logger.info("AutoFeed Darwin core headed CSV loading")
           val l = new AutoDwcCSVLoader
           if(!test)
             l.load(dataResourceUid, forceLoad=forceLoad)
           else
-            println("TESTING is not supported for auto-feed")
+            logger.warn("TESTING is not supported for auto-feed")
         }
-        case _ => println("Protocol " + protocol + " currently unsupported.")
+        case _ => logger.warn("Protocol " + protocol + " currently unsupported.")
       }
     } catch {
       //NC 2013-05-10: Need to rethrow the exception to allow the tools to allow the tools to pick up on them.
-      case e: Exception => e.printStackTrace;throw e
+      case e: Exception => logger.error(e.getMessage(), e); throw e
     }
 
     if(test){
@@ -178,7 +178,7 @@ class Loader extends DataLoader {
   }
 
   def healthcheck = {
-    val json = Source.fromURL(Config.registryUrl+"/dataResource/harvesting.json").getLines.mkString
+    val json = Source.fromURL(Config.registryUrl + "/dataResource/harvesting", "UTF-8").getLines.mkString
     val drs = JSON.parseFull(json).get.asInstanceOf[List[Map[String, String]]]
     // UID, name, protocol, URL,
     val digirCache = new HashMap[String, Map[String, String]]()
@@ -193,9 +193,10 @@ class Loader extends DataLoader {
         val protocol = connParams.getOrElse("protocol", "").asInstanceOf[String].toLowerCase
 
         val urlsObject = connParams.getOrElse("url", List[String]())
-        val urls:Seq[String] = {
-          if(urlsObject.isInstanceOf[Seq[_]]) urlsObject.asInstanceOf[Seq[String]]
-          else List(connParams("url").asInstanceOf[String])
+        val urls:Seq[String] = if(urlsObject.isInstanceOf[Seq[_]]){
+          urlsObject.asInstanceOf[Seq[String]]
+        } else {
+          List(connParams("url").asInstanceOf[String])
         }
 
         urls.foreach(url => {

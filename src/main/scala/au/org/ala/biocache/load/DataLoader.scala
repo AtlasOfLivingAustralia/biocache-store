@@ -46,14 +46,14 @@ trait DataLoader {
   def deleteOldRowKeys(resourceUid:String){
     //delete the row key file so that it only exists if the load is configured to
     //thus processing and indexing of the data resource should check to see if a file exists first
-    FileUtils.deleteQuietly(new File("/data/tmp/row_key_"+resourceUid+".csv"))
+    FileUtils.deleteQuietly(new File(Config.tmpWorkDir + "/row_key_"+resourceUid+".csv"))
   }
 
   def getRowKeyWriter(resourceUid:String, writeRowKeys:Boolean):Option[java.io.Writer]={
     if(writeRowKeys){
-      FileUtils.forceMkdir(new File("/data/tmp/"))
+      FileUtils.forceMkdir(new File(Config.tmpWorkDir))
       //the file is deleted first so we set it up to append.  allows resources with multiple files to have row keys recorded
-      Some(new java.io.FileWriter("/data/tmp/row_key_"+resourceUid+".csv", true))
+      Some(new java.io.FileWriter(Config.tmpWorkDir + "/row_key_"+resourceUid+".csv", true))
     }
     else None
   }
@@ -70,23 +70,17 @@ trait DataLoader {
   }
 
   def getDataResourceDetailsAsMap(uid:String) : Map[String, String] = {
-    //FIXME workaround - collectory currently return ISO instead of UTF8
-    val json = Source.fromInputStream(new URL(Config.registryUrl + "/dataResource/" + uid).openStream())(io.Codec("ISO-8859-1")).mkString
-//    val json = Source.fromURL(Config.registryUrl + "/dataResource/" + uid, "UTF-8").mkString
+    val json = scala.io.Source.fromURL(Config.registryUrl + "/dataResource/" + uid, "UTF-8").getLines().mkString
     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
   }
 
   def getDataProviderDetailsAsMap(uid:String) : Map[String, String] = {
-    //FIXME workaround - collectory currently return ISO instead of UTF8
-    val json = Source.fromInputStream(new URL(Config.registryUrl + "/dataProvider/" + uid).openStream())(io.Codec("ISO-8859-1")).mkString
-//    val json = Source.fromURL(Config.registryUrl + "/dataProvider/" + uid, "UTF-8").mkString
+    val json = scala.io.Source.fromURL(Config.registryUrl + "/dataProvider/" + uid, "UTF-8").getLines().mkString
     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
   }
 
   def getInstitutionDetailsAsMap(uid:String) : Map[String, String] = {
-    //FIXME workaround - collectory currently return ISO instead of UTF8
-    val json = Source.fromInputStream(new URL(Config.registryUrl + "/institution/" + uid).openStream())(io.Codec("ISO-8859-1")).mkString
-//    val json = Source.fromURL(Config.registryUrl + "/institution/" + uid, "UTF-8").mkString
+    val json = scala.io.Source.fromURL(Config.registryUrl + "/institution/" + uid, "UTF-8").getLines().mkString
     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
   }
 
@@ -192,14 +186,17 @@ trait DataLoader {
       val filesToImport = fr.occurrence.associatedMedia.split(";")
       val associatedMediaBuffer = new ArrayBuffer[String]
       filesToImport.foreach(fileToStore => {
-        val (filePath, exists) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
+        val (filePathOrId, exists) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
         if (!exists){
           val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore)
           logger.info("Media file stored to: " + savedTo.getOrElse("**** not available ****"))
+          if(savedTo.nonEmpty){
+            associatedMediaBuffer += savedTo.getOrElse("")
+          }
         } else {
-          logger.info("Media file already stored: " + filePath)
+          logger.info("Media file already stored: " + filePathOrId)
+          associatedMediaBuffer += filePathOrId
         }
-        associatedMediaBuffer += filePath
       })
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")
     }

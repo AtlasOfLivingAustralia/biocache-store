@@ -12,6 +12,7 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.{TagsToDwc, DwC}
+import org.slf4j.LoggerFactory
 
 object FlickrUserLoader extends DataLoader {
   def main(args: Array[String]) {
@@ -44,6 +45,8 @@ object FlickrUserLoader extends DataLoader {
 }
 
 object FlickrLoader extends DataLoader {
+
+  override val logger = LoggerFactory.getLogger("FlickrLoader")
 
   def main(args: Array[String]) {
 
@@ -91,7 +94,7 @@ object FlickrLoader extends DataLoader {
           None
         }
       }
-      println(lastUpdatedDate.get.getTime)
+      logger.info("Last updated date: " + lastUpdatedDate.get.getTime)
       if(lastMonth){
         val today = new Date
         val monthAgo = DateUtils.addMonths(today, -1)
@@ -126,7 +129,7 @@ class FlickrLoader extends DataLoader {
    */
   def retrieveLicenceMap(connectParams:Map[String,String]) : Map[String,FlickrLicence] = {
     val infoPage = makeGetLicencesUrl(connectParams)
-    val xml = XML.loadString(scala.io.Source.fromURL(infoPage).mkString)
+    val xml = XML.loadString(scala.io.Source.fromURL(infoPage, "UTF-8").mkString)
     (xml \\ "license").map(el => {
       val id = el.attribute("id").get.text
       val name = el.attribute("name").get.text
@@ -152,7 +155,7 @@ class FlickrLoader extends DataLoader {
     try {
       val mapBuff = new mutable.HashMap[String,String]
       //retrieve from properties
-      val userListJson = scala.io.Source.fromURL(Config.flickrUsersUrl).getLines().mkString
+      val userListJson = scala.io.Source.fromURL(Config.flickrUsersUrl, "UTF-8").getLines().mkString
       //convert to flickrId -> alaID map.....
       val userArray:Seq[Map[String,String]] =  JSON.parseFull(userListJson).get.asInstanceOf[Seq[Map[String, String]]]
       userArray.foreach(u => mapBuff.put(u.getOrElse("externalId",""), u.getOrElse("id","")))
@@ -314,7 +317,7 @@ class FlickrLoader extends DataLoader {
     logger.info(infoPage)
 
     val tagList = new ListBuffer[String]
-    val xml = XML.loadString(scala.io.Source.fromURL(infoPage).mkString.trim)
+    val xml = XML.loadString(scala.io.Source.fromURL(infoPage, "UTF-8").mkString.trim)
     //val listBuffer = new ListBuffer[String]
     //get the tags
     val tags = (xml \\ "tag").foreach(el => {
@@ -369,7 +372,7 @@ class FlickrLoader extends DataLoader {
     if(fr.occurrence.occurrenceDetails == null){
       //check the description for BHL link
       checkForBHLUrl(description) match {
-        case Some(url) =>  fr.occurrence.occurrenceDetails = url
+        case Some(url) => fr.occurrence.occurrenceDetails = url
         case None =>
       }
     }
@@ -480,7 +483,7 @@ class FlickrLoader extends DataLoader {
     val firstUrl = makeSearchUrl(connectParams, minUpdateDate, maxUpdateDate, 0, lastUpdatedDate.isDefined)
     logger.info(firstUrl)
     logger.debug(scala.io.Source.fromURL(firstUrl).mkString)
-    val xml = XML.loadString(scala.io.Source.fromURL(firstUrl).mkString)
+    val xml = XML.loadString(scala.io.Source.fromURL(firstUrl, "UTF-8").mkString)
     val pages = ((xml \\ "photos")(0) \ "@pages").toString.toInt
 
     val photoIds = {
@@ -499,8 +502,8 @@ class FlickrLoader extends DataLoader {
 
     val firstUrl = makeSearchUrl(connectParams, 0, lastUpdatedDate.isDefined)
     logger.info(firstUrl)
-    logger.debug(scala.io.Source.fromURL(firstUrl).mkString)
-    val xml = XML.loadString(scala.io.Source.fromURL(firstUrl).mkString)
+    logger.debug(scala.io.Source.fromURL(firstUrl, "UTF-8").mkString)
+    val xml = XML.loadString(scala.io.Source.fromURL(firstUrl, "UTF-8").mkString)
     val pages = ((xml \\ "photos")(0) \ "@pages").toString.toInt
 
     val photoIds = {
@@ -518,13 +521,13 @@ class FlickrLoader extends DataLoader {
 
   def retrieveBatch(connectParams: Map[String, String], pageNo: Int, lastUpdatedDate:Option[Date]): List[String] = {
     val urlToSearch = makeSearchUrl(connectParams, pageNo, lastUpdatedDate.isDefined)
-    val xmlPage = XML.loadString(scala.io.Source.fromURL(urlToSearch).mkString)
+    val xmlPage = XML.loadString(scala.io.Source.fromURL(urlToSearch, "UTF-8").mkString)
     retrievePhotoIds(xmlPage, lastUpdatedDate)
   }
 
   def retrieveBatch(connectParams: Map[String, String], minUpdateDate: String, maxUpdateDate: String, pageNo: Int, lastUpdatedDate:Option[Date]): List[String] = {
     val urlToSearch = makeSearchUrl(connectParams, minUpdateDate, maxUpdateDate, pageNo, lastUpdatedDate.isDefined)
-    val xmlPage = XML.loadString(scala.io.Source.fromURL(urlToSearch).mkString)
+    val xmlPage = XML.loadString(scala.io.Source.fromURL(urlToSearch, "UTF-8").mkString)
     retrievePhotoIds(xmlPage, lastUpdatedDate)
   }
 

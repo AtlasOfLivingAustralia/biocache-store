@@ -12,7 +12,7 @@ import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import au.org.ala.biocache.persistence.{PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
 import au.org.ala.biocache.vocab.StateProvinces
-import au.org.ala.biocache.load.LocalMediaStore
+import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
 
 /**
  * Simple singleton wrapper for Guice that reads from a properties file
@@ -44,12 +44,11 @@ object Config {
       LocalMediaStore
     } else {
       logger.info("Using remote media store")
-//      RemoteMediaStore
-      null
+      RemoteMediaStore
     }
   }
 
-  val remoteMediaStoreUrl = configModule.properties.getProperty("media.store.url", "http://images-dev.ala.org.au")
+  val remoteMediaStoreUrl = configModule.properties.getProperty("media.store.url", "http://10.1.1.2/images")
 
   //name index
   val nameIndex = getInstance(classOf[ALANameSearcher]).asInstanceOf[ALANameSearcher]

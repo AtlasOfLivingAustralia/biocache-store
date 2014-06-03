@@ -9,9 +9,15 @@ import com.sun.media.jai.codec.FileSeekableStream
 import java.awt.Image
 import java.awt.image.BufferedImage
 import au.org.ala.biocache.model.FullRecord
-import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.util.{Json, OptionParser}
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
+import org.apache.http.impl.client.DefaultHttpClient
+import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntity}
+import org.apache.http.entity.mime.content.{StringBody, FileBody}
+import org.apache.http.client.methods.HttpPost
+import scala.io.Source
+import org.apache.commons.lang3.StringUtils
 
 /**
  * Trait for Media stores to implement.
@@ -28,33 +34,28 @@ trait MediaStore {
   val soundExtension = Array(".wav", ".mp3", ".ogg", ".flac")
   val videoExtension = Array(".wmv", ".mp4", ".mpg", ".avi", ".mov")
 
-  val logger = LoggerFactory.getLogger("TraitMediaStore")
+  val logger = LoggerFactory.getLogger("MediaStore")
 
-  def isValidImageURL(url: String): Boolean = {
+  def isValidImageURL(url: String): Boolean =
     !imageParser.unapplySeq(url.trim.toLowerCase).isEmpty || isStoredMedia(imageExtension, url)
-  }
 
-  def isValidSoundURL(url: String): Boolean = {
+  def isValidSoundURL(url: String): Boolean =
     !soundParser.unapplySeq(url.trim.toLowerCase).isEmpty || isStoredMedia(soundExtension, url)
-  }
 
-  def isValidVideoURL(url: String): Boolean = {
+  def isValidVideoURL(url: String): Boolean =
     !videoParser.unapplySeq(url.trim.toLowerCase).isEmpty || isStoredMedia(videoExtension, url)
-  }
 
-  def isMediaFile(file:File): Boolean ={
+  def isMediaFile(file:File): Boolean = {
     val name = file.getAbsolutePath()
-    endsWithOneOf(imageExtension,name)||endsWithOneOf(soundExtension,name)||endsWithOneOf(videoExtension,name)
+    endsWithOneOf(imageExtension,name) || endsWithOneOf(soundExtension,name) || endsWithOneOf(videoExtension,name)
   }
 
-  def endsWithOneOf(acceptedExtensions: Array[String], url: String): Boolean = {
-    !(acceptedExtensions collectFirst {
-      case x if url.endsWith(x) => x
-    } isEmpty)
-  }
+  def endsWithOneOf(acceptedExtensions: Array[String], url: String): Boolean =
+    !(acceptedExtensions collectFirst { case x if url.endsWith(x) => x } isEmpty)
 
   /**
    * Test to see if the supplied file is already stored in the media store.
+   * Returns boolean indicating if stored, and string indicating location if stored.
    *
    * @param uuid
    * @param resourceUID
@@ -72,6 +73,10 @@ trait MediaStore {
    */
   def isAccessible(urlString: String): Boolean = {
 
+    if(StringUtils.isBlank(urlString)){
+      return false
+    }
+
     val urlToTest = if (urlString.startsWith(Config.mediaFileStore)){
       "file://" + urlString
     } else {
@@ -86,7 +91,7 @@ trait MediaStore {
       true
     } catch {
       case e:Exception => {
-        logger.debug("File isnt accessible: " + e.getMessage())
+        logger.debug("File with URI '" + urlString + "' is not accessible: " + e.getMessage())
         false
       }
     } finally {
@@ -118,31 +123,95 @@ trait MediaStore {
   protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean
 }
 
-//object RemoteMediaStore extends MediaStore {
-//
-//  override val logger = LoggerFactory.getLogger("RemoteMediaStore")
-//
-//  def save(uuid: String, resourceUID: String, urlToMedia: String): Option[String] = {
-//    logger.error("Not implemented yet")
-//    None
-//  }
-//
-//  def alternativeFormats(filePath: String): Array[String]={
-//    logger.error("Not implemented yet")
-//    Array[String]()
-//  }
-//
-//  protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean = {
-//    logger.error("Not implemented yet")
-//    false
-//  }
-//
-//  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) = logger.error("Not implemented yet")
-//
-//  def convertPathToUrl(str: String, baseUrlPath: String)
-//
-//  def convertPathToUrl(str: String)
-//}
+object RemoteMediaStore extends MediaStore {
+
+  override val logger = LoggerFactory.getLogger("RemoteMediaStore")
+
+  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (String, Boolean) = {
+    logger.warn("[alreadyStored] not implemented yet")
+
+
+
+
+    ("", false)
+  }
+
+  def save(uuid: String, resourceUID: String, urlToMedia: String): Option[String] = {
+
+    val tmpFile = File.createTempFile(resourceUID+ "/" + uuid, "")
+    val url = new java.net.URL(urlToMedia.replaceAll(" ", "%20"))
+    val in = url.openStream
+    val out = new FileOutputStream(tmpFile)
+    val buffer: Array[Byte] = new Array[Byte](1024)
+    var numRead = 0
+    while ( {
+      numRead = in.read(buffer)
+      numRead != -1
+    }) {
+      out.write(buffer, 0, numRead)
+      out.flush
+    }
+    in.close()
+    out.close()
+
+    uploadImage(uuid, resourceUID, "", tmpFile)
+  }
+
+  /**
+   * Uploads an image to the service and returns a ID for the image.
+   *
+   * @param fileToUpload
+   * @return
+   */
+  private def uploadImage(uuid:String, resourceUID:String, originalFileName:String, fileToUpload:File) : Option[String] = {
+    //upload an image
+    val httpClient = new DefaultHttpClient()
+    val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
+    val fileBody = new FileBody(fileToUpload, "image/jpeg")
+    entity.addPart("image", fileBody)
+    entity.addPart("metadata",
+      new StringBody(
+        Json.toJSON(
+          Map(
+            "occurrenceId" -> uuid,
+            "dataResourceUid" -> resourceUID,
+            "originalFileName" -> originalFileName
+          )
+        )
+      )
+    )
+
+    val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/uploadImage")
+    httpPost.setEntity(entity)
+    val response = httpClient.execute(httpPost)
+    val result = response.getStatusLine()
+    val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+    logger.info("Image service response code: " + result.getStatusCode)
+
+    val map = Json.toMap(responseBody)
+    logger.info("Image ID: " + map.getOrElse("imageId", ""))
+    map.get("imageId") match {
+      case Some(o) => Some(o.toString())
+      case None => None
+    }
+  }
+
+  def alternativeFormats(filePath: String): Array[String]={
+    logger.error("[alternativeFormats] Not implemented yet")
+    Array[String]()
+  }
+
+  protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean = {
+    logger.error("[isStoredMedia] Not implemented yet")
+    false
+  }
+
+  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) = logger.error("[convertPathsToUrls] Not implemented yet")
+
+  def convertPathToUrl(str: String, baseUrlPath: String) = "BAD"
+
+  def convertPathToUrl(str: String) = "BAD"
+}
 
 /**
  * A file store for media files that uses the local filesystem.
