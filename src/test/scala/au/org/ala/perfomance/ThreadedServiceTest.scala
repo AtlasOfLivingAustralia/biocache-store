@@ -16,9 +16,9 @@ package au.org.ala.perfomance
 
 import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
 import java.util.concurrent.ArrayBlockingQueue
-import io.Source
 import au.org.ala.biocache.util.{StringConsumer, OptionParser, FileHelper}
 import org.junit.Ignore
+import scala.io.Source
 
 /**
  * Will perform GET operations on the supplied number of threads.  The URLs for the get operations will be
@@ -48,10 +48,9 @@ object ThreadedServiceTest {
         val id = ids
         val p = new StringConsumer(queue,ids,{url =>
           counter +=1
-          try{
-          Source.fromURL(url)
-          }
-          catch{
+          try {
+            Source.fromURL(url)
+          } catch {
             case e:Exception => error+=1;println(e.getMessage)
           }
           //debug counter

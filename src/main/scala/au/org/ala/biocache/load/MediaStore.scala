@@ -9,7 +9,7 @@ import com.sun.media.jai.codec.FileSeekableStream
 import java.awt.Image
 import java.awt.image.BufferedImage
 import au.org.ala.biocache.model.FullRecord
-import au.org.ala.biocache.util.{Json, OptionParser}
+import au.org.ala.biocache.util.{HttpUtil, Json, OptionParser}
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
 import org.apache.http.impl.client.DefaultHttpClient
@@ -18,6 +18,9 @@ import org.apache.http.entity.mime.content.{StringBody, FileBody}
 import org.apache.http.client.methods.HttpPost
 import scala.io.Source
 import org.apache.commons.lang3.StringUtils
+import scala.util.parsing.json.JSON
+import com.jayway.jsonpath.JsonPath
+import net.minidev.json.JSONArray
 
 /**
  * Trait for Media stores to implement.
@@ -52,6 +55,21 @@ trait MediaStore {
 
   def endsWithOneOf(acceptedExtensions: Array[String], url: String): Boolean =
     !(acceptedExtensions collectFirst { case x if url.endsWith(x) => x } isEmpty)
+
+
+  protected def extractFileName(urlToMedia: String): String = {
+    if (urlToMedia.contains("fileName=")) {
+      //HACK for CS URLs which dont make for nice file names
+      urlToMedia.substring(urlToMedia.indexOf("fileName=") + "fileName=".length).replace(" ", "_")
+    } else if (urlToMedia.contains("?id=") && urlToMedia.contains("imgType=")) {
+      // HACK for Morphbank URLs which don't make nice file names
+      urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace("?id=", "").replace("&imgType=", ".")
+    } else if (urlToMedia.lastIndexOf("/") == urlToMedia.length - 1) {
+      "raw"
+    } else {
+      urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace(" ", "_")
+    }
+  }
 
   /**
    * Test to see if the supplied file is already stored in the media store.
@@ -123,22 +141,77 @@ trait MediaStore {
   protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean
 }
 
+/**
+ * A media store than provides the integration with the image service.
+ *
+ * https://code.google.com/p/ala-images/
+ */
 object RemoteMediaStore extends MediaStore {
 
   override val logger = LoggerFactory.getLogger("RemoteMediaStore")
 
+  /**
+   * Calls the remote service to retrieve an identifier for the media.
+   *
+   * @param uuid
+   * @param resourceUID
+   * @param urlToMedia
+   * @return
+   */
   def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (String, Boolean) = {
-    logger.warn("[alreadyStored] not implemented yet")
 
+    //check image store for the supplied resourceUID/UUID/Filename combination
+    //http://images.ala.org.au/ws/findImagesByOriginalFilename?
+    // filenames=http://biocache.ala.org.au/biocache-media/dr836/29790/1b6c48ab-0c11-4d2e-835e-85d016f335eb/PWCnSmwl.jpeg
 
+    val jsonToPost = Json.toJSON(Map("filenames" -> Array(constructFileID(resourceUID, uuid, urlToMedia))))
 
+    logger.info(jsonToPost)
 
-    ("", false)
+    val (code, body) = HttpUtil.postBody(
+      Config.remoteMediaStoreUrl + "/ws/findImagesByOriginalFilename",
+      "application/json",
+      jsonToPost
+    )
+
+    if(code == 200){
+      try {
+        val jsonPath = JsonPath.compile("$..imageId")
+        val idArray = jsonPath.read(body).asInstanceOf[JSONArray]
+        if(idArray.isEmpty) {
+          ("", false)
+        } else if (idArray.size() == 0) {
+          ("", false)
+        } else {
+          val imageId = idArray.get(0)
+          logger.info(s"Image $urlToMedia already stored here: " + Config.remoteMediaStoreUrl + imageId )
+          (imageId.toString(), true)
+        }
+      } catch {
+        case e:Exception => {
+          logger.debug(e.getMessage, e)
+          ("", false)
+        }
+      }
+    } else {
+      ("", false)
+    }
   }
 
+  protected def constructFileID(resourceUID: String, uuid: String, urlToMedia: String) =
+    resourceUID + "||" + uuid + "||" + extractFileName(urlToMedia)
+
+  /**
+   * Save the supplied media to the remote store.
+   *
+   * @param uuid
+   * @param resourceUID
+   * @param urlToMedia
+   * @return
+   */
   def save(uuid: String, resourceUID: String, urlToMedia: String): Option[String] = {
 
-    val tmpFile = File.createTempFile(resourceUID+ "/" + uuid, "")
+    val tmpFile = new File(Config.tmpWorkDir + File.separator + constructFileID(resourceUID, uuid, urlToMedia))
     val url = new java.net.URL(urlToMedia.replaceAll(" ", "%20"))
     val in = url.openStream
     val out = new FileOutputStream(tmpFile)
@@ -153,8 +226,11 @@ object RemoteMediaStore extends MediaStore {
     }
     in.close()
     out.close()
-
-    uploadImage(uuid, resourceUID, "", tmpFile)
+    try {
+      uploadImage(uuid, resourceUID, urlToMedia, tmpFile)
+    } finally {
+      FileUtils.forceDelete(tmpFile)
+    }
   }
 
   /**
@@ -163,7 +239,7 @@ object RemoteMediaStore extends MediaStore {
    * @param fileToUpload
    * @return
    */
-  private def uploadImage(uuid:String, resourceUID:String, originalFileName:String, fileToUpload:File) : Option[String] = {
+  private def uploadImage(uuid:String, resourceUID:String, urlToMedia:String, fileToUpload:File) : Option[String] = {
     //upload an image
     val httpClient = new DefaultHttpClient()
     val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
@@ -175,7 +251,8 @@ object RemoteMediaStore extends MediaStore {
           Map(
             "occurrenceId" -> uuid,
             "dataResourceUid" -> resourceUID,
-            "originalFileName" -> originalFileName
+            "originalFileName" -> extractFileName(urlToMedia),
+            "fullOriginalUrl" -> urlToMedia
           )
         )
       )
@@ -201,16 +278,15 @@ object RemoteMediaStore extends MediaStore {
     Array[String]()
   }
 
-  protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean = {
-    logger.error("[isStoredMedia] Not implemented yet")
-    false
-  }
+  protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean =
+    url.startsWith(Config.remoteMediaStoreUrl)
 
-  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) = logger.error("[convertPathsToUrls] Not implemented yet")
+  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) =
+    logger.error("[convertPathsToUrls] Not implemented yet")
 
-  def convertPathToUrl(str: String, baseUrlPath: String) = "BAD"
+  def convertPathToUrl(str: String, baseUrlPath: String) = Config.remoteMediaStoreUrl + str
 
-  def convertPathToUrl(str: String) = "BAD"
+  def convertPathToUrl(str: String) = Config.remoteMediaStoreUrl + str
 }
 
 /**
@@ -222,8 +298,17 @@ object LocalMediaStore extends MediaStore {
 
   override val logger = LoggerFactory.getLogger("LocalMediaStore")
 
+  /** Some unix filesystems has a limit of 32k files per directory */
   val limit = 32000
 
+  /**
+   * Returns true if the supplied url looks like a path to an image stored in the media
+   * file store and ends with one of the accepted extensions.
+   *
+   * @param acceptedExtensions
+   * @param url
+   * @return
+   */
   protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean = {
     ( url.startsWith(Config.mediaFileStore) || url.startsWith("file:///" + Config.mediaFileStore) ) && endsWithOneOf(acceptedExtensions, url.toLowerCase)
   }
@@ -255,20 +340,7 @@ object LocalMediaStore extends MediaStore {
     val directory = new File(absoluteDirectoryPath)
     if (!directory.exists) FileUtils.forceMkdir(directory)
 
-    val fileName = {
-      if (urlToMedia.contains("fileName=")) {
-        //HACK for CS URLs which dont make for nice file names
-        urlToMedia.substring(urlToMedia.indexOf("fileName=") + "fileName=".length).replace(" ", "_")
-      } else if (urlToMedia.contains("?id=") && urlToMedia.contains("imgType=")) {
-        // HACK for Morphbank URLs which don't make nice file names
-        urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace("?id=", "").replace("&imgType=", ".")
-      } else if (urlToMedia.lastIndexOf("/") == urlToMedia.length - 1) {
-        "raw"
-      } else {
-        urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace(" ", "_")
-      }
-    }
-    directory.getAbsolutePath + File.separator + fileName
+    directory.getAbsolutePath + File.separator + extractFileName(urlToMedia)
   }
 
   /**

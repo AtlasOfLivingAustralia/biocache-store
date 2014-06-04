@@ -99,17 +99,21 @@ class Occurrence extends Cloneable with POSO {
   */
   @BeanProperty var duplicationStatus:String =_
   @BeanProperty var duplicationType:Array[String] =_
+
   //Store the conservation status
-  //FIXME these should actually be on the classification object
+  //austConservation = national conservation status.
+  //FIXME These should be removed and just accessed at index time from list tool.
   @BeanProperty var austConservation:String = _
   @BeanProperty var stateConservation:String = _
+
   //Store the original values before the SDS changes
   var originalSensitiveValues:Map[String,String] =_
-  @BeanProperty var outlierForLayers:Array[String] = _
 
+  @BeanProperty var outlierForLayers:Array[String] = _
   @BeanProperty var photographer:String =_
 
    @JsonIgnore
   def getOriginalSensitiveValues():Map[String,String] = originalSensitiveValues
-  def setOriginalSensitiveValues(originalSensitiveValues:Map[String,String])=this.originalSensitiveValues = originalSensitiveValues
+
+  def setOriginalSensitiveValues(originalSensitiveValues:Map[String,String]) = this.originalSensitiveValues = originalSensitiveValues
 }
