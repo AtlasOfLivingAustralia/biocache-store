@@ -9,8 +9,8 @@ import com.sun.media.jai.codec.FileSeekableStream
 import java.awt.Image
 import java.awt.image.BufferedImage
 import au.org.ala.biocache.model.FullRecord
-import au.org.ala.biocache.util.{HttpUtil, Json, OptionParser}
-import au.org.ala.biocache.Config
+import au.org.ala.biocache.util.{ HttpUtil, Json, OptionParser}
+import au.org.ala.biocache.{Store, Config}
 import au.org.ala.biocache.cmd.Tool
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntity}
@@ -22,6 +22,7 @@ import scala.util.parsing.json.JSON
 import com.jayway.jsonpath.JsonPath
 import net.minidev.json.JSONArray
 import java.util
+import javax.activation.MimeType
 
 /**
  * Trait for Media stores to implement.
@@ -48,7 +49,7 @@ trait MediaStore {
   def isValidSound(filename: String) = endsWithOneOf(soundExtension, filename)
   def isValidVideo(filename: String) = endsWithOneOf(videoExtension, filename)
 
-  def getFormats(filenameOrID:String) : java.util.Map[String, String]
+  def getImageFormats(filenameOrID:String) : java.util.Map[String, String]
 
   def isMediaFile(file:File): Boolean = {
     val name = file.getAbsolutePath()
@@ -134,7 +135,7 @@ trait MediaStore {
    */
   def save(uuid: String, resourceUID: String, urlToMedia: String): Option[(String, String)]
 
-  def alternativeFormats(filePath: String): Array[String]
+  def getSoundFormats(filePath: String): java.util.Map[String, String]
 
   def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) : Unit
 
@@ -152,9 +153,10 @@ trait MediaStore {
  */
 object RemoteMediaStore extends MediaStore {
 
+  import scala.collection.JavaConversions._
   override val logger = LoggerFactory.getLogger("RemoteMediaStore")
 
-  def getFormats(imageId:String) : java.util.Map[String, String] = {
+  def getImageFormats(imageId:String) : java.util.Map[String, String] = {
     val map = new util.HashMap[String,String]
     map.put("thumb", Config.remoteMediaStoreUrl + "/image/proxyImageThumbnail?imageId=" + imageId)
     map.put("small", Config.remoteMediaStoreUrl + "/image/proxyImageThumbnail?imageId=" + imageId)
@@ -291,9 +293,10 @@ object RemoteMediaStore extends MediaStore {
     }
   }
 
-  def alternativeFormats(filePath: String): Array[String]={
-    logger.error("[alternativeFormats] Not implemented yet")
-    Array[String]()
+  def getSoundFormats(mediaID: String): java.util.Map[String,String]= {
+    val formats = new java.util.HashMap[String, String]()
+    formats.put("audio/mpeg", Config.remoteMediaStoreUrl +  "/image/proxyImage?imageId=" + mediaID )
+    formats
   }
 
   def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) = if (fullRecord.occurrence.images != null) {
@@ -314,10 +317,12 @@ object LocalMediaStore extends MediaStore {
 
   override val logger = LoggerFactory.getLogger("LocalMediaStore")
 
+  import scala.collection.JavaConversions._
+
   /** Some unix filesystems has a limit of 32k files per directory */
   val limit = 32000
 
-  def getFormats(fileName:String) : java.util.Map[String, String] = {
+  def getImageFormats(fileName:String) : java.util.Map[String, String] = {
     val url = convertPathToUrl(fileName)
     val extension = url.substring(url.lastIndexOf("."))
     val map = new util.HashMap[String,String]
@@ -413,15 +418,27 @@ object LocalMediaStore extends MediaStore {
     }
   }
 
-  def alternativeFormats(filePath: String): Array[String] = {
+  val extensionToMimeTypes = Map(
+    "mp3" -> "audio/mpeg",
+    "ogg" ->  "audio/ogg"
+  )
+
+
+  def getSoundFormats(filePath: String): java.util.Map[String, String] = {
+    val formats = new java.util.HashMap[String, String]()
     val file = new File(filePath)
     file.exists match {
       case true => {
         val filenames = file.getParentFile.list(new SameNameDifferentExtensionFilter(filePath))
-        filenames.map(f => file.getParent + File.separator + f)
+        filenames.foreach(f => {
+          val extension = FilenameUtils.getExtension(f).toLowerCase()
+          val mimeType = extensionToMimeTypes.getOrElse(extension, "")
+          formats.put(mimeType,convertPathToUrl(file.getParent + File.separator + f))
+        })
       }
       case false => Array()
     }
+    formats
   }
 }
 

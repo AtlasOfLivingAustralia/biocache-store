@@ -603,7 +603,7 @@ object Store {
       null
   }
 
-  def getAlternativeFormats(filePath:String): Array[String] = Config.mediaStore.alternativeFormats(filePath)
+  def getSoundFormats(filePath:String): java.util.Map[String, String] = Config.mediaStore.getSoundFormats(filePath)
 
   def getJackKnifeStatsFor(guid:String) : java.util.Map[String, JackKnifeStats] = outlierStatsDAO.getJackKnifeStatsFor(guid)
 
