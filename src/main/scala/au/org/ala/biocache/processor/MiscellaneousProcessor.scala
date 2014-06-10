@@ -30,7 +30,7 @@ class MiscellaneousProcessor extends Processor {
 
   def processMiscOccurrence(raw:FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
     if(StringUtils.isBlank(raw.occurrence.catalogNumber)){
-      assertions += QualityAssertion(AssertionCodes.MISSING_CATALOGUENUMBER,"No catalogue number provided")
+      assertions += QualityAssertion(AssertionCodes.MISSING_CATALOGUENUMBER, "No catalogue number provided")
     } else {
       assertions += QualityAssertion(AssertionCodes.MISSING_CATALOGUENUMBER, 1)
     }
@@ -134,18 +134,32 @@ class MiscellaneousProcessor extends Processor {
    */
   def processImages(guid: String, raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) = {
     val urls = raw.occurrence.associatedMedia
-    // val matchedGroups = groups.collect{case sg: SpeciesGroup if sg.values.contains(cl.getter(sg.rank)) => sg.name}
-    if (urls != null) {
-      val aurls = urls.split(";").map(url => url.trim)
-      processed.occurrence.images = aurls.filter(url => Config.mediaStore.isValidImageURL(url) && Config.mediaStore.isAccessible(url))
-      processed.occurrence.sounds = aurls.filter(url => Config.mediaStore.isValidSoundURL(url) && Config.mediaStore.isAccessible(url))
-      processed.occurrence.videos = aurls.filter(url => Config.mediaStore.isValidVideoURL(url) && Config.mediaStore.isAccessible(url))
+//    // val matchedGroups = groups.collect{case sg: SpeciesGroup if sg.values.contains(cl.getter(sg.rank)) => sg.name}
+//    if (urls != null) {
+//      val aurls = urls.split(";").map(url => url.trim)
+//      processed.occurrence.images = aurls.filter(url => Config.mediaStore.isValidAccessibleImageURL(url))
+//      processed.occurrence.sounds = aurls.filter(url => Config.mediaStore.isValidAccessibleSoundURL(url))
+//      processed.occurrence.videos = aurls.filter(url => Config.mediaStore.isValidAccessibleVideoURL(url))
+//
+//      if (aurls.length != (processed.occurrence.images.length + processed.occurrence.sounds.length + processed.occurrence.videos.length))
+//        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL, "URL refers to an invalid file.")
+//      else
+//        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL,1)
+//    }
 
-      if (aurls.length != (processed.occurrence.images.length + processed.occurrence.sounds.length + processed.occurrence.videos.length))
-        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL, "URL refers to an invalid file.")
-      else
-        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL,1)
-    }
+//    val urls = raw.occurrence.associatedMedia
+//    // val matchedGroups = groups.collect{case sg: SpeciesGroup if sg.values.contains(cl.getter(sg.rank)) => sg.name}
+//    if (urls != null) {
+//      val aurls = urls.split(";").map(url => url.trim)
+      processed.occurrence.images = raw.occurrence.images
+      processed.occurrence.sounds = raw.occurrence.sounds
+      processed.occurrence.videos = raw.occurrence.videos
+//
+//      if (aurls.length != (processed.occurrence.images.length + processed.occurrence.sounds.length + processed.occurrence.videos.length))
+//        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL, "URL refers to an invalid file.")
+//      else
+//        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL,1)
+//    }
   }
 
   def getName = "image"

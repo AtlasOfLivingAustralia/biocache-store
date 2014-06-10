@@ -14,6 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 import scalaj.http.Http
 import au.org.ala.biocache.model.FullRecord
 import java.net.URL
+import scala.collection.mutable
 
 /**
  * A trait with utility code for loading data
@@ -118,8 +119,8 @@ trait DataLoader {
     (protocol, urls.asInstanceOf[List[String]], uniqueTerms, map("connectionParameters").asInstanceOf[Map[String,String]], customParams,dateLastChecked)
   }
 
-  def mapConceptTerms(terms: List[String]): List[org.gbif.dwc.terms.ConceptTerm] = {
-    val termFactory = new TermFactory
+  def mapConceptTerms(terms: List[String]): List[org.gbif.dwc.terms.Term] = {
+    val termFactory = TermFactory.instance()
     terms.map(term => termFactory.findTerm(term))
   }
 
@@ -184,21 +185,41 @@ trait DataLoader {
     //download the media - checking if it exists already
     if (fr.occurrence.associatedMedia != null){
       val filesToImport = fr.occurrence.associatedMedia.split(";")
-      val associatedMediaBuffer = new ArrayBuffer[String]
+
+      val fileNameToID = new mutable.HashMap[String, String]()
+
       filesToImport.foreach(fileToStore => {
-        val (filePathOrId, exists) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
-        if (!exists){
+
+        val (exists, filename, filePathOrId) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
+
+        if (exists){
+          logger.info("Media file already stored: " + filePathOrId)
+          fileNameToID.put(filename, filePathOrId)
+        } else {
           val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore)
           logger.info("Media file stored to: " + savedTo.getOrElse("**** not available ****"))
-          if(savedTo.nonEmpty){
-            associatedMediaBuffer += savedTo.getOrElse("")
+          savedTo match {
+            case Some((savedFilename, savedFilePathOrId)) => fileNameToID.put(savedFilename, savedFilePathOrId)
           }
-        } else {
-          logger.info("Media file already stored: " + filePathOrId)
-          associatedMediaBuffer += filePathOrId
         }
       })
+
+      val associatedMediaBuffer = new ArrayBuffer[String]
+      val imagesBuffer = new ArrayBuffer[String]
+      val soundsBuffer = new ArrayBuffer[String]
+      val videosBuffer = new ArrayBuffer[String]
+
+      fileNameToID.foreach({case(filename, filePathOrID) => {
+        if(Config.mediaStore.isValidImage(filename)) imagesBuffer += filePathOrID
+        if(Config.mediaStore.isValidSound(filename)) soundsBuffer += filePathOrID
+        if(Config.mediaStore.isValidVideo(filename)) videosBuffer += filePathOrID
+        associatedMediaBuffer += filename
+      }})
+
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")
+      fr.occurrence.images = imagesBuffer.toArray
+      fr.occurrence.sounds = soundsBuffer.toArray
+      fr.occurrence.videos = videosBuffer.toArray
     }
 
     Config.occurrenceDAO.addRawOccurrence(fr)
@@ -298,7 +319,7 @@ trait DataLoader {
     val urlConnection = new java.net.URL(url.replaceAll(" " ,"%20")).openConnection()
     val date = if(urlConnection.getLastModified() == 0) new Date() else new Date(urlConnection.getLastModified())
     //logger.info("URL Last Modified: " +urlConnection.getLastModified())
-    if(afterDate.isEmpty || urlConnection.getLastModified() ==0 || afterDate.get.getTime() < urlConnection.getLastModified()){
+    if(afterDate.isEmpty || urlConnection.getLastModified() == 0 || afterDate.get.getTime() < urlConnection.getLastModified()){
       //handle the situation where the files name is not supplied in the URL but in the Content-Disposition
       val contentDisp = urlConnection.getHeaderField("Content-Disposition")
       if(contentDisp != null){

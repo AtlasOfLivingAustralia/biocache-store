@@ -168,6 +168,9 @@ object CMD2 {
     ReverseJacknifeProcessor,
     Thumbnailer,
     BulkProcessor,
-    ValidationRuleRunner
+    ValidationRuleRunner,
+    MigrateMedia,
+    LoadMediaReferences,
+    CopyDataNewColumn
   ).sortBy(_.cmd)
 }

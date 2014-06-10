@@ -18,9 +18,9 @@ object TaxonSpeciesListDAO {
 
   val logger = LoggerFactory.getLogger("TaxonSpeciesListDAO")
 
-  def listToolUrl = "http://lists.ala.org.au/ws/species/"
+  def listToolUrl = Config.listToolUrl + "/species/"
 
-  val guidUrl = "http://lists.ala.org.au/ws/speciesList/{0}/taxa"
+  val guidUrl = Config.listToolUrl + "/speciesList/{0}/taxa"
 
   private val lru = new org.apache.commons.collections.map.LRUMap(100000)
   private val lock : AnyRef = new Object()

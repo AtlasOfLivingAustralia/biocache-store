@@ -135,7 +135,7 @@ object ProcessRecords extends Tool with IncrementalTool {
   def processRecords(file:File, threads: Int, startUuid:Option[String]) : Unit = {
     var ids = 0
     val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids); ids +=1; p.start }
-    logger.info("Starting to process a list of records...");
+    logger.info("Starting to process a list of records...")
     val start = System.currentTimeMillis
     val startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -144,7 +144,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     var batches = 0
     var count = 0
     //val processor = new RecordProcessor
-    logger.info("Initialised actors...")
+    logger.debug("Initialised actors...")
     file.foreachLine(line => {
         count += 1
         if(startUuid.isEmpty || startUuid.get == line) {
@@ -225,7 +225,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
 
-    logger.info("Initialised actors...")
+    logger.debug("Initialised actors...")
 
     var count = 0
     var guid = "";
@@ -298,7 +298,7 @@ class Consumer (master:Actor,val id:Int)  extends Actor  {
 
   val logger = LoggerFactory.getLogger("Consumer")
 
-  logger.info("Initialising thread: " + id)
+  logger.debug("Initialising thread: " + id)
   val processor = new RecordProcessor
   val occurrenceDAO = Config.occurrenceDAO
   var received, processedRecords = 0
@@ -318,7 +318,7 @@ class Consumer (master:Actor,val id:Int)  extends Actor  {
         case batch:Array[(FullRecord,FullRecord)] => {
           received += 1
           //for((raw,processed) <- batch) { processor.processRecord(raw, processed) }
-          batch.foreach({case (raw, processed) =>
+          batch.foreach({ case (raw, processed) =>
             var retries = 0
             var processedOK = false
             while(!processedOK && retries<6){
@@ -354,7 +354,7 @@ class Consumer (master:Actor,val id:Int)  extends Actor  {
         }
         case s:String => {
           if(s == "exit"){
-            logger.info("Killing (Actor.act) thread: "+id)
+            logger.debug("Killing (Actor.act) thread: "+id)
             exit()
           }
         }

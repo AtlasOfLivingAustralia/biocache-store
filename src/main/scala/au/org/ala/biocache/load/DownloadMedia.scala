@@ -38,8 +38,9 @@ object DownloadMedia extends Tool {
     imageUrls.foreach(imageUrl => {
       //download it, store it update processed
       try {
-        val path = Config.mediaStore.save(raw.uuid, raw.attribution.dataResourceUid, imageUrl)
-        mediaStorePaths ++= path
+        Config.mediaStore.save(raw.uuid, raw.attribution.dataResourceUid, imageUrl) match {
+          case Some((filename, filepath)) => mediaStorePaths += filepath
+        }
       } catch {
         case e: Exception => println("Problem downloading from URL: " + imageUrl)
       }

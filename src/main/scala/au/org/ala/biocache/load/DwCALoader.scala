@@ -2,16 +2,16 @@ package au.org.ala.biocache.load
 
 import java.io._
 import org.gbif.dwc.text.{StarRecord, ArchiveFactory}
-import org.gbif.dwc.terms.DwcTerm
 import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache._
-import org.gbif.dwc.terms.ConceptTerm
+import org.gbif.dwc.terms.Term
 import scala.collection.mutable.ListBuffer
-import scala.collection.JavaConversions
+import scala.collection.{mutable, JavaConversions}
 import org.apache.commons.lang3.StringUtils
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.model.{Raw, FullRecord}
 import au.org.ala.biocache.vocab.DwC
+import scala.Some
 
 /**
  * Loading utility for pulling in a darwin core archive file.
@@ -88,9 +88,10 @@ class DwCALoader extends DataLoader {
     var maxLastModifiedDate:java.util.Date = null
     urls.foreach(url => {
       //download
-      val (fileName,date) = downloadArchive(url,resourceUid,if(forceLoad)None else lastChecked)
-      if(maxLastModifiedDate == null || date.after(maxLastModifiedDate))
+      val (fileName,date) = downloadArchive(url,resourceUid, if(forceLoad) None else lastChecked)
+      if(maxLastModifiedDate == null || date.after(maxLastModifiedDate)){
         maxLastModifiedDate = date
+      }
       logger.info("File last modified date: " + maxLastModifiedDate)
       if(fileName != null){
         //load the DWC file
@@ -114,40 +115,70 @@ class DwCALoader extends DataLoader {
     loadArchive(fileName, resourceUid, conceptTerms, strip, logRowKeys, testFile)
   }
 
-  def getUuid(uniqueID:Option[String], star:StarRecord,uniqueTerms:List[ConceptTerm], mappedProperties:Option[Map[String,String]]) :((String, Boolean),Option[Map[String,String]])={
+  def getUuid(uniqueID:Option[String], star:StarRecord, uniqueTerms:List[Term], mappedProperties:Option[Map[String,String]]) :((String, Boolean),Option[Map[String,String]])={
     uniqueID match {
       case Some(value) => (Config.occurrenceDAO.createOrRetrieveUuid(value),mappedProperties)
       case None => ((Config.occurrenceDAO.createUuid, true), mappedProperties)
     }
   }
 
-  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:List[ConceptTerm], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean){
-    println("Loading archive " + fileName + " for resource " + resourceUid + " with unique terms " + uniqueTerms + " stripping spaces " + stripSpaces + " incremental " + logRowKeys + " testing " + testFile)
+  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:List[Term], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean){
+    logger.info(s"Loading archive $fileName " +
+      s"for resource $resourceUid " +
+      s"with unique terms $uniqueTerms " +
+      s"stripping spaces  $stripSpaces " +
+      s"incremental $logRowKeys  " +
+      s"testing $testFile")
+
     val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
     val archive = ArchiveFactory.openArchive(new File(fileName))
-    val iter = archive.iterator
-    val terms = DwcTerm.values
+    val iter = archive.iterator()
     var count = 0
-    var newCount=0
+    var newCount = 0
 
-    val fieldMap =archive.getCore().getFields()
-    val fieldShortName = fieldMap.keySet().toList
-    val biocacheModelValues = DwC.retrieveCanonicals(fieldShortName.map(_.simpleName))
-    val fieldToModelMap = (fieldShortName zip biocacheModelValues).toMap
+    val fieldMap = archive.getCore().getFields()
+//
+//    if(logger.isDebugEnabled){
+//      fieldMap.foreach({ case (term, field) =>
+//        logger.debug(s"Field Idx: " + field.getIndex()+ s", Field: " + field.getTerm().simpleName()) })
+//    }
+
+    val fieldShortNames = fieldMap.keySet().toList
+    val biocacheModelValues = DwC.retrieveCanonicals(fieldShortNames.map(_.simpleName))
+
+    //constructs a map of supplied field name -> biocache model property
+    val fieldToModelMap = (fieldShortNames zip biocacheModelValues).toMap
+
+    //constructs a map of supplied field IDX -> biocache model property
+    val fieldShortNameToIdxMap = new mutable.HashMap[Int, String]
+
+    fieldMap.foreach({ case (term, field) =>
+      val fieldIdx = field.getIndex()
+      DwC.matchTerm(term.simpleName) match {
+        case Some(matchedTerm) =>  fieldShortNameToIdxMap.put(fieldIdx, matchedTerm.canonical)
+        case None => //do nothing for now....
+      }
+    })
+
+    if(logger.isDebugEnabled){
+      fieldToModelMap.foreach({ case (dwcShortName, biocacheField) =>
+        logger.debug(s"dwcShortName: $dwcShortName , biocacheField: $biocacheField")
+
+      })
+    }
 
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     var currentBatch = new ArrayBuffer[FullRecord]
 
     val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+resourceUid, "institution_code",100).getOrElse(List()).toSet[String]
-
     val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+resourceUid, "collection_code",100).getOrElse(List()).toSet[String]
 
     logger.info("The current institution codes for the data resource: " + institutionCodes)
     logger.info("The current collection codes for the data resource: " + collectionCodes)
 
-    val newCollCodes=new scala.collection.mutable.HashSet[String]
-    val newInstCodes= new scala.collection.mutable.HashSet[String]
+    val newCollCodes = new scala.collection.mutable.HashSet[String]
+    val newInstCodes = new scala.collection.mutable.HashSet[String]
 
     while (iter.hasNext) {
 
@@ -161,7 +192,7 @@ class DwCALoader extends DataLoader {
         //create the unique ID
         if (!uniqueTerms.isEmpty) {
           val uniqueTermValues = uniqueTerms.map(t => star.core.value(t))
-          val id =(List(resourceUid) ::: uniqueTermValues).mkString("|").trim
+          val id = (List(resourceUid) ::: uniqueTermValues).mkString("|").trim
           Some(if(stripSpaces) id.replaceAll("\\s","") else id)
         } else {
           None
@@ -179,12 +210,33 @@ class DwCALoader extends DataLoader {
       //create a map of properties
       val fieldTuples = new ListBuffer[(String, String)]()
       //NEED to use the star iterator so that custom field types are available
-      fieldToModelMap.foreach(v=>{
-        val (src,model) = v
-        val property = star.core.value(src)
-        if(StringUtils.isNotBlank(property))
-          fieldTuples += (model -> property)
+//      fieldToModelMap.foreach(v => {
+//        val (src, model) = v
+//        val property = star.core.value(src)
+//        if(logger.isDebugEnabled){
+//           logger.debug(s"Mapped field: $model , value: $property")
+//        }
+//
+//        if(StringUtils.isNotBlank(property)) {
+//          fieldTuples += (model -> property)
+//        }
+//      })
+
+      fieldShortNameToIdxMap.foreach({ case (fieldIdx, modelProperty) =>
+        val property = star.core.column(fieldIdx)
+        if(logger.isDebugEnabled && StringUtils.isNotBlank(property)){
+          logger.debug(s"Mapped field: $modelProperty, fieldIdx: $fieldIdx, value: $property")
+        }
+
+        if(StringUtils.isNotBlank(property)) {
+          fieldTuples += (modelProperty -> property)
+        }
       })
+
+
+      if(logger.isDebugEnabled) {
+        fieldTuples.foreach({case(key, value) => logger.debug(s"Not blank fields: $key , value: $value")})
+      }
 
       //lookup the column
       val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID,star, uniqueTerms,None)
@@ -194,18 +246,25 @@ class DwCALoader extends DataLoader {
 
       //add the record uuid to the map
       fieldTuples += ("uuid" -> recordUuid)
-      //add the data resouce uid
-      fieldTuples += ("dataResourceUid"-> resourceUid)
+      //add the data resource uid
+      fieldTuples += ("dataResourceUid" -> resourceUid)
       //add last load time
-      fieldTuples += ("lastModifiedTime"-> loadTime)
+      fieldTuples += ("lastModifiedTime" -> loadTime)
       if(isNew){
-        fieldTuples += ("firstLoaded"-> loadTime)
+        fieldTuples += ("firstLoaded" -> loadTime)
         newCount +=1
       }
 
-      val rowKey = if(uniqueID.isEmpty) resourceUid + "|" + recordUuid else uniqueID.get
-      if(rowKeyWriter.isDefined)
-        rowKeyWriter.get.write(rowKey+"\n")
+      val rowKey = if(uniqueID.isEmpty) {
+        resourceUid + "|" + recordUuid
+      } else {
+        uniqueID.get
+      }
+
+      if(rowKeyWriter.isDefined) {
+        rowKeyWriter.get.write(rowKey + "\n")
+      }
+
       //val recordUuid = UUID.randomUUID.toString
       if(!testFile){
         val fullRecord = FullRecordMapper.createFullRecord(rowKey, fieldTuples.toArray, Raw)

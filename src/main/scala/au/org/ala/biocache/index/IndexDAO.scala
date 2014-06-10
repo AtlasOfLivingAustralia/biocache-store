@@ -228,7 +228,7 @@ trait IndexDAO {
         val kingdom = getValue("kingdom.p", map)
         val family = getValue("family.p", map)
         val images = {
-          val simages = getValue("images.p", map)
+          val simages = getValue("images", map)
           if (simages.length > 0)
             Json.toStringArray(simages)
           else
@@ -236,14 +236,14 @@ trait IndexDAO {
         }
         //determine the type of multimedia that is available.
         val multimedia: Array[String] = {
-          val i = map.getOrElse("images.p", "[]")
-          val s = map.getOrElse("sounds.p", "[]")
-          val v = map.getOrElse("videos.p", "[]")
+          val i = map.getOrElse("images", "[]")
+          val s = map.getOrElse("sounds", "[]")
+          val v = map.getOrElse("videos", "[]")
           val ab = new ArrayBuffer[String]
           if (i.length() > 3) ab += "Image"
           if (s.length() > 3) ab += "Sound"
           if (v.length() > 3) ab += "Video"
-          if (ab.size > 0)
+          if (!ab.isEmpty)
             ab.toArray
           else
             Array("None")

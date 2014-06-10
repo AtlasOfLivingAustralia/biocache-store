@@ -16,7 +16,7 @@ class GenericConsumer[T](q:BlockingQueue[T], id:Int, proc: (T,Int) =>Unit) exten
         //wait 1 second before assuming that the queue is empty
         val value = q.poll(1,java.util.concurrent.TimeUnit.SECONDS)
         if(value !=null){
-          DuplicationDetection.logger.debug("Generic Consumer " + id + " is handling " + value)
+          logger.debug("Generic Consumer " + id + " is handling " + value)
           proc(value, id)
         }
       }
