@@ -57,7 +57,7 @@ trait MediaStore {
   }
 
   def endsWithOneOf(acceptedExtensions: Array[String], url: String): Boolean =
-    !(acceptedExtensions collectFirst { case x if url.endsWith(x) => x } isEmpty)
+    !(acceptedExtensions collectFirst { case x if url.toLowerCase().endsWith(x) => x } isEmpty)
 
 
   protected def extractFileName(urlToMedia: String): String = if (urlToMedia.contains("fileName=")) {
