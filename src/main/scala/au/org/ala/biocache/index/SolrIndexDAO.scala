@@ -143,7 +143,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     //now stream
     val solrCallback = new SolrCallback(proc, multivaluedFields)
-    logger.info("Starting to strem: " +new java.util.Date().toString + " " + params)
+    logger.info("Starting to stream: " +new java.util.Date().toString + " " + params)
     solrServer.queryAndStreamResponse(solrParams, solrCallback)
     logger.info("Finished streaming : " +new java.util.Date().toString + " " + params)
   }
