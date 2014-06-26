@@ -84,9 +84,9 @@ class ResampleRecordsByQuery {
 
   import scala.collection.JavaConversions._
 
-  val recordsSampledFilePath = "/tmp/records-resampled.txt"
-  val pointsSampledFilePath = "/tmp/points-resampled.txt"
-  val pointsResampledFilePath = "/tmp/points-resampled-sampled.txt"
+  val recordsSampledFilePath =  Config.tmpWorkDir + "/records-resampled.txt"
+  val pointsSampledFilePath =  Config.tmpWorkDir + "/points-resampled.txt"
+  val pointsResampledFilePath =  Config.tmpWorkDir + "/points-resampled-sampled.txt"
 
   /**
    * Resample and reprocess records matching the filter
@@ -226,9 +226,9 @@ object ResampleChangedCoordinates {
  */
 class ResampleRecords {
 
-  val recordsSampledFilePath = "/tmp/records-resampled.txt"
-  val pointsSampledFilePath = "/tmp/points-resampled.txt"
-  val pointsResampledFilePath = "/tmp/points-resampled-sampled.txt"
+  val recordsSampledFilePath =  Config.tmpWorkDir + "/records-resampled.txt"
+  val pointsSampledFilePath =  Config.tmpWorkDir + "/points-resampled.txt"
+  val pointsResampledFilePath =  Config.tmpWorkDir + "/points-resampled-sampled.txt"
 
   /**
    * Resample and reprocess records matching the filter

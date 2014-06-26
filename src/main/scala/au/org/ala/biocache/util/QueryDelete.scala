@@ -1,6 +1,7 @@
 package au.org.ala.biocache.util
 
 import java.io.{FileOutputStream, BufferedOutputStream, File}
+import au.org.ala.biocache.Config
 
 /**
  * Utility to delete records matching a query.
@@ -11,7 +12,7 @@ class QueryDelete(query: String) extends RecordDeletor {
 
   override def deleteFromPersistent() = {
 
-    val file = new File("/data/tmp/delrowkeys.out")
+    val file = new File(Config.tmpWorkDir + "/delrowkeys.out")
     var count = 0
     val start = System.currentTimeMillis
     val out = new BufferedOutputStream(new FileOutputStream(file))

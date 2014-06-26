@@ -123,12 +123,12 @@ class DwCALoader extends DataLoader {
   }
 
   def loadArchive(fileName:String, resourceUid:String, uniqueTerms:List[Term], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean){
-    logger.info(s"Loading archive $fileName " +
-      s"for resource $resourceUid " +
-      s"with unique terms $uniqueTerms " +
-      s"stripping spaces  $stripSpaces " +
-      s"incremental $logRowKeys  " +
-      s"testing $testFile")
+    logger.info(s"Loading archive: $fileName " +
+      s"for resource: $resourceUid, " +
+      s"with unique terms: $uniqueTerms, " +
+      s"stripping spaces:  $stripSpaces, " +
+      s"incremental: $logRowKeys,  " +
+      s"testing: $testFile")
 
     val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
     val archive = ArchiveFactory.openArchive(new File(fileName))
@@ -154,16 +154,17 @@ class DwCALoader extends DataLoader {
 
     fieldMap.foreach({ case (term, field) =>
       val fieldIdx = field.getIndex()
-      DwC.matchTerm(term.simpleName) match {
-        case Some(matchedTerm) =>  fieldShortNameToIdxMap.put(fieldIdx, matchedTerm.canonical)
-        case None => //do nothing for now....
+      if(fieldIdx != null) {
+        DwC.matchTerm(term.simpleName) match {
+          case Some(matchedTerm) => fieldShortNameToIdxMap.put(fieldIdx, matchedTerm.canonical)
+          case None => //do nothing for now....
+        }
       }
     })
 
     if(logger.isDebugEnabled){
       fieldToModelMap.foreach({ case (dwcShortName, biocacheField) =>
         logger.debug(s"dwcShortName: $dwcShortName , biocacheField: $biocacheField")
-
       })
     }
 

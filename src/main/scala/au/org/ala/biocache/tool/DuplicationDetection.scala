@@ -212,7 +212,7 @@ class DuplicationDetection {
   import FileHelper._
   val logger = LoggerFactory.getLogger("DuplicateDetection")
 
-  val baseDir = "/tmp"
+  val baseDir = Config.tmpWorkDir
   val duplicatesFile = "duplicates.txt"
   val duplicatesToReindex = "duplicatesreindex.txt"
   val filePrefix = "dd_data.txt"

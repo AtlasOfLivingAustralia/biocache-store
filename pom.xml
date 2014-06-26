@@ -18,14 +18,14 @@
 		<scala.version>2.10.3</scala.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<org.springframework.version>3.0.6.RELEASE</org.springframework.version>
-		<solr.version>4.4.0</solr.version>
+		<solr.version>4.8.1</solr.version>
 		<jts.version>1.12</jts.version>
 	</properties>
 	<description>
         Scala implementation of biocache backend.
-        This code base managed the loading, processing, indexing of occurrence records for the ALA.
+        This code base managed the loading, processing, sampling and indexing of occurrence records for the ALA.
+        There are additional tools to support outlier detection, duplicate detection and extra limital outliers.
     </description>
-    <!-- AN SCM entry that points to the SVN directory that contains the pom file for the project  -->
     <scm>
         <developerConnection>scm:svn:https://ala-portal.googlecode.com/svn/trunk/biocache-store/</developerConnection>
     </scm>
@@ -367,12 +367,6 @@
 			<artifactId>solr-solrj</artifactId>
 			<groupId>org.apache.solr</groupId>
 			<version>${solr.version}</version>
-			<!--<exclusions>-->
-				<!--<exclusion>-->
-					<!--<artifactId>org.slf4j</artifactId>-->
-					<!--<groupId>slf4j-jdk14</groupId>-->
-				<!--</exclusion>-->
-			<!--</exclusions>-->
 		</dependency>
         <!--
            The following dependency is required for a SOLR embedded service only
@@ -410,9 +404,9 @@
             <artifactId>json-path</artifactId>
             <version>0.9.1</version>
         </dependency>
-		<!-- Contib classes for httpclient project. These are availabe in the source
+		<!-- Contrib classes for http client project. These are available in the source
 			but not distributed as part of the default jar. They were built into a separate 
-			jar and manually installed into the ala maven repostory. -->
+			jar and manually installed into the ala maven repository. -->
 		<dependency>
 			<groupId>commons-httpclient</groupId>
 			<artifactId>commons-httpclient-contrib</artifactId>
@@ -433,13 +427,11 @@
 			<groupId>org.cliffc.high_scale_lib</groupId>
 			<artifactId>high-scale-lib</artifactId>
 			<version>1.0</version>
-			<!--<scope>test</scope> -->
 		</dependency>
 		<dependency>
 			<groupId>com.googlecode.concurrentlinkedhashmap</groupId>
 			<artifactId>concurrentlinkedhashmap-lru</artifactId>
 			<version>1.1</version>
-			<!--<scope>test</scope> -->
 		</dependency>
 		<dependency>
 			<groupId>metadata-extractor</groupId>

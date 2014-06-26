@@ -17,7 +17,7 @@ object ImageExport extends Tool {
 
     var entity = "occ"
     var imageField = "images.p"
-    var exportFile = "/tmp/image-export.csv"
+    var exportFile = Config.tmpWorkDir + "/image-export.csv"
     var additionalFields = Array("uuid", "dataResourceUid", "collectionCode", "institutionCode", "scientificName")
     var resources:Seq[String] = List()
 
@@ -28,7 +28,7 @@ object ImageExport extends Tool {
       opt("if", "imageField", "associatedMedia", "image field", {
         v: String => imageField = v
       })
-      opt("f", "export file path", "/tmp/image-export.csv", "File to export to", {
+      opt("f", "export file path",  Config.tmpWorkDir + "/image-export.csv", "File to export to", {
         v: String => exportFile = v
       })
       opt("r", "resources", "dr321,dr123", "comma separated list of resources (uids) with images", {

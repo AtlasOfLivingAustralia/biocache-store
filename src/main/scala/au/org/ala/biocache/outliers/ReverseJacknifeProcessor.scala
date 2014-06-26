@@ -166,13 +166,13 @@ object ReverseJacknifeProcessor extends Tool {
    */
   def runOutlierTestingForDumpFile(dumpFilePath:String,
                                    columnHeaders:List[String] = List(),
-                                   idsToIndexFile:String = "/tmp/idsToReIndex.txt",
+                                   idsToIndexFile:String =  Config.tmpWorkDir + "/idsToReIndex.txt",
                                    persistResults:Boolean=false,
                                    queue:ArrayBlockingQueue[String],
                                    index:Boolean=false,
                                    lastModifiedDate:Option[String]=None,
                                    field:String="species_guid",
-                                   passFile:String ="/tmp/layer-outlier-pass.out"){
+                                   passFile:String = Config.tmpWorkDir + "/layer-outlier-pass.out"){
 
     if(new File(dumpFilePath).length()>0L){
       val uuidIndexFile = new File(idsToIndexFile)
@@ -347,7 +347,7 @@ object ReverseJacknifeProcessor extends Tool {
         lsid + "\"&fl=" + requiredFields.mkString(","))
 
     val in = u.openStream
-    val file = new File("/tmp/occurrences.gz")
+    val file = new File( Config.tmpWorkDir + "/occurrences.gz")
     val out = new FileOutputStream(file)
     val buffer: Array[Byte] = new Array[Byte](1024)
     var numRead = 0

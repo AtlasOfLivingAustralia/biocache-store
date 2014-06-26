@@ -35,7 +35,7 @@ object Sampling extends Tool with IncrementalTool {
     var rowKeyFile = ""
     var keepFiles = false
     var singleRowKey = ""
-    var workingDir = "/tmp"
+    var workingDir = Config.tmpWorkDir
     var batchSize = 100000
     var checkRowKeyFile = false
 
@@ -58,7 +58,7 @@ object Sampling extends Tool with IncrementalTool {
       opt("rk","key", "the single rowkey to sample",{
         v:String => singleRowKey = v
       })
-      opt("wd","working-dir", "the directory to write temporary files too. Defaults to /tmp",{
+      opt("wd","working-dir", "the directory to write temporary files too. Defaults to " +  Config.tmpWorkDir,{
         v:String => workingDir = v
       })
       intOpt("bs","batch-size", "Batch size when processing points. Defaults to " + batchSize,{

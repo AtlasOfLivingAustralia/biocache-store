@@ -32,7 +32,7 @@ trait IncrementalTool {
    * @return
    */
   def hasRowKey(resourceUid: String): (Boolean, Option[String]) = {
-    def filename = "/data/tmp/row_key_" + resourceUid + ".csv"
+    def filename = Config.tmpWorkDir + "/row_key_" + resourceUid + ".csv"
     def file = new java.io.File(filename)
 
     if (file.exists()) {

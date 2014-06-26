@@ -18,7 +18,7 @@ object IngestTool extends Tool {
     var ingestAll = false
 
     val parser = new OptionParser(help) {
-      opt("r", "dr", "comma separated list of resources (uids) to load, sample, process and index. e.g. dr321,dr123", {
+      opt("dr", "dataResourceUid", "comma separated list of resources (uids) to load, sample, process and index. e.g. dr321,dr123", {
         v: String => resources = v.split(",").map(x => x.trim)
       })
       booleanOpt("all", "all-resources", "flag to indicate all resources should be loaded", {

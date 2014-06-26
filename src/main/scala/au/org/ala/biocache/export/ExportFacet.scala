@@ -15,7 +15,7 @@ object ExportFacet extends Tool {
 
   var facetField = "species_guid"
   var facetQuery = "*:*"
-  var facetOutputFile = "/tmp/facet-output-" + facetField + ".txt"
+  var facetOutputFile = Config.tmpWorkDir + "/facet-output-" + facetField + ".txt"
   var lastDay = false
   var lastWeek = false
   var lastMonth = false

@@ -31,7 +31,7 @@ object ValidationRuleRunner extends Tool {
     var reapply = false
     var test = false
     var retrofit =false
-    var tempFilePath = "/tmp/queryAssertionReindex.txt"
+    var tempFilePath =  Config.tmpWorkDir + "/queryAssertionReindex.txt"
     val parser = new OptionParser(help) {
       opt("a", "apiKey","The apiKey whose assertions should be applied", {v:String => apiKey = Some(v)})
       opt("i","record id", "The uuid or the rowKey for the validation rule to apply", {v:String => id = Some(v)})
@@ -85,11 +85,11 @@ class ValidationRuleRunner {
     })
   }
 
-  def applySingle(rowKey:String, unapply:Boolean=false, reindexOnly:Boolean=false, tempFilePath:String="/tmp/queryAssertionReindex.txt", forceReapply:Boolean=false, test:Boolean=false){
+  def applySingle(rowKey:String, unapply:Boolean=false, reindexOnly:Boolean=false, tempFilePath:String= Config.tmpWorkDir + "/queryAssertionReindex.txt", forceReapply:Boolean=false, test:Boolean=false){
     //get the query for the supplied key
-    var buffer = new ArrayBuffer[String]
+    val buffer = new ArrayBuffer[String]
     val qa = Config.validationRuleDAO.get(rowKey)
-    val filename = "/tmp/query_"+rowKey+"_reindex.txt"
+    val filename =  Config.tmpWorkDir + "/query_"+rowKey+"_reindex.txt"
     val reindexWriter = new FileWriter(filename)
     if(qa.isDefined){
       applyCommon(qa.get, buffer, unapply, reindexOnly, forceReapply,test)
@@ -106,7 +106,9 @@ class ValidationRuleRunner {
     }
   }
   
-  def apply(apiKey:String, unapply:Boolean=false, reindexOnly:Boolean=false, tempFilePath:String="/tmp/queryAssertionReindex.txt", forceReapply:Boolean=false, test:Boolean=false){
+  def apply(apiKey:String, unapply:Boolean=false, reindexOnly:Boolean=false,
+            tempFilePath:String = Config.tmpWorkDir + "/queryAssertionReindex.txt",
+            forceReapply:Boolean=false, test:Boolean=false){
     //val queryPattern = """\?q=([\x00-\x7F\s]*)&wkt=([\x00-\x7F\s]*)""".r
     val start = apiKey + "|"
     val end = start + "~"

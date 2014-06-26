@@ -8,4 +8,5 @@ object ErrorCodeCategory {
   val Missing = "missing"
   val Warning = "warning"
   val Verified = "verified"
+  val Comment = "comment"
 }

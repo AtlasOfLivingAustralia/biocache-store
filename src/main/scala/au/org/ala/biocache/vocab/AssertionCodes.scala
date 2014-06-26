@@ -106,6 +106,10 @@ object AssertionCodes {
   //this is a code user can use to flag a issue with processing
   val PROCESSING_ERROR = ErrorCode("processingError", 60000, true, "The system has incorrectly processed a record", Error)
 
+  //media issues
+  val MEDIA_REPRESENTATIVE = ErrorCode("mediaRepresentative", 70000, false,"", Comment)
+  val MEDIA_UNREPRESENTATIVE = ErrorCode("mediaUnrepresentative", 70001, false,"", Comment)
+
   /**
    * Retrieve all the terms defined in this vocab.
    * @return

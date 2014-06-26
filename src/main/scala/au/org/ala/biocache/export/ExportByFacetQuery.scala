@@ -17,8 +17,8 @@ object ExportByFacetQuery extends Tool {
   def main(args: Array[String]) {
 
     var facetField = "species_guid"
-    var facetInputFile = "/tmp/facet-output-" + facetField + ".txt"
-    var recordOutputFile = "/tmp/record-output-" + facetField + ".txt"
+    var facetInputFile =  Config.tmpWorkDir + "/facet-output-" + facetField + ".txt"
+    var recordOutputFile = Config.tmpWorkDir + "/record-output-" + facetField + ".txt"
     var fieldsToExport = Array[String]()
     var filterQueries: Array[String] = Array()
 

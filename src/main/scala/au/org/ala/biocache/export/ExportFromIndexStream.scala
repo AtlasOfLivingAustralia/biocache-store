@@ -37,7 +37,7 @@ object ExportFromIndexStream extends Tool {
       Config.indexDAO.streamIndex(map => {
         counter += 1
         if (counter % 1000 == 0) {
-          fileWriter.flush;
+          fileWriter.flush
         }
         val outputLine = fieldsToExport.map(f => {
           if (map.containsKey(f)) map.get(f).toString else ""
