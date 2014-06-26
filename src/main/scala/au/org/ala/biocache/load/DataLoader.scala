@@ -200,6 +200,7 @@ trait DataLoader {
           logger.info("Media file stored to: " + savedTo.getOrElse("**** not available ****"))
           savedTo match {
             case Some((savedFilename, savedFilePathOrId)) => fileNameToID.put(savedFilename, savedFilePathOrId)
+            case None => logger.warn("Unable to save file: " + fileToStore)
           }
         }
       })

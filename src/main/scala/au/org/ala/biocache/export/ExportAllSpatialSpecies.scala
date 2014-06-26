@@ -68,7 +68,7 @@ object ExportAllSpatialSpecies extends Tool {
         FileUtils.forceMkdir(file)
         ids += 1
         val speciesOutFile = file.getAbsolutePath + File.separator + "species.out"
-        val subSpeciesOutFile = file.getAbsolutePath + File.separator + "species.out"
+        val subSpeciesOutFile = file.getAbsolutePath + File.separator + "subspecies.out"
         logger.info("Exporting to: " + speciesOutFile +", and " + subSpeciesOutFile)
         (new FileWriter(new File(speciesOutFile)), new FileWriter(new File(subSpeciesOutFile)))
       }
