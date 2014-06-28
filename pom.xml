@@ -251,17 +251,17 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-core</artifactId>
-			<version>2.2.1</version>
+			<version>2.4.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
-			<version>2.2.1</version>
+			<version>2.4.1.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.module</groupId>
 			<artifactId>jackson-module-scala_2.10</artifactId>
-			<version>2.2.3</version>
+			<version>2.3.3</version>
 		</dependency>
 		<!-- SCALA -->
 		<dependency>
@@ -494,6 +494,22 @@
 			</plugins>
 		</pluginManagement>
 		<plugins>
+            <!--<plugin>-->
+                <!--<artifactId>exec-maven-plugin</artifactId>-->
+                <!--<groupId>org.codehaus.mojo</groupId>-->
+                <!--<executions>-->
+                    <!--<execution>-->
+                        <!--<id>Create exec</id>-->
+                        <!--<phase>package</phase>-->
+                        <!--<goals>-->
+                            <!--<goal>exec</goal>-->
+                        <!--</goals>-->
+                        <!--<configuration>-->
+                            <!--<executable>${basedir}/create-exec.sh</executable>-->
+                        <!--</configuration>-->
+                    <!--</execution>-->
+                <!--</executions>-->
+            <!--</plugin>-->
             <plugin>
                 <groupId>com.google.code.maven-svn-revision-number-plugin</groupId>
                 <artifactId>svn-revision-number-maven-plugin</artifactId>
