@@ -413,6 +413,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       filesToImport.foreach(fileToStore =>
         Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore) match {
           case Some((filename, filePath)) => associatedMediaBuffer += filePath
+          case None => logger.error("Unable to save media: " + fileToStore)
         }
       )
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")

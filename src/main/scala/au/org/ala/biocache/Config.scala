@@ -123,6 +123,8 @@ object Config {
 
   val listToolUrl = configModule.properties.getProperty("list.tool.url","http://lists.ala.org.au/ws")
 
+  val volunteerUrl = configModule.properties.getProperty("volunteer.url","http://volunteer.ala.org.au")
+
   val tmpWorkDir = configModule.properties.getProperty("tmp.work.dir","/tmp")
 
   val registryUrl = configModule.properties.getProperty("registry.url","http://collections.ala.org.au/ws")

@@ -11,10 +11,10 @@ class JackKnife {
   /**
    * Takes a list of sampled values and returns the statistics for these results.
    */
-  def jackknife(sampledUnsorted:Seq[Float]) : Option[JackKnifeStats]  = {
+  def jackknife(sampledUnsorted:Seq[Float], minSampleThreshold:Int=20) : Option[JackKnifeStats]  = {
 
     if (sampledUnsorted.isEmpty) return None
-    if (sampledUnsorted.size < 20) return None  //if less than 20 samples, dont run jackKnife
+    if (sampledUnsorted.size < minSampleThreshold) return None  //if less than 20 samples, don't run jackKnife
 
     val samples = sampledUnsorted.sorted    //sorted floats
     val outliers = Array.fill(samples.size)(false)

@@ -8,7 +8,6 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.io.{FileWriter, FileOutputStream, File, FileReader}
 import org.slf4j.LoggerFactory
-import collection.mutable
 import java.util.concurrent.ArrayBlockingQueue
 import org.apache.commons.lang3.time.DateUtils
 import java.util.Date
@@ -18,6 +17,8 @@ import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.index.IndexRecords
 import au.org.ala.biocache.cmd.Tool
+import com.jayway.jsonpath.JsonPath
+import net.minidev.json.JSONArray
 
 class Timings {
   val logger = LoggerFactory.getLogger("Timings")
@@ -27,7 +28,7 @@ class Timings {
 
   def checkpoint(comment:String) {
     val now = System.currentTimeMillis()
-    logger.info("Time taken for [%s] : %f seconds.".format(comment, ((now - lapTime).toFloat / 1000.0f)))
+    logger.debug("Time taken for [%s] : %f seconds.".format(comment, ((now - lapTime).toFloat / 1000.0f)))
     lapTime = now
   }
 }
@@ -308,7 +309,8 @@ object ReverseJacknifeProcessor extends Tool {
    * @param taxonConceptID
    * @return
    */
-  def readAllForTaxon(reader:CSVReader, taxonConceptID:String, taxonConceptIDIdx:Int, lastLine:Array[String] = Array()): (String,  Seq[Array[String]], Array[String]) = {
+  def readAllForTaxon(reader:CSVReader, taxonConceptID:String, taxonConceptIDIdx:Int,
+                      lastLine:Array[String] = Array()): (String,  Seq[Array[String]], Array[String]) = {
 
     var currentLine:Array[String] = reader.readNext()
     val idForBatch:String = if (taxonConceptID != ""){
@@ -390,7 +392,9 @@ object ReverseJacknifeProcessor extends Tool {
     printLinksForRecords(1, outlier1)
   }
 
-  def storeResultsWithStats(taxonID:String, results:Seq[(String, Seq[SampledRecord], JackKnifeStats)], passed:Set[String], idsWriter:FileWriter, queue:ArrayBlockingQueue[String], lastModifiedDate:Option[String], field:String, passedWriter:FileWriter ){
+  def storeResultsWithStats(taxonID:String, results:Seq[(String, Seq[SampledRecord], JackKnifeStats)],
+                            passed:Set[String], idsWriter:FileWriter, queue:ArrayBlockingQueue[String],
+                            lastModifiedDate:Option[String], field:String, passedWriter:FileWriter){
 
     val mapper = new ObjectMapper
     mapper.registerModule(DefaultScalaModule)
@@ -449,24 +453,18 @@ object ReverseJacknifeProcessor extends Tool {
 
     //reset the records that are no longer considered outliers -
     //do an ID diff between the results
-    val previousIDs = {
-      if(previous.isDefined){
-        val tmplist = new ListBuffer[String]
-        val prelist:List[mutable.Buffer[AnyRef]] = mapper.readValue(previous.get, classOf[List[(String,List[SampledRecord])]]).asInstanceOf[List[mutable.Buffer[AnyRef]]]
-        prelist.foreach(_.foreach { b1 =>
-          if(b1.isInstanceOf[mutable.Buffer[Map[String,String]]]){
-            b1.asInstanceOf[mutable.Buffer[scala.collection.convert.Wrappers$JMapWrapper]]
-              .foreach(v => tmplist += v.get("id").get.toString)
-          }
-        })
-        tmplist.toList
+    val previousIDs:Array[String] = {
+      if (previous.isDefined) {
+        val jsonPath = JsonPath.compile("$..id")
+        val idArray = jsonPath.read(previous.get).asInstanceOf[JSONArray]
+        idArray.toArray(Array[String]())
       } else {
-        List[String]()
+        Array[String]()
       }
     }
 
     logger.debug("previousIDs: " + previousIDs)
-    val currentIDs = record2OutlierLayer.map(_._1.id)
+    val currentIDs = record2OutlierLayer.map({case(sampledRecord, id) => sampledRecord.id}).toArray
 
     //IDs in the previous not in current need to be reset
     val newIDs = previousIDs diff currentIDs
@@ -486,7 +484,13 @@ object ReverseJacknifeProcessor extends Tool {
         Config.occurrenceDAO.addSystemAssertion(rowKey.get,QualityAssertion(AssertionCodes.DETECTED_OUTLIER, 1),replaceExistCode = true)
       }
     })
-    val rowkeys = if(lastModifiedDate.isDefined) Some(getRecordsChangedSince(lastModifiedDate.get, field, taxonID)) else None
+
+    val rowkeys = if(lastModifiedDate.isDefined) {
+      Some(getRecordsChangedSince(lastModifiedDate.get, field, taxonID))
+    } else {
+      None
+    }
+
     passed.foreach(rowKey=>{
       if(rowkeys.isEmpty || rowkeys.get.contains(rowKey)){
         passedWriter.write(rowKey + "\n")

@@ -171,6 +171,7 @@ object CMD2 {
     ValidationRuleRunner,
     MigrateMedia,
     LoadMediaReferences,
-    CopyDataNewColumn
+    CopyDataNewColumn,
+    BVPLoader
   ).sortBy(_.cmd)
 }
