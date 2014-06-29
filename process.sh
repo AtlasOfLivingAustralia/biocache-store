@@ -1,1 +1,0 @@
-mvn -e exec:java -Dexec.mainClass="au.org.ala.util.ProcessRecords" -Dexec.classpathScope=runtime
