@@ -137,9 +137,6 @@ class BVPLoader {
             val (respCode, respBody) = HttpUtil.postBody(updateUrl, "application/json", Json.toJSON(dataResourceMap))
 
             logger.info("Response code for " + resourceUrl + ". Code: "  + respCode)
-            if(respCode != 201){
-
-            }
 
             lookupDataResource(resourceUrl) match {
               case Some(uid) => drsToHarvest += uid
@@ -151,7 +148,18 @@ class BVPLoader {
     } catch {
       case e: Exception => logger.error("Unable to retrieve list of expeditions", e)
     }
-    drsToHarvest.toSeq
+    val drs = drsToHarvest.toArray
+
+    if(Config.volunteerHubUid != "") {
+      val (respCode, respBody) = HttpUtil.postBody(Config.registryUrl + "/dataHub/" + Config.volunteerHubUid, "application/json", Json.toJSON(Map(
+        "memberDataResources" -> Json.toJSON(drs)
+      )))
+      logger.info("Data hub sync: " + respCode)
+    } else {
+      logger.info("Data hub sync skipped. Please create a hub entry in the registry and configure the biocache to use it.")
+    }
+
+    drs
   }
 
   /**
