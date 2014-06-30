@@ -22,7 +22,7 @@ object HttpUtil {
     val response = httpClient.execute(httpPost)
     val result = response.getStatusLine()
     val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-    logger.info("Response code: " + result.getStatusCode)
+    logger.debug("Response code: " + result.getStatusCode)
     (result.getStatusCode, responseBody)
   }
 
@@ -39,7 +39,7 @@ object HttpUtil {
     httpPost.setEntity(entity)
     val response = httpClient.execute(httpPost)
     val result = response.getStatusLine()
-    logger.info("Response code: " + result.getStatusCode)
+    logger.debug("Response code: " + result.getStatusCode)
     val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
     (result.getStatusCode, responseBody)
   }

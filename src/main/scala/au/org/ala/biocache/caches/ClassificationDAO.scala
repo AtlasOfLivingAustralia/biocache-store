@@ -17,7 +17,6 @@ import java.io.BufferedReader
 import scala.xml.XML
 import java.io.InputStreamReader
 import java.net.URL
-import scalaj.http.Http
 import collection.{mutable, JavaConversions}
 import org.ala.layers.client.Client
 import collection.mutable.{ArrayBuffer, HashMap}

@@ -16,8 +16,7 @@ package au.org.ala.biocache.load
 
 import java.net.{HttpURLConnection, URL}
 import au.org.ala.biocache.{Store, Config}
-import scalaj.http.{HttpOptions, Http}
-import au.org.ala.biocache.util.Json
+import au.org.ala.biocache.util.{HttpUtil, Json}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -25,13 +24,15 @@ import scala.collection.mutable.ArrayBuffer
 
 /**
  *
+ * This is a class used in the migration of images from BIE to Biocache.
+ *
  * Loads the BIE records into the biocache based on a list of exported data resources:
  *
  * 1) Update the collectory
-	- set type = "Records"
-	- set connection params to: CSV, comma separated, quoted
-
-   2) Ingest into the biocache
+ *	- set type = "Records"
+ *	- set connection params to: CSV, comma separated, quoted
+ *
+ *  2) Ingest into the biocache
  *
  *
  * The BIE resources listed below have some issues related to them. Most of them are not include in the default list
@@ -101,10 +102,7 @@ object BieCsvLoader {
     println("Warning unable to load " + buf.toList + " resources")
     Config.persistenceManager.shutdown
     Config.indexDAO.shutdown
-
   }
-
-
 
   def updateCollectoryForLoad(resourceUid:String, fileUrl:String):Boolean={
     val mapper = new ObjectMapper
@@ -123,9 +121,9 @@ object BieCsvLoader {
         val data = mapper.writeValueAsString(map)//Json.toJSONMap(map.toMap)
         //turn the map of values into JSON representation
         println(data)
-        val response = Http.postData(Config.registryUrl + "/dataResource/" +resourceUid,data).header("content-type", "application/json")
-        response.option(HttpOptions.connTimeout(5000)).option(HttpOptions.readTimeout(5000))
-        println("Data resource " + resourceUid + " " + response.responseCode)
+        val (responseCode, respBody)  = HttpUtil.postBody(Config.registryUrl + "/dataResource/" + resourceUid, "application/json", data)
+//        response.option(HttpOptions.connTimeout(5000)).option(HttpOptions.readTimeout(5000))
+        println("Data resource " + resourceUid + " " + responseCode)
       true
     } catch {
       case e:Exception => e.printStackTrace();false

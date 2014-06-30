@@ -18,7 +18,7 @@
 		<scala.version>2.10.3</scala.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<org.springframework.version>3.0.6.RELEASE</org.springframework.version>
-		<solr.version>4.8.1</solr.version>
+		<solr.version>4.4.0</solr.version>
 		<jts.version>1.12</jts.version>
 	</properties>
 	<description>
@@ -279,12 +279,6 @@
             <artifactId>scala-reflect</artifactId>
             <version>${scala.version}</version>
         </dependency>
-		<!--- SCALA HTTP support -->
-		<dependency>
-			<groupId>org.scalaj</groupId>
-			<artifactId>scalaj-http_2.10</artifactId>
-			<version>0.3.7</version>
-		</dependency>
 		<!-- SCALATEST -->
 		<dependency>
 			<groupId>org.scalatest</groupId>

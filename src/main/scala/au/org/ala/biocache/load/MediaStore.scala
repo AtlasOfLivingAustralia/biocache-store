@@ -232,10 +232,7 @@ object RemoteMediaStore extends MediaStore {
     val out = new FileOutputStream(tmpFile)
     val buffer: Array[Byte] = new Array[Byte](1024)
     var numRead = 0
-    while ( {
-      numRead = in.read(buffer)
-      numRead != -1
-    }) {
+    while ( { numRead = in.read(buffer); numRead != -1}) {
       out.write(buffer, 0, numRead)
       out.flush
     }
@@ -263,7 +260,14 @@ object RemoteMediaStore extends MediaStore {
     //upload an image
     val httpClient = new DefaultHttpClient()
     val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
+    if(!fileToUpload.exists()){
+      logger.error("File to upload does not exist or can not be read. " + fileToUpload.getAbsolutePath)
+      return None
+    } else {
+      logger.debug("File to upload: " + fileToUpload.getAbsolutePath + ", size:"  + fileToUpload.length())
+    }
     val fileBody = new FileBody(fileToUpload, "image/jpeg")
+
     entity.addPart("image", fileBody)
     entity.addPart("metadata",
       new StringBody(
@@ -283,13 +287,15 @@ object RemoteMediaStore extends MediaStore {
     val response = httpClient.execute(httpPost)
     val result = response.getStatusLine()
     val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-    logger.info("Image service response code: " + result.getStatusCode)
-
+    logger.debug("Image service response code: " + result.getStatusCode)
     val map = Json.toMap(responseBody)
-    logger.info("Image ID: " + map.getOrElse("imageId", ""))
+    logger.debug("Image ID: " + map.getOrElse("imageId", ""))
     map.get("imageId") match {
       case Some(o) => Some(o.toString())
-      case None => None
+      case None => {
+        logger.warn(s"Unable to persist image. Response code$result.getStatusCode.  Image service response body: $responseBody")
+        None
+      }
     }
   }
 

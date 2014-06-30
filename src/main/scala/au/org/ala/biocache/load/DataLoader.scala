@@ -1,6 +1,6 @@
 package au.org.ala.biocache.load
 
-import au.org.ala.biocache.util.{SFTPTools, FileHelper, BiocacheConversions}
+import au.org.ala.biocache.util.{HttpUtil, SFTPTools, FileHelper, BiocacheConversions}
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import org.apache.commons.io.{FilenameUtils, FileUtils}
@@ -11,10 +11,10 @@ import java.util.Date
 import au.org.ala.biocache.parser.DateParser
 import org.gbif.dwc.terms.TermFactory
 import scala.collection.mutable.ArrayBuffer
-import scalaj.http.Http
 import au.org.ala.biocache.model.FullRecord
 import java.net.URL
 import scala.collection.mutable
+import org.apache.tools.ant.taskdefs.condition.Http
 
 /**
  * A trait with utility code for loading data
@@ -24,8 +24,7 @@ trait DataLoader {
   import BiocacheConversions._
   import FileHelper._
 
-  val user = "harvest services"
-  val api_key = "Venezuela"
+  val user = "biocache"
   val logger = LoggerFactory.getLogger("DataLoader")
   val temporaryFileStore = Config.loadFileStore //"/data/biocache-load/"
   val pm = Config.persistenceManager
@@ -116,7 +115,7 @@ trait DataLoader {
     //last checked date
     val lastChecked = map("lastChecked").asInstanceOf[String]
     val dateLastChecked = DateParser.parseStringToDate(lastChecked)
-    (protocol, urls.asInstanceOf[List[String]], uniqueTerms, map("connectionParameters").asInstanceOf[Map[String,String]], customParams,dateLastChecked)
+    (protocol, urls.asInstanceOf[List[String]], uniqueTerms, map("connectionParameters").asInstanceOf[Map[String,String]], customParams, dateLastChecked)
   }
 
   def mapConceptTerms(terms: List[String]): List[org.gbif.dwc.terms.Term] = {
@@ -374,13 +373,14 @@ trait DataLoader {
       //set the last check time for the supplied resourceUid only if configured to allow updates
       if(Config.allowCollectoryUpdates == "true"){
         val map =new  scala.collection.mutable.HashMap[String,String]()
-        map ++= Map("user"-> user, "api_key"-> api_key, "lastChecked" ->loadTime)
+        map ++= Map("user"-> user, "api_key"-> Config.collectoryApiKey, "lastChecked" -> loadTime)
         if(dataCurrency.isDefined)
           map += ("dataCurrency" -> dataCurrency.get)
         //turn the map of values into JSON representation
         val data = map.map(pair => "\""+pair._1 +"\":\"" +pair._2 +"\"").mkString("{",",", "}")
 
-        val responseCode = Http.postData(Config.registryUrl + "/dataResource/" +resourceUid,data).header("content-type", "application/json").responseCode
+        val (responseCode, responseBody) = HttpUtil.postBody(Config.registryUrl + "/dataResource/" + resourceUid, "application/json", data)
+
         logger.info("Registry response code: " + responseCode)
       }
       true
