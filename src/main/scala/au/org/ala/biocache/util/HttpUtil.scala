@@ -18,7 +18,8 @@ object HttpUtil {
     val httpPost = new HttpPost(url)
     val stringEntity = new StringEntity(stringBody)
     stringEntity.setContentType(contentType)
-    httpPost.setEntity(new StringEntity(stringBody))
+    stringEntity.setContentEncoding("UTF-8")
+    httpPost.setEntity(new StringEntity(stringBody, "UTF-8"))
     val response = httpClient.execute(httpPost)
     val result = response.getStatusLine()
     val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString

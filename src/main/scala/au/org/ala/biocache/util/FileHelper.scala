@@ -20,6 +20,8 @@ import java.io._
 import java.util.jar.JarFile
 import java.util.zip.GZIPInputStream
 import au.com.bytecode.opencsv.CSVReader
+import net.lingala.zip4j.core.ZipFile
+
 /**
  * File helper - used as a implicit converter to add additional helper methods to java.io.File
  */
@@ -92,28 +94,8 @@ class FileHelper(file: File) {
   def extractZip: Unit = {
     val basename = file.getName.substring(0, file.getName.lastIndexOf("."))
     val todir = new File(file.getParentFile, basename)
-    todir.mkdirs()
-
-    println("Extracting " + file + " to " + todir)
-    val jar = new JarFile(file)
-    val enu = jar.entries
-    while (enu.hasMoreElements) {
-      val entry = enu.nextElement
-      val entryPath =
-        if (entry.getName.startsWith(basename)) entry.getName.substring(basename.length)
-        else entry.getName
-
-      println("Extracting to " + todir + "/" + entryPath)
-      if (entry.isDirectory) {
-        new File(todir, entryPath).mkdirs
-      } else {
-        val istream = jar.getInputStream(entry)
-        val ostream = new FileOutputStream(new File(todir, entryPath))
-        copyStream(istream, ostream)
-        ostream.close
-        istream.close
-      }
-    }
+    val zipFile = new ZipFile(file)
+    zipFile.extractAll(todir.getAbsolutePath)
   }
 
   /**

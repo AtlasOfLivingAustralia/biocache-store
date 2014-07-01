@@ -291,6 +291,11 @@
 			<version>4.8.2</version>
 			<scope>test</scope>
 		</dependency>
+        <dependency>
+            <groupId>net.lingala.zip4j</groupId>
+            <artifactId>zip4j</artifactId>
+            <version>1.3.2</version>
+        </dependency>
 		<!-- Pelops library for cassandra 0.7.x Note the name has been changed 
 			so that this library is pulled from the ALA repo copy -->
 		<dependency>
