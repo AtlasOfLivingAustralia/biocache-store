@@ -178,10 +178,9 @@ object RemoteMediaStore extends MediaStore {
     //check image store for the supplied resourceUID/UUID/Filename combination
     //http://images.ala.org.au/ws/findImagesByOriginalFilename?
     // filenames=http://biocache.ala.org.au/biocache-media/dr836/29790/1b6c48ab-0c11-4d2e-835e-85d016f335eb/PWCnSmwl.jpeg
-
     val jsonToPost = Json.toJSON(Map("filenames" -> Array(constructFileID(resourceUID, uuid, urlToMedia))))
 
-    logger.info(jsonToPost)
+    logger.debug(jsonToPost)
 
     val (code, body) = HttpUtil.postBody(
       Config.remoteMediaStoreUrl + "/ws/findImagesByOriginalFilename",
@@ -225,28 +224,45 @@ object RemoteMediaStore extends MediaStore {
    * @return
    */
   def save(uuid: String, resourceUID: String, urlToMedia: String): Option[(String, String)] = {
+    downloadToTmpFile(resourceUID, uuid, urlToMedia) match {
+      case Some(tmpFile) => {
+        try {
+          val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile)
+          if(imageId.isDefined){
+            Some((extractFileName(urlToMedia), imageId.getOrElse("")))
+          } else {
+            None
+          }
+        } finally {
+          FileUtils.forceDelete(tmpFile)
+        }
+      }
+      case None => None
+    }
+  }
 
+  private def downloadToTmpFile(resourceUID: String, uuid: String, urlToMedia: String): Option[File] = try {
     val tmpFile = new File(Config.tmpWorkDir + File.separator + constructFileID(resourceUID, uuid, urlToMedia))
     val url = new java.net.URL(urlToMedia.replaceAll(" ", "%20"))
     val in = url.openStream
     val out = new FileOutputStream(tmpFile)
     val buffer: Array[Byte] = new Array[Byte](1024)
     var numRead = 0
-    while ( { numRead = in.read(buffer); numRead != -1}) {
+    while ( {
+      numRead = in.read(buffer);
+      numRead != -1
+    }) {
       out.write(buffer, 0, numRead)
       out.flush
     }
     in.close()
     out.close()
-    try {
-      val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile)
-      if(imageId.isDefined){
-        Some((extractFileName(urlToMedia), imageId.getOrElse("")))
-      } else {
-        None
-      }
-    } finally {
-      FileUtils.forceDelete(tmpFile)
+    Some(tmpFile)
+  } catch {
+    case e:Exception => {
+      logger.error("Problem downloading media. URL:" + urlToMedia)
+      logger.debug(e.getMessage, e)
+      None
     }
   }
 
@@ -428,7 +444,6 @@ object LocalMediaStore extends MediaStore {
     "mp3" -> "audio/mpeg",
     "ogg" ->  "audio/ogg"
   )
-
 
   def getSoundFormats(filePath: String): java.util.Map[String, String] = {
     val formats = new java.util.HashMap[String, String]()

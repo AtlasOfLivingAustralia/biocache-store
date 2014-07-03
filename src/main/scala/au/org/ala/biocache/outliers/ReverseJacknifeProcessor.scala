@@ -35,6 +35,8 @@ class Timings {
 
 /**
  * Runnable tool for testing for outliers and updating the data store.
+ *
+ * FIXME remove the hardcoded layers...
  */
 object ReverseJacknifeProcessor extends Tool {
 

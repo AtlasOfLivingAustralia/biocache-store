@@ -43,7 +43,7 @@ object DuplicationDetection extends Tool {
   import FileHelper._
 
   val logger = LoggerFactory.getLogger("DuplicateDetection")
-  var rootDir = "/data/tool/"
+  var workingTmpDir = "/data/tool/"
 
   def cmd = "duplicate-detection"
   def desc = "Detects duplication based on a matched species and updates the database with details."
@@ -56,6 +56,7 @@ object DuplicationDetection extends Tool {
     var threads = 4
     var cleanup = false
     var load = false
+    var index = false
     var incremental = false
     var removeObsoleteData = false
     var offlineDir = "/data/offline/exports"
@@ -65,7 +66,7 @@ object DuplicationDetection extends Tool {
       opt("all", "detect duplicates for all species", {
         all = true
       })
-      opt("g", "guid", "A single guid to test for duplications", {
+      opt("g", "guid", "A single record GUID to test for duplications", {
         v: String => guid = Some(v)
       })
       opt("exist", "use existing occurrence dumps", {
@@ -80,16 +81,22 @@ object DuplicationDetection extends Tool {
       opt("load", "load to duplicates into the database", {
         load = true
       })
+      opt("index", "reindex duplicates", {
+        index = true
+      })
       opt("f", "file", "A file that contains a list of species guids to detect duplication for", {
         v: String => speciesFile = Some(v)
       })
       opt("removeold", "Removes the duplicate information for records that are no longer duplicates", {
         removeObsoleteData = true
       })
-      opt("od", "offlinedir", "The offline directory that contains the export files.", {
+      opt("od", "offlinedir", "The offline directory that contains the export files. Defaults to " + offlineDir, {
         v: String => offlineDir = v
       })
-      intOpt("t", "threads", " The number of concurrent species duplications to perform.", {
+      opt("wd", "workingdir", "The  directory that contains the files produced during duplicate detection. Defaults to " + workingTmpDir, {
+        v: String => workingTmpDir = v
+      })
+      intOpt("t", "threads", " The number of concurrent species duplications to perform. Defaults to " + threads , {
         v: Int => threads = v
       })
     }
@@ -101,7 +108,7 @@ object DuplicationDetection extends Tool {
         removeObsoleteDuplicates(speciesFile)
       } else if (all) {
         //download all the species guids
-        val filename = rootDir + "dd_all_species_guids"
+        val filename = workingTmpDir + "dd_all_species_guids"
         //val args = if(lastRunDate.isDefined) Array("species_guid",filename, "-fq","last_load_date:["+lastRunDate.get+" TO *]","--open") else Array("species_guid",filename,"--open")
         //export the scientific names that have had records (re)loaded since the last run OR export all species names.
         //ExportFacet.main(args)
@@ -110,18 +117,21 @@ object DuplicationDetection extends Tool {
       } else if (guid.isDefined) {
         //just a single detection - ignore the thread settings etc...
         val dd = new DuplicationDetection
-        val datafilename = rootDir + "dd_data_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
-        val passedfilename = rootDir + "passed" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
-        val dupfilename = rootDir + "duplicates_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
-        val indexfilename = rootDir + "reindex_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
-        val olddup = rootDir + "olddup_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
+        val datafilename = workingTmpDir + "dd_data_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
+        val passedfilename = workingTmpDir + "passed" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
+        val dupfilename = workingTmpDir + "duplicates_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
+        val indexfilename = workingTmpDir + "reindex_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
+        val olddup = workingTmpDir + "olddup_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
         if (load) {
           dd.loadDuplicates(guid.get, threads, dupfilename, new FileWriter(indexfilename), new FileWriter(olddup))
-          IndexRecords.indexList(new File(indexfilename), false)
           updateLastDuplicateTime
         } else {
           dd.detect(datafilename, new FileWriter(dupfilename), new FileWriter(passedfilename), guid.get, shouldDownloadRecords = !exist, cleanup = cleanup)
         }
+        if(index){
+          IndexRecords.indexList(new File(indexfilename), false)
+        }
+
         Config.persistenceManager.shutdown
         Config.indexDAO.shutdown
       } else if (speciesFile.isDefined) {
@@ -133,7 +143,7 @@ object DuplicationDetection extends Tool {
   }
 
   def removeObsoleteDuplicates(filename: Option[String]) {
-    val olddupfilename = filename.getOrElse(rootDir + "olddups.txt")
+    val olddupfilename = filename.getOrElse(workingTmpDir + "olddups.txt")
     new File(olddupfilename).foreachLine(line => {
       val parts = line.split("\t")
       val uuid = parts(1)
@@ -144,7 +154,7 @@ object DuplicationDetection extends Tool {
   def detectDuplicates(file: File, threads: Int, exist: Boolean, cleanup: Boolean, load: Boolean, offlineDir: String = "") {
     var ids = 0
     val pool = Array.fill(threads) {
-      val dir = rootDir + ids + File.separator
+      val dir = workingTmpDir + ids + File.separator
       FileUtils.forceMkdir(new File(dir))
       val sourceFile = dir + "dd_data.txt"
       val dupfilename = dir + "duplicates.txt"
@@ -186,9 +196,9 @@ object DuplicationDetection extends Tool {
       //need to update the last duplication detection time
       updateLastDuplicateTime
       //need to merge all the obsolete duplicates into 1 file
-      val baseFile = new File(rootDir + "olddups.txt")
+      val baseFile = new File(workingTmpDir + "olddups.txt")
       for (i <- 0 to threads - 1) {
-        val ifile = new File(rootDir + i + File.separator + "olddups.txt")
+        val ifile = new File(workingTmpDir + i + File.separator + "olddups.txt")
         baseFile.append(ifile)
       }
     }
@@ -617,7 +627,7 @@ class DuplicationDetection {
           duplicateWriter.synchronized {
             duplicateWriter.write(stringValue + "\n")
           }
-        } else if ((record.duplicates == null || record.duplicates.size() == 0) && StringUtils.isBlank(record.duplicateOf)) {
+        } else if ((record.duplicates == null || record.duplicates.size == 0) && StringUtils.isBlank(record.duplicateOf)) {
           //this record has passed its tool detection
           passedWriter.synchronized {
             passedWriter.write(record.getRowKey + "\n")
@@ -635,45 +645,50 @@ class DuplicationDetection {
       }
     }
 
-    def setDateTypes(r: DuplicateRecordDetails, hasYear: Boolean, hasMonth: Boolean, hasDay: Boolean) {
-      if (hasYear && hasMonth && !hasDay)
-        r.addDupType(DuplicationTypes.MISSING_DAY)
-      else if (hasYear && !hasMonth)
-        r.addDupType(DuplicationTypes.MISSING_MONTH)
-      else if (!hasYear)
-        r.addDupType(DuplicationTypes.MISSING_YEAR)
+    def setDateTypes(r: DuplicateRecordDetails, hasYear: Boolean, hasMonth: Boolean, hasDay: Boolean) = {
+      if (hasYear && hasMonth && !hasDay) {
+        r.dupTypes = r.dupTypes ++ Array(DuplicationTypes.MISSING_DAY)
+      } else if (hasYear && !hasMonth) {
+        r.dupTypes = r.dupTypes ++ Array(DuplicationTypes.MISSING_MONTH)
+      } else if (!hasYear) {
+        r.dupTypes = r.dupTypes ++ Array(DuplicationTypes.MISSING_YEAR)
+      }
+      r
     }
 
-    def markRecordsAsDuplicatesAndSetTypes(record: DuplicateRecordDetails): (DuplicateRecordDetails, List[DuplicateRecordDetails]) = {
+    def markRecordsAsDuplicatesAndSetTypes(record: DuplicateRecordDetails): (DuplicateRecordDetails, Seq[DuplicateRecordDetails]) = {
       //find the "representative" record for the tool
       var highestPrecision = determinePrecision(record.latLong)
       record.precision = highestPrecision
       var representativeRecord = record
-      val duplicates = record.duplicates
+
+      val duplicates = new ArrayBuffer[DuplicateRecordDetails]()
+      duplicates.appendAll(record.duplicates)
+
 
       //find out whether or not record has date components
       val hasYear = StringUtils.isNotEmpty(record.year)
       val hasMonth = StringUtils.isNotEmpty(record.month)
       val hasDay = StringUtils.isNotEmpty(record.day)
+
       setDateTypes(record, hasYear, hasMonth, hasDay)
+
       duplicates.foreach(r => {
         setDateTypes(r, hasYear, hasMonth, hasDay)
         r.precision = determinePrecision(r.latLong)
         if (r.precision > highestPrecision) {
           highestPrecision = r.precision
-          //representativeRecord.status = "D"
           representativeRecord = r
         }
-        //      else
-        //        r.status = "D"
       })
+
       representativeRecord.status = "R"
 
       if (representativeRecord != record) {
-        record.duplicates = null
+        record.duplicates = Array()
         duplicates += record
         duplicates -= representativeRecord
-        representativeRecord.duplicates = duplicates
+        representativeRecord.duplicates = duplicates.toArray
         //set the duplication types of the old rep record
         record.dupTypes = representativeRecord.dupTypes
       }
@@ -685,14 +700,14 @@ class DuplicationDetection {
         } else {
           "D2"
         }
-        d.addDupType(if (d.precision == representativeRecord.precision) {
-          DuplicationTypes.EXACT_COORD
+        if (d.precision == representativeRecord.precision) {
+          d.dupTypes = d.dupTypes ++ Array(DuplicationTypes.EXACT_COORD)
         } else {
-          DuplicationTypes.DIFFERENT_PRECISION
-        })
+          d.dupTypes = d.dupTypes ++ Array(DuplicationTypes.DIFFERENT_PRECISION)
+        }
       })
 
-      (representativeRecord, duplicates.toList)
+      (representativeRecord, duplicates)
     }
 
     //reports the maximum number of decimal places that the lat/long are reported to
@@ -701,7 +716,11 @@ class DuplicationDetection {
         val latLonPattern(lat, long) = latLong
         val latp = if (lat.contains(".")) lat.split("\\.")(1).length else 0
         val lonp = if (long.contains(".")) long.split("\\.")(1).length else 0
-        if (latp > lonp) latp else lonp
+        if (latp > lonp) {
+          latp
+        } else {
+          lonp
+        }
       }
       catch {
         case e: Exception => DuplicationDetection.logger.error("ISSUE WITH " + latLong, e); 0
@@ -722,15 +741,20 @@ class DuplicationDetection {
     def findDuplicates(record: DuplicateRecordDetails, recordGroup: List[DuplicateRecordDetails]) {
 
       val points = Array(record.point1, record.point0_1, record.point0_01, record.point0_001, record.point0_0001, record.latLong)
+      val dupBuffer = new ArrayBuffer[DuplicateRecordDetails]()
+      dupBuffer.appendAll(record.duplicates)
+
       recordGroup.foreach(otherRecord => {
         if (otherRecord.duplicateOf == null && record.rowKey != otherRecord.rowKey) {
           val otherpoints = Array(otherRecord.point1, otherRecord.point0_1, otherRecord.point0_01, otherRecord.point0_001, otherRecord.point0_0001, otherRecord.latLong)
           if (isSpatialDuplicate(points, otherpoints) && isCollectorDuplicate(record, otherRecord)) {
             otherRecord.duplicateOf = record.rowKey
-            record.addDuplicate(otherRecord)
+            dupBuffer.append(otherRecord)
           }
         }
       })
+
+      record.duplicates = dupBuffer.toArray
     }
 
     def isEmptyUnknownCollector(in: String): Boolean = {
@@ -742,7 +766,7 @@ class DuplicationDetection {
       //if one of the collectors haven't been supplied assume that they are the same.
       if (isEmptyUnknownCollector(r1.collector) || isEmptyUnknownCollector(r2.collector)) {
         if (isEmptyUnknownCollector(r2.collector))
-          r2.addDupType(DuplicationTypes.MISSING_COLLECTOR)
+          r2.dupTypes = r2.dupTypes ++ Array(DuplicationTypes.MISSING_COLLECTOR)
         true
       } else {
         val (col1, col2) = prepareCollectorsForLevenshtein(r1.collector, r2.collector)
@@ -752,9 +776,9 @@ class DuplicationDetection {
           //println("DISTANCE: " + distance)
           if (distance > 0) {
             //println("COL1: " + collector1 + " COL2: " + collector2)
-            r2.addDupType(DuplicationTypes.FUZZY_COLLECTOR)
+            r2.dupTypes = r2.dupTypes ++ Array(DuplicationTypes.FUZZY_COLLECTOR)
           } else {
-            r2.addDupType(DuplicationTypes.EXACT_COLLECTOR)
+            r2.dupTypes = r2.dupTypes ++ Array(DuplicationTypes.EXACT_COLLECTOR)
           }
           true
         } else {
@@ -806,7 +830,6 @@ class DuplicationDetection {
 
   class IncrementalYearGroupDetection(year: String, records: List[DuplicateRecordDetails], duplicateWriter: FileWriter, passedWriter: FileWriter) extends YearGroupDetection(year, records, duplicateWriter, passedWriter: FileWriter) {
     override def checkDuplicates(recordGroup: List[DuplicateRecordDetails]): List[DuplicateRecordDetails] = {
-
       recordGroup.foreach(record => {
         if (record.duplicateOf == null) {
           //this record needs to be considered for duplication
@@ -815,12 +838,6 @@ class DuplicationDetection {
       })
       //return records that are not duplicates
       recordGroup.filter(_.duplicateOf == null)
-    }
-
-    def findDuplicateGroup(record: DuplicateRecordDetails) {
-      //find existing group and check if it is still a tool
-
-      //otherwise find all the existing
     }
   }
 }

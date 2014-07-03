@@ -1,6 +1,5 @@
 package au.org.ala.biocache.model
 
-import java.util
 import scala.beans.BeanProperty
 
 class DuplicateRecordDetails(@BeanProperty var rowKey:String, @BeanProperty var uuid:String, @BeanProperty var taxonConceptLsid:String,
@@ -22,22 +21,7 @@ class DuplicateRecordDetails(@BeanProperty var rowKey:String, @BeanProperty var 
     }
   }
   @BeanProperty var duplicateOf:String = null
-
   @BeanProperty var precision = 0
-  @BeanProperty var duplicates:util.ArrayList[DuplicateRecordDetails]=null
-  @BeanProperty var dupTypes:util.ArrayList[DupType]=_
-
-  def addDuplicate(dup:DuplicateRecordDetails){
-    if(duplicates == null){
-      duplicates = new util.ArrayList[DuplicateRecordDetails]
-    }
-    duplicates.add(dup)
-  }
-
-  def addDupType(dup:DupType){
-    if(dupTypes == null){
-      dupTypes = new util.ArrayList[DupType]()
-    }
-    dupTypes.add(dup)
-  }
+  @BeanProperty var duplicates:Array[DuplicateRecordDetails] = Array[DuplicateRecordDetails]()
+  @BeanProperty var dupTypes:Array[DupType] = Array[DupType]()
 }

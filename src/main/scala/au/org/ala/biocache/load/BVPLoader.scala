@@ -23,16 +23,20 @@ object BVPLoader extends Tool {
     var ingestResources = false
     var syncOnly = false
     var debugOnly = false
+    var startAt = ""
 
     val parser = new OptionParser(help) {
-      booleanOpt("d", "display-expeditions", "Display the list of expeditions. For debug purposes.", {
-        v: Boolean => debugOnly = v
+      opt("debug", "Display the list of expeditions. For debug purposes.", {
+        debugOnly = true
       })
-      booleanOpt("s", "sync-only", "synchronise the list of data resources. Dont ingest.", {
-        v: Boolean => syncOnly = v
+      opt("sync-only", "synchronise the list of data resources. Dont ingest.", {
+        syncOnly = true
       })
-      booleanOpt("i", "ingest", "flag to indicate all resources should be loaded", {
-        v: Boolean => ingestResources = v
+      opt("i", "ingest", "flag to indicate all resources should be loaded", {
+        ingestResources = true
+      })
+      opt("sa", "start-at-uid", "Start ingesting resources at the supplied UID", {
+        v: String => startAt = v
       })
     }
     if(parser.parse(args)){
@@ -45,8 +49,27 @@ object BVPLoader extends Tool {
         if (logger.isDebugEnabled) {
           drsList.foreach(dr => logger.debug("Will harvest: " + dr))
         }
+
+        //start at UID
+        val drsToIngest:Seq[String] = if(startAt != ""){
+          val idx = drsList.indexOf(startAt)
+          if(idx>0){
+            drsList.drop(idx)
+          } else {
+            drsList
+          }
+        } else {
+          drsList
+        }
+
         if (ingestResources && !syncOnly) {
-          drsList.foreach(drUid => IngestTool.ingestResource(drUid))
+          drsToIngest.foreach(drUid =>
+            try {
+              IngestTool.ingestResource(drUid)
+            } catch {
+              case e:Exception => logger.error(e.getMessage, e)
+            }
+          )
         }
       }
     }
@@ -152,14 +175,15 @@ class BVPLoader {
 
     if(Config.volunteerHubUid != "") {
       val (respCode, respBody) = HttpUtil.postBody(Config.registryUrl + "/dataHub/" + Config.volunteerHubUid, "application/json", Json.toJSON(Map(
+        "api_key" -> Config.collectoryApiKey,
         "memberDataResources" -> Json.toJSON(drs)
       )))
       logger.info("Data hub sync: " + respCode)
+      logger.info("Data hub sync response : " + respBody)
     } else {
       logger.info("Data hub sync skipped. Please create a hub entry in the registry and configure the biocache to use it.")
     }
-
-    drs
+      drs
   }
 
   /**
