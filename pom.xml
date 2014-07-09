@@ -7,7 +7,7 @@
     <url>http://biocache.ala.org.au</url>
     <issueManagement>
         <system>Google code</system>
-        <url>http://code.google.com/p/ala-portal/issues/list</url>
+        <url>http://code.google.com/p/ala/issues/list</url>
     </issueManagement>
     <ciManagement>
         <system>Hudson</system>
@@ -25,7 +25,7 @@
     <description>
         Scala implementation of biocache backend.
         This code base managed the loading, processing, sampling and indexing of occurrence records for the ALA.
-        There are additional tools to support outlier detection, duplicate detection and extra limital outliers.
+        There are additional tools to support outlier detection, duplicate detection and extra-limital outliers.
     </description>
     <scm>
         <connection>scm:git:git@github.com:AtlasOfLivingAustralia/biocache-store.git</connection>
@@ -70,6 +70,11 @@
             <id>scala-tools.org</id>
             <name>Scala-Tools Maven2 Repository</name>
             <url>https://oss.sonatype.org/content/groups/scala-tools/</url>
+        </pluginRepository>
+        <pluginRepository>
+            <id>repo2</id>
+            <name>Maven Repo2</name>
+            <url>http://repo1.maven.org/maven2</url>
         </pluginRepository>
     </pluginRepositories>
     <dependencies>
@@ -500,7 +505,7 @@
             <plugin>
                 <groupId>pl.project13.maven</groupId>
                 <artifactId>git-commit-id-plugin</artifactId>
-                <version>2.1.10</version>
+                <version>2.1.3</version>
                 <executions>
                     <execution>
                         <goals>
@@ -670,7 +675,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>au.org.ala.biocache.cmd.CommandLineTool</mainClass>
+                            <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
