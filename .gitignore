@@ -1,2 +1,6 @@
 
 release.properties
+
+src/main/resources/git.properties
+
+biocache.tgz

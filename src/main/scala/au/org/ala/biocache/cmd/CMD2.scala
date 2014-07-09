@@ -10,6 +10,7 @@ import au.org.ala.biocache.export._
 import scala.Some
 import au.org.ala.biocache.qa.ValidationRuleRunner
 import org.drools.core.factmodel.traits.Trait
+import scala.collection.JavaConversions
 
 /**
  * A trait to be added to any runnable application within the biocache-store library.
@@ -47,14 +48,45 @@ object ShowConfig extends NoArgsTool {
   }
 }
 
+object ShowVersion extends NoArgsTool {
+
+  def cmd = "version"
+  def desc = "Show build version information"
+  def main(args:Array[String]) = {
+    import JavaConversions._
+    val propertyNames = Config.versionProperties.stringPropertyNames().toList
+    propertyNames.foreach(name => {
+      println(name + " = " + Config.versionProperties.getProperty(name))
+    })
+  }
+}
+
 object CMD2 {
 
   def main(args: Array[String]) {
 
+    import JavaConversions._
+
+    if(args.contains("--version")){
+      ShowVersion.main(Array[String]())
+      return
+    }
+
     if (args.isEmpty) {
-      println("----------------------------")
-      println("| Biocache management tool |")
-      println("----------------------------")
+
+      val versionInfo =  if(!Config.versionProperties.isEmpty) {
+        "Commit ID: " + Config.versionProperties.getProperty("git.commit.id") +
+          "\n Build time: " +  Config.versionProperties.getProperty("git.build.time") +
+          "\n Commit time: " +  Config.versionProperties.getProperty("git.commit.time") +
+          "\n For more detail run with --version"
+      } else {
+        " - version information not available"
+      }
+
+      println("-" * 80)
+      println(" Biocache management tool ")
+      println(" " + versionInfo + " ")
+      println("-" * 80)
       print("\nPlease supply a command or hit ENTER to view command list. \nbiocache> ")
 
       var input = readLine
@@ -172,6 +204,7 @@ object CMD2 {
     MigrateMedia,
     LoadMediaReferences,
     CopyDataNewColumn,
-    BVPLoader
+    BVPLoader,
+    ShowVersion
   ).sortBy(_.cmd)
 }

@@ -40,10 +40,10 @@ object Config {
   val mediaStore = {
     val str = configModule.properties.getProperty("media.store.local", "true")
     if(str.toBoolean){
-      logger.info("Using local media store")
+      logger.debug("Using local media store")
       LocalMediaStore
     } else {
-      logger.info("Using remote media store")
+      logger.debug("Using remote media store")
       RemoteMediaStore
     }
   }
@@ -162,6 +162,16 @@ object Config {
 
   //used by location processor for associating a country with an occurrence record where only stateProvince supplied
   val defaultCountry = configModule.properties.getProperty("default.country", "Australia")
+
+  val versionProperties = {
+    //only load the properties file if it exists otherwise default to the biocache.properties on the classpath
+    val stream = this.getClass.getResourceAsStream("/git.properties")
+    val properties = new Properties()
+    if(stream != null){
+      properties.load(stream)
+    }
+    properties
+  }
 }
 
 /**
