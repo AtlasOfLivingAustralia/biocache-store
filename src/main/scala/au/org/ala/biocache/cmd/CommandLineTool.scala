@@ -7,6 +7,7 @@ import au.org.ala.biocache.index.IndexRecords
  * Command line tool that allows administrators to run commands on
  * the biocache. Any additional tools should be incorporated into this executable.
  */
+@Deprecated
 object CommandLineTool {
 
   def main(args: Array[String]) {

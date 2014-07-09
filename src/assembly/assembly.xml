@@ -8,7 +8,7 @@
         <dependencySet>
             <useProjectArtifact>true</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>true</unpack>
+            <unpack>false</unpack>
             <scope>runtime</scope>
             <fileMode>0755</fileMode>
             <directoryMode>0755</directoryMode>
@@ -16,7 +16,6 @@
                 <include>au.org.ala:biocache-store</include>
             </includes>
         </dependencySet>
-
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>

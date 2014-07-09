@@ -67,7 +67,7 @@ object CMD2 {
 
     import JavaConversions._
 
-    if(args.contains("--version")){
+    if(args.contains("--version") || args.contains("-version")){
       ShowVersion.main(Array[String]())
       return
     }
@@ -76,11 +76,11 @@ object CMD2 {
 
       val versionInfo =  if(!Config.versionProperties.isEmpty) {
         "Commit ID: " + Config.versionProperties.getProperty("git.commit.id") +
-          "\n Build time: " +  Config.versionProperties.getProperty("git.build.time") +
-          "\n Commit time: " +  Config.versionProperties.getProperty("git.commit.time") +
-          "\n For more detail run with --version"
+          "\n Build date: " +  Config.versionProperties.getProperty("git.build.time") +
+          "\n Revision date: " +  Config.versionProperties.getProperty("git.commit.time") +
+          "\n For more detail run with --version or type 'version' at the prompt"
       } else {
-        " - version information not available"
+        "Version information not available"
       }
 
       println("-" * 80)

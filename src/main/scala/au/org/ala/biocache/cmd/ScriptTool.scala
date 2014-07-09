@@ -8,6 +8,7 @@ import java.io.{BufferedReader, InputStreamReader}
 /**
  * Tool for running a script against the biocache.
  */
+@Deprecated
 object ScriptTool {
 
   def main(args: Array[String]) {

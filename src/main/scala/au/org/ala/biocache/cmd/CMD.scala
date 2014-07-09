@@ -19,6 +19,7 @@ import au.org.ala.biocache.processor.RecordProcessor
  *
  * This class will be replaced by CMD2 eventually.
  */
+@Deprecated
 object CMD {
 
   /**
