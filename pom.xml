@@ -27,7 +27,10 @@
         There are additional tools to support outlier detection, duplicate detection and extra limital outliers.
     </description>
     <scm>
-        <developerConnection>scm:svn:https://ala-portal.googlecode.com/svn/trunk/biocache-store/</developerConnection>
+        <connection>scm:git:git@github.com:AtlasOfLivingAustralia/biocache-store.git</connection>
+        <url>https://github.com/AtlasOfLivingAustralia/biocache-store</url>
+        <developerConnection>scm:git:git@github.com:AtlasOfLivingAustralia/biocache-store.git</developerConnection>
+        <tag>HEAD</tag>
     </scm>
 	<repositories>
 		<repository>
