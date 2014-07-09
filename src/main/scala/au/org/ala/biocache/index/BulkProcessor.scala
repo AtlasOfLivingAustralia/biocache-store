@@ -7,15 +7,11 @@ import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache.cmd.Tool
 import org.apache.lucene.store.FSDirectory
 import java.io.File
-import org.apache.lucene.index.{IndexWriterConfig, IndexWriter}
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.index.IndexWriterConfig
 import org.apache.lucene.index.IndexWriterConfig.OpenMode
-import org.apache.lucene.store.Directory
 import org.apache.lucene.util.Version
 import org.apache.commons.io.FileUtils
-import org.apache.lucene.misc.IndexMergeTool
-;
 
 /**
  * A multi-threaded bulk processor that uses the search indexes to create a set a

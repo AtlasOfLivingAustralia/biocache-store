@@ -1,5 +1,3 @@
-
-
 package au.org.ala.biocache.tool
 
 import au.org.ala.biocache.Config
@@ -97,7 +95,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
 
         if (removeColumns) {
           if (filename.isDefined) {
-            removeObsoleteColumnsIncremental(new java.io.File(filename.get), checkDate.get.getTime(), test);
+            removeObsoleteColumnsIncremental(new java.io.File(filename.get), checkDate.get.getTime(), test)
           } else {
             removeObsoleteColumns(dataResourceUid, checkDate.get.getTime(), start, end, test)
           }
@@ -140,7 +138,6 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
               valueSet += fieldName
               totalColumnsRemoved += 1
             }
-
           }
           case _ => //ignore
         }
@@ -154,14 +151,14 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
       }
       true
     }, startUuid, endUuid, 1000)
-    println("Finished cleanup for columns")
-    println("List of columns that have been removed from one or more records:")
-    println(valueSet)
-    println("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
+    logger.info("Finished cleanup for columns")
+    logger.info("List of columns that have been removed from one or more records:")
+    logger.info(valueSet.toList.toString())
+    logger.info("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
   }
 
   def removeSpecifiedColumns(dr: String, colsToDelete: Array[String], start: Option[String], end: Option[String]) {
-    println("Starting to remove all columns in " + colsToDelete.toList)
+    logger.info("Starting to remove all columns in " + colsToDelete.toList)
     val startUuid = start.getOrElse(dr + "|")
     val endUuid = end.getOrElse(startUuid + "~")
     val pm = Config.persistenceManager
@@ -172,7 +169,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
       count += 1
       true
     }, startUuid, endUuid, 1000, "rowKey", "uuid")
-    println("Finished removing columns on list for " + count + " records")
+    logger.info("Finished removing columns on list for " + count + " records")
   }
 
   /**
@@ -183,7 +180,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
    * @param test
    */
   def removeObsoleteColumnsIncremental(file: java.io.File, editTime: Long, test: Boolean) {
-    println("Starting to remove the obsolete columns from an incremental file " + file.getAbsolutePath)
+    logger.info("Starting to remove the obsolete columns from an incremental file " + file.getAbsolutePath)
     var totalRecords = 0
     var totalRecordModified = 0
     var totalColumnsRemoved = 0
@@ -197,10 +194,10 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         totalRecords += 1
       }
     }
-    println("Finished cleanup for columns")
-    println("List of columns that have been removed from one or more records:")
-    println(valueSet)
-    println("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
+    logger.info("Finished cleanup for columns")
+    logger.info("List of columns that have been removed from one or more records:")
+    logger.info(valueSet.toList.toString())
+    logger.info("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
   }
 
   def removeRecordColumnsBasedOnTime(rowKey: String, editTime: Long, valueSet: scala.collection.mutable.HashSet[String], fullRecord: FullRecord, test: Boolean): (Int, Int) = {
@@ -237,7 +234,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
   }
 
   def removeObsoleteColumns(dr: String, editTime: Long, start: Option[String], end: Option[String], test: Boolean = false) {
-    println("Starting to remove obsolete columns based on timestamps.")
+    logger.info("Starting to remove obsolete columns based on timestamps.")
     val startUuid = start.getOrElse(dr + "|")
     val endUuid = end.getOrElse(startUuid + "~")
     val fullRecord = new FullRecord
@@ -257,12 +254,8 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         //only interested in the raw values
         if (timemap.isDefined) {
           timemap.get.keySet.foreach(fieldName => {
-            //              if(fieldName == "kingdom")
-            //                println(fullRecord.hasProperty(fieldName) +" "+ timemap.get.get(fieldName).get)
             fieldName match {
               case it if (fullRecord.hasNestedProperty(fieldName) && !valuesToIgnore.contains(it)) => {
-                //                  if(fieldName == "kingdom")
-                //                    println("Edit time: " +editTime + " less than : " + (timemap.get.get(fieldName).get < editTime))
                 if (timemap.get.get(fieldName).get < editTime) {
                   totalColumnsRemoved += 1
                   colToDelete += fieldName
@@ -283,10 +276,10 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
       }
       true
     }, startUuid, endUuid, 1000, "rowKey", "dateDeleted")
-    println("Finished cleanup for columns")
-    println("List of columns that have been removed from one or more records:")
-    println(valueSet)
-    println("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
+    logger.info("Finished cleanup for columns")
+    logger.info("List of columns that have been removed from one or more records:")
+    logger.info(valueSet.toList.toString())
+    logger.info("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
   }
 
 
@@ -351,8 +344,8 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         count = count + 1
       }
       if (totalRecords % 1000 == 0) {
-        println("Deleted " + count + " records out of " + totalRecords)
-        println("Last key checked: " + guid)
+        logger.info("Deleted " + count + " records out of " + totalRecords)
+        logger.info("Last key checked: " + guid)
       }
       true
     }, startUuid, endUuid, 1000, "rowKey", "uuid", FullRecordMapper.deletedColumn)

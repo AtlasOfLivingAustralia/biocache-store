@@ -60,14 +60,13 @@ object MorphbankLoader extends DataLoader {
 ("CatalogNumber" -> "otherCatalogNumbers"))*/
 
   def main(args: Array[String]) {
-    var dataResourceUid: String = null
 
+    var dataResourceUid: String = null
     val parser = new OptionParser("Import morphbank data") {
       arg("<data-resource-uid>", "the data resource to import", {
         v: String => dataResourceUid = v
       })
     }
-
     if (parser.parse(args)) {
       val loader = new MorphbankLoader
       loader.load(dataResourceUid)
@@ -86,7 +85,7 @@ class MorphbankLoader extends CustomWebserviceLoader {
 
   def load(dataResourceUid: String) {
     val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    var idsUrlTemplate = params("url")
+    val idsUrlTemplate = params("url")
     val objectUrlTemplate = customParams("objectRequestUrlTemplate")
     val imageUrlTemplate = customParams("imageRequestUrlTemplate")
     val specimenPageUrlTemplate = customParams("specimenDetailsPageUrlTemplate")
@@ -95,7 +94,7 @@ class MorphbankLoader extends CustomWebserviceLoader {
     val recordSetKeywordsList = allRecordSetKeywordsAsString.split(";")
 
     for (keywords <- recordSetKeywordsList) {
-      println("Processing records with keywords " + keywords)
+      logger.info("Processing records with keywords " + keywords)
 
       val idsUrl = MessageFormat.format(idsUrlTemplate, keywords)
       val idsXml = getXMLFromWebService(idsUrl)
@@ -125,8 +124,7 @@ class MorphbankLoader extends CustomWebserviceLoader {
       }
 
       setSpecimenImagesLicenceAndPhotographer(imageUrlTemplate, dataResourceUid)
-
-      println("Finished processing records with keywords " + keywords + ". Loaded " + loadedSpecimens + " specimens, and " + loadedImages + " images.")
+      logger.info("Finished processing records with keywords " + keywords + ". Loaded " + loadedSpecimens + " specimens, and " + loadedImages + " images.")
     }
 
   }
@@ -138,7 +136,7 @@ class MorphbankLoader extends CustomWebserviceLoader {
     try {
       val responseCode = httpClient.executeMethod(get)
       if (responseCode == 200) {
-        xmlContent = get.getResponseBodyAsString();
+        xmlContent = get.getResponseBodyAsString()
       } else {
         throw new Exception("Request failed (" + responseCode + ")")
       }
@@ -171,7 +169,7 @@ class MorphbankLoader extends CustomWebserviceLoader {
     val fr = FullRecordMapper.createFullRecord("", mappedValues, Versions.RAW)
     load(dataResourceUid, fr, uniqueTermsValues)
 
-    println("Loaded specimen " + mappedValues(MorphbankLoader.OTHER_CATALOG_NUMBERS_DWC_KEY))
+    logger.info("Loaded specimen " + mappedValues(MorphbankLoader.OTHER_CATALOG_NUMBERS_DWC_KEY))
   }
 
   //record content of an xml node if it is of interest
@@ -252,12 +250,10 @@ class MorphbankLoader extends CustomWebserviceLoader {
       if (copyrightText != null) {
         specimenCopyrightTextMap += (specimenId -> copyrightText)
       }
-
-      println("Processed image " + imageId + " for specimen " + specimenId)
+      logger.info("Processed image " + imageId + " for specimen " + specimenId)
     } else {
-      println("ERROR: No associated specimen for image " + imageId)
+      logger.info("ERROR: No associated specimen for image " + imageId)
     }
-
   }
 
   def setSpecimenImagesLicenceAndPhotographer(imageUrlTemplate: String, dataResourceUid: String) {
@@ -274,7 +270,7 @@ class MorphbankLoader extends CustomWebserviceLoader {
       for (specimenImageUrl <- specimenImageUrls) {
         if (isPlaceholderImage(specimenImageUrl)) {
           placeholderImageUrls.append(specimenImageUrl)
-          println("Ignoring placeholder image " + specimenImageUrl)
+          logger.info("Ignoring placeholder image " + specimenImageUrl)
         }
       }
 
@@ -308,7 +304,7 @@ class MorphbankLoader extends CustomWebserviceLoader {
       val fr = FullRecordMapper.createFullRecord("", mappedValues, Versions.RAW)
       load(dataResourceUid, fr, uniqueTermsValues)
 
-      println("Loaded images for specimen " + specimenId)
+      logger.info("Loaded images for specimen " + specimenId)
     }
   }
 
@@ -323,5 +319,4 @@ class MorphbankLoader extends CustomWebserviceLoader {
 
     md5Hex == MorphbankLoader.PLACEHOLDER_IMAGE_MD5
   }
-
 }
