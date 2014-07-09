@@ -1,6 +1,10 @@
 package au.org.ala.biocache.vocab
 
-import au.org.ala.biocache.util.{StringHelper, Stemmer}
+import au.org.ala.biocache.util._
+import java.io.File
+import au.org.ala.biocache.Config
+import au.org.ala.biocache.util.Stemmer
+import org.slf4j.LoggerFactory
 
 /**
  * A trait for a vocabulary. A vocabulary consists of a set
@@ -8,10 +12,11 @@ import au.org.ala.biocache.util.{StringHelper, Stemmer}
  */
 trait Vocab {
 
-  import StringHelper._
   import scala.collection.JavaConversions._
 
   val all:Set[Term]
+
+  val logger = LoggerFactory.getLogger("Vocab")
 
   val regexNorm = """[ \\"\\'\\.\\,\\-\\?]*"""
 
@@ -23,7 +28,7 @@ trait Vocab {
    * @return
    */
   def matchTerm(string2Match:String) : Option[Term] = {
-    if(string2Match!=null){
+    if(string2Match != null){
       //strip whitespace & strip quotes and fullstops & uppercase
       val stringToUse = string2Match.replaceAll(regexNorm, "").toLowerCase
       val stemmed = Stemmer.stem(stringToUse)
@@ -60,7 +65,8 @@ trait Vocab {
   }
 
   def loadVocabFromVerticalFile(filePath:String) : Set[Term] = {
-    val map = scala.io.Source.fromURL(getClass.getResource(filePath), "utf-8").getLines.toList.map({ row =>
+
+    val map = getSource(filePath).getLines.toList.map({ row =>
         val values = row.split("\t")
         val variant = values.head.replaceAll(regexNorm,"").toLowerCase
         val canonical = values.last
@@ -75,12 +81,23 @@ trait Vocab {
     }}).toSet
   }
 
-  def loadVocabFromFile(filePath:String) : Set[Term] = {
-    scala.io.Source.fromURL(getClass.getResource(filePath), "utf-8").getLines.toList.map({ row =>
-        val values = row.split("\t")
-        val variants = values.map(x => x.replaceAll("""[ \\"\\'\\.\\,\\-\\?]*""","").toLowerCase)
-        new Term(values.head, variants)
-    }).toSet
+  def loadVocabFromFile(filePath:String) : Set[Term] = getSource(filePath).getLines.toList.map({ row =>
+    val values = row.split("\t")
+    val variants = values.map(x => x.replaceAll("""[ \\"\\'\\.\\,\\-\\?]*""","").toLowerCase)
+    new Term(values.head, variants)
+  }).toSet
+
+  private def getSource(filePath:String) : scala.io.Source = {
+    val overrideFile = new File(Config.vocabDirectory + filePath)
+    if(overrideFile.exists){
+      //if external file exists, use this
+      logger.info("Reading vocab file: " + overrideFile.getAbsolutePath)
+      scala.io.Source.fromFile(overrideFile, "utf-8")
+    } else {
+      //else use the file shipped with jar
+      logger.info("Reading internal vocab file: " + filePath)
+      scala.io.Source.fromURL(getClass.getResource(filePath), "utf-8")
+    }
   }
 
   /**

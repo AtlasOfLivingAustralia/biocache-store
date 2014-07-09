@@ -74,6 +74,8 @@ object Config {
 
   val loadFileStore = configModule.properties.getProperty("load.dir","/data/biocache-load/")
 
+  val vocabDirectory = configModule.properties.getProperty("vocab.dir","/data/biocache/vocab/")
+
   val deletedFileStore = configModule.properties.getProperty("deleted.file.store","/data/biocache-delete/")
 
   val mediaFileStore = configModule.properties.getProperty("media.dir","/data/biocache-media/")
