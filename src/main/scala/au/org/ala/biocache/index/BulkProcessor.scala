@@ -35,7 +35,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
     var numThreads = 8
     var pageSize = 200
-    var dirPrefix = "/data"
+    var dirPrefix = "/data/biocache-reindex"
     var keys: Option[Array[String]] = None
     var columns: Option[Array[String]] = None
     var action = ""
@@ -117,13 +117,13 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
               } else if (action == "repair") {
                 new RepairRecordsRunner(this, counter, r._1, r._2)
               } else if (action == "index") {
-                solrDirs += (dirPrefix + "/solr-create/bio-proto-thread-" + counter + "/data/index")
+                solrDirs += (dirPrefix + "/solr-create/biocache-thread-" + counter + "/data/index")
                 new IndexRunner(this,
                   counter,
                   r._1,
                   r._2,
-                  dirPrefix + "/solr-template/bio-proto/conf",
-                  dirPrefix + "/solr-create/bio-proto-thread-" + counter + "/conf",
+                  dirPrefix + "/solr-template/biocache/conf",
+                  dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf",
                   pageSize
                 )
               } else if (action == "process") {

@@ -21,24 +21,6 @@ import au.org.ala.biocache.model.QualityAssertion
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.caches.LocationDAO
 
-object CreateIndexesAndMerge extends Counter {
-
-  def main(args: Array[String]) {
-    createIndexesAndMerge()
-  }
-
-  def createIndexesAndMerge() {
-    IndexMergeTool.main(
-      Array(
-        "/data/solr/bio-proto-merged/data/index",
-        "/data/solr-create/bio-proto-thread-0/data/index",
-        "/data/solr-create/bio-proto-thread-1/data/index",
-        "/data/solr-create/bio-proto-thread-2/data/index"
-      )
-    )
-  }
-}
-
 trait Counter {
   var counter = 0
 
@@ -75,7 +57,7 @@ trait RangeCalculator {
       val pageSize = totalRecords.toInt / threads
 
       var lastKey = start
-      var buff = Array.fill(threads)(("", ""))
+      val buff = Array.fill(threads)(("", ""))
 
       for (i <- 0 until threads) {
         val json = JSON.parseFull(Source.fromURL(

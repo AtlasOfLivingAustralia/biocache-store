@@ -13,7 +13,7 @@ import au.org.ala.biocache.index.SolrIndexDAO
 class IndexTest extends ConfigFunSuite {
     test("Tests Index Date Ranges" ){
         val map=Map("lastModifiedTime"->"2011-07-07T10:00:00Z", "lastModifiedTime.p"->"2011-07-17T10:00:00Z")
-        val indexer = new SolrIndexDAO("/data/solr/bio-proto","","")
+        val indexer = new SolrIndexDAO("/data/solr/biocache","","")
         expectResult(true){indexer.shouldIndex(map, DateParser.parseStringToDate("2011-07-10T10:00:00Z"))}
         expectResult(false){indexer.shouldIndex(map, DateParser.parseStringToDate("2011-07-20T10:00:00Z"))}
         expectResult(true){indexer.shouldIndex(map, None)}
@@ -36,7 +36,7 @@ class IndexTest extends ConfigFunSuite {
 //    
     test("Raw Scientific Name"){
         var map = Map("scientificName"->"Aus bus")
-        val indexer = new SolrIndexDAO("/data/solr/bio-proto","","")
+        val indexer = new SolrIndexDAO("/data/solr/biocache","","")
         
         expectResult("Aus bus"){indexer.getRawScientificName(map)}
         
