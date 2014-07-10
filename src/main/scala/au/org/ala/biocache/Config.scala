@@ -10,7 +10,7 @@ import java.io.FileInputStream
 import com.google.inject.name.Names
 import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
-import au.org.ala.biocache.persistence.{PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
+import au.org.ala.biocache.persistence.{MockPersistenceManager, PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
 import au.org.ala.biocache.vocab.StateProvinces
 import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
 
@@ -164,7 +164,7 @@ object Config {
   val defaultCountry = configModule.properties.getProperty("default.country", "Australia")
 
   val versionProperties = {
-    //only load the properties file if it exists otherwise default to the biocache.properties on the classpath
+    //only load the properties file if it exists otherwise default to the biocache-test-config.properties on the classpath
     val stream = this.getClass.getResourceAsStream("/git.properties")
     val properties = new Properties()
     if(stream != null){
@@ -185,21 +185,21 @@ private class ConfigModule extends AbstractModule {
 
     val properties = new Properties()
     //NC 2013-08-16: Supply the properties file as a system property via -Dbiocache.config=<file>
-    //or the default /data/biocache/config/biocache-config.properties file is used.
+    //or the default /data/biocache/config/biocache-test-config.properties file is used.
 
     //check to see if a system property has been supplied with the location of the config file
     val filename = System.getProperty("biocache.config","/data/biocache/config/biocache-config.properties")
     val file = new java.io.File(filename)
 
-    //only load the properties file if it exists otherwise default to the biocache.properties on the classpath
+    //only load the properties file if it exists otherwise default to the biocache-test-config.properties on the classpath
     val stream = if(file.exists()) {
       new FileInputStream(file)
     } else {
-      this.getClass.getResourceAsStream("/biocache.properties")
+      this.getClass.getResourceAsStream(filename)
     }
 
     if(stream == null){
-      throw new RuntimeException("Configuration file not found. Please add to classpath or /data/biocache/config/biocache-config.properties")
+      throw new RuntimeException("Configuration file not found. Please add to classpath or /data/biocache/config/biocache-test-config.properties")
     }
 
     logger.debug("Loading configuration from " + filename)
@@ -230,11 +230,10 @@ private class ConfigModule extends AbstractModule {
     }
     logger.debug("Initialising persistence manager")
     properties.getProperty("db") match {
-      //case "mock" => bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(Scopes.SINGLETON)
+      case "mock" => bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(Scopes.SINGLETON)
       case "postgres" => bind(classOf[PersistenceManager]).to(classOf[PostgresPersistenceManager]).in(Scopes.SINGLETON)
-      //case "cassandra" => bind(classOf[PersistenceManager]).to(classOf[CassandraPersistenceManager]).in(Scopes.SINGLETON)
-      //case "mongodb" => bind(classOf[PersistenceManager]).to(classOf[MongoDBPersistenceManager]).in(Scopes.SINGLETON)
-      case _ => bind(classOf[PersistenceManager]).to(classOf[CassandraPersistenceManager]).in(Scopes.SINGLETON)
+      case "cassandra" => bind(classOf[PersistenceManager]).to(classOf[CassandraPersistenceManager]).in(Scopes.SINGLETON)
+      case _ => throw new RuntimeException("Persistence manager typ unrecognised. Please check your external config file. ")
     }
     logger.debug("Configure complete")
   }

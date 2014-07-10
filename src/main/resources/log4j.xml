@@ -1,7 +1,7 @@
 <!DOCTYPE log4j:configuration  SYSTEM "log4j.dtd">
 <log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
     <appender name="CONSOLE" class="org.apache.log4j.ConsoleAppender">
-        <param name="Threshold" value="INFO"/>
+        <param name="Threshold" value="DEBUG"/>
         <layout class="org.apache.log4j.PatternLayout">
             <param name="ConversionPattern" value="%d %-5p: [%c{1}] - %m%n"/>
         </layout>
@@ -40,7 +40,7 @@
     <!--</appender>-->
     <!-- Alter the logging of known libs -->
     <category name="au.org.ala.biocache">
-        <priority value="INFO"/>
+        <priority value="DEBUG"/>
     </category>
     <category name="au.org.ala.names">
         <priority value="ERROR"/>
@@ -49,7 +49,7 @@
         <priority value="ERROR"/>
     </category>
     <category name="au.org.ala.sds">
-        <priority value="ERROR"/>
+        <priority value="DEBUG"/>
     </category>
     <category name="au.org.ala.checklist">
         <priority value="ERROR"/>

@@ -21,6 +21,22 @@ object LocationDAO {
   private final val longitudeCol = "lon"
 
   /**
+   * Directly add location lookups to cache - for mock testing purposes.
+   * TODO remove the use of objects for these caches so that mock objects can
+   * be done properly.
+   */
+  def addToCache(latitude:Float, longitude:Float, stateProvince:String, country:String, el:Map[String,String], cl:Map[String,String]) :  Location = {
+    val location = new Location
+    val guid = getLatLongKey(latitude, longitude)
+    location.decimalLatitude = latitude.toString
+    location.decimalLongitude = longitude.toString
+    location.stateProvince = stateProvince
+    location.country = country
+    lock.synchronized { lru.put(guid, Some(location, el, cl)) }
+    location
+  }
+
+  /**
    * Add a tag to a location
    */
   def addTagToLocation (latitude:Float, longitude:Float, tagName:String, tagValue:String) {

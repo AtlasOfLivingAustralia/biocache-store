@@ -13,16 +13,20 @@ import org.slf4j.LoggerFactory
 class ConfigFunSuite extends FunSuite {
 
   val logger = LoggerFactory.getLogger("ConfigFunSuite")
+  System.setProperty("biocache.config","/biocache-test-config.properties")
 
   Config.inj = Guice.createInjector(new TestConfigModule)
-  val pm = Config.getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
+  val pm = Config.persistenceManager
+  println("Loading up test suite with persistencemanager - " + pm.getClass.getName)
   //Web services will automatically grab the location details that are necessary
   //Add conservation status
   val taxonProfile = new TaxonProfile
   taxonProfile.setGuid("urn:lsid:biodiversity.org.au:afd.taxon:3809b1ca-8b60-4fcb-acf5-ca4f1dc0e263")
   taxonProfile.setScientificName("Victaphanta compacta")
-  taxonProfile.setConservation(Array(new ConservationStatus("Victoria", "aus_states/Victoria", "Endangered", "Endangered")
-    , new ConservationStatus("Victoria", "aus_states/Victoria", null, "Listed under FFG Act")))
+  taxonProfile.setConservation(Array(
+    new ConservationStatus("Victoria", "aus_states/Victoria", "Endangered", "Endangered"),
+    new ConservationStatus("Victoria", "aus_states/Victoria", null, "Listed under FFG Act")
+  ))
   TaxonProfileDAO.add(taxonProfile)
 
   val tp = new TaxonProfile

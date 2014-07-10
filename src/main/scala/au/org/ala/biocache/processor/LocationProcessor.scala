@@ -855,11 +855,11 @@ class LocationProcessor extends Processor {
         stringMap -= "dataGeneralizations"
 
         //remove the day from the values if present
-        if (stringMap.contains("day") || stringMap.contains("eventDate")) {
-          raw.event.day = ""
-          processed.event.day = ""
-          processed.event.eventDate = ""
-        }
+//        if (stringMap.contains("day") || stringMap.contains("eventDate")) {
+        raw.event.day = ""
+        processed.event.day = ""
+        processed.event.eventDate = ""
+//        }
 
         //update the raw record with whatever is left in the stringMap
         Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap)

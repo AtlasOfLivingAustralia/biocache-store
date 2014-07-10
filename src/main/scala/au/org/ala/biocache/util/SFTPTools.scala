@@ -36,7 +36,7 @@ object SFTPTools {
         val u=Config.getProperty("uploadUser")
         val p =Config.getProperty("uploadPassword")
         if(StringUtils.isEmpty(u) || StringUtils.isEmpty(p))
-          logger.error("SCP User or password has not been supplied. Please supply as part of the biocache.properties")
+          logger.error("SCP User or password has not been supplied. Please supply as part of the biocache-test-config.properties")
          (u,p,host,directory)
       }
       case _=>logger.error("Unable to connect to " + url);(null,null,null,null)
@@ -100,7 +100,7 @@ object SFTPTools {
    */
   def scpFile(host:String, user:String, password:String, remoteFile:String, localFile:File):Option[(String,Date)]= {
     if(StringUtils.isEmpty(user) || StringUtils.isEmpty(password))
-      logger.error("SCP User or password has not been supplied. Please supply as part of the biocache.properties")
+      logger.error("SCP User or password has not been supplied. Please supply as part of the biocache-test-config.properties")
     var ssh:SshConnection = null
     try {
       ssh = new SshConnection(host,user,password)

@@ -14,7 +14,6 @@ import org.postgresql.util.HStoreConverter
 
 /**
  * An unfinished and experimental persistence manager that backs on to Postgres and makes use of a HStore data type.
- * Test DB schema is in postgres/db.sql
  */
 class PostgresPersistenceManager() extends PersistenceManager {
 

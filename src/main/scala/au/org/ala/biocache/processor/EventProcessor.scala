@@ -111,7 +111,7 @@ class EventProcessor extends Processor {
             year.toInt,
             month.toInt - 1,
             day.toInt
-          );
+          )
           //don't allow the calendar to be lenient we want exceptions with incorrect dates
           calendar.setLenient(false);
           date = Some(calendar.getTime)
