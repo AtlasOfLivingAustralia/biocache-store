@@ -12,17 +12,17 @@ Questions and comment on the scripts are welcome here: ala-portal@lists.gbif.org
 
 ## Build notes
 
-Currently a build with "mvn install" requires a local lucene names index for the tests to pass.
-To get around this, run with "mvn install -DskipTests=true".
+Currently a build with ```mvn install``` requires a local lucene names index for the tests to pass.
+To get around this, run with ```mvn install -DskipTests=true```.
 A lucene names index can be accessed here:
 
 http://downloads.ala.org.au/
 
 and should be un-packaged to:
 
-/data/lucene/
+```/data/lucene/```
 
-or wherever the name.dir is configured to point to in your /data/biocache/config/biocache-config.properties file.
+or wherever the ```name.dir``` is configured to point to in your ```/data/biocache/config/biocache-config.properties``` file.
 
 ## Release notes - version 1.2
 
