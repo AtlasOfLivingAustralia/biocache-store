@@ -24,7 +24,7 @@
     </properties>
     <description>
         Scala implementation of biocache backend.
-        This code base managed the loading, processing, sampling and indexing of occurrence records for the ALA.
+        This code base manages the loading, processing, sampling and indexing of occurrence records for the ALA.
         There are additional tools to support outlier detection, duplicate detection and extra-limital outliers.
     </description>
     <scm>

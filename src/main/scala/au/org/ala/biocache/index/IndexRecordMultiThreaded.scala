@@ -3,11 +3,9 @@ package au.org.ala.biocache.index
 import au.org.ala.biocache._
 import org.apache.commons.io.FileUtils
 import java.io.File
-import org.apache.lucene.misc.IndexMergeTool
 import scala.io.Source
 import java.net.URL
 import scala.util.parsing.json.JSON
-import java.lang.Thread
 import scala.collection.mutable.ArrayBuffer
 import java.io.FileWriter
 import au.com.bytecode.opencsv.CSVWriter
@@ -345,27 +343,44 @@ class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Str
   }
 }
 
-class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String, sourceConfDirPath: String, targetConfDir: String, pageSize: Int = 200) extends Runnable {
+/**
+ * A runnable thread for creating an index.
+ *
+ * @param centralCounter
+ * @param threadId
+ * @param startKey
+ * @param endKey
+ * @param sourceConfDirPath e.g. solr-template/biocache/conf
+ * @param targetConfDirPath e.g. solr-create/biocache-thread-0/conf
+ * @param pageSize
+ */
+class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String,
+                  sourceConfDirPath: String, targetConfDirPath: String, pageSize: Int = 200) extends Runnable {
 
   val logger = LoggerFactory.getLogger("IndexRunner")
 
   def run {
 
-    val newIndexDir = new File(targetConfDir)
-    if (newIndexDir.exists) FileUtils.deleteDirectory(newIndexDir)
+    //solr-create/thread-0/conf
+    val newIndexDir = new File(targetConfDirPath)
+    if (newIndexDir.exists) {
+      FileUtils.deleteDirectory(newIndexDir)
+    }
     FileUtils.forceMkdir(newIndexDir)
 
-    //create a copy of SOLR home
-    val sourceConfDir = new File(sourceConfDirPath)
-
+    //CREATE a copy of SOLR home
+    val sourceConfDir = new File(sourceConfDirPath)   //solr-template/biocache/conf
     FileUtils.copyDirectory(sourceConfDir, newIndexDir)
 
+    //COPY solr-template/biocache/solr.xml  -> solr-create/biocache-thread-0/solr.xml
     FileUtils.copyFileToDirectory(new File(sourceConfDir.getParent + "/solr.xml"), newIndexDir.getParentFile)
-    //FileUtils.copyFileToDirectory(new File(sourceConfDir.getParentFile.getParent+"/solr.xml"), newIndexDir.getParentFile.getParentFile)
 
     //val pageSize = 1000
     logger.info("Set SOLR Home: " + newIndexDir.getParent)
     val indexer = new SolrIndexDAO(newIndexDir.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
+
+
+    //  /data/biocache-reindex/solr-create/biocache-thread-7/conf/solrconfig.xml
     indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
 
     var counter = 0

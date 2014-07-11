@@ -93,8 +93,6 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           ("*:*", "", "")
         }
 
-        Config.persistenceManager.get("test", "occ", "blah")
-
         val ranges = if (keys.isEmpty){
           calculateRanges(numThreads, query, start, end)
         } else {
