@@ -20,9 +20,9 @@ http://downloads.ala.org.au/
 
 and should be un-packaged to:
 
-```/data/lucene/```
+``` /data/lucene/ ```
 
-or wherever the ```name.dir``` is configured to point to in your ```/data/biocache/config/biocache-config.properties``` file.
+or wherever the ```name.dir``` is configured to point to in your ``` /data/biocache/config/biocache-config.properties ``` file.
 
 ## Release notes - version 1.2
 
