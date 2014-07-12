@@ -102,7 +102,11 @@ trait DataLoader {
       }
     }
 
-    val uniqueTerms = connectionParameters.getOrElse("termsForUniqueKey", List[String]()).asInstanceOf[List[String]]
+    val uniqueTerms = connectionParameters.get("termsForUniqueKey") match {
+      case Some(list:List[String]) => list
+      case Some(singleValue:String) => List(singleValue)
+      case None => List[String]()
+    }
 
     //optional config params for custom services
     val customParams = protocol.asInstanceOf[String].toLowerCase match {
