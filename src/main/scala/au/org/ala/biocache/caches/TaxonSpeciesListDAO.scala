@@ -32,7 +32,7 @@ object TaxonSpeciesListDAO {
   private val columnFamily = "taxon"
   private val persistenceManager = Config.getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
   private val LIST = "lists"
-  private val LIST_PROPERTIES="listProperties"
+  private val LIST_PROPERTIES = "listProperties"
 
   private var speciesListMap:Map[String,(List[String], Map[String,String])] = _
 

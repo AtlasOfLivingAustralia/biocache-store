@@ -84,10 +84,10 @@ class DwcCSVLoader extends DataLoader {
     val (protocol, urls, uniqueTerms, params, customParams,lastChecked) = retrieveConnectionParameters(dataResourceUid)
     val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
     val incremental = params.getOrElse("incremental",false).asInstanceOf[Boolean]
-    var loaded =false
+    var loaded = false
     var maxLastModifiedDate:java.util.Date = null
     urls.foreach(url => {
-      val (fileName,date) = downloadArchive(url,dataResourceUid,if(forceLoad)None else lastChecked)
+      val (fileName,date) = downloadArchive(url, dataResourceUid, if(forceLoad)None else lastChecked)
       if(maxLastModifiedDate == null || date.after(maxLastModifiedDate))
         maxLastModifiedDate = date
       logger.info("File last modified date: " + maxLastModifiedDate)

@@ -48,6 +48,7 @@ object DwCACreator extends Tool {
 
   // pattern to extract a data resource uid from a filter query , because the label show i18n value
   val dataResourcePattern ="(?:[\"]*)?(?:[a-z_]*_uid:\")([a-z0-9]*)(?:[\"]*)?".r
+
   def getDataResourceUids : Seq[String] = {
     val url = Config.biocacheServiceUrl + "/occurrences/search?q=*:*&facets=data_resource_uid&pageSize=0&flimit=10000"
     val jsonString = Source.fromURL(url).getLines.mkString
@@ -57,8 +58,8 @@ object DwCACreator extends Tool {
       val fq = facet.get("fq").get
       parseFq(fq)
     }).filterNot(_.equals("Unknown"))
-
   }
+
   def parseFq(fq: String): String = fq match {
     case dataResourcePattern(dr) => dr
     case _ => "Unknown"
@@ -81,12 +82,25 @@ class DwCACreator {
       "day", "basisOfRecord", "identifiedBy", "dateIdentified", "occurrenceRemarks", "locationRemarks", "recordNumber",
       "vernacularName", "identificationQualifier", "individualCount", "eventID", "geodeticDatum", "eventTime", "associatedSequences",
       "eventDate")
+
   //The compulsory mapping fields for GBIF. This indicates that the data resource name may need to be assigned at load time instead of processing
-  val compulsoryFields = Map("catalogNumber"->"uuid", "collectionCode"->"dataResourceName.p", "institutionCode"->"dataResourceName.p")
+  val compulsoryFields = Map (
+    "catalogNumber" -> "uuid",
+    "collectionCode" -> "dataResourceName.p",
+    "institutionCode" -> "dataResourceName.p")
 
   def create(directory:String, dataResource:String) {
+
     logger.info("Creating archive for " + dataResource)
-    val zipFile = new java.io.File(directory+System.getProperty("file.separator")+dataResource + System.getProperty("file.separator")+dataResource +"_ror_dwca.zip")
+    val zipFile = new java.io.File (
+      directory +
+      System.getProperty("file.separator") +
+      dataResource +
+      System.getProperty("file.separator") +
+      dataResource +
+      "_ror_dwca.zip"
+    )
+
     FileUtils.forceMkdir(zipFile.getParentFile)
     val zop = new ZipOutputStream(new FileOutputStream(zipFile))
     if(addEML(zop, dataResource)){
@@ -104,12 +118,12 @@ class DwCACreator {
     //query from the collectory to get the EML file
     try {
       zop.putNextEntry(new ZipEntry("eml.xml"))
-      val content = Source.fromURL(Config.registryUrl + "/eml/"+dr).mkString
+      val content = Source.fromURL(Config.registryUrl + "/eml/" + dr).mkString
       zop.write(content.getBytes)
       zop.flush
       zop.closeEntry
       true
-    } catch{
+    } catch {
       case e:Exception => e.printStackTrace();false
     }
   }
@@ -119,10 +133,10 @@ class DwCACreator {
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
       <files>
-            <location>raw_occurrence_record.csv</location>
+            <location>occurrence.csv</location>
       </files>
             <id index="0"/>
-            {defaultFields.tail.map(f =>   <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
+            {defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
       </core>
     </archive>
     //add the XML
@@ -134,7 +148,7 @@ class DwCACreator {
   }
 
   def addCSV(zop:ZipOutputStream, dr:String) ={
-    zop.putNextEntry(new ZipEntry("raw_occurrence_record.csv"))
+    zop.putNextEntry(new ZipEntry("occurrence.csv"))
     val startUuid = dr+"|"
     val endUuid = startUuid+"~"
     ExportUtil.export(new CSVWriter(new OutputStreamWriter(zop)),"occ", defaultFields, List("uuid"),List("uuid"), Some(compulsoryFields), startUuid, endUuid, Integer.MAX_VALUE)

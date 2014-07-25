@@ -627,10 +627,10 @@ class LocationProcessor extends Processor {
 
   def addConservationStatus(raw: FullRecord, processed: FullRecord, taxonProfile: TaxonProfile) {
     //add the conservation status if necessary
-    if (processed.location.country == "Australia" && taxonProfile.conservation != null) {
-      val aust = taxonProfile.retrieveConservationStatus(processed.location.country)
+    if (processed.location.country == Config.defaultCountry && taxonProfile.conservation != null) {
+      val country = taxonProfile.retrieveConservationStatus(processed.location.country)
       val state = taxonProfile.retrieveConservationStatus(processed.location.stateProvince)
-      processed.occurrence.austConservation = aust.getOrElse(null)
+      processed.occurrence.austConservation = country.getOrElse(null)
       processed.occurrence.stateConservation = state.getOrElse(null)
     }
   }

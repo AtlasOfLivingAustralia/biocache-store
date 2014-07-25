@@ -107,7 +107,7 @@ class Occurrence extends Cloneable with POSO {
   @BeanProperty var stateConservation:String = _
 
   //Store the original values before the SDS changes
-  var originalSensitiveValues:Map[String,String] =_
+  var originalSensitiveValues:Map[String,String] = _
 
   @BeanProperty var outlierForLayers:Array[String] = _
   @BeanProperty var photographer:String =_

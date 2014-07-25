@@ -35,7 +35,7 @@ trait IndexDAO {
 
   def pageOverIndex(proc: java.util.Map[String, AnyRef] => Boolean, fieldToRetrieve: Array[String], query: String, filterQueries: Array[String], sortField: Option[String] = None, sortDir: Option[String] = None, multivaluedFields: Option[Array[String]] = None)
 
-  def streamIndex(proc: java.util.Map[String,AnyRef] =>Boolean, fieldsToRetrieve:Array[String], query:String, filterQueries: Array[String], sortFields: Array[String],multivaluedFields: Option[Array[String]] = None)
+  def streamIndex(proc: java.util.Map[String,AnyRef] => Boolean, fieldsToRetrieve:Array[String], query:String, filterQueries: Array[String], sortFields: Array[String],multivaluedFields: Option[Array[String]] = None)
 
   def shouldIncludeSensitiveValue(dr: String): Boolean
 
@@ -55,7 +55,7 @@ trait IndexDAO {
 
   def shutdown
 
-  def optimise: String
+  def optimise : String
 
   def commit
 
@@ -83,9 +83,9 @@ trait IndexDAO {
     }
   }
 
-  def getValue(field: String, map: scala.collection.Map[String, String], checkparsed: Boolean): String = {
+  def getValue(field: String, map: scala.collection.Map[String, String], checkParsed: Boolean): String = {
     var value = getValue(field, map)
-    if (value == "" && checkparsed)
+    if (value == "" && checkParsed)
       value = getValue(field + ".p", map)
     value
   }
@@ -117,19 +117,19 @@ trait IndexDAO {
     buff.toArray
   }
 
-    /**
-     * Returns a lat,long string expression formatted to the supplied Double format
-     */
-    def getLatLongString(lat: Double, lon: Double, format: String): String = {
-        if (!lat.isNaN && !lon.isNaN) {
-            val df = new java.text.DecimalFormat(format)
-            //By some "strange" decision the default rounding model is HALF_EVEN
-            df.setRoundingMode(java.math.RoundingMode.HALF_UP)
-            df.format(lat) + "," + df.format(lon)
-        } else {
-            ""
-        }    
+  /**
+   * Returns a lat,long string expression formatted to the supplied Double format
+   */
+  def getLatLongString(lat: Double, lon: Double, format: String): String = {
+    if (!lat.isNaN && !lon.isNaN) {
+      val df = new java.text.DecimalFormat(format)
+      //By some "strange" decision the default rounding model is HALF_EVEN
+      df.setRoundingMode(java.math.RoundingMode.HALF_UP)
+      df.format(lat) + "," + df.format(lon)
+    } else {
+      ""
     }
+  }
 
   /**
    * The header values for the CSV file.
@@ -152,7 +152,9 @@ trait IndexDAO {
     "identified_by", "identified_date", "sensitive_longitude", "sensitive_latitude", "pest_flag_s", "collectors", "duplicate_status", "duplicate_record",
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
-    "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex", "sensitive_locality") // ++ elFields ++ clFields
+    "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
+    "sensitive_locality", "monitored") // ++ elFields ++ clFields
+
 
   /**
    * Constructs a scientific name.
@@ -162,9 +164,9 @@ trait IndexDAO {
    */
   def getRawScientificName(map: scala.collection.Map[String, String]): String = {
     val scientificName: String = {
-      if (map.contains("scientificName"))
+      if (map.contains("scientificName")) {
         map.get("scientificName").get
-      else if (map.contains("genus")) {
+      } else if (map.contains("genus")) {
         var tmp: String = map.get("genus").get
         if (map.contains("specificEpithet") || map.contains("species")) {
           tmp = tmp + " " + map.getOrElse("specificEpithet", map.getOrElse("species", ""))
@@ -172,18 +174,18 @@ trait IndexDAO {
             tmp = tmp + " " + map.getOrElse("infraspecificEpithet", map.getOrElse("subspecies", ""))
         }
         tmp
-      }
-      else
+      } else {
         map.getOrElse("family", "")
+      }
     }
     scientificName
   }
 
-  def sortOutQas(guid:String,list :List[QualityAssertion]):(String,String)={
-    val failed:Map[String,List[Int]] = list.filter(_.qaStatus == 0).map(_.code).groupBy(qa =>Processors.getProcessorForError(qa) +".qa")
-    val gk = AssertionCodes.isGeospatiallyKosher(failed.getOrElse("loc.qa",List()).toArray).toString
-    val tk = AssertionCodes.isTaxonomicallyKosher(failed.getOrElse("class.qa",List()).toArray).toString
+  def sortOutQas(guid:String,list :List[QualityAssertion]):(String,String) = {
 
+    val failed:Map[String,List[Int]] = list.filter(_.qaStatus == 0).map(_.code).groupBy(qa => Processors.getProcessorForError(qa) +".qa")
+    val gk = AssertionCodes.isGeospatiallyKosher(failed.getOrElse("loc.qa", List()).toArray).toString
+    val tk = AssertionCodes.isTaxonomicallyKosher(failed.getOrElse("class.qa", List()).toArray).toString
 
     val qaphases = Array("loc.qa", "offline.qa", "class.qa", "bor.qa","type.qa", "attr.qa", "image.qa", "event.qa")
     val empty = qaphases.filterNot(p => failed.contains(p)).map(_->"[]")
@@ -195,14 +197,13 @@ trait IndexDAO {
 
     val dupQA = list.filter(_.code == AssertionCodes.INFERRED_DUPLICATE_RECORD.code)
     //dupQA.foreach(qa => println(qa.getComment))
-    if(dupQA.size >1){
+    if(!dupQA.isEmpty){
       val newList:List[QualityAssertion] = list.diff(dupQA) ++ List(dupQA(0))
       //println("Original size " + list.length + "  new size =" + newList.length)
       Config.persistenceManager.putList(guid, "occ", FullRecordMapper.qualityAssertionColumn, newList, classOf[QualityAssertion], true)
     }
 
     (gk,tk)
-
   }
 
   /**
@@ -212,13 +213,13 @@ trait IndexDAO {
    * should result in a quicker load time.
    *
    */
-  def getOccIndexModel(guid: String, map: scala.collection.Map[String, String]): List[String] = {
+  def getOccIndexModel(guid: String, map: scala.collection.Map[String, String]) : List[String] = {
 
     try {
       //get the lat lon values so that we can determine all the point values
       val deleted = map.getOrElse(FullRecordMapper.deletedColumn, "false")
       //only add it to the index is it is not deleted
-      if (!deleted.equals("true") && map.size > 1) {
+      if (!deleted.equals("true") && !map.isEmpty) {
         var slat = getValue("decimalLatitude.p", map)
         var slon = getValue("decimalLongitude.p", map)
         var latlon = ""        
@@ -229,7 +230,7 @@ trait IndexDAO {
         val family = getValue("family.p", map)
         val images = {
           val simages = getValue("images", map)
-          if (simages.length > 0)
+          if (simages.isEmpty)
             Json.toStringArray(simages)
           else
             Array[String]()
@@ -243,11 +244,11 @@ trait IndexDAO {
           if (i.length() > 3) ab += "Image"
           if (s.length() > 3) ab += "Sound"
           if (v.length() > 3) ab += "Video"
-          if (!ab.isEmpty)
+          if (!ab.isEmpty) {
             ab.toArray
-          else
+          } else {
             Array("None")
-
+          }
         }
         val speciesGroup = {
           val sspeciesGroup = getValue("speciesGroups.p", map)
@@ -257,12 +258,14 @@ trait IndexDAO {
             Array[String]()
         }
         val interactions = {
-          if (map.contains("interactions.p")) {
+          if (map.contains("interactions.p"))
             Json.toStringArray(map.get("interactions.p").get)
-          }
           else
             Array[String]()
         }
+
+
+
         val dataHubUids = {
           val sdatahubs = getValue("dataHubUid", map, true)
           if (sdatahubs.length > 0)
@@ -300,7 +303,6 @@ trait IndexDAO {
             //ensure that the lat longs are in the required range before
             if (lat <= 90 && lat >= test && lon <= 180 && lon >= test2) {
               latlon = slat + "," + slon
-              
             }
           } catch {
             //If the latitude or longitude can't be parsed into a double we don't want to index the values
@@ -314,8 +316,7 @@ trait IndexDAO {
               val osv = map.getOrElse("originalSensitiveValues", "{}")
               val parsed = JSON.parseFull(osv)
               parsed.get.asInstanceOf[Map[String, String]]
-            }
-            catch {
+            } catch {
               case _:Exception => {
                 //println("Unable to get sensitive map for : " + guid)
                 Map[String, String]()
@@ -349,14 +350,13 @@ trait IndexDAO {
         val dupTypes: Array[String] = {
           val s = map.getOrElse("duplicationType.p", "[]")
           try {
-          Json.toStringArray(s)
-          }
-          catch{
+            Json.toStringArray(s)
+          } catch {
             case e:Exception => logger.warn(e.getMessage + " : " + guid); Array[String]()
           }
         }
 
-        //NC tmp fix up for koserh valus
+        //NC tmp fix up for kosher values
         //val(gk,tk) = sortOutQas(guid, Json.toListWithGeneric(map.getOrElse(FullRecordMapper.qualityAssertionColumn,"[]"), classOf[QualityAssertion]))
 
         //Only set the geospatially kosher field if there are coordinates supplied
@@ -373,8 +373,7 @@ trait IndexDAO {
                 (taxonConceptId, sciName)
               else
                 ("", "")
-            }
-            catch {
+            } catch {
               case _:Exception => ("", "")
             }
           }
@@ -400,7 +399,7 @@ trait IndexDAO {
           logger.warn("WARNING " + map.getOrElse("rowKey","") +" does not have an updated taxonIssue: " + guid)
           taxonIssue = "[]"
         }
-        val taxonIssueArray= Json.toStringArray(taxonIssue)
+        val taxonIssueArray = Json.toStringArray(taxonIssue)
         val infoWith = map.getOrElse("informationWithheld.p", "")
         val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""//startsWith("PEST")) "PEST" else ""
 
