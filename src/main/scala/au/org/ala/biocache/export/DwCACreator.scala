@@ -19,7 +19,8 @@ import au.org.ala.biocache.cmd.Tool
 object DwCACreator extends Tool {
 
   def cmd = "createdwc"
-  def desc = "Create Darwin Core Archive"
+
+  def desc = "Create Darwin Core Archive for a data resource"
 
   val logger = LoggerFactory.getLogger("DwCACreator")
 
@@ -29,8 +30,12 @@ object DwCACreator extends Tool {
     var directory = ""
 
     val parser = new OptionParser(help) {
-      arg("data-resource-uid", "The UID of the data resource to load or 'all' to generate for all", {v: String => resourceUid = v})
-      arg("directory-to-dump", "skip the download and use local file", {v:String => directory = v } )
+      arg("data-resource-uid", "The UID of the data resource to load or 'all' to generate for all",
+        { v: String => resourceUid = v }
+      )
+      arg("directory-to-dump", "skip the download and use local file",
+        { v:String => directory = v }
+      )
     }
     if(parser.parse(args)){
       val dwcc = new DwCACreator
@@ -83,7 +88,8 @@ class DwCACreator {
       "vernacularName", "identificationQualifier", "individualCount", "eventID", "geodeticDatum", "eventTime", "associatedSequences",
       "eventDate")
 
-  //The compulsory mapping fields for GBIF. This indicates that the data resource name may need to be assigned at load time instead of processing
+  //The compulsory mapping fields for GBIF.
+  // This indicates that the data resource name may need to be assigned at load time instead of processing
   val compulsoryFields = Map (
     "catalogNumber" -> "uuid",
     "collectionCode" -> "dataResourceName.p",
@@ -107,7 +113,7 @@ class DwCACreator {
       addMeta(zop)
       addCSV(zop, dataResource)
       zop.close
-    } else{
+    } else {
       //no EML implies that a DWCA should not be generated.
       zop.close()
       FileUtils.deleteQuietly(zipFile)
@@ -149,9 +155,19 @@ class DwCACreator {
 
   def addCSV(zop:ZipOutputStream, dr:String) ={
     zop.putNextEntry(new ZipEntry("occurrence.csv"))
-    val startUuid = dr+"|"
-    val endUuid = startUuid+"~"
-    ExportUtil.export(new CSVWriter(new OutputStreamWriter(zop)),"occ", defaultFields, List("uuid"),List("uuid"), Some(compulsoryFields), startUuid, endUuid, Integer.MAX_VALUE)
+    val startUuid = dr + "|"
+    val endUuid = startUuid + "~"
+    ExportUtil.export(
+      new CSVWriter(new OutputStreamWriter(zop)),
+      "occ",
+      defaultFields,
+      List("uuid"),
+      List("uuid"),
+      Some(compulsoryFields),
+      startUuid,
+      endUuid,
+      Integer.MAX_VALUE,
+      includeRowKey=false)
     zop.flush
     zop.closeEntry
   }
