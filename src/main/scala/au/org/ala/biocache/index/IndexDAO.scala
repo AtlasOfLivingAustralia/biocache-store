@@ -153,8 +153,7 @@ trait IndexDAO {
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
     "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
-    "sensitive_locality", "monitored") // ++ elFields ++ clFields
-
+    "sensitive_locality") // ++ elFields ++ clFields
 
   /**
    * Constructs a scientific name.
@@ -219,7 +218,7 @@ trait IndexDAO {
       //get the lat lon values so that we can determine all the point values
       val deleted = map.getOrElse(FullRecordMapper.deletedColumn, "false")
       //only add it to the index is it is not deleted
-      if (!deleted.equals("true") && !map.isEmpty) {
+      if (!deleted.equals("true") && map.size > 1) {
         var slat = getValue("decimalLatitude.p", map)
         var slon = getValue("decimalLongitude.p", map)
         var latlon = ""        
@@ -230,7 +229,7 @@ trait IndexDAO {
         val family = getValue("family.p", map)
         val images = {
           val simages = getValue("images", map)
-          if (simages.isEmpty)
+          if (!simages.isEmpty)
             Json.toStringArray(simages)
           else
             Array[String]()
@@ -515,16 +514,16 @@ trait IndexDAO {
           map.getOrElse("sex",""), sensitiveMap.getOrElse("locality", "")
         ) //++ elFields.map(field => elmap.getOrElse(field,"")) ++ clFields.map(field=> clmap.getOrElse(field,"")
         //)
-      }
-      else {
+      } else {
         return List()
       }
-    }
-    catch {
+    } catch {
       case e: Exception => e.printStackTrace; throw e
     }
   }
 }
+
+
 
 /**
  * An class for handling a generic/common index fields
