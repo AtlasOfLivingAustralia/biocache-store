@@ -36,7 +36,8 @@ trait Counter {
 }
 
 /**
- * A trait that will calculate the ranges to use for a multiple threaded process.
+ * A trait that will calculate the ranges of rowkeys to use for a multiple threaded process.
+ * Each thread can then be assigned a rowkey range to work with independently.
  */
 trait RangeCalculator {
 
@@ -101,6 +102,15 @@ trait RangeCalculator {
   }
 }
 
+/**
+ * A data exporter that be used in a threaded manner.
+ *
+ * @param centralCounter
+ * @param threadId
+ * @param startKey
+ * @param endKey
+ * @param columns
+ */
 class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, endKey: String, columns: List[String]) extends Runnable {
 
   val logger = LoggerFactory.getLogger("ColumnExporter")
@@ -137,6 +147,14 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
   }
 }
 
+/**
+ * A column reporter that reports record counts.
+ *
+ * @param centralCounter
+ * @param threadId
+ * @param startKey
+ * @param endKey
+ */
 class ColumnReporterRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
 
   val logger = LoggerFactory.getLogger("ColumnReporterRunner")
@@ -162,10 +180,17 @@ class ColumnReporterRunner(centralCounter: Counter, threadId: Int, startKey: Str
     }, startKey, endKey, 1000)
     val fin = System.currentTimeMillis
     logger.info("[Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
-    logger.info("[THREAD " + threadId + "] " + myset)
+    logger.info("[Thread " + threadId + "] " + myset)
   }
 }
 
+/**
+ * A one off class used to repair duplication status properties.
+ * @param centralCounter
+ * @param threadId
+ * @param startKey
+ * @param endKey
+ */
 class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
   val logger = LoggerFactory.getLogger("RepairRecordsRunner")
   var counter = 0
@@ -227,6 +252,13 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
   }
 }
 
+/**
+ * A one off class used to repair datum properties.
+ * @param centralCounter
+ * @param threadId
+ * @param startKey
+ * @param endKey
+ */
 class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
   val logger = LoggerFactory.getLogger("DatumRecordsRunner")
   val processor = new RecordProcessor
@@ -272,6 +304,14 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
   }
 }
 
+/**
+ * A class that can be used to reload sampling values for all records.
+ *
+ * @param centralCounter
+ * @param threadId
+ * @param startKey
+ * @param endKey
+ */
 class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
   val logger = LoggerFactory.getLogger("LoadSamplingRunner")
   var ids = 0
@@ -279,7 +319,6 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
   var batches = 0
 
   def run {
-    val pageSize = 1000
     var counter = 0
     val start = System.currentTimeMillis
     logger.info("Starting thread " + threadId + " from " + startKey + " to " + endKey)
@@ -291,7 +330,7 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
         if(!point.isEmpty){
           val (location, environmentalLayers, contextualLayers) = point.get
           Config.persistenceManager.put(guid, "occ", Map(
-            "el.p"-> Json.toJSON(environmentalLayers),
+            "el.p" -> Json.toJSON(environmentalLayers),
             "cl.p" -> Json.toJSON(contextualLayers))
           )
         }
@@ -308,6 +347,14 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
   }
 }
 
+/**
+ * A class that can be used to reprocess all records in a threaded manner.
+ *
+ * @param centralCounter
+ * @param threadId
+ * @param startKey
+ * @param endKey
+ */
 class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
   val logger = LoggerFactory.getLogger("ProcessRecordsRunner")
   val processor = new RecordProcessor
@@ -342,7 +389,7 @@ class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Str
 }
 
 /**
- * A runnable thread for creating an index.
+ * A runnable thread for creating a complete new index.
  *
  * @param centralCounter
  * @param threadId
@@ -373,11 +420,10 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     //COPY solr-template/biocache/solr.xml  -> solr-create/biocache-thread-0/solr.xml
     FileUtils.copyFileToDirectory(new File(sourceConfDir.getParent + "/solr.xml"), newIndexDir.getParentFile)
 
-    //val pageSize = 1000
     logger.info("Set SOLR Home: " + newIndexDir.getParent)
     val indexer = new SolrIndexDAO(newIndexDir.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
-    //  /data/biocache-reindex/solr-create/biocache-thread-7/conf/solrconfig.xml
+    // Specify the SOLR config to use
     indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
 
     var counter = 0
@@ -385,23 +431,24 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     var check = true
+
     //page through and create and index for this range
     Config.persistenceManager.pageOverAll("occ", (guid, map) => {
       counter += 1
-
       val commit = counter % 10000 == 0
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
         if (check) {
           check = false
+          //dont index the start key - ranges will exclude the start key but include the endKey
           if (!guid.equals(startKey)) {
-            indexer.indexFromMap(guid, map, commit = commit)
+            indexer.indexFromMap(guid, map, commit = commit, batchID = threadId.toString)
           }
         } else {
-          indexer.indexFromMap(guid, map, commit = commit)
+          indexer.indexFromMap(guid, map, commit = commit, batchID = threadId.toString)
         }
       } catch {
-        case e:Exception => logger.error("Problem indexing record: " + guid +""  + e.getMessage())
+        case e:Exception => logger.error("Problem indexing record: " + guid + ""  + e.getMessage())
       }
 
       if (counter % pageSize == 0 && counter > 0) {
