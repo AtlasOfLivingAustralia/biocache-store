@@ -106,33 +106,33 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           val threads = new ArrayBuffer[Thread]
           val columnRunners = new ArrayBuffer[ColumnReporterRunner]
           val solrDirs = new ArrayBuffer[String]
-          ranges.foreach(r => {
-            logger.info("start: " + r._1 + ", end key: " + r._2)
+          ranges.foreach({ case (startKey, endKey)  => {
+            logger.info("start: " + startKey + ", end key: " + endKey)
 
             val ir = {
               if (action == "datum") {
-                new DatumRecordsRunner(this, counter, r._1, r._2)
+                new DatumRecordsRunner(this, counter, startKey, endKey)
               } else if (action == "repair") {
-                new RepairRecordsRunner(this, counter, r._1, r._2)
+                new RepairRecordsRunner(this, counter, startKey, endKey)
               } else if (action == "index") {
                 solrDirs += (dirPrefix + "/solr-create/biocache-thread-" + counter + "/data/index")
                 new IndexRunner(this,
                   counter,
-                  r._1,
-                  r._2,
+                  startKey,
+                  endKey,
                   dirPrefix + "/solr-template/biocache/conf",
                   dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf",
                   pageSize
                 )
               } else if (action == "process") {
-                new ProcessRecordsRunner(this, counter, r._1, r._2)
+                new ProcessRecordsRunner(this, counter, startKey, endKey)
               } else if (action == "load-sampling") {
-                new LoadSamplingRunner(this, counter, r._1, r._2)
-              } else if (action == "col") {
+                new LoadSamplingRunner(this, counter, startKey, endKey)
+              } else if (action == "col" || action == "column-export") {
                 if (columns.isEmpty) {
-                  new ColumnReporterRunner(this, counter, r._1, r._2)
+                  new ColumnReporterRunner(this, counter, startKey, endKey)
                 } else {
-                  new ColumnExporter(this, counter, r._1, r._2, columns.get.toList)
+                  new ColumnExporter(this, counter, startKey, endKey, columns.get.toList)
                 }
               } else {
                 new Thread()
@@ -145,7 +145,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
               columnRunners += ir.asInstanceOf[ColumnReporterRunner]
             }
             counter += 1
-          })
+          }})
 
           //wait for threads to complete and merge all indexes
           threads.foreach(thread => thread.join)
