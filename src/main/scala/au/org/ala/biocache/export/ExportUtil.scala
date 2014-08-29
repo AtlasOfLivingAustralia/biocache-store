@@ -61,7 +61,7 @@ object ExportUtil extends Tool {
       } else if(distinct) {
         exportDistinct(writer, entity, fieldsToExport, startkey, endkey)
       } else {
-        export(writer, entity, fieldsToExport, fieldsRequired, List(), maxRecords = maxRecords, includeRowKey = includeRowKey)
+        export(writer, entity, fieldsToExport, fieldsRequired, List(), None, startkey, endkey, maxRecords, false, includeRowKey = includeRowKey)
       }
       writer.flush
       writer.close
