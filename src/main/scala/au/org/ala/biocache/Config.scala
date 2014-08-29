@@ -151,7 +151,9 @@ object Config {
 
   def getProperty(prop:String, default:String) = configModule.properties.getProperty(prop,default)
 
-  def outputConfig = configModule.properties.list(System.out)
+  def outputConfig = {
+    configModule.properties.stringPropertyNames().toArray.sortWith(_.toString() < _.toString()).foreach(name => println(name.toString() + " = " + configModule.properties.getProperty(name.toString(), "NOT DEFINED")))
+  }
 
   //layer defaults
   val stateProvinceLayerID = configModule.properties.getProperty("layer.state.province", "cl927")
