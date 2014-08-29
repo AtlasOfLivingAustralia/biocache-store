@@ -495,6 +495,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
             sgs.get.foreach{v:String => doc.addField("species_subgroup", v)}
           }
         }
+
         if(!test){
           if (!batch) {
             solrServer.add(doc)

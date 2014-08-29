@@ -141,10 +141,10 @@ trait IndexDAO {
     "rank", "rank_id", "raw_taxon_name", "raw_common_name", "multimedia", "image_url", "all_image_url",
     "species_group", "country_code", "country", "lft", "rgt", "kingdom", "phylum", "class", "order",
     "family", "genus", "genus_guid", "species", "species_guid", "state", "imcra", "ibra", "places", "latitude", "longitude",
-    "lat_long",  "point-1", "point-0.1", "point-0.01", "point-0.001", "point-0.0001",
+    "lat_long", "point-1", "point-0.1", "point-0.01", "point-0.001", "point-0.0001",
     "year", "month", "basis_of_record", "raw_basis_of_record", "type_status",
     "raw_type_status", "taxonomic_kosher", "geospatial_kosher",  "location_remarks",
-    "occurrence_remarks", "citation", "user_assertions",  "collector", "state_conservation", "raw_state_conservation",
+    "occurrence_remarks", "citation", "user_assertions", "collector", "state_conservation", "raw_state_conservation",
     "sensitive", "coordinate_uncertainty", "user_id", "alau_user_id", "provenance", "subspecies_guid", "subspecies_name", "interaction", "last_assertion_date",
     "last_load_date", "last_processed_date", "modified_date", "establishment_means", "loan_number", "loan_identifier", "loan_destination",
     "loan_botanist", "loan_date", "loan_return_date", "original_name_usage", "duplicate_inst", "record_number", "first_loaded_date", "name_match_metric",
@@ -180,31 +180,6 @@ trait IndexDAO {
     scientificName
   }
 
-  def sortOutQas(guid:String,list :List[QualityAssertion]):(String,String) = {
-
-    val failed:Map[String,List[Int]] = list.filter(_.qaStatus == 0).map(_.code).groupBy(qa => Processors.getProcessorForError(qa) +".qa")
-    val gk = AssertionCodes.isGeospatiallyKosher(failed.getOrElse("loc.qa", List()).toArray).toString
-    val tk = AssertionCodes.isTaxonomicallyKosher(failed.getOrElse("class.qa", List()).toArray).toString
-
-    val qaphases = Array("loc.qa", "offline.qa", "class.qa", "bor.qa","type.qa", "attr.qa", "image.qa", "event.qa")
-    val empty = qaphases.filterNot(p => failed.contains(p)).map(_->"[]")
-    val map = Map("geospatiallyKosher"->gk, "taxonomicallyKosher"->tk) ++ failed.filterNot(_._1 == ".qa").map{case (key,value)=>{(key, Json.toJSON(value.toArray))}} ++ empty
-    //revise the properties in the db
-    //Config.persistenceManager.put(guid, "occ", map)
-    println("FAILED: " + failed)
-    println("The map to add " + map)
-
-    val dupQA = list.filter(_.code == AssertionCodes.INFERRED_DUPLICATE_RECORD.code)
-    //dupQA.foreach(qa => println(qa.getComment))
-    if(!dupQA.isEmpty){
-      val newList:List[QualityAssertion] = list.diff(dupQA) ++ List(dupQA(0))
-      //println("Original size " + list.length + "  new size =" + newList.length)
-      Config.persistenceManager.putList(guid, "occ", FullRecordMapper.qualityAssertionColumn, newList, classOf[QualityAssertion], true)
-    }
-
-    (gk,tk)
-  }
-
   /**
    * Generates an string array version of the occurrence model.
    *
@@ -217,7 +192,7 @@ trait IndexDAO {
     try {
       //get the lat lon values so that we can determine all the point values
       val deleted = map.getOrElse(FullRecordMapper.deletedColumn, "false")
-      //only add it to the index is it is not deleted
+      //only add it to the index is it is not deleted & not a blank record
       if (!deleted.equals("true") && map.size > 1) {
         var slat = getValue("decimalLatitude.p", map)
         var slon = getValue("decimalLongitude.p", map)
@@ -262,9 +237,6 @@ trait IndexDAO {
           else
             Array[String]()
         }
-
-
-
         val dataHubUids = {
           val sdatahubs = getValue("dataHubUid", map, true)
           if (sdatahubs.length > 0)
@@ -316,15 +288,11 @@ trait IndexDAO {
               val parsed = JSON.parseFull(osv)
               parsed.get.asInstanceOf[Map[String, String]]
             } catch {
-              case _:Exception => {
-                //println("Unable to get sensitive map for : " + guid)
-                Map[String, String]()
-              }
+              case _:Exception => Map[String, String]()
             }
-            //JSON.parseFull(map.getOrElse("originalSensitiveValues","{}")).get.asInstanceOf[Map[String,String]]
-          }
-          else
+          } else {
             Map[String, String]()
+          }
         }
         val sconservation = getValue("stateConservation.p", map)
         var stateCons = if (sconservation != "") sconservation.split(",")(0) else ""
@@ -402,10 +370,7 @@ trait IndexDAO {
         val infoWith = map.getOrElse("informationWithheld.p", "")
         val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""//startsWith("PEST")) "PEST" else ""
 
-        //get the el and cl maps to work with
-        //                val elmap =map.getOrElse("el.p","").dropRight(1).drop(1).split(",").map(_ split ":") collect {case Array(k,v) => (k.substring(1,k.length-1), v.substring(1,v.length-1))} toMap
-        //                val clmap = map.getOrElse("cl.p", "").dropRight(1).drop(1).split(",").map(_ split ":") collect {case Array(k,v) => (k.substring(1,k.length-1), v.substring(1,v.length-1))} toMap
-
+        //the returned list needs to match up with the CSV header
         return List(getValue("uuid", map),
           getValue("rowKey", map),
           getValue("occurrenceID", map),
@@ -481,14 +446,18 @@ trait IndexDAO {
           getValue("coordinateUncertaintyInMeters.p", map),
           map.getOrElse("userId", ""),
           map.getOrElse("userId", ""),
-          map.getOrElse("provenance.p", ""), subspeciesGuid, subspeciesName,
+          map.getOrElse("provenance.p", ""),
+          subspeciesGuid,
+          subspeciesName,
           interactions.mkString("|"),
           if (lastUserAssertion.isEmpty) "" else DateFormatUtils.format(lastUserAssertion.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (lastLoaded.isEmpty) "2010-11-1T00:00:00Z" else DateFormatUtils.format(lastLoaded.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (lastProcessed.isEmpty) "" else DateFormatUtils.format(lastProcessed.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if(modifiedDate.isEmpty)"" else DateFormatUtils.format(modifiedDate.get,"yyy-MM-dd'T'HH:mm:ss'Z'"),          
           map.getOrElse("establishmentMeans.p", "").replaceAll("; ", "|"),
-          map.getOrElse("loanSequenceNumber", ""), map.getOrElse("loanIdentifier", ""), map.getOrElse("loanDestination", ""),
+          map.getOrElse("loanSequenceNumber", ""),
+          map.getOrElse("loanIdentifier", ""),
+          map.getOrElse("loanDestination", ""),
           map.getOrElse("loanForBotanist", ""),
           if (loanDate.isEmpty) "" else DateFormatUtils.format(loanDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (loanReturnDate.isEmpty) "" else DateFormatUtils.format(loanReturnDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
@@ -499,19 +468,40 @@ trait IndexDAO {
           map.getOrElse("nameMatchMetric.p", ""),
           map.getOrElse("phenology", ""), //TODO make this a controlled vocab that gets mapped during processing...
           outlierForLayers.mkString("|"),
-          outlierForLayers.length.toString, taxonIssueArray.mkString("|"), map.getOrElse("identificationQualifier", ""),
-          habitats.mkString("|"), map.getOrElse("identifiedBy", ""),
+          outlierForLayers.length.toString,
+          taxonIssueArray.mkString("|"),
+          map.getOrElse("identificationQualifier", ""),
+          habitats.mkString("|"),
+          map.getOrElse("identifiedBy", ""),
           if (dateIdentified.isEmpty) "" else DateFormatUtils.format(dateIdentified.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
-          sensitiveMap.getOrElse("decimalLongitude", ""), sensitiveMap.getOrElse("decimalLatitude", ""), pest_tmp,
-          map.getOrElse("recordedBy.p", ""), map.getOrElse("duplicationStatus.p", ""), map.getOrElse("associatedOccurrences.p", ""), dupTypes.mkString("|"),
+          sensitiveMap.getOrElse("decimalLongitude", ""),
+          sensitiveMap.getOrElse("decimalLatitude", ""),
+          pest_tmp,
+          map.getOrElse("recordedBy.p", ""),
+          map.getOrElse("duplicationStatus.p", ""),
+          map.getOrElse("associatedOccurrences.p", ""),
+          dupTypes.mkString("|"),
           sensitiveMap.getOrElse("coordinateUncertaintyInMeters.p", ""),
           map.getOrElse("distanceOutsideExpertRange.p", ""),
-          map.getOrElse("verbatimElevation.p", ""), map.getOrElse("minimumElevationInMeters.p", ""), map.getOrElse("maximumElevationInMeters.p", ""),
-          map.getOrElse("verbatimDepth.p", ""), map.getOrElse("minimumDepthInMeters.p", ""), map.getOrElse("maximumDepthInMeters.p", ""),
-          map.getOrElse("nameParseType.p",""),map.getOrElse("occurrenceStatus",""), map.getOrElse("occurrenceDetails",""), map.getOrElse("photographer",""),
-          map.getOrElse("rights",""), map.getOrElse("georeferenceVerificationStatus",""), map.getOrElse("occurrenceStatus", ""),
-          map.getOrElse("locality",""),map.getOrElse("decimalLatitude",""), map.getOrElse("decimalLongitude",""), map.getOrElse("geodeticDatum",""),
-          map.getOrElse("sex",""), sensitiveMap.getOrElse("locality", "")
+          map.getOrElse("verbatimElevation.p", ""),
+          map.getOrElse("minimumElevationInMeters.p", ""),
+          map.getOrElse("maximumElevationInMeters.p", ""),
+          map.getOrElse("verbatimDepth.p", ""),
+          map.getOrElse("minimumDepthInMeters.p", ""),
+          map.getOrElse("maximumDepthInMeters.p", ""),
+          map.getOrElse("nameParseType.p",""),
+          map.getOrElse("occurrenceStatus",""),
+          map.getOrElse("occurrenceDetails",""),
+          map.getOrElse("photographer",""),
+          map.getOrElse("rights",""),
+          map.getOrElse("georeferenceVerificationStatus",""),
+          map.getOrElse("occurrenceStatus", ""),
+          map.getOrElse("locality",""),
+          map.getOrElse("decimalLatitude",""),
+          map.getOrElse("decimalLongitude",""),
+          map.getOrElse("geodeticDatum",""),
+          map.getOrElse("sex",""),
+          sensitiveMap.getOrElse("locality", "")
         ) //++ elFields.map(field => elmap.getOrElse(field,"")) ++ clFields.map(field=> clmap.getOrElse(field,"")
         //)
       } else {

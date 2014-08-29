@@ -52,7 +52,7 @@ object DwCACreator extends Tool {
   }
 
   // pattern to extract a data resource uid from a filter query , because the label show i18n value
-  val dataResourcePattern ="(?:[\"]*)?(?:[a-z_]*_uid:\")([a-z0-9]*)(?:[\"]*)?".r
+  val dataResourcePattern = "(?:[\"]*)?(?:[a-z_]*_uid:\")([a-z0-9]*)(?:[\"]*)?".r
 
   def getDataResourceUids : Seq[String] = {
     val url = Config.biocacheServiceUrl + "/occurrences/search?q=*:*&facets=data_resource_uid&pageSize=0&flimit=10000"

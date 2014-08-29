@@ -1,7 +1,7 @@
 package au.org.ala.biocache.tool
 
-import au.org.ala.biocache.util.RecordDeletor
 import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.tool.RecordDeletor
 
 /**
  * A deletor that marks occurrence records, for a specific data resource, as deleted before

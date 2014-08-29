@@ -19,9 +19,16 @@ import au.org.ala.biocache.parser.ProcessedValue
 import au.org.ala.biocache.outliers.RecordJackKnifeStats
 import au.org.ala.biocache.outliers.SampledRecord
 import au.org.ala.biocache.vocab.ErrorCode
-import au.org.ala.biocache.tool.{DataResourceDelete, ProcessRecords, Sampling}
+import au.org.ala.biocache.tool._
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.processor.RecordProcessor
+import au.org.ala.biocache.outliers.JackKnifeStats
+import au.org.ala.biocache.vocab.SpeciesGroup
+import scala.Some
+import au.org.ala.biocache.parser.ProcessedValue
+import au.org.ala.biocache.outliers.RecordJackKnifeStats
+import au.org.ala.biocache.outliers.SampledRecord
+import au.org.ala.biocache.vocab.ErrorCode
 
 /**
  * This is the interface to use for java applications or any application using this as a library.

@@ -319,9 +319,8 @@ class CassandraPersistenceManager @Inject() (
                slicePredicate:SlicePredicate, checkEmpty:Boolean=false,startUuid:String="",endUuid:String="") = {
 
     var startKey = new Bytes(startUuid.getBytes)
-    var endKey = new Bytes(endUuid.getBytes)
+    val endKey = new Bytes(endUuid.getBytes)
     var keyRange = Selector.newKeyRange(startKey, endKey, pageSize+1)
-    var hasMore = true
     var counter = 0
     //Please note we are not paging by UTF8 because it is much slower
     var continue = true

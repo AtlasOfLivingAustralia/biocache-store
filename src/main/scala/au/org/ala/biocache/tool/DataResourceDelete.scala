@@ -1,6 +1,6 @@
 package au.org.ala.biocache.tool
 
-import au.org.ala.biocache.util.{OptionParser, RecordDeletor}
+import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.cmd.Tool
 
 object DataResourceDelete extends Tool {

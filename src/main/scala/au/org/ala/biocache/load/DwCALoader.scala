@@ -22,8 +22,8 @@ import scala.Some
  * <ol>
  * <li>Retrieve JSON from registry</li>
  * <li>Download the zipped archive to the local file system</li>
- * <li>Extract</li>
- * <li>Load</li>
+ * <li>Extract the archive on the local filesystem</li>
+ * <li>Load the data into the occurrence store (e.g. Cassandra)</li>
  * </ol>
  *
  * Optimisations - with a significant memory allocation, this loader _could_ retrieve all
@@ -39,15 +39,15 @@ object DwCALoader {
 
     var resourceUid = ""
     var localFilePath:Option[String] = None
-    var logRowKeys = false;
-    var testFile =false
+    var logRowKeys = false
+    var testFile = false
     var bypassConnParamLookup = false
     val parser = new OptionParser("load darwin core archive") {
-      arg("<data resource UID>", "The UID of the data resource to load", {v: String => resourceUid = v})
-      opt("l", "local", "skip the download and use local file", {v:String => localFilePath = Some(v) } )
-      booleanOpt("b", "bypassConnParamLookup", "bypass connection parameter lookup in the registry (collectory)", {v:Boolean => bypassConnParamLookup = v } )
-      opt("log","log row keys to file - allows processing/indexing of changed records",{logRowKeys = true})
-      opt("test", "test the file only do not load", {testFile=true})
+      arg("<data resource UID>", "The UID of the data resource to load", { v: String => resourceUid = v })
+      opt("l", "local", "skip the download and use local file", { v:String => localFilePath = Some(v) } )
+      booleanOpt("b", "bypassConnParamLookup", "bypass connection parameter lookup in the registry (collectory)", { v:Boolean => bypassConnParamLookup = v } )
+      opt("log","log row keys to file - allows processing/indexing of changed records",{ logRowKeys = true })
+      opt("test", "test the file only do not load", { testFile = true })
     }
     if(parser.parse(args)){
       val l = new DwCALoader
@@ -137,11 +137,6 @@ class DwCALoader extends DataLoader {
     var newCount = 0
 
     val fieldMap = archive.getCore().getFields()
-//
-//    if(logger.isDebugEnabled){
-//      fieldMap.foreach({ case (term, field) =>
-//        logger.debug(s"Field Idx: " + field.getIndex()+ s", Field: " + field.getTerm().simpleName()) })
-//    }
 
     val fieldShortNames = fieldMap.keySet().toList
     val biocacheModelValues = DwC.retrieveCanonicals(fieldShortNames.map(_.simpleName))
@@ -210,19 +205,6 @@ class DwCALoader extends DataLoader {
 
       //create a map of properties
       val fieldTuples = new ListBuffer[(String, String)]()
-      //NEED to use the star iterator so that custom field types are available
-//      fieldToModelMap.foreach(v => {
-//        val (src, model) = v
-//        val property = star.core.value(src)
-//        if(logger.isDebugEnabled){
-//           logger.debug(s"Mapped field: $model , value: $property")
-//        }
-//
-//        if(StringUtils.isNotBlank(property)) {
-//          fieldTuples += (model -> property)
-//        }
-//      })
-
       fieldShortNameToIdxMap.foreach({ case (fieldIdx, modelProperty) =>
         val property = star.core.column(fieldIdx)
         if(logger.isDebugEnabled && StringUtils.isNotBlank(property)){
@@ -233,7 +215,6 @@ class DwCALoader extends DataLoader {
           fieldTuples += (modelProperty -> property)
         }
       })
-
 
       if(logger.isDebugEnabled) {
         fieldTuples.foreach({case(key, value) => logger.debug(s"Not blank fields: $key , value: $value")})
@@ -266,10 +247,8 @@ class DwCALoader extends DataLoader {
         rowKeyWriter.get.write(rowKey + "\n")
       }
 
-      //val recordUuid = UUID.randomUUID.toString
       if(!testFile){
         val fullRecord = FullRecordMapper.createFullRecord(rowKey, fieldTuples.toArray, Raw)
-        //println("record UUID: "  + recordUuid)
         currentBatch += fullRecord
       }
 
@@ -294,9 +273,9 @@ class DwCALoader extends DataLoader {
     if(testFile){
       val unknownInstitutions = newInstCodes &~ institutionCodes
       val unknownCollections = newCollCodes &~ collectionCodes
-      if(unknownInstitutions.size > 0)
+      if(!unknownInstitutions.isEmpty)
         logger.warn("Warning there are new institution codes in the set: " + unknownInstitutions.mkString(","))
-      if(unknownCollections.size > 0)
+      if(!unknownCollections.isEmpty)
         logger.warn("Warning there are new collection codes in the set: " + unknownCollections.mkString(","))
 
       //Report the number of new/existing records

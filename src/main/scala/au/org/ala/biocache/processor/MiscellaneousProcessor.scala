@@ -5,7 +5,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.StringUtils
 import scala.Some
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{EstablishmentMeans, Interactions, AssertionCodes}
+import au.org.ala.biocache.vocab.{OccurrenceStatus, EstablishmentMeans, Interactions, AssertionCodes}
 import au.org.ala.biocache.parser.CollectorNameParser
 import au.org.ala.biocache.load.MediaStore
 
@@ -25,7 +25,31 @@ class MiscellaneousProcessor extends Processor {
     processIdentification(raw,processed,assertions)
     processCollectors(raw, processed, assertions)
     processMiscOccurrence(raw, processed, assertions)
+    processOccurrenceStatus(raw, processed, assertions)
     assertions.toArray
+  }
+
+  /**
+   * Process the occurrence status values.
+   *
+   * @param raw
+   * @param processed
+   * @param assertions
+   */
+  def processOccurrenceStatus(raw:FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
+//    if(StringUtils.isNotBlank(raw.occurrence.occurrenceStatus)){
+//      val matchedTerm = OccurrenceStatus.matchTerm(raw.occurrence.occurrenceStatus)
+//      if(matchedTerm.isEmpty){
+//        assertions += QualityAssertion(AssertionCodes.UNRECOGNISED_OCCURRENCE_STATUS)
+//        processed.occurrence.occurrenceStatus = "unknown"
+//      } else {
+//        processed.occurrence.occurrenceStatus = matchedTerm.getOrElse("")
+//      }
+//    } else {
+//      //assume present
+//      processed.occurrence.occurrenceStatus = "present"
+//      assertions += QualityAssertion(AssertionCodes.MISSING_OCCURRENCE_STATUS)
+//    }
   }
 
   def processMiscOccurrence(raw:FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
@@ -133,33 +157,9 @@ class MiscellaneousProcessor extends Processor {
    * validates that the associated media is a valid image url
    */
   def processImages(guid: String, raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) = {
-    val urls = raw.occurrence.associatedMedia
-//    // val matchedGroups = groups.collect{case sg: SpeciesGroup if sg.values.contains(cl.getter(sg.rank)) => sg.name}
-//    if (urls != null) {
-//      val aurls = urls.split(";").map(url => url.trim)
-//      processed.occurrence.images = aurls.filter(url => Config.mediaStore.isValidAccessibleImageURL(url))
-//      processed.occurrence.sounds = aurls.filter(url => Config.mediaStore.isValidAccessibleSoundURL(url))
-//      processed.occurrence.videos = aurls.filter(url => Config.mediaStore.isValidAccessibleVideoURL(url))
-//
-//      if (aurls.length != (processed.occurrence.images.length + processed.occurrence.sounds.length + processed.occurrence.videos.length))
-//        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL, "URL refers to an invalid file.")
-//      else
-//        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL,1)
-//    }
-
-//    val urls = raw.occurrence.associatedMedia
-//    // val matchedGroups = groups.collect{case sg: SpeciesGroup if sg.values.contains(cl.getter(sg.rank)) => sg.name}
-//    if (urls != null) {
-//      val aurls = urls.split(";").map(url => url.trim)
       processed.occurrence.images = raw.occurrence.images
       processed.occurrence.sounds = raw.occurrence.sounds
       processed.occurrence.videos = raw.occurrence.videos
-//
-//      if (aurls.length != (processed.occurrence.images.length + processed.occurrence.sounds.length + processed.occurrence.videos.length))
-//        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL, "URL refers to an invalid file.")
-//      else
-//        assertions += QualityAssertion(AssertionCodes.INVALID_IMAGE_URL,1)
-//    }
   }
 
   def getName = "image"

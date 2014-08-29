@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.caches.LocationDAO
 
 trait Counter {
+
   var counter = 0
 
   def addToCounter(amount: Int) = counter += amount
@@ -60,6 +61,7 @@ trait RangeCalculator {
       for (i <- 0 until threads) {
         val json = JSON.parseFull(Source.fromURL(
           new URL(Config.biocacheServiceUrl + "/occurrences/search?q=" + query + "&facets=row_key&pageSize=0&flimit=1&fsort=index&foffset=" + (i * pageSize))).mkString)
+
         val facetResults = json.get.asInstanceOf[Map[String, Object]]
           .getOrElse("facetResults", List[Map[String, Object]]())
           .asInstanceOf[List[Map[String, Object]]]
@@ -171,7 +173,6 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
   def run {
     val pageSize = 1000
     var counter = 0
-    val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     logger.info("Starting to repair from " + startKey + " to " + endKey)
@@ -222,8 +223,6 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
       Config.persistenceManager.putList(guid, "occ", FullRecordMapper.qualityAssertionColumn, newList, classOf[QualityAssertion], true)
     }
 
-    //println("FAILED: " + failed)
-    //println("The map to add " + map)
     (gk, tk)
   }
 }
@@ -309,7 +308,6 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
   }
 }
 
-
 class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
   val logger = LoggerFactory.getLogger("ProcessRecordsRunner")
   val processor = new RecordProcessor
@@ -379,7 +377,6 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     logger.info("Set SOLR Home: " + newIndexDir.getParent)
     val indexer = new SolrIndexDAO(newIndexDir.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
-
     //  /data/biocache-reindex/solr-create/biocache-thread-7/conf/solrconfig.xml
     indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
 
@@ -420,6 +417,6 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     indexer.finaliseIndex(true, true)
 
     finishTime = System.currentTimeMillis
-    logger.info("Total indexing time for this thread" + ((finishTime - start).toFloat) / 1000f + " seconds")
+    logger.info("Total indexing time for this thread " + ((finishTime - start).toFloat) / 60000f + " minutes.")
   }
 }
