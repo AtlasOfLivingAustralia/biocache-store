@@ -8,17 +8,10 @@ import org.ala.layers.dao.IntersectCallback
 import collection.mutable.ArrayBuffer
 import au.org.ala.biocache.util._
 import au.org.ala.biocache.dao.{OutlierStatsDAO, OccurrenceDAO}
-import au.org.ala.biocache.load.{Loader, MediaStore, SimpleLoader, MapDataLoader}
+import au.org.ala.biocache.load.{Loader, SimpleLoader, MapDataLoader}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.index.{IndexRecords, IndexFields}
 import au.org.ala.biocache.vocab._
-import au.org.ala.biocache.outliers.JackKnifeStats
-import au.org.ala.biocache.vocab.SpeciesGroup
-import scala.Some
-import au.org.ala.biocache.parser.ProcessedValue
-import au.org.ala.biocache.outliers.RecordJackKnifeStats
-import au.org.ala.biocache.outliers.SampledRecord
-import au.org.ala.biocache.vocab.ErrorCode
 import au.org.ala.biocache.tool._
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.processor.RecordProcessor
