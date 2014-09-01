@@ -1,12 +1,12 @@
 # biocache-store
 
 Scala implementation of biocache backend.
-This code base manages the loading, processing, sampling and indexing of occurrence records for the ALA.
+This code base manages the loading, sampling, processing and indexing of occurrence records for the ALA.
 There are additional tools to support outlier detection, duplicate detection and identifying extra-limital outliers
 based on authoritative distribution polygons for taxa.
 Please use the Ansible scripts to set this software up in your own environment.
 
-https://github.com/gbif/ala-install
+https://github.com/AtlasOfLivingAustralia/ala-install
 
 Questions and comment on the scripts are welcome here: ala-portal@lists.gbif.org
 
