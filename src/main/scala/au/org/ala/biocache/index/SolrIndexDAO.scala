@@ -140,8 +140,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       "fl" -> fieldsToRetrieve.mkString(","))
 
     val solrParams = new ModifiableSolrParams()
-      .add(new MapSolrParams(params) )
-      .add("fq", filterQueries:_*)
+    solrParams.add(new MapSolrParams(params))
+    solrParams.add("fq", filterQueries:_*)
 
     if(!sortFields.isEmpty){
       solrParams.add("sort",sortFields.mkString(" asc,") + " asc")
