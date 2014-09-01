@@ -42,7 +42,7 @@ object TaxonSpeciesListDAO {
    * @return
    */
   def getListsFromPM(guid:String): (List[String], Map[String,String]) ={
-    //get itesm from PM
+    //get item from PM
     val map = persistenceManager.getSelected(guid,columnFamily, Array(LIST,LIST_PROPERTIES))
     if(map.isDefined){
       (Json.toListWithGeneric( map.get.getOrElse(LIST,"[]") , classOf[String]), Json.toStringMap(map.get.getOrElse(LIST_PROPERTIES,"{}")))
@@ -59,19 +59,19 @@ object TaxonSpeciesListDAO {
    * @param listProperties
    */
   def addToPM(guid:String,lists:List[String], listProperties:Map[String,String]){
-    persistenceManager.put(guid, columnFamily, Map(LIST->Json.toJSON(lists), LIST_PROPERTIES -> Json.toJSON(listProperties)))
+    persistenceManager.put(guid, columnFamily, Map(LIST -> Json.toJSON(lists), LIST_PROPERTIES -> Json.toJSON(listProperties)))
   }
 
   /**
    * Updates the lists as configured to indicate which lists and properties are applicable for each guid
    * @return
    */
-  def updateLists():Map[String,(List[String], Map[String,String])]={
+  def updateLists():Map[String,(List[String], Map[String,String])] = {
     logger.info("Updating the lists")
-    val newMap = new scala.collection.mutable.HashMap[String ,(List[String], Map[String,String])]()
+    val newMap = new scala.collection.mutable.HashMap[String, (List[String], Map[String,String])]()
     val guidsArray = new ArrayBuffer[String]()
 
-    validLists.foreach(v =>{
+    validLists.foreach(v => {
       //get the guids on the list
       val url = MessageFormat.format(guidUrl, v)
       val response = WebServiceLoader.getWSStringContent(url)
