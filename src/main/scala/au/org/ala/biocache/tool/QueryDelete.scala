@@ -1,7 +1,8 @@
-package au.org.ala.biocache.util
+package au.org.ala.biocache.tool
 
 import java.io.{FileOutputStream, BufferedOutputStream, File}
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.util.FileHelper
 
 /**
  * Utility to delete records matching a query.

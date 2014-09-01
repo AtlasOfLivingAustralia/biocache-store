@@ -21,6 +21,9 @@ object DeleteRecords extends Tool {
     var query: Option[String] = None
     var dr: Option[String] = None
     var file: Option[String] = None
+    var startRowkey: Option[String] = None
+    var endRowkey: Option[String] = None
+
     val parser = new OptionParser(help) {
       opt("q", "query", "The query to run to obtain the records for deletion e.g. 'year:[2001 TO *]' or 'taxon_name:Macropus'", {
         v: String => query = Some(v)
@@ -31,19 +34,27 @@ object DeleteRecords extends Tool {
       opt("f", "file", "The file of row keys to delete", {
         v: String => file = Some(v)
       })
+      opt("s", "startRowkey", "The start rowkey to use", {
+        v: String => startRowkey = Some(v)
+      })
+      opt("e", "endRowkey", "The end rowkey to use", {
+        v: String => endRowkey = Some(v)
+      })
     }
     if (parser.parse(args)) {
       val deletor: Option[RecordDeletor] = {
         if (!query.isEmpty) Some(new QueryDelete(query.get))
         else if (!dr.isEmpty) Some(new DataResourceDelete(dr.get))
         else if (file.isDefined) Some(new FileDelete(file.get))
+        else if (startRowkey.isDefined && endRowkey.isDefined) Some(new RangeDeletor(startRowkey.get, endRowkey.get))
         else None
       }
-      println("Starting delete " + query + " " + dr)
       if (!deletor.isEmpty) {
         deletor.get.deleteFromPersistent
         deletor.get.deleteFromIndex
         deletor.get.close
+      } else {
+        parser.showUsage
       }
     }
   }

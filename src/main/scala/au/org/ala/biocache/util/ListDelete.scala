@@ -1,7 +1,9 @@
 package au.org.ala.biocache.util
 
+import au.org.ala.biocache.tool.RecordDeletor
+
 /**
- * Created by mar759 on 17/02/2014.
+ * RecordDeletor that takes a list of rowkeys.
  */
 class ListDelete(rowKeys:List[String]) extends RecordDeletor {
 
