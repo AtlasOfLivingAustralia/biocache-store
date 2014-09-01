@@ -86,6 +86,14 @@ trait RangeCalculator {
     }
   }
 
+  /**
+   * Format the keys into a set of tuples which will be a set of ranges.
+   *
+   * @param keys
+   * @param start
+   * @param end
+   * @return
+   */
   def generateRanges(keys: Array[String], start: String, end: String): Array[(String, String)] = {
     val buff = new ArrayBuffer[(String, String)]
     var i = 0

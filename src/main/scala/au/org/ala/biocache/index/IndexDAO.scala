@@ -42,9 +42,14 @@ trait IndexDAO {
   /**
    * Index a record with the supplied properties.
    */
-  def indexFromMap(guid: String, map: scala.collection.Map[String, String], batch: Boolean = true,
-                   startDate: Option[Date] = None, commit: Boolean = false,
-                   miscIndexProperties: Seq[String] = Array[String](), test:Boolean = false)
+  def indexFromMap(guid: String,
+                   map: scala.collection.Map[String, String],
+                   batch: Boolean = true,
+                   startDate: Option[Date] = None,
+                   commit: Boolean = false,
+                   miscIndexProperties: Seq[String] = Array[String](),
+                   test:Boolean = false,
+                   batchID:String = "")
 
   /**
    * Truncate the current index
@@ -74,47 +79,15 @@ trait IndexDAO {
    */
   def finaliseIndex(optimise: Boolean = false, shutdown: Boolean = true)
 
-  def getValue(field: String, map: scala.collection.Map[String, String]): String = {
-    val value = map.get(field)
-    if (!value.isEmpty) {
-      return value.get
-    } else {
-      return ""
-    }
-  }
+  def getValue(field: String, map: scala.collection.Map[String, String]): String = map.getOrElse(field, "")
 
   def getValue(field: String, map: scala.collection.Map[String, String], checkParsed: Boolean): String = {
-    var value = getValue(field, map)
-    if (value == "" && checkParsed)
-      value = getValue(field + ".p", map)
-    value
-  }
-
-  /**
-   * Returns an array of all the assertions that are in the Map.
-   * This duplicates some of the code that is in OccurrenceDAO because
-   * we are not interested in processing the other values
-   *
-   * TODO we may wish to fix this so that it uses the same code in the mappers
-   */
-  def getAssertions(map: scala.collection.Map[String, String]): Array[String] = {
-
-    val columns = map.keySet
-    val buff = new ArrayBuffer[String]
-    columns.foreach(fieldName =>
-      if (FullRecordMapper.isQualityAssertion(fieldName)) {
-        val value = map.get(fieldName).get
-        if (value != "true" && value != "false") {
-          Json.toIntArray(value).foreach(code => {
-            val codeOption = AssertionCodes.getByCode(code)
-            if (!codeOption.isEmpty) {
-              buff += codeOption.get.getName
-            }
-          })
-        }
-      }
-    )
-    buff.toArray
+    val value = getValue(field, map)
+    if (value == "" && checkParsed) {
+      getValue(field + ".p", map)
+    } else {
+      value
+    }
   }
 
   /**
@@ -144,7 +117,7 @@ trait IndexDAO {
     "lat_long", "point-1", "point-0.1", "point-0.01", "point-0.001", "point-0.0001",
     "year", "month", "basis_of_record", "raw_basis_of_record", "type_status",
     "raw_type_status", "taxonomic_kosher", "geospatial_kosher",  "location_remarks",
-    "occurrence_remarks", "citation", "user_assertions", "collector", "state_conservation", "raw_state_conservation",
+    "occurrence_remarks", "user_assertions", "collector", "state_conservation", "raw_state_conservation",
     "sensitive", "coordinate_uncertainty", "user_id", "alau_user_id", "provenance", "subspecies_guid", "subspecies_name", "interaction", "last_assertion_date",
     "last_load_date", "last_processed_date", "modified_date", "establishment_means", "loan_number", "loan_identifier", "loan_destination",
     "loan_botanist", "loan_date", "loan_return_date", "original_name_usage", "duplicate_inst", "record_number", "first_loaded_date", "name_match_metric",
@@ -153,7 +126,7 @@ trait IndexDAO {
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
     "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
-    "sensitive_locality") // ++ elFields ++ clFields
+    "sensitive_locality")
 
   /**
    * Constructs a scientific name.
@@ -185,7 +158,6 @@ trait IndexDAO {
    *
    * Access to the values are taken directly from the Map with no reflection. This
    * should result in a quicker load time.
-   *
    */
   def getOccIndexModel(guid: String, map: scala.collection.Map[String, String]) : List[String] = {
 
@@ -258,8 +230,7 @@ trait IndexDAO {
         //only want to include eventDates that are in the correct format
         try {
           DateUtils.parseDate(eventDate, Array("yyyy-MM-dd"))
-        }
-        catch {
+        } catch {
           case e: Exception => eventDate = ""
         }
         var lat = java.lang.Double.NaN
@@ -297,7 +268,8 @@ trait IndexDAO {
         val sconservation = getValue("stateConservation.p", map)
         var stateCons = if (sconservation != "") sconservation.split(",")(0) else ""
         val rawStateCons = if (sconservation != "") sconservation.split(",")(1) else ""
-        if (stateCons == "null") stateCons = rawStateCons;
+
+        if (stateCons == "null") stateCons = rawStateCons
 
         val sensitive: String = {
           val dataGen = map.getOrElse("dataGeneralizations.p", "")
@@ -314,6 +286,7 @@ trait IndexDAO {
           if (outlierForLayerStr != "") Json.toStringArray(outlierForLayerStr)
           else Array()
         }
+
         val dupTypes: Array[String] = {
           val s = map.getOrElse("duplicationType.p", "[]")
           try {
@@ -323,9 +296,6 @@ trait IndexDAO {
           }
         }
 
-        //NC tmp fix up for kosher values
-        //val(gk,tk) = sortOutQas(guid, Json.toListWithGeneric(map.getOrElse(FullRecordMapper.qualityAssertionColumn,"[]"), classOf[QualityAssertion]))
-
         //Only set the geospatially kosher field if there are coordinates supplied
         val geoKosher = if (slat == "" && slon == "") "" else map.getOrElse(FullRecordMapper.geospatialDecisionColumn, "")
         val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "") match {
@@ -333,6 +303,7 @@ trait IndexDAO {
           case "false" => "false"
           case value: String => (value.length > 3).toString
         }
+
         val (subspeciesGuid, subspeciesName): (String, String) = {
           if (map.contains("taxonRankID.p")) {
             try {
@@ -343,8 +314,9 @@ trait IndexDAO {
             } catch {
               case _:Exception => ("", "")
             }
+          } else {
+            ("", "")
           }
-          else ("", "")
         }
 
         val lastLoaded = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn, map))
@@ -356,7 +328,9 @@ trait IndexDAO {
         val firstLoadDate = DateParser.parseStringToDate(getValue("firstLoaded", map))
 
         val loanDate = DateParser.parseStringToDate(map.getOrElse("loanDate", ""))
+
         val loanReturnDate = DateParser.parseStringToDate(map.getOrElse("loanReturnDate", ""))
+
         val dateIdentified = DateParser.parseStringToDate(map.getOrElse("dateIdentified.p", ""))
         
         val modifiedDate = DateParser.parseStringToDate(map.getOrElse("modified.p", ""))
@@ -371,7 +345,8 @@ trait IndexDAO {
         val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""//startsWith("PEST")) "PEST" else ""
 
         //the returned list needs to match up with the CSV header
-        return List(getValue("uuid", map),
+        return List(
+          getValue("uuid", map),
           getValue("rowKey", map),
           getValue("occurrenceID", map),
           dataHubUids.mkString("|"),
@@ -387,7 +362,9 @@ trait IndexDAO {
           getValue("collectionCode", map),
           getValue("collectionName.p", map),
           getValue("catalogNumber", map),
-          taxonConceptId, if (eventDate != "") eventDate + "T00:00:00Z" else "", occurrenceYear,
+          taxonConceptId,
+          if (eventDate != "") eventDate + "T00:00:00Z" else "",
+          occurrenceYear,
           sciName,
           vernacularName,
           sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family,
@@ -405,9 +382,11 @@ trait IndexDAO {
           getValue("country.p", map),
           getValue("left.p", map),
           getValue("right.p", map),
-          kingdom, getValue("phylum.p", map),
+          kingdom,
+          getValue("phylum.p", map),
           getValue("classs.p", map),
-          getValue("order.p", map), family,
+          getValue("order.p", map),
+          family,
           getValue("genus.p", map),
           map.getOrElse("genusID.p", ""),
           getValue("species.p", map),
@@ -436,9 +415,7 @@ trait IndexDAO {
           //getAssertions(map).mkString("|"),
           getValue("locationRemarks", map),
           getValue("occurrenceRemarks", map),
-          "",
           hasUserAss,
-          //(getValue(FullRecordMapper.qualityAssertionColumn, map).length > 3).toString,  //NC 2013-05-23: See comment above
           getValue("recordedBy", map),
           stateCons, //stat
           rawStateCons,
@@ -453,7 +430,7 @@ trait IndexDAO {
           if (lastUserAssertion.isEmpty) "" else DateFormatUtils.format(lastUserAssertion.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (lastLoaded.isEmpty) "2010-11-1T00:00:00Z" else DateFormatUtils.format(lastLoaded.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (lastProcessed.isEmpty) "" else DateFormatUtils.format(lastProcessed.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
-          if(modifiedDate.isEmpty)"" else DateFormatUtils.format(modifiedDate.get,"yyy-MM-dd'T'HH:mm:ss'Z'"),          
+          if (modifiedDate.isEmpty) "" else DateFormatUtils.format(modifiedDate.get,"yyy-MM-dd'T'HH:mm:ss'Z'"),
           map.getOrElse("establishmentMeans.p", "").replaceAll("; ", "|"),
           map.getOrElse("loanSequenceNumber", ""),
           map.getOrElse("loanIdentifier", ""),
@@ -502,18 +479,15 @@ trait IndexDAO {
           map.getOrElse("geodeticDatum",""),
           map.getOrElse("sex",""),
           sensitiveMap.getOrElse("locality", "")
-        ) //++ elFields.map(field => elmap.getOrElse(field,"")) ++ clFields.map(field=> clmap.getOrElse(field,"")
-        //)
+        )
       } else {
         return List()
       }
     } catch {
-      case e: Exception => e.printStackTrace; throw e
+      case e: Exception => logger.error(e.getMessage, e); throw e
     }
   }
 }
-
-
 
 /**
  * An class for handling a generic/common index fields
@@ -523,16 +497,16 @@ trait IndexDAO {
 case class IndexField(fieldName: String, dataType: String, sourceField: String, multi: Boolean = false, storeAsArray: Boolean = false, extraField: Option[String] = None, isMiscProperty: Boolean = false) {
 
   def getValuesForIndex(map: Map[String, String]): (String, Option[Array[String]]) = {
-    //get the source value. Cater for the situation where we get the parsed value if raw doesn't exist
-    val sourceValue: String = {
-      if (sourceField.contains(",")) {
-        //There are multiple fields that supply the source for the field
-        val fields = sourceField.split(",")
-        fields.foldLeft("")((concat, value) => concat + "|" + map.getOrElse(value, ""))
-      }
-      else map.getOrElse(sourceField, if (extraField.isDefined) map.getOrElse(extraField.get, "") else "")
 
+    //get the source value. Cater for the situation where we get the parsed value if raw doesn't exist
+    val sourceValue: String = if (sourceField.contains(",")) {
+      //There are multiple fields that supply the source for the field
+      val fields = sourceField.split(",")
+      fields.foldLeft("")((concat, value) => concat + "|" + map.getOrElse(value, ""))
+    } else {
+      map.getOrElse(sourceField, if (extraField.isDefined) map.getOrElse(extraField.get, "") else "")
     }
+
     dataType match {
       case "date" => {
         val date = DateParser.parseStringToDate(sourceValue)
@@ -544,8 +518,7 @@ case class IndexField(fieldName: String, dataType: String, sourceField: String, 
         try {
           java.lang.Double.parseDouble(sourceValue)
           return (fieldName, Some(Array(sourceValue)))
-        }
-        catch {
+        } catch {
           case _:Exception => (fieldName, None)
         }
       }
@@ -558,7 +531,6 @@ case class IndexField(fieldName: String, dataType: String, sourceField: String, 
           if (multi) {
             return (fieldName, Some(sourceValue.split(",")))
           }
-
         }
       }
     }
@@ -586,7 +558,13 @@ object IndexFields {
     scala.io.Source.fromURL(getClass.getResource("/indexFields.txt"), "utf-8").getLines.toList.collect {
       case row if !row.startsWith("#") => {
         val values = row.split("\t")
-        new IndexField(values(0), values(1), values(2), "T" == values(3), "T" == values(4), if (values(5).size > 0) Some(values(5)) else None, "T" == values(6))
+        new IndexField(values(0),
+          values(1),
+          values(2),
+          "T" == values(3),
+          "T" == values(4),
+          if (values(5).size > 0) Some(values(5)) else None, "T" == values(6)
+        )
       }
     }
   }

@@ -34,7 +34,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   override val logger = LoggerFactory.getLogger("SolrIndexDAO")
 
-  val nameRegex="""(?:name":")([a-zA-z0-9]*)""".r
+  val nameRegex = """(?:name":")([a-zA-z0-9]*)""".r
   val codeRegex = """(?:code":)([0-9]*)""".r
   val qaStatusRegex = """(?:qaStatus":)([0-9]*)""".r
 
@@ -43,6 +43,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   } else {
     defaultMiscFields.split(",")
   }
+  
   var cc: CoreContainer = _
   var solrServer: SolrServer = _
   var cloudServer: org.apache.solr.client.solrj.impl.CloudSolrServer = _
@@ -50,11 +51,16 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   @Inject
   var occurrenceDAO: OccurrenceDAO = _
-  val solrDocList = new java.util.ArrayList[SolrInputDocument](1000)
+  val currentBatch = new java.util.ArrayList[SolrInputDocument](1000)
   var ids = 0
   val fieldSuffix = """([A-Za-z_\-0.9]*)"""
   val doublePattern = (fieldSuffix + """_d""").r
   val intPattern = (fieldSuffix + """_i""").r
+  
+  val BATCH_SIZE = 1000
+  val HARD_COMMIT_SIZE = 10000
+  val INDEX_READ_PAGE_SIZE = 5000
+  val FACET_PAGE_SIZE = 1000
 
   lazy val drToExcludeSensitive = excludeSensitiveValuesFor.split(",")
 
@@ -88,24 +94,22 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   def reload = if(cc != null) cc.reload("biocache")
 
-  override def shouldIncludeSensitiveValue(dr: String): Boolean = {
-    !drToExcludeSensitive.contains(dr)
-  }
+  override def shouldIncludeSensitiveValue(dr: String) = !drToExcludeSensitive.contains(dr)
 
-  def pageOverFacet(proc: (String, Int) => Boolean, facetName: String, queryString: String = "*:*", filterQueries: Array[String] = Array()) {
+  def pageOverFacet(proc: (String, Int) => Boolean, facetName: String,
+                    queryString: String = "*:*", filterQueries: Array[String] = Array()) {
+
     init
 
-    val FACET_PAGE_SIZE = 1000
-
     val query = new SolrQuery(queryString)
-    query.setFacet(true)
-    query.addFacetField(facetName)
-    query.setRows(0)
-    query.setFacetLimit(FACET_PAGE_SIZE)
-    query.setStart(0)
-    query.setFacetMinCount(1)
+        .setFacet(true)
+        .addFacetField(facetName)
+        .setRows(0)
+        .setFacetLimit(FACET_PAGE_SIZE)
+        .setStart(0)
+        .setFacetMinCount(1)
+
     filterQueries.foreach(query.addFilterQuery(_))
-    //query.setFilterQueries(filterQueries: _ *)
 
     var facetOffset = 0
     var values : java.util.List[FacetField.Count] = null
@@ -125,6 +129,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   }
 
   def streamIndex(proc: java.util.Map[String,AnyRef] => Boolean, fieldsToRetrieve:Array[String], query:String, filterQueries: Array[String], sortFields: Array[String], multivaluedFields: Option[Array[String]] = None){
+
     init
 
     val params = collection.immutable.HashMap(
@@ -135,10 +140,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       "fl" -> fieldsToRetrieve.mkString(","))
 
     val solrParams = new ModifiableSolrParams()
-    solrParams.add(new MapSolrParams(params) )
-    solrParams.add("fq", filterQueries:_*)
+      .add(new MapSolrParams(params) )
+      .add("fq", filterQueries:_*)
+
     if(!sortFields.isEmpty){
-      solrParams.add("sort",sortFields.mkString(" asc,") +" asc")
+      solrParams.add("sort",sortFields.mkString(" asc,") + " asc")
     }
 
     //now stream
@@ -148,31 +154,49 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     logger.info("Finished streaming : " +new java.util.Date().toString + " " + params)
   }
 
+  /**
+   * Page over the index, handing off values to the supplied function.
+   *
+   * @param proc
+   * @param fieldToRetrieve
+   * @param queryString
+   * @param filterQueries
+   * @param sortField
+   * @param sortDir
+   * @param multivaluedFields
+   */
   def pageOverIndex(proc: java.util.Map[String, AnyRef] => Boolean,
-                    fieldToRetrieve: Array[String], queryString: String = "*:*", filterQueries: Array[String] = Array(),
-                    sortField: Option[String] = None, sortDir: Option[String] = None, multivaluedFields: Option[Array[String]] = None) {
+                    fieldToRetrieve: Array[String],
+                    queryString: String = "*:*",
+                    filterQueries: Array[String] = Array(),
+                    sortField: Option[String] = None,
+                    sortDir: Option[String] = None,
+                    multivaluedFields: Option[Array[String]] = None) {
     init
 
     val query = new SolrQuery(queryString)
-    query.setFacet(false)
-    query.setRows(0)
-    query.setStart(0)
-    query.setFilterQueries(filterQueries: _*)
-    query.setFacet(false)
+      .setFacet(false)
+      .setRows(0)
+      .setStart(0)
+      .setFilterQueries(filterQueries: _*)
+      .setFacet(false)
+
     fieldToRetrieve.foreach(f => query.addField(f))
     var response = solrServer.query(query)
     val fullResults = response.getResults.getNumFound.toInt
     logger.debug("Total found for :" + queryString + ", " + fullResults)
 
     var counter = 0
-    var pageSize = 5000
+    var pageSize = INDEX_READ_PAGE_SIZE
+
     while (counter < fullResults) {
 
       val q = new SolrQuery(queryString)
-      q.setFacet(false)
-      q.setStart(counter)
-      q.setFilterQueries(filterQueries: _*)
-      q.setFacet(false)
+        .setFacet(false)
+        .setStart(counter)
+        .setFilterQueries(filterQueries: _*)
+        .setFacet(false)
+
       if (sortField.isDefined) {
         val dir = sortDir.getOrElse("asc")
         q.setSortField(sortField.get, if (dir == "asc") {
@@ -241,15 +265,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   def finaliseIndex(optimise: Boolean = false, shutdown: Boolean = true) {
     init
-    if (!solrDocList.isEmpty) {
-      solrServer.add(solrDocList)
+    if (!currentBatch.isEmpty) {
+      solrServer.add(currentBatch)
       Thread.sleep(50)
     }
 
     solrServer.commit
-    solrDocList.clear
+    currentBatch.clear
     //clear the cache for the SpeciesLIst
-    //TaxonSpeciesListDAO.clearCache()
     //now we should close the indexWriter
     logger.info(printNumDocumentsInIndex)
     if (optimise) {
@@ -318,21 +341,31 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   /**
    * A SOLR specific implementation of indexing from a map.
    */
-  override def indexFromMap(guid: String, map: scala.collection.Map[String, String], batch: Boolean = true,
-                            startDate: Option[Date] = None, commit: Boolean = false,
-                            miscIndexProperties: Seq[String] = Array[String](), test:Boolean = false) {
+  override def indexFromMap(guid: String,
+                            map: scala.collection.Map[String, String],
+                            batch: Boolean = true,
+                            startDate: Option[Date] = None,
+                            commit: Boolean = false,
+                            miscIndexProperties: Seq[String] = Array[String](),
+                            test:Boolean = false,
+                            batchID:String = "") {
     init
 
     //val header = getHeaderValues()
     if (shouldIndex(map, startDate)) {
+      
       val values = getOccIndexModel(guid, map)
+      
       if (values.length > 0 && values.length != header.length) {
-        logger.warn("Values don't matcher header: " + values.length + ":" + header.length + ", values:header")
-        logger.warn("Headers: " + header.toString())
-        logger.warn("Values: " + values.toString())
+        logger.error("Values don't matcher header: " + values.length + ":" + header.length + ", values:header")
+        logger.error("Headers: " + header.toString())
+        logger.error("Values: " + values.toString())
+        logger.error("This will be caused by changes in the list of headers not matching the number of submitted field values.")
         sys.exit(1)
       }
-      if (values.length > 0) {
+      
+      if (!values.isEmpty) {
+        
         val doc = new SolrInputDocument()
         for (i <- 0 to values.length - 1) {
           if (values(i) != "" && header(i) != "") {
@@ -496,23 +529,32 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           }
         }
 
+        if(batchID != ""){
+          doc.addField("batch_id_s", batchID)
+        }
+
         if(!test){
           if (!batch) {
+
+            //if not a batch, add the doc and do a hard commit
             solrServer.add(doc)
             solrServer.commit(false, false, true)
+
           } else {
-            solrDocList.synchronized {
+            
+            currentBatch.synchronized {
+              
               if (!StringUtils.isEmpty(values(0))){
-                solrDocList.add(doc)
+                currentBatch.add(doc)
               }
 
-              if (solrDocList.size == 1000 || (commit && !solrDocList.isEmpty)) {
+              if (currentBatch.size == BATCH_SIZE || (commit && !currentBatch.isEmpty)) {
 
-                solrServer.add(solrDocList)
-                if (commit || solrDocList.size >= 10000){
+                solrServer.add(currentBatch)
+                if (commit || currentBatch.size >= HARD_COMMIT_SIZE){
                   solrServer.commit(false, false, true)
                 }
-                solrDocList.clear
+                currentBatch.clear
               }
             }
           }
@@ -570,7 +612,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     val response = solrServer.query(solrQuery)
     val facets = response.getFacetField(field)
     //TODO page through the facets to make more efficient.
-    if (facets.getValues() != null && facets.getValues().size() > 0) {
+    if (facets.getValues() != null && !facets.getValues().isEmpty()) {
       val values = facets.getValues().asScala
       if (values != null && !values.isEmpty) {
         /*
@@ -591,17 +633,21 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
    * output stream.
    */
   override def writeRowKeysToStream(query: String, outputStream: OutputStream) {
+
     init
-    val size = 100;
-    var start = 0;
-    val solrQuery = new SolrQuery();
+    val size = 100
+    var start = 0
     var continue = true
-    solrQuery.setQueryType("standard");
-    solrQuery.setFacet(false)
-    solrQuery.setFields("row_key")
-    solrQuery.setQuery(query)
-    solrQuery.setRows(100)
+
+    val solrQuery = new SolrQuery()
+      .setQueryType("standard")
+      .setFacet(false)
+      .setFields("row_key")
+      .setQuery(query)
+      .setRows(100)
+
     while (continue) {
+
       solrQuery.setStart(start)
       val response = solrServer.query(solrQuery)
 
@@ -618,7 +664,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
 
   def printNumDocumentsInIndex(): String = {
-    ">>>>>>>>>>>>> Document count of index: " + solrServer.query(new SolrQuery("*:*")).getResults().getNumFound()
+    ">>>> Document count of index: " + solrServer.query(new SolrQuery("*:*")).getResults().getNumFound()
   }
 
   class AddDocThread(queue: ArrayBlockingQueue[java.util.List[SolrInputDocument]], id: Int) extends Thread {
@@ -660,11 +706,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     }
   }
 
-  //now stream
+  /**
+   * Streaming callback for use with SOLR's streaming API.
+   * @param proc
+   * @param multivaluedFields
+   */
  class SolrCallback (proc: java.util.Map[String,AnyRef] => Boolean, multivaluedFields:Option[Array[String]]) extends StreamingResponseCallback {
 
     import scala.collection.JavaConverters._
-    import scala.collection.JavaConversions._
 
     var maxResults = 0l
     var counter = 0l
@@ -695,7 +744,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       logger.info("NumFound: " + numFound +" start: " +start + " maxScore: " +maxScore)
       logger.info(new java.util.Date().toString)
       startTime = System.currentTimeMillis
-      //exit(-2)
       maxResults = numFound
     }
   }
