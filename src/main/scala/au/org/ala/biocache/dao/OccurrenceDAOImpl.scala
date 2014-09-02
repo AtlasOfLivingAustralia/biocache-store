@@ -9,7 +9,7 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 import scala.Some
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.index.{IndexFields, IndexDAO}
-import au.org.ala.biocache.load.{MediaStore, FullRecordMapper}
+import au.org.ala.biocache.load.{DownloadMedia, MediaStore, FullRecordMapper}
 import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode}
 import scala.Some
@@ -388,12 +388,12 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    * Update the version of the occurrence record.
    */
   def addRawOccurrenceBatch(fullRecords: Array[FullRecord]) {
-    var batch = scala.collection.mutable.Map[String, Map[String, String]]()
+    val batch = scala.collection.mutable.Map[String, Map[String, String]]()
     fullRecords.foreach(fr  => {
       //download the media in associatedMedia?????
       downloadMedia(fr)
       //process the record
-      var properties = FullRecordMapper.fullRecord2Map(fr, Versions.RAW)
+      val properties = FullRecordMapper.fullRecord2Map(fr, Versions.RAW)
       batch.put(fr.rowKey, properties.toMap)
     })
     //commit
@@ -408,7 +408,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    */
   def downloadMedia(fr:FullRecord) : Boolean = {
     if (fr.occurrence.associatedMedia != null){
-      val filesToImport = fr.occurrence.associatedMedia.split(";")
+      val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
       val associatedMediaBuffer = new ArrayBuffer[String]
       filesToImport.foreach(fileToStore =>
         Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore) match {
