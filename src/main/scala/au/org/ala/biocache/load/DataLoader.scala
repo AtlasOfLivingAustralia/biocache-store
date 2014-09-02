@@ -33,6 +33,35 @@ trait DataLoader {
   def emptyTempFileStore(resourceUid:String) = FileUtils.deleteQuietly(new File(temporaryFileStore + File.separator + resourceUid))
 
   /**
+   * Split the associated media string into multiple URLs or paths.
+   * This string can be delimited by semi-colon or comma.
+   *
+   * @param associatedMedia
+   */
+  def unpackAssociatedMedia(associatedMedia:String) : Seq[String] = {
+    if(associatedMedia == null || associatedMedia.trim() == 0){
+      Array[String]()
+    } else if(associatedMedia.indexOf(';') > 0){
+      val parts = associatedMedia.split(';').map(_.trim)
+      if(parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))){
+        parts
+      } else {
+        Array(associatedMedia)
+      }
+    } else if(associatedMedia.indexOf(',') > 0){
+      val parts = associatedMedia.split(',').map(_.trim)
+      if(parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))){
+        parts
+      } else {
+        Array(associatedMedia)
+      }
+    } else {
+      //no delimiters in use
+      Array(associatedMedia)
+    }
+  }
+
+  /**
    * Returns the file writer to be used to store the row keys that need to be deleted for a data resource
    * @param resourceUid
    * @return
@@ -186,8 +215,9 @@ trait DataLoader {
     fr.attribution.dataResourceUid = dataResourceUid
 
     //download the media - checking if it exists already
-    if (fr.occurrence.associatedMedia != null){
-      val filesToImport = fr.occurrence.associatedMedia.split(";")
+    val filesToImport = unpackAssociatedMedia(fr.occurrence.associatedMedia)
+    
+    if (!filesToImport.isEmpty){
 
       val fileNameToID = new mutable.HashMap[String, String]()
 
@@ -337,13 +367,13 @@ trait DataLoader {
           (f, true, false)
         } else if (url.endsWith(".gz") || (contentDisp != null && contentDisp.endsWith(""".gz""""))){
           val f = new File(temporaryFileStore + resourceUid + File.separator + resourceUid +".gz")
-          logger.info("  creating file: " + f.getAbsolutePath)
+          logger.info("Creating file: " + f.getAbsolutePath)
           FileUtils.forceMkdir(f.getParentFile())
           f.createNewFile()
           (f, false, true)
         } else {
           val f = new File(temporaryFileStore + resourceUid + File.separator + resourceUid +".csv")
-          logger.info("  creating file: " + f.getAbsolutePath)
+          logger.info("Creating file: " + f.getAbsolutePath)
           FileUtils.forceMkdir(f.getParentFile())
           f.createNewFile()
           (f, false, false)
@@ -361,10 +391,10 @@ trait DataLoader {
       out.flush
       in.close
       out.close
-      logger.info("\nDownloaded. File size: ", counter / 1024 +"kB, " + file.getAbsolutePath +", is zipped: " + isZipped+"\n")
+      logger.info("Downloaded. File size: ", counter / 1024 +"kB, " + file.getAbsolutePath +", is zipped: " + isZipped+"\n")
       (file,date,isZipped,isGzipped)
     } else {
-      logger.info("\nThe file has not changed since the last time it  was loaded.  To load the data a force-load  will need to be performed")
+      logger.info("The file has not changed since the last time it  was loaded. To load the data a force-load will need to be performed")
       (null,null,false,false)
     }
   }
