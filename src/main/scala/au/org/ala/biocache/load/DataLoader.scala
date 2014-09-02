@@ -33,35 +33,6 @@ trait DataLoader {
   def emptyTempFileStore(resourceUid:String) = FileUtils.deleteQuietly(new File(temporaryFileStore + File.separator + resourceUid))
 
   /**
-   * Split the associated media string into multiple URLs or paths.
-   * This string can be delimited by semi-colon or comma.
-   *
-   * @param associatedMedia
-   */
-  def unpackAssociatedMedia(associatedMedia:String) : Seq[String] = {
-    if(associatedMedia == null || associatedMedia.trim() == 0){
-      Array[String]()
-    } else if(associatedMedia.indexOf(';') > 0){
-      val parts = associatedMedia.split(';').map(_.trim)
-      if(parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))){
-        parts
-      } else {
-        Array(associatedMedia)
-      }
-    } else if(associatedMedia.indexOf(',') > 0){
-      val parts = associatedMedia.split(',').map(_.trim)
-      if(parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))){
-        parts
-      } else {
-        Array(associatedMedia)
-      }
-    } else {
-      //no delimiters in use
-      Array(associatedMedia)
-    }
-  }
-
-  /**
    * Returns the file writer to be used to store the row keys that need to be deleted for a data resource
    * @param resourceUid
    * @return
@@ -215,7 +186,7 @@ trait DataLoader {
     fr.attribution.dataResourceUid = dataResourceUid
 
     //download the media - checking if it exists already
-    val filesToImport = unpackAssociatedMedia(fr.occurrence.associatedMedia)
+    val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
     
     if (!filesToImport.isEmpty){
 

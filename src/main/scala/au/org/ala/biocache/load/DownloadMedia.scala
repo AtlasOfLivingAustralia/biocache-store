@@ -15,7 +15,6 @@ object DownloadMedia extends Tool {
   def cmd = "download-media"
   def desc = "Download the associated media for a resource"
 
-
   def main(args:Array[String]){
     var dr: String = ""
     var rowKey: String = ""
@@ -30,6 +29,35 @@ object DownloadMedia extends Tool {
       else parser.showUsage
     }
     Config.persistenceManager.shutdown
+  }
+
+  /**
+   * Split the associated media string into multiple URLs or paths.
+   * This string can be delimited by semi-colon or comma.
+   *
+   * @param associatedMedia
+   */
+  def unpackAssociatedMedia(associatedMedia:String) : Seq[String] = {
+    if(associatedMedia == null || associatedMedia.trim() == 0){
+      Array[String]()
+    } else if(associatedMedia.indexOf(';') > 0){
+      val parts = associatedMedia.split(';').map(_.trim)
+      if(parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))){
+        parts
+      } else {
+        Array(associatedMedia)
+      }
+    } else if(associatedMedia.indexOf(',') > 0){
+      val parts = associatedMedia.split(',').map(_.trim)
+      if(parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))){
+        parts
+      } else {
+        Array(associatedMedia)
+      }
+    } else {
+      //no delimiters in use
+      Array(associatedMedia)
+    }
   }
 
   def processUrls(raw:FullRecord, processed:FullRecord, urls: Array[String]) {
