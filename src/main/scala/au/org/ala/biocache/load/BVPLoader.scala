@@ -109,8 +109,8 @@ class BVPLoader {
       json match {
         case Some(expeditions: Seq[Map[String, Any]]) => {
           expeditions.foreach(exp => {
-            //find the expedition, if it doesnt exist create it.
-            val resourceUrl = exp.getOrElse("url", "").toString
+            //find the expedition, if it doesn't exist create it.
+            val resourceUrl = exp.getOrElse("expeditionHomePage", "").toString
             val updateUrl = lookupDataResource(resourceUrl) match {
               case Some(drUid) => {
                 logger.info("Updating resource  " + drUid + ", URL: " + resourceUrl)
@@ -143,7 +143,7 @@ class BVPLoader {
             }
 
             //http post to
-            val dataUrl = Config.volunteerUrl + "/ajax/expeditionBiocacheData/" + exp.get("id").get.asInstanceOf[Double].toInt
+            val dataUrl = exp.get("dataUrl").getOrElse("")
             val dataResourceMap = Map(
               "api_key"-> Config.collectoryApiKey,
               "guid" -> resourceUrl,
