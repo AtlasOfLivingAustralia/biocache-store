@@ -133,17 +133,15 @@ trait MediaStore {
    * @param urlToMedia
    * @return
    */
-  def save(uuid: String, resourceUID: String, urlToMedia: String): Option[(String, String)]
+  def save(uuid: String, resourceUID: String, urlToMedia: String) : Option[(String, String)]
 
   def getSoundFormats(filePath: String): java.util.Map[String, String]
 
   def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) : Unit
 
-  def convertPathToUrl(str: String, baseUrlPath: String) :String
+  def convertPathToUrl(str: String, baseUrlPath: String) : String
 
-  def convertPathToUrl(str: String):String
-  
-//  protected def isStoredMedia(acceptedExtensions: Array[String], url: String): Boolean
+  def convertPathToUrl(str: String) : String
 }
 
 /**
@@ -212,6 +210,15 @@ object RemoteMediaStore extends MediaStore {
     }
   }
 
+  /**
+   * Construct the ID used by the image store. Changing this will cause duplication
+   * problems with existing image resources as this is used to check uniqueness.
+   *
+   * @param resourceUID
+   * @param uuid
+   * @param urlToMedia
+   * @return
+   */
   protected def constructFileID(resourceUID: String, uuid: String, urlToMedia: String) =
     resourceUID + "||" + uuid + "||" + extractFileName(urlToMedia)
 
@@ -309,7 +316,7 @@ object RemoteMediaStore extends MediaStore {
     map.get("imageId") match {
       case Some(o) => Some(o.toString())
       case None => {
-        logger.warn(s"Unable to persist image. Response code$result.getStatusCode.  Image service response body: $responseBody")
+        logger.warn(s"Unable to persist image. Response code $result.getStatusCode.  Image service response body: $responseBody")
         None
       }
     }
@@ -389,8 +396,8 @@ object LocalMediaStore extends MediaStore {
    * Saves the file to local filesystem and returns the file path where the file is stored.
    */
   def save(uuid: String, resourceUID: String, urlToMedia: String): Option[(String, String)] = {
-    //handle the situation where the urlToMedia does not exits -
 
+    //handle the situation where the urlToMedia does not exits -
     var in: java.io.InputStream = null
     var out: java.io.FileOutputStream = null
 

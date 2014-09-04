@@ -11,13 +11,13 @@ import java.util.Date
 import au.org.ala.biocache.parser.DateParser
 import org.gbif.dwc.terms.TermFactory
 import scala.collection.mutable.ArrayBuffer
-import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.model.{Occurrence, FullRecord}
 import java.net.URL
 import scala.collection.mutable
 import org.apache.tools.ant.taskdefs.condition.Http
 
 /**
- * A trait with utility code for loading data
+ * A trait with utility code for loading data into the occurrence store.
  */
 trait DataLoader {
 
@@ -29,6 +29,7 @@ trait DataLoader {
   val temporaryFileStore = Config.loadFileStore //"/data/biocache-load/"
   val pm = Config.persistenceManager
   val loadTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
+  val sftpPattern = """sftp://([a-zA-z\.]*):([0-9a-zA-Z_/\.\-]*)""".r
 
   def emptyTempFileStore(resourceUid:String) = FileUtils.deleteQuietly(new File(temporaryFileStore + File.separator + resourceUid))
 
@@ -58,7 +59,7 @@ trait DataLoader {
     else None
   }
 
-  //Sampling, Processing and INdexing look for the row key file.
+  //Sampling, Processing and Indexing look for the row key file.
   // An empty file should be enough to prevent the phase from going ahead...
   //TODO We should probably change this to be more robust.
   def setNotLoadedForOtherPhases(resourceUid:String){
@@ -84,7 +85,13 @@ trait DataLoader {
     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
   }
 
-  def retrieveConnectionParameters(resourceUid: String) : (String, List[String], List[String], Map[String,String], Map[String,String],Option[Date]) = {
+  /**
+   * Retrieve the connection parameters for the supplied resource UID.
+   *
+   * @param resourceUid
+   * @return
+   */
+  def retrieveConnectionParameters(resourceUid: String) : (String, List[String], List[String], Map[String,String], Map[String,String], Option[Date]) = {
 
     //full document
     val map = getDataResourceDetailsAsMap(resourceUid)
@@ -102,6 +109,7 @@ trait DataLoader {
       }
     }
 
+    //retrieve the unique terms for this data resource
     val uniqueTerms = connectionParameters.get("termsForUniqueKey") match {
       case Some(list:List[String]) => list
       case Some(singleValue:String) => List(singleValue)
@@ -151,6 +159,18 @@ trait DataLoader {
     load(dataResourceUid, fr, identifyingTerms, updateLastModified, downloadMedia, false, None)
   }
 
+  /**
+   * Load a record into the occurrence store.
+   *
+   * @param dataResourceUid the data resource UID
+   * @param fr a representation of the raw record
+   * @param identifyingTerms
+   * @param updateLastModified
+   * @param downloadMedia whether to download the referenced media
+   * @param stripSpaces whether to strip spaces from the identifying terms.
+   * @param rowKeyWriter
+   * @return
+   */
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean, downloadMedia:Boolean, stripSpaces:Boolean, rowKeyWriter:Option[java.io.Writer]) : Boolean = {
 
     //the details of how to construct the UniqueID belong in the Collectory
@@ -176,6 +196,7 @@ trait DataLoader {
     if(rowKeyWriter.isDefined){
       rowKeyWriter.get.write(fr.rowKey+"\n")
     }
+
     //The last load time
     if(updateLastModified){
       fr.lastModifiedTime = loadTime
@@ -185,10 +206,25 @@ trait DataLoader {
     }
     fr.attribution.dataResourceUid = dataResourceUid
 
+    //process the media for this record
+    processMedia(dataResourceUid, fr)
+
+    //load the record
+    Config.occurrenceDAO.addRawOccurrence(fr)
+    true
+  }
+
+  /**
+   * Load the media where possible.
+   *
+   * @param dataResourceUid
+   * @param fr
+   */
+  def processMedia(dataResourceUid: String, fr: FullRecord) : Unit = {
+
     //download the media - checking if it exists already
     val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
-    
-    if (!filesToImport.isEmpty){
+    if (!filesToImport.isEmpty) {
 
       val fileNameToID = new mutable.HashMap[String, String]()
 
@@ -196,7 +232,7 @@ trait DataLoader {
 
         val (exists, filename, filePathOrId) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
 
-        if (exists){
+        if (exists) {
           logger.info("Media file already stored: " + filePathOrId)
           fileNameToID.put(filename, filePathOrId)
         } else {
@@ -214,30 +250,37 @@ trait DataLoader {
       val soundsBuffer = new ArrayBuffer[String]
       val videosBuffer = new ArrayBuffer[String]
 
-      fileNameToID.foreach({case(filename, filePathOrID) => {
-        if(Config.mediaStore.isValidImage(filename)) imagesBuffer += filePathOrID
-        if(Config.mediaStore.isValidSound(filename)) soundsBuffer += filePathOrID
-        if(Config.mediaStore.isValidVideo(filename)) videosBuffer += filePathOrID
-        associatedMediaBuffer += filename
-      }})
+      fileNameToID.foreach({
+        case (filename, filePathOrID) => {
+          if (Config.mediaStore.isValidImage(filename)) imagesBuffer += filePathOrID
+          if (Config.mediaStore.isValidSound(filename)) soundsBuffer += filePathOrID
+          if (Config.mediaStore.isValidVideo(filename)) videosBuffer += filePathOrID
+          associatedMediaBuffer += filename
+        }
+      })
 
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")
       fr.occurrence.images = imagesBuffer.toArray
       fr.occurrence.sounds = soundsBuffer.toArray
       fr.occurrence.videos = videosBuffer.toArray
     }
-
-    Config.occurrenceDAO.addRawOccurrence(fr)
-    true
   }
 
+  /**
+   * Download an archive from the supplied URL. Includes support for downloading from
+   * SFTP server.
+   * 
+   * @param url
+   * @param resourceUid
+   * @param lastChecked
+   * @return
+   */
   def downloadArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (String,Date) = {
     //when the url starts with SFTP need to SCP the file from the supplied server.
-    val (file,date,isZipped,isGzipped) ={
-      if(url.startsWith("sftp://"))
-        downloadSecureArchive(url,resourceUid,lastChecked)
-      else
-        downloadStandardArchive(url, resourceUid,lastChecked)
+    val (file, date, isZipped, isGzipped) = if (url.startsWith("sftp://")){
+      downloadSFTPArchive(url, resourceUid, lastChecked)
+    } else {
+      downloadStandardArchive(url, resourceUid, lastChecked)
     }
     if(file != null){
     //extract the file
@@ -264,12 +307,10 @@ trait DataLoader {
     }
   }
 
-  val sftpPattern = """sftp://([a-zA-z\.]*):([0-9a-zA-Z_/\.\-]*)""".r
-
-  def downloadSecureArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (File, Date,Boolean,Boolean) = {
+  def downloadSFTPArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (File, Date,Boolean,Boolean) = {
     url match {
-      case sftpPattern(server,filename) => {
-        val (targetfile,date, isZipped, isGzipped,downloaded) = {
+      case sftpPattern(server, filename) => {
+        val (targetfile, date, isZipped, isGzipped, downloaded) = {
         if (url.endsWith(".zip") ){
           val f = new File(temporaryFileStore + resourceUid + ".zip")
           f.createNewFile()
@@ -293,28 +334,44 @@ trait DataLoader {
             val (file, date) = fileDetails.get
             logger.info("The most recent file is " + file + " with last modified date : " + date)
             (new File(file),date,file.endsWith("zip"),file.endsWith("gz"),true)
+          } else {
+            (null, null, false, false, false)
           }
-          else
-            (null,null,false,false,false)
         }}
 
         val fileDetails = if(targetfile == null) None else if(!downloaded)SFTPTools.scpFile(server,Config.getProperty("uploadUser"), Config.getProperty("uploadPassword"),filename,targetfile) else Some((targetfile,date))
         if(fileDetails.isDefined){
           val (file, date) = fileDetails.get
-          (targetfile,date,isZipped,isGzipped)
+          (targetfile, date, isZipped, isGzipped)
+        } else {
+          (null, null, false, false)
         }
-        else
-          (null,null,false,false)
       }
       case _ => (null,null,false,false)
     }
   }
 
-  def sftpLatestArchive(url:String, resourceUid:String, afterDate:Option[Date]):Option[(String,Date)]={
+  /**
+   * Retrieve details of the latest archive after the supplied date.
+   *
+   * @param url
+   * @param resourceUid
+   * @param afterDate
+   * @return
+   */
+  def sftpLatestArchive(url:String, resourceUid:String, afterDate:Option[Date]) : Option[(String, Date)] =
     SFTPTools.sftpLatestArchive(url, resourceUid, temporaryFileStore,afterDate)
-  }
 
-  def downloadStandardArchive(url:String, resourceUid:String, afterDate:Option[Date]) : (File,Date,Boolean,Boolean) = {
+  /**
+   * Download an archive from the supplied URL.
+   * 
+   * @param url
+   * @param resourceUid
+   * @param afterDate
+   * @return
+   */
+  def downloadStandardArchive(url:String, resourceUid:String, afterDate:Option[Date]) : (File, Date, Boolean, Boolean) = {
+    
     val tmpStore = new File(temporaryFileStore)
     if(!tmpStore.exists){
       FileUtils.forceMkdir(tmpStore)
@@ -390,7 +447,9 @@ trait DataLoader {
       }
       true
     } catch {
-      case e:Exception => e.printStackTrace();false
+      case e:Exception => logger.warn("Unable to update the lastChecked timestamp in the collectory. " +
+        " This is most likely caused by a bad URL" +
+        " path for the collectory. Please check configuration. " + e.getMessage, e); false
    }
   }
 }

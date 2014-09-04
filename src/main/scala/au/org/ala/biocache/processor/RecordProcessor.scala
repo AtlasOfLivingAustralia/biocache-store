@@ -78,9 +78,6 @@ class RecordProcessor {
     })
   }
 
-  def downloadMedia(raw:FullRecord) = Config.occurrenceDAO.downloadMedia(raw)
-
-
   /**
    * Process a record, adding metadata and records quality systemAssertions.
    * This version passes the original to optimise updates.
@@ -155,7 +152,7 @@ class RecordProcessor {
     raw.attribution.dataResourceUid = dataResourceUid
     biocache.Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
     val downloaded = biocache.Config.occurrenceDAO.downloadMedia(raw)
-    if(downloaded){
+    if (downloaded){
       biocache.Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
     }
     uuid

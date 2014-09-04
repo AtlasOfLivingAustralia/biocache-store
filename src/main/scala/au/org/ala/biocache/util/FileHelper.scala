@@ -21,40 +21,43 @@ import java.util.jar.JarFile
 import java.util.zip.GZIPInputStream
 import au.com.bytecode.opencsv.CSVReader
 import net.lingala.zip4j.core.ZipFile
+import org.slf4j.LoggerFactory
 
 /**
  * File helper - used as a implicit converter to add additional helper methods to java.io.File
  */
 class FileHelper(file: File) {
 
+  val logger = LoggerFactory.getLogger("FileHelper")
+
   //Appends the supplied file to this one
-  def append(afile:FileHelper)={
+  def append(afile:FileHelper){
     val writer = new FileWriter(file, true)
     afile.foreachLine(line => writer.write(line+"\n"))
     writer.flush
     writer.close
   }
 
-  def write(text: String): Unit = {
+  def write(text: String){
     val fw = new FileWriter(file)
     try { fw.write(text) }
     finally { fw.close }
   }
 
-  def foreachLine(proc: String => Unit): Unit = {
+  def foreachLine(proc: String => Unit) {
     val br = new BufferedReader(new FileReader(file))
     try {
       while (br.ready) {
         proc(br.readLine)
       }
     } catch {
-      case e:Exception =>e.printStackTrace()
+      case e:Exception => logger.error(e.getMessage, e)
     } finally {
       br.close
     }
   }
 
-  def deleteAll: Unit = {
+  def deleteAll {
     def deleteFile(dfile: File): Unit = {
       if (dfile.isDirectory) {
         val subfiles = dfile.listFiles
@@ -66,13 +69,12 @@ class FileHelper(file: File) {
     deleteFile(file)
   }
 
-  def extractGzip: File = {
-    val maxBuffer=8000
+  def extractGzip : File = {
+    val maxBuffer = 8000
     val basename = file.getName.substring(0, file.getName.lastIndexOf("."))
     val todir = new File(file.getParentFile, basename)
-    //todir.mkdirs()
-    val in = new GZIPInputStream(new FileInputStream(file), maxBuffer);
-    val out = new FileOutputStream(todir);
+    val in = new GZIPInputStream(new FileInputStream(file), maxBuffer)
+    val out = new FileOutputStream(todir)
     try {
       val buffer = new Array[Byte](maxBuffer)
       def read(){
@@ -91,11 +93,12 @@ class FileHelper(file: File) {
     todir
   }
 
-  def extractZip: Unit = {
+  def extractZip : File = {
     val basename = file.getName.substring(0, file.getName.lastIndexOf("."))
     val todir = new File(file.getParentFile, basename)
     val zipFile = new ZipFile(file)
     zipFile.extractAll(todir.getAbsolutePath)
+    todir
   }
 
   /**
@@ -106,17 +109,10 @@ class FileHelper(file: File) {
     val rawColumnHdrs = reader.readNext
     val columnHdrs = procHdr(rawColumnHdrs)
     var currentLine = reader.readNext
-    while(currentLine != null){
+    while (currentLine != null){
       read(columnHdrs, currentLine)
       currentLine = reader.readNext
     }
-  }
-
-  private def copyStream(istream: InputStream, ostream: OutputStream): Unit = {
-    var bytes = new Array[Byte](1024)
-    var len = -1
-    while ({ len = istream.read(bytes, 0, 1024); len != -1 })
-      ostream.write(bytes, 0, len)
   }
 }
 

@@ -43,9 +43,7 @@ object ShowConfig extends NoArgsTool {
 
   def cmd = "config"
   def desc = "Output the current config for this instance of biocache CLI"
-  def main(args:Array[String]) = {
-    proceed(args, () => Config.outputConfig  )
-  }
+  def main(args:Array[String]) = proceed(args, () => Config.outputConfig)
 }
 
 object ShowVersion extends NoArgsTool {
