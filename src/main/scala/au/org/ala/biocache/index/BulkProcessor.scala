@@ -74,14 +74,13 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
       opt("c", "columns", "The columns to export", {
         v: String => columns = Some(v.split(","))
       })
-      booleanOpt("fm", "forceMerge", "Force merge of segments. Default is " + forceMerge + ". For index only.", {
-        v: Boolean => forceMerge = v
-      })
+      opt("sm", "skipMerge", "Force merge of segments. Default is " + forceMerge + ". For index only.", { forceMerge = false })
+
       intOpt("ms", "max segments", "Max merge segments. Default " + mergeSegments + ". For index only.", {
         v: Int => mergeSegments = v
       })
-      booleanOpt("ds", "delete-sources", "Delete sources if successful. Defaults to " + deleteSources + ". For index only.", {
-        v: Boolean => deleteSources = v
+      opt("ds", "delete-sources", "Delete sources if successful. Defaults to " + deleteSources + ". For index only.", {
+        deleteSources = true
       })
     }
 
@@ -196,8 +195,8 @@ object IndexMergeTool extends Tool {
       arg("<to-merge>", "Pipe separated list of directories to merge", {
         v: String => directoriesToMerge = v.split('|').map(x => x.trim)
       })
-      booleanOpt("fm", "forceMerge", "Force merge of segments. Default is " + forceMerge, {
-        v: Boolean => forceMerge = v
+      opt("sk", "skipMerge", "Skip merge of segments.", {
+        forceMerge = false
       })
       intOpt("ms", "max-segments", "Max merge segments. Default " + mergeSegments, {
         v: Int => mergeSegments = v
@@ -205,8 +204,8 @@ object IndexMergeTool extends Tool {
       doubleOpt("ram", "ram-buffer", "RAM buffer size. Default " + ramBuffer, {
         v: Double => ramBuffer = v
       })
-      booleanOpt("ds", "delete-sources", "Delete sources if successful. Defaults to " + deleteSources, {
-        v: Boolean => deleteSources = v
+      opt("ds", "delete-sources", "Delete sources if successful. Defaults to " + deleteSources, {
+        deleteSources = true
       })
     }
     if (parser.parse(args)) {

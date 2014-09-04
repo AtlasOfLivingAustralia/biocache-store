@@ -42,7 +42,7 @@ object CalculatedLayerHelper extends Tool {
     var cellOccurrenceCountsFilePrefix: String = null
     var numThreads = 1
 
-    val parser = new OptionParser(help) {
+    val parser = new OptionParser(cmd) {
       arg("outputFileDirectory", "Directory in which to write the output files", {
         v: String => outputFileDirectory = v
       })
@@ -105,9 +105,9 @@ class CalculatedLayerHelper {
 
     //Dispatcher actor
     actor {
-      var cellSpecies = scala.collection.mutable.Map[String, Set[String]]()
-      var speciesCellCounts = scala.collection.mutable.Map[String, Int]()
-      var cellOccurrenceCounts = scala.collection.mutable.Map[String, Int]()
+      val cellSpecies = scala.collection.mutable.Map[String, Set[String]]()
+      val speciesCellCounts = scala.collection.mutable.Map[String, Int]()
+      val cellOccurrenceCounts = scala.collection.mutable.Map[String, Int]()
 
       val cellSpeciesFile = outputFileDirectory + '/' + cellSpeciesFilePrefix + ".txt"
       val speciesCellCountsFile = outputFileDirectory + '/' + speciesCellCountsFilePrefix + ".txt"

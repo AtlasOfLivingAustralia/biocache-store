@@ -24,10 +24,11 @@ object Loader extends Tool {
     var dataResourceUid:String = ""
     var forceLoad = false
     var testLoad = false
+
     val parser = new OptionParser(help) {
       arg("data-resource-uid","The data resource to process", {v:String => dataResourceUid = v})
-      booleanOpt("fl", "force-load", "Force the (re)load of media", {v:Boolean => forceLoad = v})
-      booleanOpt("t", "test-load", "Test the (re)load of media", {v:Boolean => testLoad = v})
+      opt("fl", "force-load", "Force the (re)load of media", {  forceLoad = true })
+      opt("t", "test-load", "Test the (re)load of media", { testLoad = true })
     }
 
     if(parser.parse(args)){

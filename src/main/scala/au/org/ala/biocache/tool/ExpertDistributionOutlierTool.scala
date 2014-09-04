@@ -71,11 +71,11 @@ object ExpertDistributionOutlierTool extends Tool {
       intOpt("pt","passThreads","Number of threads to write the passed records on.", { v:Int => passThreads = v})
       intOpt("thresh", "distanceThreshold", "An occurrence is only considered an outlier if it is found to be over a this distance outside of the expert distribution. Default = 50000, =50km",  {v:Int => distanceThreshold = v} )
       intOpt("page","pageSize","Number of records to use in page.", { v:Int => recordsPageSize = v})
-      opt("test","Test the outliers but don't write to Cassandra", {test =true})
+      opt("test","Test the outliers but don't write to Cassandra", {test = true})
       opt("d","dir","The directory in which the offline dumps are located", {v:String => dir = Some(v)})
-      intOpt("day","numDaysMod","Number of days since the last modified.  This will limit the records that are marked as passed.", { v:Int=>
+      intOpt("day","numDaysMod","Number of days since the last modified.  This will limit the records that are marked as passed.", { v:Int =>
         val sfd = new SimpleDateFormat("yyyy-MM-dd")
-        val days:Int = 0 -v
+        val days = 0 - v
         lastModifiedDate = Some(sfd.format(DateUtils.addDays(new Date(), days)) + "T00:00:00Z")
       })
     }

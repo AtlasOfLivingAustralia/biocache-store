@@ -23,15 +23,15 @@ object LoadMediaReferences extends Tool {
 
   def main(args: Array[String]) {
 
-    var dryRun = true
+    var dryRun = false
     var sourceFile = ""
 
-    val parser = new OptionParser("migrate-media") {
+    val parser = new OptionParser(cmd) {
       arg("references-file", "Record UUID, Image UUID, and mime type.", {
         v: String => sourceFile = v
       })
-      booleanOpt("dryRun", "dryRun", "dryRun or not", {
-        v: Boolean => dryRun = v
+      opt("dryRun", "dryRun", "dryRun or not", {
+        dryRun = true
       })
     }
 

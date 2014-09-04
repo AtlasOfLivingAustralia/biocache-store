@@ -38,17 +38,17 @@ object ExportFacet extends Tool {
     opt("open", "Keep the index open", {
       closeIndex = false
     })
-    booleanOpt("ld", "lastDay", "Only export those that have had new records in the last day", {
-      v: Boolean => lastDay = v
+    opt("ld", "lastDay", "Only export those that have had new records in the last day", {
+      lastDay = true
     })
-    booleanOpt("ld", "lastWeek", "Only export those that have had new records in the last week", {
-      v: Boolean => lastWeek = v
+    opt("ld", "lastWeek", "Only export those that have had new records in the last week", {
+      lastWeek = true
     })
-    booleanOpt("ld", "lastMonth", "Only export those that have had new records in the last month", {
-      v: Boolean => lastMonth = v
+    opt("ld", "lastMonth", "Only export those that have had new records in the last month", {
+      lastMonth = true
     })
-    booleanOpt("c", "incCounts", "Include the counts of the facet", {
-      v: Boolean => includeCounts = v
+    opt("c", "incCounts", "Include the counts of the facet", {
+      includeCounts = true
     })
     opt("df", "date field to use", "The indexed date field to use e.g. first_loaded_Date", {
       v: String => indexDateField = v

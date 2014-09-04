@@ -61,7 +61,7 @@ object Sampling extends Tool with IncrementalTool {
       opt("wd","working-dir", "the directory to write temporary files too. Defaults to " +  Config.tmpWorkDir,{
         v:String => workingDir = v
       })
-      intOpt("bs","batch-size", "Batch size when processing points. Defaults to " + batchSize,{
+      intOpt("bs","batch-size", "Batch size when processing points. Defaults to " + batchSize, {
         v:Int => batchSize = v
       })
       opt("crk", "check for row key file", { checkRowKeyFile = true })

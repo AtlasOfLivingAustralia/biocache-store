@@ -21,10 +21,9 @@ object IngestTool extends Tool {
       opt("dr", "dataResourceUid", "comma separated list of resources (uids) to load, sample, process and index. e.g. dr321,dr123", {
         v: String => resources = v.split(",").map(x => x.trim)
       })
-      booleanOpt("all", "all-resources", "flag to indicate all resources should be loaded", {
-        v: Boolean => ingestAll = v
-      })
+      opt("all", "all-resources", "flag to indicate all resources should be loaded", { ingestAll = true })
     }
+
     if(parser.parse(args)){
       val l = new Loader
 

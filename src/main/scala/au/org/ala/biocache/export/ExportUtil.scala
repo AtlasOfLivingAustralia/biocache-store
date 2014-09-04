@@ -44,7 +44,7 @@ object ExportUtil extends Tool {
       opt("r", "required-columns", "<column1 column2 ...>", "space separated required columns", {
         columns: String => fieldsRequired = columns.split(" ").toList
       })
-      booleanOpt("rk", "include-rowkey", "Include the row key in the export", {s:Boolean => includeRowKey = s})
+      opt("rk", "include-rowkey", "Include the row key in the export", { includeRowKey = true })
       opt("sc", "separator-char", "Separator char to use. Defaults to tab", {s:String => charSeparator = s.trim.charAt(0)})
       opt("s", "start", "The row key to start with", {s:String => startkey = s})
       opt("e", "end", "The row key to end with", {s:String => endkey = s})

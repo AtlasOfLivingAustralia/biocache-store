@@ -31,7 +31,7 @@ object CopyDataNewColumn extends Tool {
     var source = ""
     var target = ""
     var rowKeyFile = ""
-    var dryRun = true
+    var dryRun = false
 
     val parser = new OptionParser("copy column options") {
       arg("sourceColumnFamily", "The columns family to copy from.", {
@@ -58,8 +58,8 @@ object CopyDataNewColumn extends Tool {
       opt("rkf", "rowKeyFile", "Row key file", {
         v: String => rowKeyFile = v
       })
-      booleanOpt("dry", "dryRun", "Perform dry run and just output the change that would be made", {
-        v: Boolean => dryRun = v
+      opt("dry", "dryRun", "Perform dry run and just output the change that would be made", {
+        dryRun = true
       })
     }
 
