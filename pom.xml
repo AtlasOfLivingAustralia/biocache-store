@@ -535,22 +535,6 @@
                     </gitDescribe>
                 </configuration>
             </plugin>
-            <!--<plugin>-->
-            <!--<artifactId>exec-maven-plugin</artifactId>-->
-            <!--<groupId>org.codehaus.mojo</groupId>-->
-            <!--<executions>-->
-            <!--<execution>-->
-            <!--<id>Create exec</id>-->
-            <!--<phase>package</phase>-->
-            <!--<goals>-->
-            <!--<goal>exec</goal>-->
-            <!--</goals>-->
-            <!--<configuration>-->
-            <!--<executable>${basedir}/create-exec.sh</executable>-->
-            <!--</configuration>-->
-            <!--</execution>-->
-            <!--</executions>-->
-            <!--</plugin>-->
             <plugin>
                 <groupId>org.scala-tools</groupId>
                 <artifactId>maven-scala-plugin</artifactId>
