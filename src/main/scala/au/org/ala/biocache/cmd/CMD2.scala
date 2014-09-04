@@ -5,7 +5,7 @@ import au.org.ala.biocache.index.{IndexMergeTool, BulkProcessor, OptimiseIndex, 
 import au.org.ala.biocache.load._
 import au.org.ala.biocache.tool._
 import au.org.ala.biocache.outliers.ReverseJacknifeProcessor
-import au.org.ala.biocache.util.ImageExport
+import au.org.ala.biocache.util.{DebugRecord, ImageExport}
 import au.org.ala.biocache.export._
 import scala.Some
 import au.org.ala.biocache.qa.ValidationRuleRunner
@@ -167,6 +167,7 @@ object CMD2 {
     DuplicationDetection,
     DwCACreator,
     DwcCSVLoader,
+    DebugRecord,
     ExpertDistributionOutlierTool,
     ExportUtil,
     ExportByFacetQuery,
