@@ -1,6 +1,6 @@
 package au.org.ala.biocache.tool
 
-import java.io.{FileOutputStream, File}
+import java.io.{InputStream, FileOutputStream, File}
 import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache.util.{StringHelper, FileHelper}
 import net.sf.json.util.WebUtils
@@ -38,6 +38,7 @@ class FileDelete(fileName: String, useUUID: Boolean  = false, fieldDelimiter:Cha
     val fieldName = if (useUUID) "id" else "row_key"
     getRemoteFile(fileName).foreachLine(line => {
       buf += line
+      counter += 1
       if (buf.size > 999) {
         //val query = "row_key:\"" + buf.mkString("\" OR row_key:\"") + "\""
         val query = fieldName + ":\"" + buf.mkString("\" OR "+ fieldName +":\"") + "\""
@@ -47,6 +48,7 @@ class FileDelete(fileName: String, useUUID: Boolean  = false, fieldDelimiter:Cha
     })
     val query = fieldName + ":\"" + buf.mkString("\" OR "+ fieldName +":\"") + "\""
     indexer.removeByQuery(query)
+    logger.info("Records deleted from index : " + counter)
     buf.clear()
   }
 
@@ -61,31 +63,24 @@ class FileDelete(fileName: String, useUUID: Boolean  = false, fieldDelimiter:Cha
     //download the file to local repo
     val urlConnection = new java.net.URL(fileName).openConnection()
     val in = urlConnection.getInputStream()
-    val file = {
-      if (fileName.endsWith(".zip") ){
-        val f = new File(Config.tmpWorkDir +  "/delete_row_key_file.zip")
-        f.createNewFile()
-        val extractedFile:File = f.extractZip
-        extractedFile.listFiles().head
-      } else if (fileName.endsWith(".gz") ){
-        val f = new File(Config.tmpWorkDir +  "/delete_row_key_file.gz")
-        logger.info("Creating file: " + f.getAbsolutePath)
-        FileUtils.forceMkdir(f.getParentFile())
-        f.createNewFile()
-        f.extractGzip
-      } else {
-        val f = new File(Config.tmpWorkDir +  "/delete_row_key_file.csv")
-        logger.info("Creating file: " + f.getAbsolutePath)
-        FileUtils.forceMkdir(f.getParentFile())
-        f.createNewFile()
-        f
-      }
-    }
+    val f = new File(Config.tmpWorkDir +  "/delete_row_key_file.csv")
+    logger.info("Creating file: " + f.getAbsolutePath)
+    f.createNewFile()
+    downloadFile(f, in)
+    f
+  } else {
+    new File(fileName)
+  }
+
+  private def downloadFile(file: File, in: InputStream) {
     val out = new FileOutputStream(file)
     val buffer: Array[Byte] = new Array[Byte](40960)
     var numRead = 0
     var counter = 0
-    while ({ numRead = in.read(buffer); numRead != -1 }) {
+    while ( {
+      numRead = in.read(buffer)
+      numRead != -1
+    }) {
       counter += numRead
       out.write(buffer, 0, numRead)
       out.flush
@@ -93,8 +88,5 @@ class FileDelete(fileName: String, useUUID: Boolean  = false, fieldDelimiter:Cha
     out.flush
     in.close
     out.close
-    file
-  } else {
-    new File(fileName)
   }
 }
