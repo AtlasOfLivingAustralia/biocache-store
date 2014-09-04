@@ -23,6 +23,9 @@ object DeleteRecords extends Tool {
     var file: Option[String] = None
     var startRowkey: Option[String] = None
     var endRowkey: Option[String] = None
+    var useUUID = false
+    var fieldDelimiter:Char = '\t'
+    var hasHeader = false
 
     val parser = new OptionParser(help) {
       opt("q", "query", "The query to run to obtain the records for deletion e.g. 'year:[2001 TO *]' or 'taxon_name:Macropus'", {
@@ -31,7 +34,7 @@ object DeleteRecords extends Tool {
       opt("dr", "resource", "The data resource to process", {
         v: String => dr = Some(v)
       })
-      opt("f", "file", "The file of row keys to delete", {
+      opt("f", "file", "The file of row keys to delete. Can be an absolute local file path or URL to a file that contains rowkeys or UUIDs.", {
         v: String => file = Some(v)
       })
       opt("s", "startRowkey", "The start rowkey to use", {
@@ -40,19 +43,25 @@ object DeleteRecords extends Tool {
       opt("e", "endRowkey", "The end rowkey to use", {
         v: String => endRowkey = Some(v)
       })
+      opt("hdr", "fileHasHeader", "The supplied file has a header", {
+        hasHeader = true
+      })
+      opt("uuid", "useUUID", "The supplied file contains UUIDs (as opposed to row keys)", {
+        useUUID = true
+      })
     }
+
     if (parser.parse(args)) {
       val deletor: Option[RecordDeletor] = {
         if (!query.isEmpty) Some(new QueryDelete(query.get))
         else if (!dr.isEmpty) Some(new DataResourceDelete(dr.get))
-        else if (file.isDefined) Some(new FileDelete(file.get))
+        else if (file.isDefined) Some(new FileDelete(file.get, useUUID, fieldDelimiter, hasHeader))
         else if (startRowkey.isDefined && endRowkey.isDefined) Some(new RangeDeletor(startRowkey.get, endRowkey.get))
         else None
       }
       if (!deletor.isEmpty) {
         deletor.get.deleteFromPersistent
         deletor.get.deleteFromIndex
-        deletor.get.close
       } else {
         parser.showUsage
       }

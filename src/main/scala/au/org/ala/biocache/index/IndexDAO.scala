@@ -25,7 +25,11 @@ trait IndexDAO {
 
   def getRowKeysForQuery(query: String, limit: Int = 1000): Option[List[String]]
 
+  def getUUIDsForQuery(query: String, limit: Int = 1000): Option[List[String]]
+
   def writeRowKeysToStream(query: String, outputStream: OutputStream)
+
+  def writeUUIDsToStream(query: String, outputStream: OutputStream)
 
   def occurrenceDAO: OccurrenceDAO
 

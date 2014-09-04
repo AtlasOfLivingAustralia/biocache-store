@@ -17,13 +17,12 @@ class QueryDelete(query: String) extends RecordDeletor {
     var count = 0
     val start = System.currentTimeMillis
     val out = new BufferedOutputStream(new FileOutputStream(file))
-    indexer.writeRowKeysToStream(query, out)
+    indexer.writeUUIDsToStream(query, out)
     out.flush
     out.close
     file.foreachLine(line => {
-      //pm.delete(line, "occ")
       //use the occ DAO to delete so that the record is added to the dellog cf
-      occurrenceDAO.delete(line, false, true)
+      occurrenceDAO.deleteByUuid(line, false, true)
       count = count + 1
     })
     val finished = System.currentTimeMillis

@@ -14,15 +14,15 @@ trait OccurrenceDAO extends DAO {
 
   val qaEntityName = "qa"
 
-  def setDeleted(rowKey: String, del: Boolean, dateTime:Option[String]=None): Unit
+  def setDeleted(rowKey: String, del: Boolean, dateTime:Option[String]=None) : Unit
 
-  def getRowKeyFromUuid(uuid:String):Option[String]
+  def getRowKeyFromUuid(uuid:String) : Option[String]
 
-  def getByUuid(uuid: String): Option[FullRecord] = getByUuid(uuid, false)
+  def getByUuid(uuid: String) : Option[FullRecord] = getByUuid(uuid, false)
 
   def getByUuid(uuid: String, includeSensitive:Boolean): Option[FullRecord]
 
-  def getByRowKey(rowKey: String) :Option[FullRecord] = getByRowKey(rowKey, false)
+  def getByRowKey(rowKey: String) : Option[FullRecord] = getByRowKey(rowKey, false)
 
   def getByRowKey(rowKey: String, includeSensitive:Boolean) :Option[FullRecord]
 
@@ -76,7 +76,7 @@ trait OccurrenceDAO extends DAO {
 
   def getUserAssertions(rowKey: String): List[QualityAssertion]
 
-  def getUserIdsForAssertions(rowKey: String):Set[String]
+  def getUserIdsForAssertions(rowKey: String) : Set[String]
 
   def deleteUserAssertion(rowKey: String, assertionUuid: String): Boolean
 
@@ -84,7 +84,9 @@ trait OccurrenceDAO extends DAO {
 
   def reIndex(rowKey: String)
 
-  def delete(rowKey: String, removeFromIndex:Boolean=true,logDeleted:Boolean=false)
+  def delete(rowKey: String, removeFromIndex:Boolean=true, logDeleted:Boolean=false) : Boolean
+
+  def deleteByUuid(uuid: String, removeFromIndex:Boolean=true, logDeleted:Boolean=false) : Boolean
 
   def downloadMedia(fr:FullRecord) : Boolean
 }

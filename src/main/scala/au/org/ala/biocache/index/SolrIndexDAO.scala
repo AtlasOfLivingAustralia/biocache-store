@@ -243,7 +243,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   def removeFromIndex(field: String, value: String) = {
     init
     try {
-      logger.debug("Deleting " + field +":" + value)
+      logger.info("Deleting from index" + field +":" + value)
       solrServer.deleteByQuery(field + ":\"" + value + "\"")
       solrServer.commit
     } catch {
@@ -253,13 +253,13 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   def removeByQuery(query: String, commit: Boolean = true) = {
     init
-    logger.debug("Deleting by query: " + query)
+    logger.info("Deleting by query: " + query)
     try {
       solrServer.deleteByQuery(query)
       if (commit)
         solrServer.commit
     } catch {
-      case e: Exception => e.printStackTrace
+      case e: Exception => logger.error("Problem removing from index...", e)
     }
   }
 
@@ -570,6 +570,41 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
    * This causes OOM exceptions at SOLR for large numbers of row keys
    * Use writeRowKeysToStream instead
    */
+  override def getUUIDsForQuery(query: String, limit: Int = 1000): Option[List[String]] = {
+
+    init
+    val solrQuery = new SolrQuery();
+    solrQuery.setQueryType("standard");
+    // Facets
+    solrQuery.setFacet(true)
+    solrQuery.addFacetField("row_key")
+    solrQuery.setQuery(query)
+    solrQuery.setRows(0)
+    solrQuery.setFacetLimit(limit)
+    solrQuery.setFacetMinCount(1)
+    try{
+      val response = solrServer.query(solrQuery)
+      logger.debug("Query " + solrQuery.toString)
+      //now process all the values that are in the row_key facet
+      val rowKeyFacets = response.getFacetField("id")
+      val values = rowKeyFacets.getValues().asScala
+      if (values.size > 0) {
+        Some(values.map(facet => facet.getName).toList)
+      } else {
+        None
+      }
+    } catch {
+      case e:Exception => logger.warn("Unable to get key " + query+"."); None
+    }
+  }
+
+  /**
+   * Gets the rowKeys for the query that is supplied
+   * Do here so that still works if web service is down
+   *
+   * This causes OOM exceptions at SOLR for large numbers of row keys
+   * Use writeRowKeysToStream instead
+   */
   override def getRowKeysForQuery(query: String, limit: Int = 1000): Option[List[String]] = {
 
     init
@@ -632,8 +667,18 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
    * Writes the list of row_keys for the results of the specified query to the
    * output stream.
    */
-  override def writeRowKeysToStream(query: String, outputStream: OutputStream) {
+  override def writeUUIDsToStream(query: String, outputStream: OutputStream) =
+    writeFieldToStream("id", query, outputStream)
 
+  /**
+   * Writes the list of row_keys for the results of the specified query to the
+   * output stream.
+   */
+  override def writeRowKeysToStream(query: String, outputStream: OutputStream) =
+    writeFieldToStream("row_key", query, outputStream)
+
+
+  private def writeFieldToStream(field:String, query: String, outputStream: OutputStream) {
     init
     val size = 100
     var start = 0
@@ -642,26 +687,23 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     val solrQuery = new SolrQuery()
       .setQueryType("standard")
       .setFacet(false)
-      .setFields("row_key")
+      .setFields(field)
       .setQuery(query)
       .setRows(100)
 
     while (continue) {
-
       solrQuery.setStart(start)
       val response = solrServer.query(solrQuery)
-
       val resultsIterator = response.getResults().iterator
       while (resultsIterator.hasNext) {
         val result = resultsIterator.next()
-        outputStream.write((result.getFieldValue("row_key") + "\n").getBytes())
+        outputStream.write((result.getFieldValue(field) + "\n").getBytes())
       }
 
       start += size
       continue = response.getResults.getNumFound > start
     }
   }
-
 
   def printNumDocumentsInIndex(): String = {
     ">>>> Document count of index: " + solrServer.query(new SolrQuery("*:*")).getResults().getNumFound()

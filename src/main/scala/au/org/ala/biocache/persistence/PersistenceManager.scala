@@ -78,7 +78,7 @@ trait PersistenceManager {
    * Page over all entities, passing the retrieved UUID and property map to the supplied function.
    * Function should return false to exit paging.
    */
-  def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean),startUuid:String="",endUuid:String="", pageSize:Int = 1000)
+  def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String="", endUuid:String="", pageSize:Int = 1000)
 
   /**
    * Page over the records, retrieving the supplied columns only.
@@ -98,12 +98,12 @@ trait PersistenceManager {
   /**
    * The column to delete.
    */
-  def deleteColumns(uuid:String, entityName:String, columnName:String*)
+  def deleteColumns(rowKey:String, entityName:String, columnName:String*)
 
   /**
    * Delete row
    */
-  def delete(uuid:String, entityName:String)
+  def delete(rowKey:String, entityName:String)
 
   /**
    * Close db connections etc

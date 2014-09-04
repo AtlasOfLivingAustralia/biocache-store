@@ -559,7 +559,7 @@ class CassandraPersistenceManager @Inject() (
   /**
    * Removes the record for the supplied uuid from entityName.
    */
-  def delete(uuid:String, entityName:String)={
+  def delete(uuid:String, entityName:String) {
     if(uuid != null && entityName != null){
       val deletor = Pelops.createRowDeletor(poolName)
       deletor.deleteRow(entityName, uuid, ConsistencyLevel.ONE)

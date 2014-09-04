@@ -4,7 +4,8 @@ import java.io.{FileOutputStream, BufferedOutputStream, File}
 import au.org.ala.biocache.Config
 
 /**
- *
+ * Range deletes
+ * TODO deletes from index by range not yet implemented
  */
 class RangeDeletor(startRowkey: String, endRowkey: String) extends RecordDeletor {
 
@@ -21,7 +22,5 @@ class RangeDeletor(startRowkey: String, endRowkey: String) extends RecordDeletor
     }, startRowkey, endRowkey, 1000, Array[String]():_*)
   }
 
-  override def deleteFromIndex: Unit = {
-    logger.warn("Range deletes from index not yet implemented")
-  }
+  override def deleteFromIndex: Unit = logger.warn("Range deletes from index not yet implemented")
 }
