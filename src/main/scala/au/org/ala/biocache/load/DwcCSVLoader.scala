@@ -9,6 +9,7 @@ import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import au.org.ala.biocache.model.Versions
 import au.org.ala.biocache.cmd.Tool
+import org.slf4j.LoggerFactory
 
 /**
  * Companion object for the DwcCSVLoader class
@@ -26,14 +27,15 @@ object DwcCSVLoader extends Tool {
     var bypassConnParamLookup = false
     var testFile = false
     var logRowKeys = false
+    val logger = LoggerFactory.getLogger("DwcCSVLoader")
 
     val parser = new OptionParser(help) {
       arg("data-resource-uid", "the data resource to import", {v: String => dataResourceUid = v})
       opt("l", "local", "skip the download and use local file", {v:String => localFilePath = Some(v) } )
-      booleanOpt("u", "updateLastChecked", "update registry with last loaded date", {v:Boolean => updateLastChecked = v } )
-      booleanOpt("b", "bypassConnParamLookup", "bypass connection param lookup", {v:Boolean => bypassConnParamLookup = v } )
-      opt("test", "test the file only do not load", {testFile=true})
-      opt("log","log row keys to file - allows processing/indexing of changed records",{logRowKeys = true})
+      opt("u", "updateLastChecked", "update registry with last loaded date. defaults to " + updateLastChecked, { updateLastChecked = true } )
+      opt("b", "bypassConnParamLookup", "bypass connection param lookup. defaults to " + bypassConnParamLookup, { bypassConnParamLookup = true } )
+      opt("test", "test the file only do not load", { testFile=true })
+      opt("log","log row keys to file - allows processing/indexing of changed records",{ logRowKeys = true })
     }
 
     if(parser.parse(args)){
@@ -53,12 +55,7 @@ object DwcCSVLoader extends Tool {
           }
         }
       } catch {
-        case e:Exception => e.printStackTrace
-      } finally {
-//        l.pm.shutdown
-//        Console.flush()
-//        Console.err.flush()
-//        exit(0)
+        case e:Exception => logger.error(e.getMessage, e)
       }
     }
   }
@@ -87,9 +84,10 @@ class DwcCSVLoader extends DataLoader {
     var loaded = false
     var maxLastModifiedDate:java.util.Date = null
     urls.foreach(url => {
-      val (fileName,date) = downloadArchive(url, dataResourceUid, if(forceLoad)None else lastChecked)
-      if(maxLastModifiedDate == null || date.after(maxLastModifiedDate))
+      val (fileName, date) = downloadArchive(url, dataResourceUid, if(forceLoad)None else lastChecked)
+      if(maxLastModifiedDate == null || date.after(maxLastModifiedDate)) {
         maxLastModifiedDate = date
+      }
       logger.info("File last modified date: " + maxLastModifiedDate)
       if(fileName != null){
         val directory = new File(fileName)
@@ -113,7 +111,7 @@ class DwcCSVLoader extends DataLoader {
       if(file.isFile()&& !Config.mediaStore.isMediaFile(file)) {
         loadFile(file, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys, test)
       } else if(file.isDirectory) {
-        loadDirectory(file,dataResourceUid, uniqueTerms, params,stripSpaces,logRowKeys,test)
+        loadDirectory(file, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys, test)
       } else {
         logger.warn("Unable to load as CSV: " + file.getAbsolutePath())
       }
@@ -176,7 +174,9 @@ class DwcCSVLoader extends DataLoader {
     var noSkipped = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    while(currentLine!=null){
+
+    while(currentLine != null){
+
       counter += 1
 
       val columns = currentLine.toList
@@ -247,8 +247,7 @@ class DwcCSVLoader extends DataLoader {
         } else {
           noSkipped += 1
           logger.warn("Skipping line: " + counter + ", missing unique term value. Number skipped: "+ noSkipped)
-          uniqueTerms.foreach(t => print("," + t +":" + map.getOrElse(t,"")))
-          println
+          uniqueTerms.foreach(t => logger.info("Unique term: " + t + " : " + map.getOrElse(t,"")))
         }
       } else {
         logger.warn("Skipping line: " +counter + " incorrect number of columns (" +
