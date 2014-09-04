@@ -6,7 +6,6 @@ import java.util.UUID
 import au.org.ala.biocache.util.Json
 import java.util
 import scala.collection.{JavaConversions, mutable}
-import scala.Some
 import scala.collection.mutable.ListBuffer
 import com.google.inject.name.Named
 import com.google.inject.Inject
