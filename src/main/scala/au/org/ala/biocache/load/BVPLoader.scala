@@ -1,5 +1,6 @@
 package au.org.ala.biocache.load
 
+import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 import java.net.URLEncoder
 import au.org.ala.biocache.Config
@@ -18,7 +19,7 @@ object BVPLoader extends Tool {
 
   def desc = "Harvests data from the volunteer portal"
 
-  def main(args:Array[String]){
+  def main(args: Array[String]) {
 
     var ingestResources = false
     var syncOnly = false
@@ -39,9 +40,9 @@ object BVPLoader extends Tool {
         v: String => startAt = v
       })
     }
-    if(parser.parse(args)){
+    if (parser.parse(args)) {
       val b = new BVPLoader
-      if(debugOnly){
+      if (debugOnly) {
         b.displayList
       } else {
         val drsList = b.retrieveList
@@ -51,9 +52,9 @@ object BVPLoader extends Tool {
         }
 
         //start at UID
-        val drsToIngest:Seq[String] = if(startAt != ""){
+        val drsToIngest: Seq[String] = if (startAt != "") {
           val idx = drsList.indexOf(startAt)
-          if(idx>0){
+          if (idx > 0) {
             drsList.drop(idx)
           } else {
             drsList
@@ -67,7 +68,7 @@ object BVPLoader extends Tool {
             try {
               IngestTool.ingestResource(drUid)
             } catch {
-              case e:Exception => logger.error(e.getMessage, e)
+              case e: Exception => logger.error(e.getMessage, e)
             }
           )
         }
@@ -99,7 +100,7 @@ class BVPLoader {
     }
   }
 
-  def retrieveList : Seq[String] = {
+  def retrieveList: Seq[String] = {
 
     val stripHtmlRegex = "\\<.*?\\>"
     val src = scala.io.Source.fromURL(Config.volunteerUrl + "/ws/harvest", "UTF-8").mkString
@@ -109,63 +110,71 @@ class BVPLoader {
       json match {
         case Some(expeditions: Seq[Map[String, Any]]) => {
           expeditions.foreach(exp => {
+
             //find the expedition, if it doesn't exist create it.
             val resourceUrl = exp.getOrElse("expeditionHomePage", "").toString
-            val updateUrl = lookupDataResource(resourceUrl) match {
-              case Some(drUid) => {
-                logger.info("Updating resource  " + drUid + ", URL: " + resourceUrl)
-                //update
-                Config.registryUrl + "/dataResource/" + drUid
+
+            if (StringUtils.isNotBlank(resourceUrl)) {
+              val updateUrl = lookupDataResource(resourceUrl) match {
+                case Some(drUid) => {
+                  logger.info("Updating resource  " + drUid + ", URL: " + resourceUrl)
+                  //update
+                  Config.registryUrl + "/dataResource/" + drUid
+                }
+                case None => {
+                  logger.info("Creating resource for " + resourceUrl)
+                  //create resource
+                  Config.registryUrl + "/dataResource/"
+                }
               }
-              case None => {
-                logger.info("Creating resource for " + resourceUrl)
-                //create resource
-                Config.registryUrl + "/dataResource/"
+
+              val tasksCount = exp.getOrElse("tasksCount", "").asInstanceOf[Double].toInt
+              val tasksTranscribedCount = exp.getOrElse("tasksTranscribedCount", "").asInstanceOf[Double].toInt
+              val tasksValidatedCount = exp.getOrElse("tasksValidatedCount", "").asInstanceOf[Double].toInt
+              var description = exp.getOrElse("description", "").toString.replaceAll(stripHtmlRegex, "")
+              val validationTag = if (tasksCount == tasksValidatedCount) {
+                description = description + s"This expedition of $tasksCount tasks is fully transcribed and validated."
+                "validation complete"
+              } else {
+                description = description + s" The total number of tasks for this dataset is: $tasksCount, number transcribed is  $tasksTranscribedCount and number validated is $tasksValidatedCount."
+                "validation in-progress"
               }
-            }
 
-            val tasksCount = exp.getOrElse("tasksCount", "").asInstanceOf[Double].toInt
-            val tasksTranscribedCount = exp.getOrElse("tasksTranscribedCount", "").asInstanceOf[Double].toInt
-            val tasksValidatedCount = exp.getOrElse("tasksValidatedCount", "").asInstanceOf[Double].toInt
-            var description = exp.getOrElse("description", "").toString.replaceAll(stripHtmlRegex,"")
-            val validationTag = if(tasksCount == tasksValidatedCount){
-              description = description +  s"This expedition of $tasksCount tasks is fully transcribed and validated."
-              "validation complete"
+              val transcriptionTag = if (tasksCount == tasksTranscribedCount) {
+                "transcribing complete"
+              } else {
+                "transcribing in-progress"
+              }
+
+              //http post to
+              val dataUrl = exp.get("dataUrl").getOrElse("")
+              val dataResourceMap = Map(
+                "api_key" -> Config.collectoryApiKey,
+                "guid" -> resourceUrl,
+                "name" -> exp.getOrElse("name", "").toString,
+                "pubDescription" -> description,
+                "provenance" -> "Draft",
+                "websiteUrl" -> exp.getOrElse("url", "").toString,
+                "techDescription" -> "This data resource is harvested periodically into the main occurrence index. ",
+                "resourceType" -> "records",
+                "status" -> "dataAvailable",
+                "contentTypes" -> Array("point occurrence data", "crowd sourced", "BVP", transcriptionTag, validationTag),
+                "connectionParameters" -> s"""{"protocol":"DwC", "csv_eol":"\\n", "csv_delimiter": ",", "automation":"true","termsForUniqueKey":["catalogNumber"],"url":"$dataUrl"}"""
+              )
+              val (respCode, respBody) = HttpUtil.postBody(updateUrl, "application/json", Json.toJSON(dataResourceMap))
+
+              logger.info("Response code for " + resourceUrl + ". Code: " + respCode)
+
+              lookupDataResource(resourceUrl) match {
+                case Some(uid) => drsToHarvest += uid
+                case None => logger.error("Unable to harvest " + resourceUrl + ". Problem registering.")
+              }
             } else {
-              description = description +  s" The total number of tasks for this dataset is: $tasksCount, number transcribed is  $tasksTranscribedCount and number validated is $tasksValidatedCount."
-              "validation in-progress"
-            }
-
-            val transcriptionTag = if(tasksCount == tasksTranscribedCount){
-              "transcribing complete"
-            } else {
-              "transcribing in-progress"
-            }
-
-            //http post to
-            val dataUrl = exp.get("dataUrl").getOrElse("")
-            val dataResourceMap = Map(
-              "api_key"-> Config.collectoryApiKey,
-              "guid" -> resourceUrl,
-              "name" -> exp.getOrElse("name", "").toString,
-              "pubDescription" -> description,
-              "provenance" -> "Draft",
-              "websiteUrl" -> exp.getOrElse("url", "").toString,
-              "techDescription" -> "This data resource is harvested periodically into the main occurrence index. ",
-              "resourceType" -> "records",
-              "status" -> "dataAvailable",
-              "contentTypes" -> Array("point occurrence data", "crowd sourced", "BVP", transcriptionTag, validationTag),
-              "connectionParameters" -> s"""{"protocol":"DwC", "csv_eol":"\\n", "csv_delimiter": ",", "automation":"true","termsForUniqueKey":["catalogNumber"],"url":"$dataUrl"}"""
-            )
-            val (respCode, respBody) = HttpUtil.postBody(updateUrl, "application/json", Json.toJSON(dataResourceMap))
-
-            logger.info("Response code for " + resourceUrl + ". Code: "  + respCode)
-
-            lookupDataResource(resourceUrl) match {
-              case Some(uid) => drsToHarvest += uid
-              case None => logger.error("Unable to harvest " + resourceUrl + ". Problem registering.")
+              logger.error("Unable to harvest from expedition. resourceUrl is empty")
+              logger.error(exp.toString())
             }
           })
+
         }
       }
     } catch {
@@ -173,7 +182,7 @@ class BVPLoader {
     }
     val drs = drsToHarvest.toArray
 
-    if(Config.volunteerHubUid != "") {
+    if (Config.volunteerHubUid != "") {
       val (respCode, respBody) = HttpUtil.postBody(Config.registryUrl + "/dataHub/" + Config.volunteerHubUid, "application/json", Json.toJSON(Map(
         "api_key" -> Config.collectoryApiKey,
         "memberDataResources" -> Json.toJSON(drs)
@@ -183,7 +192,7 @@ class BVPLoader {
     } else {
       logger.info("Data hub sync skipped. Please create a hub entry in the registry and configure the biocache to use it.")
     }
-      drs
+    drs
   }
 
   /**
@@ -191,15 +200,17 @@ class BVPLoader {
    * @param resourceUrl
    * @return
    */
-  def lookupDataResource(resourceUrl:String) : Option[String] = {
+  def lookupDataResource(resourceUrl: String): Option[String] = {
+
     val queryUrl = Config.registryUrl + "/lookup/findResourceByGuid?guid=" + URLEncoder.encode(resourceUrl, "UTF-8")
     val drSrc = scala.io.Source.fromURL(queryUrl, "UTF-8").mkString
     val drJson = scala.util.parsing.json.JSON.parseFull(drSrc)
+
     drJson match {
-      case Some(drMetadata:List[Any]) => {
-        if(!drMetadata.isEmpty){
+      case Some(drMetadata: List[Any]) => {
+        if (!drMetadata.isEmpty) {
           val drProperties = drMetadata.head
-          Some(drProperties.asInstanceOf[List[Map[String,String]]].head.getOrElse("uid",""))
+          Some(drProperties.asInstanceOf[List[Map[String, String]]].head.getOrElse("uid", ""))
         } else {
           None
         }
