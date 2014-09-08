@@ -1,4 +1,2 @@
 language: java
-script: mvn -P travis compile
-git:
-  depth: 500
+install: "mvn -P travis compile"
