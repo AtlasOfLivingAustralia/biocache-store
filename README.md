@@ -1,4 +1,4 @@
-# biocache-store
+# biocache-store  [![Build Status](https://travis-ci.org/AtlasOfLivingAustralia/biocache-store.svg?branch=master)](http://travis-ci.org/AtlasOfLivingAustralia/biocache-store)
 
 Scala implementation of biocache backend.
 This code base manages the loading, sampling, processing and indexing of occurrence records for the ALA.
