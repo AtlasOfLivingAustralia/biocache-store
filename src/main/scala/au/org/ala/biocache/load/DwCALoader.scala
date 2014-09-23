@@ -61,8 +61,7 @@ object DwCALoader {
           l.loadLocal(resourceUid, localFilePath.get, logRowKeys,testFile)
         }
       }
-      //initialise the delete
-      //update the collectory information
+      //initialise the delete & update the collectory information
       l.updateLastChecked(resourceUid)
     }
 
@@ -249,6 +248,7 @@ class DwCALoader extends DataLoader {
 
       if(!testFile){
         val fullRecord = FullRecordMapper.createFullRecord(rowKey, fieldTuples.toArray, Raw)
+        processMedia(resourceUid, fullRecord)
         currentBatch += fullRecord
       }
 
@@ -264,6 +264,7 @@ class DwCALoader extends DataLoader {
         currentBatch.clear
       }
     }
+
     if(rowKeyWriter.isDefined){
       rowKeyWriter.get.flush
       rowKeyWriter.get.close
@@ -271,19 +272,24 @@ class DwCALoader extends DataLoader {
 
     //check to see if the inst/coll codes are new
     if(testFile){
+
       val unknownInstitutions = newInstCodes &~ institutionCodes
       val unknownCollections = newCollCodes &~ collectionCodes
-      if(!unknownInstitutions.isEmpty)
+
+      if(!unknownInstitutions.isEmpty) {
         logger.warn("Warning there are new institution codes in the set: " + unknownInstitutions.mkString(","))
-      if(!unknownCollections.isEmpty)
+      }
+      if(!unknownCollections.isEmpty) {
         logger.warn("Warning there are new collection codes in the set: " + unknownCollections.mkString(","))
+      }
 
       //Report the number of new/existing records
       logger.info("There are " + count + " records in the file. The number of NEW records: " + newCount)
     }
+
     //commit the batch
     Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray)
-    logger.info("Finished DwC loader. Records processed: " + count)
+    logger.info("Finished DwCA loader. Records processed: " + count)
     count
   }
 }

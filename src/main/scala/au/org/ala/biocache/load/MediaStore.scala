@@ -45,20 +45,19 @@ trait MediaStore {
   def isValidSoundURL(url: String) = !soundParser.unapplySeq(url.trim.toLowerCase).isEmpty
   def isValidVideoURL(url: String) = !videoParser.unapplySeq(url.trim.toLowerCase).isEmpty
 
-  def isValidImage(filename: String) = endsWithOneOf(imageExtension, filename)
-  def isValidSound(filename: String) = endsWithOneOf(soundExtension, filename)
-  def isValidVideo(filename: String) = endsWithOneOf(videoExtension, filename)
+  def isValidImage(filename: String) = endsWithOneOf(imageExtension, filename) || !imageParser.findAllMatchIn(filename).isEmpty
+  def isValidSound(filename: String) = endsWithOneOf(soundExtension, filename) || !soundParser.findAllMatchIn(filename).isEmpty
+  def isValidVideo(filename: String) = endsWithOneOf(videoExtension, filename) || !videoParser.findAllMatchIn(filename).isEmpty
 
   def getImageFormats(filenameOrID:String) : java.util.Map[String, String]
 
-  def isMediaFile(file:File): Boolean = {
+  def isMediaFile(file:File) : Boolean = {
     val name = file.getAbsolutePath()
     endsWithOneOf(imageExtension,name) || endsWithOneOf(soundExtension,name) || endsWithOneOf(videoExtension,name)
   }
 
   def endsWithOneOf(acceptedExtensions: Array[String], url: String): Boolean =
     !(acceptedExtensions collectFirst { case x if url.toLowerCase().endsWith(x) => x } isEmpty)
-
 
   protected def extractFileName(urlToMedia: String): String = if (urlToMedia.contains("fileName=")) {
     //HACK for CS URLs which dont make for nice file names
@@ -85,7 +84,7 @@ trait MediaStore {
    * @param urlToMedia
    * @return
    */
-  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String)
+  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String) : (Boolean, String, String)
 
   /**
    * Checks to see if the supplied media file is accessible on the file system

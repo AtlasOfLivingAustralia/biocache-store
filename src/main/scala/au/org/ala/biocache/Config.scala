@@ -109,10 +109,10 @@ object Config {
         defaultFields.split(",").map(x => x.trim).toArray
       }
 
-      if(dbfields.size > 0){
-          for (a <- 0 until dbfields.size()) {
-            fields(a) = dbfields.get(a).getId()
-          }
+      if(!dbfields.isEmpty){
+        for (a <- 0 until dbfields.size()) {
+          fields(a) = dbfields.get(a).getId()
+        }
       }
       logger.info("Fields to sample: " + fields.mkString(","))
       fields   //fields.dropWhile(x => List("el898","cl909","cl900").contains(x))

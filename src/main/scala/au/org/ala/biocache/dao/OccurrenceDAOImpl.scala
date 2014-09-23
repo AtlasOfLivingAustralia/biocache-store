@@ -390,8 +390,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   def addRawOccurrenceBatch(fullRecords: Array[FullRecord]) {
     val batch = scala.collection.mutable.Map[String, Map[String, String]]()
     fullRecords.foreach(fr  => {
-      //download the media in associatedMedia?????
-      downloadMedia(fr)
       //process the record
       val properties = FullRecordMapper.fullRecord2Map(fr, Versions.RAW)
       batch.put(fr.rowKey, properties.toMap)

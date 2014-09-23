@@ -5,16 +5,13 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import org.apache.commons.io.{FilenameUtils, FileUtils}
 import java.io.{FileOutputStream, File}
-import scala.io.Source
 import scala.util.parsing.json.JSON
 import java.util.Date
 import au.org.ala.biocache.parser.DateParser
 import org.gbif.dwc.terms.TermFactory
 import scala.collection.mutable.ArrayBuffer
-import au.org.ala.biocache.model.{Occurrence, FullRecord}
-import java.net.URL
+import au.org.ala.biocache.model.FullRecord
 import scala.collection.mutable
-import org.apache.tools.ant.taskdefs.condition.Http
 
 /**
  * A trait with utility code for loading data into the occurrence store.
@@ -26,7 +23,7 @@ trait DataLoader {
 
   val user = "biocache"
   val logger = LoggerFactory.getLogger("DataLoader")
-  val temporaryFileStore = Config.loadFileStore //"/data/biocache-load/"
+  val temporaryFileStore = Config.loadFileStore
   val pm = Config.persistenceManager
   val loadTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
   val sftpPattern = """sftp://([a-zA-z\.]*):([0-9a-zA-Z_/\.\-]*)""".r
@@ -220,10 +217,13 @@ trait DataLoader {
    * @param dataResourceUid
    * @param fr
    */
-  def processMedia(dataResourceUid: String, fr: FullRecord) : Unit = {
+  def processMedia(dataResourceUid: String, fr: FullRecord) : FullRecord = {
+
+    val blacklistUrls = List("http://www.flickr.com/photos/", "http://www.facebook.com/photo.php", "https://picasaweb.google.com")
 
     //download the media - checking if it exists already
-    val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
+    val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter(url => blacklistUrls.forall(!url.startsWith(_)))
+
     if (!filesToImport.isEmpty) {
 
       val fileNameToID = new mutable.HashMap[String, String]()
@@ -264,6 +264,7 @@ trait DataLoader {
       fr.occurrence.sounds = soundsBuffer.toArray
       fr.occurrence.videos = videosBuffer.toArray
     }
+    fr
   }
 
   /**

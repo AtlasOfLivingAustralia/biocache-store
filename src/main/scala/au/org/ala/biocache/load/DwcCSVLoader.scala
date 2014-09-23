@@ -73,12 +73,14 @@ class DwcCSVLoader extends DataLoader {
     loadFile(new File(filePath),dataResourceUid, uniqueTerms, params,strip, incremental || logRowKeys, testFile)
   }
 
-  def load(dataResourceUid:String,logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean=false){
+  def load(dataResourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean=false){
     //remove the old files
     emptyTempFileStore(dataResourceUid)
     //delete the old file
     deleteOldRowKeys(dataResourceUid)
+
     val (protocol, urls, uniqueTerms, params, customParams,lastChecked) = retrieveConnectionParameters(dataResourceUid)
+
     val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
     val incremental = params.getOrElse("incremental",false).asInstanceOf[Boolean]
     var loaded = false
@@ -91,8 +93,7 @@ class DwcCSVLoader extends DataLoader {
       logger.info("File last modified date: " + maxLastModifiedDate)
       if(fileName != null){
         val directory = new File(fileName)
-        loadDirectory(directory,dataResourceUid, uniqueTerms, params,strip,incremental||logRowKeys,testFile)
-        //directory.listFiles.foreach(file => if(file.isFile())loadFile(file,dataResourceUid, uniqueTerms, params,strip,incremental||logRowKeys,testFile) else logger.warn("Unable to load file " + file.getAbsolutePath()))
+        loadDirectory(directory, dataResourceUid, uniqueTerms, params, strip, incremental || logRowKeys, testFile)
         loaded = true
       }
     })
@@ -150,13 +151,18 @@ class DwcCSVLoader extends DataLoader {
 
     var currentLine = reader.readNext
 
-    logger.info("Unique terms: " + uniqueTerms)
-    logger.info("Column headers: " + dwcTermHeaders)
+    if(uniqueTerms.isEmpty){
+      logger.warn("No unique terms provided for this data resource !")
+    } else {
+      logger.info("Unique terms: " + uniqueTerms.mkString(","))
+    }
 
-    val validConfig = uniqueTerms.forall(t => dwcTermHeaders.contains(t))
+    logger.info("Column headers: " + dwcTermHeaders.mkString(","))
+
+    val validConfig = uniqueTerms.isEmpty || uniqueTerms.forall(t => dwcTermHeaders.contains(t))
     if(!validConfig){
       throw new RuntimeException("Bad configuration for file: "+ file.getName + " for resource: " +
-        dataResourceUid+". CSV file is missing unique terms.")
+        dataResourceUid + ". CSV file is missing unique terms.")
     }
 
     val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+dataResourceUid, "institution_code",100).getOrElse(List()).toSet[String]
