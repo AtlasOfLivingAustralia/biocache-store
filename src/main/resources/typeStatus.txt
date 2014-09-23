@@ -21,7 +21,6 @@ isotype	iso type
 isoparatype
 lectotype
 neotype	neo type
-notatype	not a type
 paralectotype
 paraneotype
 paratypes
