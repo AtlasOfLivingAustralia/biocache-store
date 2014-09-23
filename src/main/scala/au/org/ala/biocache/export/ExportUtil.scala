@@ -126,6 +126,8 @@ object ExportUtil extends Tool {
       }
       maxRecords > counter
     }, startUuid,endUuid, 1000, newFields: _*)
+
+    writer.flush
   }
 
   def exportRecord(writer: CSVWriter, fieldsToExport: List[String], guid: String, map: Map[String, String], includeRowKey:Boolean = true) {
