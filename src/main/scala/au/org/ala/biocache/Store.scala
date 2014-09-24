@@ -95,7 +95,6 @@ object Store {
   def getComparisonByRowKey(rowKey: java.lang.String) : java.util.Map[String,java.util.List[ProcessedValue]] =
     getComparison(occurrenceDAO.getAllVersionsByRowKey(rowKey).getOrElse(null))
 
-
   private def getComparison(recordVersions:Array[FullRecord]) = {
     if (recordVersions != null && recordVersions.length > 1) {
       val map = new java.util.HashMap[String, java.util.List[ProcessedValue]]
@@ -209,7 +208,7 @@ object Store {
   def upsertRecord(record:FullRecord, shouldIndex:Boolean){
     //rowKey = dr|<cxyzsuid>
     if(record.rowKey != null){
-      val (recordUuid, isNew)= occurrenceDAO.createOrRetrieveUuid(record.rowKey)
+      val (recordUuid, isNew) = occurrenceDAO.createOrRetrieveUuid(record.rowKey)
       record.uuid =recordUuid
       //add the last load time
       record.lastModifiedTime = new Date
@@ -353,14 +352,11 @@ object Store {
   
   def addValidationRule(validationRule:ValidationRule) = validationRuleDAO.upsert(validationRule)
   
-  def getValidationRule(uuid:java.lang.String):ValidationRule =
-    validationRuleDAO.get(uuid).getOrElse(null)
+  def getValidationRule(uuid:java.lang.String):ValidationRule = validationRuleDAO.get(uuid).getOrElse(null)
   
-  def getValidationRules(ids:Array[String]):Array[ValidationRule] =
-    validationRuleDAO.get(ids.toList).toArray[ValidationRule]
+  def getValidationRules(ids:Array[String]):Array[ValidationRule] = validationRuleDAO.get(ids.toList).toArray[ValidationRule]
 
-  def getValidationRules():Array[ValidationRule] =
-    validationRuleDAO.list.toArray[ValidationRule]
+  def getValidationRules():Array[ValidationRule] = validationRuleDAO.list.toArray[ValidationRule]
 
   /**
    * Applies the supplied query assertion to the records.
@@ -418,17 +414,19 @@ object Store {
    * Indexes a dataResource from a specific date
    */
   def reindex(dataResource:java.lang.String, startDate:java.lang.String){
-    if(dataResource != null && startDate != null)
+    if(dataResource != null && startDate != null) {
       IndexRecords.index(None, None, Some(dataResource), false, false, Some(startDate))
-    else
+    } else {
       throw new Exception("Must supply data resource and start date")
+    }
   }
 
   def reindexRange(startKey:java.lang.String, endKey:java.lang.String){
-    if(startKey!=null && endKey !=null)
+    if(startKey != null && endKey != null) {
       IndexRecords.index(Some(startKey), Some(endKey), None, false, false, None)
-    else
+    } else {
       throw new Exception("Start and end key must be supplied")
+    }
   }
 
   /**
@@ -447,8 +445,14 @@ object Store {
    * @param callback a callback used for monitoring the process
    */
   def index(dataResource:java.lang.String, customIndexFields:Array[String], callback:ObserverCallback = null) = {
-    IndexRecords.index(None, None, Some(dataResource), false, false, None,
-      miscIndexProperties = customIndexFields, callback = callback)
+    IndexRecords.index(None,
+      None,
+      Some(dataResource),
+      false,
+      false,
+      None,
+      miscIndexProperties = customIndexFields,
+      callback = callback)
     storeCustomIndexFields(dataResource,customIndexFields)
   }
 
