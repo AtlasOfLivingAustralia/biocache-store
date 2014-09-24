@@ -45,35 +45,29 @@ object SpeciesGroups {
                                                "Cryptophyta","Ochrophyta","Sagenista","Cercozoa","Euglenozoa","Cyanobacteria"),Array(),null)
   )
 
-  def main(args:Array[String]){
-    println(subgroups)
-    println(groups)
-    //362235 362236
-    println(getSpeciesGroups("362235","362236"))
-    println(getSpeciesSubGroups("362235","362236"))
-    println(getSpeciesGroups("32353","32354"))
-    println(getSpeciesSubGroups("32353","32354"))
-
-  }
-
   val subgroups = {
-    //look up the JSON String
-    //FIXME this should be a URL from a webservice. This URL isnt stable!!!
-    val json = Source.fromURL("http://bie.ala.org.au/subgroups.json").getLines.mkString
+
+    //look up the JSON config for species groups
+    val json = if(Config.speciesSubgroupsUrl.startsWith("http")){
+      Source.fromURL(Config.speciesSubgroupsUrl).getLines.mkString
+    } else {
+      Source.fromFile(Config.speciesSubgroupsUrl, "UTF-8").getLines.mkString
+    }
+
     val list = JSON.parseFull(json).get.asInstanceOf[List[Map[String,Object]]]//.get(0).asInstanceOf[Map[String, String]]
     val subGroupBuffer = new scala.collection.mutable.ArrayBuffer[SpeciesGroup]
-    list.foreach{map =>{
+    list.foreach{map => {
       if(map.containsKey("taxonRank")){
         val rank = map.getOrElse("taxonRank","class").toString
         val taxaList = map.get("taxa").get.asInstanceOf[List[Map[String,String]]]
         taxaList.foreach { taxaMap =>
-            subGroupBuffer += createSpeciesGroup (
-              taxaMap.getOrElse("common","").trim,
-              rank,
-              Array(taxaMap.getOrElse("name","").trim),
-              Array(),
-              null
-            )
+          subGroupBuffer += createSpeciesGroup (
+            taxaMap.getOrElse("common","").trim,
+            rank,
+            Array(taxaMap.getOrElse("name","").trim),
+            Array(),
+            null
+          )
         }
       } else {
         if (map.getOrElse("speciesGroup","none") == "Plants"){
@@ -94,65 +88,56 @@ object SpeciesGroups {
   /*
    * Creates a species group by first determining the left right ranges for the values and excluded values.
    */
-  def createSpeciesGroup(title:String, rank:String, values:Array[String], excludedValues:Array[String], parent:String):SpeciesGroup={
-    val lftRgts = values.map((v:String) =>{
-      var snr:au.org.ala.names.model.NameSearchResult ={ try{Config.nameIndex.searchForRecord(v, au.org.ala.names.model.RankType.getForName(rank))}
-      catch{
+  def createSpeciesGroup(title:String, rank:String, values:Array[String], excludedValues:Array[String], parent:String):SpeciesGroup = {
+
+    val lftRgts = values.map((v:String) => {
+
+      var snr: au.org.ala.names.model.NameSearchResult = try {
+        Config.nameIndex.searchForRecord(v, au.org.ala.names.model.RankType.getForName(rank))
+      } catch {
         case e:au.org.ala.names.search.HomonymException => e.getResults()(0)
         case _:Exception => null
-      }}
+      }
+
       if(snr != null){
-      if(snr.isSynonym)
-        snr = Config.nameIndex.searchForRecordByLsid(snr.getAcceptedLsid)
-      (Integer.parseInt(snr.getLeft()), Integer.parseInt(snr.getRight()),true)
-    }
-    else{
-      logger.debug(v + " has no name " )
-      (-1,-1,false)
-    }
+        if(snr.isSynonym)
+          snr = Config.nameIndex.searchForRecordByLsid(snr.getAcceptedLsid)
+          (Integer.parseInt(snr.getLeft()), Integer.parseInt(snr.getRight()),true)
+        } else {
+          logger.debug(v + " has no name " )
+          (-1,-1,false)
+        }
     })
-    val lftRgtExcluded = excludedValues.map((v:String) =>{
+
+    val lftRgtExcluded = excludedValues.map((v:String) => {
       var snr = Config.nameIndex.searchForRecord(v, null)
       if(snr != null){
-      if(snr.isSynonym)
-        snr = Config.nameIndex.searchForRecordByLsid(snr.getAcceptedLsid)
-      (Integer.parseInt(snr.getLeft()), Integer.parseInt(snr.getRight()),false)
-      }
-      else{
+        if(snr.isSynonym) {
+          snr = Config.nameIndex.searchForRecordByLsid(snr.getAcceptedLsid)
+        }
+        (Integer.parseInt(snr.getLeft()), Integer.parseInt(snr.getRight()),false)
+      } else {
         logger.debug(v + " has no name")
         (-1,-1,false)
       }
     })
-    SpeciesGroup(title, rank, values, excludedValues, lftRgtExcluded ++ lftRgts, parent) // Excluded values are first so that we can discount a species group if necessary
-  }
-
-  def getStringList : java.util.List[String] = groups.map(g => g.name).toList.sorted
-
-  /**
-   * Returns all the species groups to which supplied classification belongs
-   * @deprecated It is better to use the left right values to determine species groups
-   */
-  @Deprecated
-  def getSpeciesGroups(cl:Classification):Option[List[String]]={
-    val matchedGroups = groups.collect{case sg: SpeciesGroup if sg.values.contains(StringUtils.capitalize(StringUtils.lowerCase(cl.getter(sg.rank).asInstanceOf[String]))) => sg.name}
-    Some(matchedGroups)
+    // Excluded values are first so that we can discount a species group if necessary
+    SpeciesGroup(title, rank, values, excludedValues, lftRgtExcluded ++ lftRgts, parent)
   }
 
   /**
    * Returns all the species groups to which the supplied left right values belong
    */
-  def getSpeciesGroups(lft:String, rgt:String):Option[List[String]]= getGenericGroups(lft,rgt, groups)
+  def getSpeciesGroups(lft:String, rgt:String):Option[List[String]]= getGenericGroups(lft, rgt, groups)
 
-  def getSpeciesSubGroups(lft:String, rgt:String):Option[List[String]] = getGenericGroups(lft,rgt,subgroups)
+  def getSpeciesSubGroups(lft:String, rgt:String):Option[List[String]] = getGenericGroups(lft, rgt, subgroups)
 
-  def getGenericGroups(lft:String, rgt:String, groupingList:List[SpeciesGroup]):Option[List[String]]={
-    try{
+  def getGenericGroups(lft:String, rgt:String, groupingList:List[SpeciesGroup]):Option[List[String]] = {
+    try {
       val ilft = Integer.parseInt(lft)
-      //val irgt = Integer.parseInt(rgt)
-      val matchedGroups = groupingList.collect{case sg:SpeciesGroup if(sg.isPartOfGroup(ilft)) => sg.name}
+      val matchedGroups = groupingList.collect { case sg:SpeciesGroup if(sg.isPartOfGroup(ilft)) => sg.name }
       Some(matchedGroups)
-    }
-    catch {
+    } catch {
       case _:Exception => None
     }
   }
