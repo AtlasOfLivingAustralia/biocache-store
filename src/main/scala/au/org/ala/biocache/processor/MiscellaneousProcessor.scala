@@ -37,19 +37,22 @@ class MiscellaneousProcessor extends Processor {
    * @param assertions
    */
   def processOccurrenceStatus(raw:FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
-//    if(StringUtils.isNotBlank(raw.occurrence.occurrenceStatus)){
-//      val matchedTerm = OccurrenceStatus.matchTerm(raw.occurrence.occurrenceStatus)
-//      if(matchedTerm.isEmpty){
-//        assertions += QualityAssertion(AssertionCodes.UNRECOGNISED_OCCURRENCE_STATUS)
-//        processed.occurrence.occurrenceStatus = "unknown"
-//      } else {
-//        processed.occurrence.occurrenceStatus = matchedTerm.getOrElse("")
-//      }
-//    } else {
-//      //assume present
-//      processed.occurrence.occurrenceStatus = "present"
-//      assertions += QualityAssertion(AssertionCodes.MISSING_OCCURRENCE_STATUS)
-//    }
+
+    if(StringUtils.isNotBlank(raw.occurrence.occurrenceStatus)){
+
+      val matchedTerm = OccurrenceStatus.matchTerm(raw.occurrence.occurrenceStatus)
+      if(matchedTerm.isEmpty){
+        assertions += QualityAssertion(AssertionCodes.UNRECOGNISED_OCCURRENCE_STATUS)
+        processed.occurrence.occurrenceStatus = "unknown"
+      } else {
+        processed.occurrence.occurrenceStatus = matchedTerm.get.canonical
+      }
+
+    } else {
+      //assume present
+      processed.occurrence.occurrenceStatus = "present"
+      assertions += QualityAssertion(AssertionCodes.ASSUMED_PRESENT_OCCURRENCE_STATUS)
+    }
   }
 
   def processMiscOccurrence(raw:FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){

@@ -107,8 +107,12 @@ object AssertionCodes {
   val PROCESSING_ERROR = ErrorCode("processingError", 60000, true, "The system has incorrectly processed a record", Error)
 
   //media issues
-  val MEDIA_REPRESENTATIVE = ErrorCode("mediaRepresentative", 70000, false,"", Comment)
-  val MEDIA_UNREPRESENTATIVE = ErrorCode("mediaUnrepresentative", 70001, false,"", Comment)
+  val MEDIA_REPRESENTATIVE = ErrorCode("mediaRepresentative", 70000, false, "", Comment)
+  val MEDIA_UNREPRESENTATIVE = ErrorCode("mediaUnrepresentative", 70001, false, "", Comment)
+
+  //occurrence status
+  val UNRECOGNISED_OCCURRENCE_STATUS = ErrorCode("mediaRepresentative", 80000, false, "", Error)
+  val ASSUMED_PRESENT_OCCURRENCE_STATUS = ErrorCode("mediaRepresentative", 80001, false, "", Warning)
 
   /**
    * Retrieve all the terms defined in this vocab.

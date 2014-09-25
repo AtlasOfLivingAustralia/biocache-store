@@ -1,5 +1,5 @@
-present pres
-absent  abs
+present	pres	presence	P
+absent	abs	absence	A
 common
 irregular
 rare
