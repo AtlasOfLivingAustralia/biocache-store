@@ -14,7 +14,7 @@ class AttributionProcessor extends Processor {
   val logger = LoggerFactory.getLogger("AttributionProcessor")
 
   /**
-   * Retrieve attribution infromation from collectory and tag the occurrence record.
+   * Retrieve attribution information from collectory and tag the occurrence record.
    */
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
     var assertions = new ArrayBuffer[QualityAssertion]
@@ -49,8 +49,9 @@ class AttributionProcessor extends Processor {
         processed.attribution.dataResourceUid = dataResource.get.dataResourceUid
         processed.attribution.provenance = dataResource.get.provenance
         //only add the taxonomic hints if they were not populated by the collection
-        if (processed.attribution.taxonomicHints == null)
+        if (processed.attribution.taxonomicHints == null) {
           processed.attribution.taxonomicHints = dataResource.get.taxonomicHints
+        }
       }
     }
 
