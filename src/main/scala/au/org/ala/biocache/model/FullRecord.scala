@@ -7,6 +7,9 @@ import au.org.ala.biocache.poso.{POSO, CompositePOSO}
 
 /**
  * Encapsulates a complete specimen or occurrence record.
+ * TODO Split into two types, moving the processed bits into a subtype "ProcessedFullRecord".
+ * This should make it clearer the what the differences are between a
+ * raw and processed record.
  */
 @JsonIgnoreProperties
 class FullRecord (
@@ -49,14 +52,22 @@ class FullRecord (
    * Initialises the userVerified and ids for use in processing
    */
   def createNewProcessedRecord : FullRecord = {
-      val record = new FullRecord(this.rowKey, this.uuid)
-      record.userVerified = this.userVerified
-      record
+    val record = new FullRecord(this.rowKey, this.uuid)
+    record.userVerified = this.userVerified
+    record
   }
 
-  override def clone : FullRecord = new FullRecord(this.rowKey,this.uuid,
-      occurrence.clone,classification.clone,location.clone,event.clone,attribution.clone,
-      identification.clone,measurement.clone, assertions.clone)
+  override def clone : FullRecord = new FullRecord(
+    this.rowKey,
+    this.uuid,
+    occurrence.clone,
+    classification.clone,
+    location.clone,
+    event.clone,
+    attribution.clone,
+    identification.clone,
+    measurement.clone,
+    assertions.clone)
 
   /**
    * Equals implementation that compares the contents of all the contained POSOs

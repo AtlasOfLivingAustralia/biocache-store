@@ -100,7 +100,7 @@ object ReverseJacknifeProcessor extends Tool {
           counter +=1
 
           //add the details for the records that have passed
-          try{
+          try {
             val rowKey = Config.occurrenceDAO.getRowKeyFromUuid(uuid)
             if(rowKey.isDefined){
               //mark the test as passed
