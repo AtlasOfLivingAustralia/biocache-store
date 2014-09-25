@@ -37,21 +37,24 @@ class MiscellaneousProcessor extends Processor {
    * @param assertions
    */
   def processOccurrenceStatus(raw:FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
+    val (processedValue, qaOption) = processOccurrenceStatus(raw.occurrence.occurrenceStatus)
+    processed.occurrence.occurrenceStatus = processedValue
+    if(!qaOption.isEmpty){
+      assertions += qaOption.get
+    }
+  }
 
-    if(StringUtils.isNotBlank(raw.occurrence.occurrenceStatus)){
-
-      val matchedTerm = OccurrenceStatus.matchTerm(raw.occurrence.occurrenceStatus)
+  def processOccurrenceStatus(rawOccurrenceStatus:String) : (String, Option[QualityAssertion]) = {
+    if(StringUtils.isNotBlank(rawOccurrenceStatus)){
+      val matchedTerm = OccurrenceStatus.matchTerm(rawOccurrenceStatus)
       if(matchedTerm.isEmpty){
-        assertions += QualityAssertion(AssertionCodes.UNRECOGNISED_OCCURRENCE_STATUS)
-        processed.occurrence.occurrenceStatus = "unknown"
+        ("unknown", Some(QualityAssertion(AssertionCodes.UNRECOGNISED_OCCURRENCE_STATUS)))
       } else {
-        processed.occurrence.occurrenceStatus = matchedTerm.get.canonical
+        (matchedTerm.get.canonical, None)
       }
-
     } else {
       //assume present
-      processed.occurrence.occurrenceStatus = "present"
-      assertions += QualityAssertion(AssertionCodes.ASSUMED_PRESENT_OCCURRENCE_STATUS)
+      ("present", Some(QualityAssertion(AssertionCodes.ASSUMED_PRESENT_OCCURRENCE_STATUS)))
     }
   }
 

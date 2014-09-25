@@ -86,6 +86,8 @@ object AssertionCodes {
   val INFERRED_DUPLICATE_RECORD = ErrorCode("inferredDuplicateRecord",20014,false,"The occurrence appears to be a duplicate", Error)
   val MISSING_CATALOGUENUMBER = ErrorCode("missingCatalogueNumber", 20015, false,"No catalogue number has been supplied", Missing)
   val RECORDED_BY_UNPARSABLE = ErrorCode("recordedByUnparsable", 20016, false,"", Warning)
+  val UNRECOGNISED_OCCURRENCE_STATUS = ErrorCode("mediaRepresentative", 20017, false, "", Error)
+  val ASSUMED_PRESENT_OCCURRENCE_STATUS = ErrorCode("mediaRepresentative", 20018, false, "", Warning)
 
   //temporal issues
   val TEMPORAL_ISSUE = ErrorCode("temporalIssue",30000,false,"Temporal issue", Error)  // general purpose option
@@ -109,10 +111,6 @@ object AssertionCodes {
   //media issues
   val MEDIA_REPRESENTATIVE = ErrorCode("mediaRepresentative", 70000, false, "", Comment)
   val MEDIA_UNREPRESENTATIVE = ErrorCode("mediaUnrepresentative", 70001, false, "", Comment)
-
-  //occurrence status
-  val UNRECOGNISED_OCCURRENCE_STATUS = ErrorCode("mediaRepresentative", 80000, false, "", Error)
-  val ASSUMED_PRESENT_OCCURRENCE_STATUS = ErrorCode("mediaRepresentative", 80001, false, "", Warning)
 
   /**
    * Retrieve all the terms defined in this vocab.
@@ -158,7 +156,7 @@ object AssertionCodes {
   def getMissingCodes(code:Set[ErrorCode]) : Set[ErrorCode] =
     AssertionCodes.all &~ (code ++ userAssertionCodes.toSet ++ Set(VERIFIED, PROCESSING_ERROR))
 
-  def isVerified(assertion:QualityAssertion) :Boolean = assertion.code == VERIFIED.code
+  def isVerified(assertion:QualityAssertion) : Boolean = assertion.code == VERIFIED.code
 
   /** Is it geospatially kosher */
   def isGeospatiallyKosher (assertions:Array[QualityAssertion]) : Boolean = assertions.filter(ass => {
@@ -173,9 +171,9 @@ object AssertionCodes {
   }).isEmpty
 
    /** Is it geospatially kosher based on a list of codes that have been asserted */
-  def isGeospatiallyKosher(assertions:Array[Int]):Boolean = assertions.filter(qa=> {
-      val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
-      !code.isEmpty && code.get.isFatal
+  def isGeospatiallyKosher(assertions:Array[Int]) : Boolean = assertions.filter(qa => {
+    val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
+    !code.isEmpty && code.get.isFatal
   }).isEmpty
 
   /** Is it taxonomically kosher */
