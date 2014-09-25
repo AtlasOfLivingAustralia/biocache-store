@@ -15,7 +15,7 @@
     <inceptionYear>2011</inceptionYear>
     <name>biocache-store</name>
     <properties>
-        <scala.version>2.10.3</scala.version>
+        <scala.version>2.10.4</scala.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <org.springframework.version>3.0.6.RELEASE</org.springframework.version>
         <solr.version>4.4.0</solr.version>
