@@ -471,7 +471,7 @@ trait IndexDAO {
           map.getOrElse("minimumDepthInMeters.p", ""),
           map.getOrElse("maximumDepthInMeters.p", ""),
           map.getOrElse("nameParseType.p",""),
-          map.getOrElse("occurrenceStatus",""),
+          map.getOrElse("occurrenceStatus.p",""),
           map.getOrElse("occurrenceDetails",""),
           map.getOrElse("photographer",""),
           map.getOrElse("rights",""),

@@ -6,7 +6,9 @@ import au.org.ala.biocache.model.QualityAssertion
  * Assertion codes for records. These codes are a reflection of http://bit.ly/evMJv5
  */
 object AssertionCodes {
+
   import ErrorCodeCategory._
+
   //geospatial issues
   val GEOSPATIAL_ISSUE = ErrorCode("geospatialIssue",0,true,"Geospatial issue")  // general purpose option
   val NEGATED_LATITUDE = ErrorCode("negatedLatitude",1,false,"Latitude is negated", Warning)
@@ -80,14 +82,14 @@ object AssertionCodes {
   val UNRECOGNISED_COLLECTIONCODE = ErrorCode("unrecognisedCollectionCode",20005,false,"Collection code not recognised", Error)
   val UNRECOGNISED_INSTITUTIONCODE = ErrorCode("unrecognisedInstitutionCode",20006,false,"Institution code not recognised", Error)
   val INVALID_IMAGE_URL = ErrorCode("invalidImageUrl", 20007, false,"Image URL invalid", Error)
-  val RESOURCE_TAXONOMIC_SCOPE_MISMATCH = ErrorCode("resourceTaxonomicScopeMismatch", 20008, false, "", Error)
+  val RESOURCE_TAXONOMIC_SCOPE_MISMATCH = ErrorCode("resourceTaxonomicScopeMismatch", 20008, false, "Taxonomic scope mismatch between record and resource", Error)
   val DATA_ARE_GENERALISED = ErrorCode("dataAreGeneralised", 20009, false, "The data has been supplied generalised", Warning)
   val OCCURRENCE_IS_CULTIVATED_OR_ESCAPEE = ErrorCode("occCultivatedEscapee", 20010, false, "The occurrence is cultivated or escaped.", Warning)
   val INFERRED_DUPLICATE_RECORD = ErrorCode("inferredDuplicateRecord",20014,false,"The occurrence appears to be a duplicate", Error)
   val MISSING_CATALOGUENUMBER = ErrorCode("missingCatalogueNumber", 20015, false,"No catalogue number has been supplied", Missing)
-  val RECORDED_BY_UNPARSABLE = ErrorCode("recordedByUnparsable", 20016, false,"", Warning)
-  val UNRECOGNISED_OCCURRENCE_STATUS = ErrorCode("mediaRepresentative", 20017, false, "", Error)
-  val ASSUMED_PRESENT_OCCURRENCE_STATUS = ErrorCode("mediaRepresentative", 20018, false, "", Warning)
+  val RECORDED_BY_UNPARSABLE = ErrorCode("recordedByUnparsable", 20016, false,"RecordedBy value unparseable", Warning)
+  val UNRECOGNISED_OCCURRENCE_STATUS = ErrorCode("unrecognisedOccurrenceStatus", 20017, false, "Occurrence status not recognised", Error)
+  val ASSUMED_PRESENT_OCCURRENCE_STATUS = ErrorCode("assumedPresentOccurrenceStatus", 20018, false, "Occurrence status assumed to be present", Warning)
 
   //temporal issues
   val TEMPORAL_ISSUE = ErrorCode("temporalIssue",30000,false,"Temporal issue", Error)  // general purpose option
@@ -109,20 +111,17 @@ object AssertionCodes {
   val PROCESSING_ERROR = ErrorCode("processingError", 60000, true, "The system has incorrectly processed a record", Error)
 
   //media issues
-  val MEDIA_REPRESENTATIVE = ErrorCode("mediaRepresentative", 70000, false, "", Comment)
-  val MEDIA_UNREPRESENTATIVE = ErrorCode("mediaUnrepresentative", 70001, false, "", Comment)
+  val MEDIA_REPRESENTATIVE = ErrorCode("mediaRepresentative", 70000, false, "Media representative of taxon", Comment)
+  val MEDIA_UNREPRESENTATIVE = ErrorCode("mediaUnrepresentative", 70001, false, "Media not representative of taxon", Comment)
 
   /**
    * Retrieve all the terms defined in this vocab.
    * @return
    */
-  val retrieveAll : Set[ErrorCode] = {
-    val methods = this.getClass.getMethods
-    (for {
-      method<-methods
-      if(method.getReturnType.getName == "au.org.ala.biocache.vocab.ErrorCode")
-    } yield (method.invoke(this).asInstanceOf[ErrorCode])).toSet[ErrorCode]
-  }
+  val retrieveAll : Set[ErrorCode] = (for {
+    method <- this.getClass.getMethods
+    if(method.getReturnType.getName == "au.org.ala.biocache.vocab.ErrorCode")
+  } yield (method.invoke(this).asInstanceOf[ErrorCode])).toSet[ErrorCode]
 
   //all the codes
   val all = retrieveAll
