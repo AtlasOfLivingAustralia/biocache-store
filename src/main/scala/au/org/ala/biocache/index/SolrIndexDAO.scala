@@ -457,20 +457,20 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         val(qa, status) = extractPassAndFailed(qaJson)
         var sa = false
         status.foreach { case (test, status) =>
-          if (status.equals("1")){
+          if (status.equals("1")) {
             doc.addField("assertions_passed", test)
-          } else if (status.equals("0")){
+          } else if (status.equals("0")) {
             sa = true
             //get the error code to see if it is "missing"
             val assertionCode = AssertionCodes.getByName(test)
-            def indexField = if(!assertionCode.isEmpty && assertionCode.get.category == ErrorCodeCategory.Missing) {
+            def indexField = if (!assertionCode.isEmpty && assertionCode.get.category == ErrorCodeCategory.Missing) {
               "assertions_missing"
             } else {
               "assertions"
             }
             doc.addField(indexField, test)
           }
-        
+        }
 
         val unchecked = AssertionCodes.getMissingByCode(qa)
         unchecked.foreach(ec => doc.addField("assertions_unchecked", ec.name))
