@@ -8,14 +8,11 @@ Please use the Ansible scripts to set this software up in your own environment.
 
 https://github.com/AtlasOfLivingAustralia/ala-install
 
-Questions and comment on the scripts are welcome here: ala-portal@lists.gbif.org
-
 ## Build notes
 
 This library is built with maven. By default a `mvn install` will try to run a test suite which will fail without a local installation of a name index.
-The name index can be downloaded [here](http://biocache.ala.org.au/archives/nameindexes/20140610/namematching_v13.tgz) and needs to be extracted to the
+The name index can be downloaded [here](http://biocache.ala.org.au/archives/nameindexes/20140610/namematching.tgz) and needs to be extracted to the
 directory `/data/lucene/namematching`
-
 
 To skip this step, run a build with ```mvn install -DskipTests=true```.
 

@@ -191,6 +191,8 @@ private class ConfigModule extends AbstractModule {
 
     //check to see if a system property has been supplied with the location of the config file
     val filename = System.getProperty("biocache.config","/data/biocache/config/biocache-config.properties")
+    logger.info("Using config file: " + filename)
+
     val file = new java.io.File(filename)
 
     //only load the properties file if it exists otherwise default to the biocache-test-config.properties on the classpath
