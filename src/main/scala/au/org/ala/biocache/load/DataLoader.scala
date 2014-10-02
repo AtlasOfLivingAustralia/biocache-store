@@ -391,17 +391,17 @@ trait DataLoader {
       val in = urlConnection.getInputStream()
       val (file, isZipped, isGzipped) = {
         if (url.endsWith(".zip") || (contentDisp != null && contentDisp.endsWith(""".zip""""))){
-          val f = new File(temporaryFileStore + resourceUid + ".zip")
+          val f = new File(temporaryFileStore + File.separatorChar + resourceUid + ".zip")
           f.createNewFile()
           (f, true, false)
         } else if (url.endsWith(".gz") || (contentDisp != null && contentDisp.endsWith(""".gz""""))){
-          val f = new File(temporaryFileStore + resourceUid + File.separator + resourceUid +".gz")
+          val f = new File(temporaryFileStore  + File.separatorChar + resourceUid + File.separator + resourceUid +".gz")
           logger.info("Creating file: " + f.getAbsolutePath)
           FileUtils.forceMkdir(f.getParentFile())
           f.createNewFile()
           (f, false, true)
         } else {
-          val f = new File(temporaryFileStore + resourceUid + File.separator + resourceUid +".csv")
+          val f = new File(temporaryFileStore + File.separatorChar + resourceUid + File.separator + resourceUid +".csv")
           logger.info("Creating file: " + f.getAbsolutePath)
           FileUtils.forceMkdir(f.getParentFile())
           f.createNewFile()
