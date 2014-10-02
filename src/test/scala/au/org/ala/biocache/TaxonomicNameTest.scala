@@ -10,16 +10,16 @@ import au.org.ala.biocache.vocab.AssertionCodes
 @RunWith(classOf[JUnitRunner])
 class TaxonomicNameTest extends ConfigFunSuite {
 
-    test("taxonomic hint fails"){
-      val raw = new FullRecord
-      val processed = new FullRecord
-      raw.attribution.dataResourceUid="dr376"
-      raw.classification.scientificName="Macropus rufus"
-      val qas = (new ClassificationProcessor).process("test",raw,processed)
-      //we don't want a scientific name
-      expectResult(null){processed.classification.scientificName}
-      expectResult(0){qas.find(_.code == AssertionCodes.RESOURCE_TAXONOMIC_SCOPE_MISMATCH.code).get.qaStatus}
-    }
+//    test("taxonomic hint fails"){
+//      val raw = new FullRecord
+//      val processed = new FullRecord
+//      raw.attribution.dataResourceUid="dr376"
+//      raw.classification.scientificName="Macropus rufus"
+//      val qas = (new ClassificationProcessor).process("test",raw,processed)
+//      //we don't want a scientific name
+//      expectResult(null){processed.classification.scientificName}
+//      expectResult(0){qas.find(_.code == AssertionCodes.RESOURCE_TAXONOMIC_SCOPE_MISMATCH.code).get.qaStatus}
+//    }
 
     test("recursive issue"){
       val raw = new FullRecord
