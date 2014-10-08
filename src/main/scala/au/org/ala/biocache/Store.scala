@@ -475,7 +475,7 @@ object Store {
    * @param threads
    */
   def process(dataResourceUid:java.lang.String, threads:Int = 1, callback:ObserverCallback = null) = {
-    ProcessRecords.processRecords(1, None , Some(dataResourceUid), callback=callback)
+    ProcessRecords.processRecords(threads, None, Some(dataResourceUid), callback=callback)
   }
 
   /**
