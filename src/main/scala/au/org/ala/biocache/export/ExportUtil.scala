@@ -25,7 +25,7 @@ object ExportUtil extends Tool {
 
     var fieldsToExport = List[String]()
     var fieldsRequired = List[String]()
-    var includeRowKey = true
+    var includeRowKey = false
     var charSeparator = '\t'
     var entity = ""
     var filePath = ""
