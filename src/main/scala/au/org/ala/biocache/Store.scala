@@ -541,9 +541,21 @@ object Store {
   }
 
   /**
+   * Retrieve the configuration used for species subgroups
+   * @return
+   */
+  def retrieveSubgroupsConfig : String  = SpeciesGroups.getSubgroupsConfig
+
+  /**
    * Retrieve the list of species groups
    */
   def retrieveSpeciesGroups: java.util.List[SpeciesGroup] = SpeciesGroups.groups.asJava
+
+  /**
+   * Retrieve the list of species groups
+   */
+  def retrieveSpeciesSubgroups: java.util.List[SpeciesGroup] = SpeciesGroups.subgroups.asJava
+
   /**
    * Retrieves a map of index fields to storage fields
    */

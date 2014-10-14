@@ -45,20 +45,23 @@ object SpeciesGroups {
                                                "Cryptophyta","Ochrophyta","Sagenista","Cercozoa","Euglenozoa","Cyanobacteria"),Array(),null)
   )
 
+  def getSubgroupsConfig = if(Config.speciesSubgroupsUrl.startsWith("http")){
+    Source.fromURL(Config.speciesSubgroupsUrl, "UTF-8").getLines.mkString
+  } else {
+    Source.fromFile(Config.speciesSubgroupsUrl, "UTF-8").getLines.mkString
+  }
+
   val subgroups = {
 
-    //look up the JSON config for species groups
-    val json = if(Config.speciesSubgroupsUrl.startsWith("http")){
-      Source.fromURL(Config.speciesSubgroupsUrl).getLines.mkString
-    } else {
-      Source.fromFile(Config.speciesSubgroupsUrl, "UTF-8").getLines.mkString
-    }
-
+    val json = getSubgroupsConfig
     val list = JSON.parseFull(json).get.asInstanceOf[List[Map[String,Object]]]//.get(0).asInstanceOf[Map[String, String]]
     val subGroupBuffer = new scala.collection.mutable.ArrayBuffer[SpeciesGroup]
-    list.foreach{map => {
+    list.foreach { map => {
+
+      val parentGroup = map.getOrElse("speciesGroup", "").asInstanceOf[String]
+
       if(map.containsKey("taxonRank")){
-        val rank = map.getOrElse("taxonRank","class").toString
+        val rank = map.getOrElse("taxonRank", "class").toString
         val taxaList = map.get("taxa").get.asInstanceOf[List[Map[String,String]]]
         taxaList.foreach { taxaMap =>
           subGroupBuffer += createSpeciesGroup (
@@ -66,7 +69,7 @@ object SpeciesGroups {
             rank,
             Array(taxaMap.getOrElse("name","").trim),
             Array(),
-            null
+            parentGroup
           )
         }
       } else {
@@ -76,7 +79,7 @@ object SpeciesGroups {
             //search for the sub group in the species group
             val g = groups.find(_.name == taxaMap.getOrElse("name","NONE"))
             if (g.isDefined){
-              subGroupBuffer += createSpeciesGroup(taxaMap.getOrElse("common","").trim, g.get.rank, g.get.values, g.get.excludedValues,null)
+              subGroupBuffer += createSpeciesGroup(taxaMap.getOrElse("common","").trim, g.get.rank, g.get.values, g.get.excludedValues, parentGroup)
             }
           }
         }
@@ -128,7 +131,7 @@ object SpeciesGroups {
   /**
    * Returns all the species groups to which the supplied left right values belong
    */
-  def getSpeciesGroups(lft:String, rgt:String):Option[List[String]]= getGenericGroups(lft, rgt, groups)
+  def getSpeciesGroups(lft:String, rgt:String):Option[List[String]] = getGenericGroups(lft, rgt, groups)
 
   def getSpeciesSubGroups(lft:String, rgt:String):Option[List[String]] = getGenericGroups(lft, rgt, subgroups)
 
