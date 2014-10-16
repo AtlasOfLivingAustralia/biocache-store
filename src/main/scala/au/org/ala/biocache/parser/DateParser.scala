@@ -90,6 +90,7 @@ object DateParser {
       case ISOYearRange(date) => Some(date)
       case ISOVerboseDateTime(date) => Some(date)
       case ISOVerboseDateTimeRange(date) => Some(date)
+      case NonISODateTime(date) => Some(date)
       case _ => None
     }
   }
@@ -129,7 +130,32 @@ case class EventDate(startDate: String, startDay: String, startMonth: String, st
                      endDate: String, endDay: String, endMonth: String, endYear: String, singleDate: Boolean)
 
 /** Extractor for the format yyyy-MM-dd */
-object ISOWithMonthNameDate /*extends (String=>Option[EventDate]) */ {
+object NonISODateTime {
+
+  /**
+   * Extraction method
+   */
+  def unapply(str: String): Option[EventDate] = {
+    try {
+      // 2011-02-09 00:39:00.000
+      val eventDateParsed = DateUtils.parseDateStrictly(str,
+        Array("yyyy-MM-dd HH:mm:ss.SSS", "yyyy/MM/dd HH:mm:ss.SSS", "yyyy/MM/dd HH.mm.ss.SSS"))
+
+      val startDate, endDate = DateFormatUtils.format(eventDateParsed, "yyyy-MM-dd")
+      val startDay, endDay = DateFormatUtils.format(eventDateParsed, "dd")
+      val startMonth, endMonth = DateFormatUtils.format(eventDateParsed, "MM")
+      val startYear, endYear = DateFormatUtils.format(eventDateParsed, "yyyy")
+
+      Some(EventDate(startDate, startDay, startMonth, startYear, endDate, endDay,
+        endMonth: String, endYear, true))
+    } catch {
+      case e: ParseException => None
+    }
+  }
+}
+
+/** Extractor for the format yyyy-MM-dd */
+object ISOWithMonthNameDate {
 
   /**
    * Extraction method
