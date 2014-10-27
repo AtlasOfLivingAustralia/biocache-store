@@ -18,7 +18,6 @@ import scala.xml.XML
 import java.io.InputStreamReader
 import java.net.URL
 import collection.{mutable, JavaConversions}
-import org.ala.layers.client.Client
 import collection.mutable.{ArrayBuffer, HashMap}
 import java.text.MessageFormat
 

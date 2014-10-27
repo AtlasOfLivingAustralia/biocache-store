@@ -12,7 +12,7 @@ import collection.mutable
 import au.org.ala.biocache.processor.LocationProcessor
 import au.org.ala.biocache.caches.LocationDAO
 import au.org.ala.biocache.model.QualityAssertion
-import au.org.ala.biocache.util.{OptionParser, Json, FileHelper}
+import au.org.ala.biocache.util.{LayersStore, OptionParser, Json, FileHelper}
 import org.drools.core.factmodel.traits.Trait
 import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
 import scala.Some
@@ -330,7 +330,12 @@ class Sampling {
     var points = pointsReader.loadPoints(batchSize)
     while(!points.isEmpty) {
       //do the sampling
-      processBatch(writer, points, fields, callback)
+      if ("true".equalsIgnoreCase(Config.layersServiceSampling)) {
+        processBatchRemote(writer, points, fields, callback)
+      } else {
+        processBatch(writer, points, fields, callback)
+      }
+
       totalProcessed += points.size
       logger.info("Total points sampled so far : " + totalProcessed)
       //read next batch
@@ -371,6 +376,24 @@ class Sampling {
         }
       }
       writer.writeNext(sampledPoint.toArray)
+      writer.flush
+    }
+  }
+
+  /* remote sampling */
+  private def processBatchRemote(writer: CSVWriter, points: Array[Array[Double]], fields: Array[String], callback:IntersectCallback=null): Unit = {
+
+    def layersStore = new LayersStore(Config.layersServiceUrl);
+
+    //do sampling
+    var samples: CSVReader = new CSVReader(layersStore.sample(fields, points, callback))
+
+    //discard header
+    var row = samples.readNext()
+
+    //write sampling
+    while ((row = samples.readNext()) != null) {
+      writer.writeNext(row)
       writer.flush
     }
   }
