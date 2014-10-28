@@ -153,16 +153,15 @@ object LocationDAO {
           }
           case None => {
             //do a layer lookup???
-            logger.debug("Performing a layer lookup for [" + latitude + "," + longitude +"]")
-            if(Config.allowLayerLookup){
-              val intersection = doLayerIntersectForPoint(latitude, longitude)
-              lock.synchronized {
-                lru.put(uuid, intersection)
-              }
-              intersection
-            } else {
-              None
-            }
+            logger.warn ("Location lookup failed for [" + latitude + "," + longitude +"] - Sampling may need to be re-ran")
+//            if(Config.allowLayerLookup){
+//              val intersection = doLayerIntersectForPoint(latitude, longitude)
+//              lock.synchronized {
+//                lru.put(uuid, intersection)
+//              }
+//              intersection
+//            } else {
+            None
           }
         }
     }

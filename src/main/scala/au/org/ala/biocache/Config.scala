@@ -59,15 +59,6 @@ object Config {
     SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl, nameIndex)
   }
 
-  val allowLayerLookup = {
-    val str = configModule.properties.getProperty("allow.layer.lookup")
-    if(str != null){
-      str.toBoolean
-    } else {
-      false
-    }
-  }
-
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
 
   val collectoryApiKey = configModule.properties.getProperty("registry.api.key","xxxxxxxxxxxxxxxxx")
@@ -89,6 +80,9 @@ object Config {
   val extraMiscFields = configModule.properties.getProperty("extra.misc.fields","")
 
   val technicalContact = configModule.properties.getProperty("technical.contact", "support@ala.org.au")
+
+  /** Whether or not to strictly obey the isLoadable directive from the SDS */
+  val obeySDSIsLoadable = configModule.properties.getProperty("obey.sds.is.loadable", "true").toBoolean
 
   lazy val fieldsToSample = {
 
