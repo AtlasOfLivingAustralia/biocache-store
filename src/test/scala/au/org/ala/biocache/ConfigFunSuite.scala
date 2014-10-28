@@ -2,7 +2,7 @@ package au.org.ala.biocache
 
 import org.scalatest.FunSuite
 import com.google.inject.Guice
-import au.org.ala.biocache.caches.TaxonProfileDAO
+import au.org.ala.biocache.caches.{LocationDAO, TaxonProfileDAO}
 import au.org.ala.biocache.model.{TaxonProfile, ConservationStatus}
 import au.org.ala.biocache.persistence.PersistenceManager
 import org.slf4j.LoggerFactory
@@ -49,4 +49,12 @@ class ConfigFunSuite extends FunSuite {
   //toFloat and loses accuracy.  This is the point above after going through the system
   pm.put("-31.253218|146.9211", "loc", "cl927", "New South Wales")
   pm.put("-29.04|167.95", "loc", "cl932", "Norfolk Island")
+
+  pm.put("-35.21667|144.81060", "loc", "cl927", "New South Wales")
+
+  pm.put("-31.9|116.5", "loc", "cl927", "Western Australia") //, "Australia", Map[String,String](), Map[String,String]("cl22" -> "Western Australia"))
+  pm.put("-31.9|116.5", "loc", "cl932", "Australia")
+
+  pm.put("-27.56|152.28", "loc", Map("cl927" -> "Western Australia", "cl932" -> "Australia"))
+  pm.put("-31.92223|116.5122", "loc", Map("cl927" -> "Western Australia", "cl932" -> "Australia"))
 }

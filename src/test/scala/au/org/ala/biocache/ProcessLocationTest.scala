@@ -1,14 +1,11 @@
 package au.org.ala.biocache
 
-import org.scalatest.FunSuite
+import au.org.ala.biocache.vocab.AssertionCodes
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.BeforeAndAfterAll
 import au.org.ala.biocache.processor.{EventProcessor, LocationProcessor}
 import au.org.ala.biocache.model.FullRecord
-import au.org.ala.biocache.caches.LocationDAO
-
-//import org.junit.Ignore
 
 /**
  * Performs some Location Processing tests
@@ -16,30 +13,85 @@ import au.org.ala.biocache.caches.LocationDAO
 @RunWith(classOf[JUnitRunner])
 class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 //
-  test("State based sensitivity") {
-    val raw = new FullRecord
-    val processed = new FullRecord
-    raw.classification.scientificName = "Diuris disposita"
-    processed.classification.setScientificName("Diuris disposita")
-    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:apni.taxon:167966")
-    processed.classification.setTaxonRankID("7000")
-    raw.location.stateProvince = "NSW"
-    raw.location.locality = "My test locality"
-    (new LocationProcessor).process("test", raw, processed)
-//    println(processed.toMap)
-    expectResult(true) {
-      processed.occurrence.dataGeneralizations.length() > 0
-    }
-  }
+//  test("Sensitive Species - Achatina fulica - cat1") {
+//
+//    val raw = new FullRecord
+//    val processed = new FullRecord
+//    raw.classification.setScientificName("Achatina fulica")
+//    processed.classification.setScientificName("Achatina fulica")
+//    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:257175e9-9fbb-4283-b485-f27ad0e277b9")
+//    processed.classification.setTaxonRankID("7000")
+//    raw.location.decimalLatitude = "-31.92223"
+//    raw.location.decimalLongitude = "116.5122"
+//    raw.location.stateProvince = "Western Australia"
+//    raw.event.eventDate = "2001-01-01"
+//    processed.event.eventDate = "2001-01-01"
+//    (new LocationProcessor).process("test", raw, processed)
+//
+//    expectResult("") {
+//      processed.location.decimalLatitude
+//    }
+//    expectResult("") {
+//      raw.location.decimalLatitude
+//    }
+//    expectResult("") {
+//      processed.location.decimalLongitude
+//    }
+//    expectResult("") {
+//      raw.location.decimalLongitude
+//    }
+//
+//    expectResult("") {
+//      processed.event.eventDate
+//    }
+//    expectResult("") {
+//      raw.event.eventDate
+//    }
+//  }
+//
+//  test("Sensitive Species - Bactrocera tryoni - cat1") {
+//
+//    val raw = new FullRecord
+//    val processed = new FullRecord
+//    raw.classification.setScientificName("Bactrocera (Bactrocera) tryoni")
+//    processed.classification.setScientificName("Bactrocera (Bactrocera) tryoni")
+//    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:257175e9-9fbb-4283-b485-f27ad0e277b9")
+//    processed.classification.setTaxonRankID("7000")
+//    raw.location.decimalLatitude = "-31.92223"
+//    raw.location.decimalLongitude = "116.5122"
+//    raw.location.stateProvince = "Western Australia"
+//    raw.event.eventDate = "2001-01-01"
+//    processed.event.eventDate = "2001-01-01"
+//    (new LocationProcessor).process("test", raw, processed)
+//
+//    expectResult("") {
+//      processed.location.decimalLatitude
+//    }
+//    expectResult("") {
+//      raw.location.decimalLatitude
+//    }
+//    expectResult("") {
+//      processed.location.decimalLongitude
+//    }
+//    expectResult("") {
+//      raw.location.decimalLongitude
+//    }
+//
+//    expectResult("") {
+//      processed.event.eventDate
+//    }
+//    expectResult("") {
+//      raw.event.eventDate
+//    }
+//  }
 
-  test("Sensitive Species Generalise - Crex crex -31.92223, 116.5122") {
+  test("Sensitive Species Generalise - Calyptorhynchus baudinii -31.92223, 116.5122") {
     val raw = new FullRecord
     val processed = new FullRecord
-    raw.classification.setScientificName("Calyptorhynchus baudini")
-    processed.classification.setScientificName("Calyptorhynchus baudini")
-    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
+    raw.classification.setScientificName("Calyptorhynchus (Zanda) baudinii")
+    processed.classification.setScientificName("Calyptorhynchus (Zanda) baudinii")
+    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:df97e45b-5286-4c2b-aadb-f9717659394d")
     processed.classification.setTaxonRankID("7000")
-    LocationDAO.addToCache(-31.92223f, 116.5122f, "Western Australia", "Australia", Map[String,String](), Map[String,String]("cl22" -> "Western Australia"))
     raw.location.decimalLatitude = "-31.92223"
     raw.location.decimalLongitude = "116.5122"
     raw.location.stateProvince = "Western Australia"
@@ -49,8 +101,10 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     raw.event.day = "21"
     raw.event.month = "12"
     raw.event.year = "2000"
+
     (new EventProcessor).process("test", raw, processed)
     (new LocationProcessor).process("test", raw, processed)
+
     expectResult("-31.9") {
       processed.location.decimalLatitude
     }
@@ -71,11 +125,26 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     }
 
     val stringValues = Config.persistenceManager.get("test", "occ", "originalSensitiveValues")
-    expectResult(true) {
-      !stringValues.isEmpty
+    expectResult(false) {
+      stringValues.isEmpty
     }
   }
-//
+
+  test("State based sensitivity") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.classification.scientificName = "Diuris disposita"
+    processed.classification.setScientificName("Diuris disposita")
+    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:apni.taxon:167966")
+    processed.classification.setTaxonRankID("7000")
+    raw.location.stateProvince = "NSW"
+    raw.location.locality = "My test locality"
+    (new LocationProcessor).process("test", raw, processed)
+    expectResult(true) {
+      processed.occurrence.dataGeneralizations.length() > 0
+    }
+  }
+
   test("Not Sensitive") {
     val raw = new FullRecord
     val processed = new FullRecord
@@ -97,28 +166,16 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     }
   }
 
-  test("Already Generalised") {
+  test("Already Generalised - Crex crex - Western Australia") {
     val raw = new FullRecord
     val processed = new FullRecord
-    raw.classification.setScientificName("Calyptorhynchus baudini")
-    processed.classification.setScientificName("Calyptorhynchus baudini")
-    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
-    processed.classification.setTaxonRankID("7000")
-    LocationDAO.addToCache(-31.9f, 116.5f, "Western Australia", "Australia", Map[String,String](), Map[String,String]("cl22" -> "Western Australia"))
-    raw.location.stateProvince = "Western Australia"
-    raw.location.country = "Australia"
-    raw.location.locationRemarks = "test remarks"
-    raw.rowKey = "test"
-    raw.event.day = "21"
-    raw.event.month = "12"
-    raw.event.year = "2000"
-
+    raw.classification.setScientificName("Crex crex")
     processed.classification.setScientificName("Crex crex")
     processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
     processed.classification.setTaxonRankID("7000")
     raw.location.decimalLatitude = "-31.9"
     raw.location.decimalLongitude = "116.5"
-//    raw.attribution.dataResourceUid = "dr359"
+    raw.attribution.dataResourceUid = "dr359"
     (new LocationProcessor).process("test", raw, processed)
     expectResult("-31.9") {
       processed.location.decimalLatitude
@@ -127,7 +184,10 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
       processed.location.decimalLongitude
     }
     expectResult(true) {
-      processed.occurrence.dataGeneralizations != null && processed.occurrence.dataGeneralizations.contains("already generalised")
+      processed.occurrence.dataGeneralizations != null
+    }
+    expectResult(true){
+      processed.occurrence.dataGeneralizations.contains("already generalised")
     }
   }
 
@@ -136,10 +196,10 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     var processed = new FullRecord
     raw.location.decimalLatitude = "-35.21667"
     raw.location.decimalLongitude = "144.81060"
-    raw.location.coordinatePrecision = "100.66";
+    raw.location.coordinatePrecision = "100.66"
     val qas = (new LocationProcessor).process("test", raw, processed)
     expectResult(true) {
-     qas.find(_.code == 25) != None
+     qas.find(_.code == AssertionCodes.UNCERTAINTY_IN_PRECISION.code) != None
     }
     expectResult("100") {
       processed.location.coordinateUncertaintyInMeters
@@ -151,7 +211,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     var processed = new FullRecord
     raw.location.decimalLatitude = "-35.21667"
     raw.location.decimalLongitude = "144.81060"
-    raw.location.coordinateUncertaintyInMeters = "100 meters";
+    raw.location.coordinateUncertaintyInMeters = "100 meters"
     val qas = (new LocationProcessor).process("test", raw, processed)
     expectResult(1) {
       qas.find(_.code == 27).get.qaStatus
@@ -200,7 +260,6 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     expectResult(true) {
       qas.find(_.code == 5) != None
     }
-
   }
 
   test("Inverted Coordinates") {
@@ -433,7 +492,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("non numeric depth") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.location.verbatimDepth = "test"
     val qas = (new LocationProcessor).process("test", raw, processed)
     expectResult(0) {
@@ -443,7 +502,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("non numeric altitude") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.location.verbatimElevation = "test"
     val qas = (new LocationProcessor).process("test", raw, processed)
     expectResult(0) {
@@ -453,7 +512,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("depth out of range") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.location.verbatimDepth = "20000"
     var qas = (new LocationProcessor).process("test", raw, processed)
     expectResult(0) {
@@ -468,7 +527,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("altitude out of range") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.location.verbatimElevation = "20000"
     var qas = (new LocationProcessor).process("test", raw, processed)
     expectResult(0) {
@@ -488,7 +547,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("transposed min and max") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.location.minimumDepthInMeters = "20"
     raw.location.maximumDepthInMeters = "10"
     var qas = (new LocationProcessor).process("test", raw, processed)
@@ -511,7 +570,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("Calculate lat/long from easting and northing") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     processed.classification.setScientificName("Crex crex")
     processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
     processed.classification.setTaxonRankID("7000")
@@ -544,7 +603,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("Calculate lat/long from verbatim lat/long supplied in degrees, minutes, seconds") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     processed.classification.setScientificName("Crex crex")
     processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
     processed.classification.setTaxonRankID("7000")
@@ -570,7 +629,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("Reproject decimal lat/long from AGD66 to WGS84") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     processed.classification.setScientificName("Crex crex")
     processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
     processed.classification.setTaxonRankID("7000")
@@ -604,7 +663,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("Calculate decimal latitude/longitude by reprojecting verbatim latitude/longitude") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     processed.classification.setScientificName("Crex crex")
     processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
     processed.classification.setTaxonRankID("7000")
@@ -638,7 +697,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("Assume WGS84 when no CRS supplied") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     processed.classification.setScientificName("Crex crex")
     processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
     processed.classification.setTaxonRankID("7000")
@@ -662,7 +721,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("Convert verbatim lat/long in degrees then reproject to WGS84") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     processed.classification.setScientificName("Crex crex")
     processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:2ef4ac9c-7dfb-4447-8431-e337355ac1ca")
     processed.classification.setTaxonRankID("7000")
