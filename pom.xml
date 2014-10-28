@@ -518,12 +518,12 @@
         <repository>
             <id>ala-repo</id>
             <name>Internal Releases</name>
-            <url>http://ala-wonder.it.csiro.au/nexus/content/repositories/releases/</url>
+            <url>http://nexus.ala.org.au/content/repositories/releases/</url>
         </repository>
         <snapshotRepository>
             <id>ala-repo</id>
             <name>Internal Releases</name>
-            <url>http://ala-wonder.it.csiro.au/nexus/content/repositories/snapshots/</url>
+            <url>http://nexus.ala.org.au/content/repositories/snapshots/</url>
         </snapshotRepository>
     </distributionManagement>
     <profiles>
