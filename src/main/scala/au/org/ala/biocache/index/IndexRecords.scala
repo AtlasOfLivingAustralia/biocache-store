@@ -61,6 +61,7 @@ object IndexRecords extends Tool with IncrementalTool {
     var threads = 1
     var test = false
     var checkRowKeyFile = false
+    var abortIfNotRowKeyFile = false
 
     val parser = new OptionParser(help) {
         opt("empty", "empty the index first", {empty=true})
@@ -76,6 +77,7 @@ object IndexRecords extends Tool with IncrementalTool {
         intOpt("t","threads","Number of threads to index from",{v:Int => threads = v})
         opt("test", "test the speed of creating the index the minus the actual SOLR indexing costs",{test = true})
         opt("crk", "check for row key file",{ checkRowKeyFile = true })
+        opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
     }
 
     if(parser.parse(args)){
@@ -83,25 +85,30 @@ object IndexRecords extends Tool with IncrementalTool {
         val (hasRowKey, retrievedRowKeyFile) = IndexRecords.hasRowKey(dataResourceUid.get)
         rowKeyFile = retrievedRowKeyFile.getOrElse("")
       }
-      //delete the content of the index
-      if(empty){
-         logger.info("Emptying index")
-         indexer.emptyIndex
-      }
-      if (uuidFile != ""){
-        indexListOfUUIDs(new File(uuidFile))
-      } else if (rowKeyFile != ""){
-        if(threads == 1) {
-          indexList(new File(rowKeyFile))
-        } else {
-          indexListThreaded(new File(rowKeyFile), threads)
-        }
+
+      if(abortIfNotRowKeyFile && (rowKeyFile=="" || !(new File(rowKeyFile).exists()))){
+        logger.warn("No rowkey file was found for this index. Aborting.")
       } else {
-        index(startUuid, endUuid, dataResourceUid, false, false, startDate, check, pageSize, test=test)
+        //delete the content of the index
+        if(empty){
+          logger.info("Emptying index")
+          indexer.emptyIndex
+        }
+        if (uuidFile != ""){
+          indexListOfUUIDs(new File(uuidFile))
+        } else if (rowKeyFile != ""){
+          if(threads == 1) {
+            indexList(new File(rowKeyFile))
+          } else {
+            indexListThreaded(new File(rowKeyFile), threads)
+          }
+        } else {
+          index(startUuid, endUuid, dataResourceUid, false, false, startDate, check, pageSize, test=test)
+        }
+        //shut down pelops and index to allow normal exit
+        indexer.shutdown
+        persistenceManager.shutdown
       }
-      //shut down pelops and index to allow normal exit
-      indexer.shutdown
-      persistenceManager.shutdown
     }
   }
 

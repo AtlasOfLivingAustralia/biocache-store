@@ -53,6 +53,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     var dataResourceUid:Option[String] = None
     var checkRowKeyFile = false
     var rowKeyFile = ""
+    var abortIfNotRowKeyFile = false
 
     val parser = new OptionParser(help) {
       intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
@@ -61,6 +62,7 @@ object ProcessRecords extends Tool with IncrementalTool {
       opt("dr", "resource", "The data resource to process", {v:String => dataResourceUid = Some(v)})
       booleanOpt("cd", "checkDeleted", "Check deleted records", {v:Boolean => checkDeleted = v})
       opt("crk", "check for row key file",{ checkRowKeyFile = true })
+      opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
     }
     
     if(parser.parse(args)){
@@ -70,12 +72,16 @@ object ProcessRecords extends Tool with IncrementalTool {
         rowKeyFile = retrievedRowKeyFile.getOrElse("")
       }
 
-      if(rowKeyFile != ""){
-        //process the row key file
-        processFileOfRowKeys(new java.io.File(rowKeyFile), threads)
+      if(abortIfNotRowKeyFile && (rowKeyFile=="" || !(new File(rowKeyFile).exists()))){
+        logger.warn("No rowkey file was found for this processing. Aborting.")
       } else {
-        logger.info("Processing " + dataResourceUid.getOrElse("") + " from " + startUuid + "to " +endUuid+ " with " + threads + "actors")
-        processRecords(threads, startUuid, dataResourceUid, checkDeleted, lastKey = endUuid)
+        if (rowKeyFile != "") {
+          //process the row key file
+          processFileOfRowKeys(new java.io.File(rowKeyFile), threads)
+        } else {
+          logger.info("Processing " + dataResourceUid.getOrElse("") + " from " + startUuid + "to " + endUuid + " with " + threads + "actors")
+          processRecords(threads, startUuid, dataResourceUid, checkDeleted, lastKey = endUuid)
+        }
       }
     }
     //shutdown the persistence

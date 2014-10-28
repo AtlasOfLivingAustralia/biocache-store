@@ -38,6 +38,7 @@ object Sampling extends Tool with IncrementalTool {
     var workingDir = Config.tmpWorkDir
     var batchSize = 100000
     var checkRowKeyFile = false
+    var abortIfNotRowKeyFile = false
 
     val parser = new OptionParser(help) {
       opt("dr", "data-resource-uid", "the data resource to sample", {
@@ -65,6 +66,7 @@ object Sampling extends Tool with IncrementalTool {
         v:Int => batchSize = v
       })
       opt("crk", "check for row key file", { checkRowKeyFile = true })
+      opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
     }
 
     if (parser.parse(args)) {
@@ -75,39 +77,43 @@ object Sampling extends Tool with IncrementalTool {
         rowKeyFile = retrievedRowKeyFile.getOrElse("")
       }
 
-      //for this data resource
-      val fileSuffix = {
-        if (dataResourceUid != "") {
-          logger.info("Sampling : " + dataResourceUid)
-          dataResourceUid
-        } else {
-          logger.info("Sampling all records")
-          "all"
+      if(abortIfNotRowKeyFile && (rowKeyFile=="" || !(new File(rowKeyFile).exists()))) {
+        logger.warn("No rowkey file was found for this sampling. Aborting.")
+      } else {
+        //for this data resource
+        val fileSuffix = {
+          if (dataResourceUid != "") {
+            logger.info("Sampling : " + dataResourceUid)
+            dataResourceUid
+          } else {
+            logger.info("Sampling all records")
+            "all"
+          }
         }
-      }
 
-      if (locFilePath == "") {
-        locFilePath = workingDir + "/loc-" + fileSuffix + ".txt"
-        if (rowKeyFile == "" && singleRowKey == "") {
-          s.getDistinctCoordinatesForResource(locFilePath, dataResourceUid)
-        } else if (singleRowKey != "") {
-          s.getDistinctCoordinatesForRowKey(singleRowKey)
-          exit(0)
-        } else {
-          s.getDistinctCoordinatesForFile(locFilePath, rowKeyFile)
+        if (locFilePath == "") {
+          locFilePath = workingDir + "/loc-" + fileSuffix + ".txt"
+          if (rowKeyFile == "" && singleRowKey == "") {
+            s.getDistinctCoordinatesForResource(locFilePath, dataResourceUid)
+          } else if (singleRowKey != "") {
+            s.getDistinctCoordinatesForRowKey(singleRowKey)
+            exit(0)
+          } else {
+            s.getDistinctCoordinatesForFile(locFilePath, rowKeyFile)
+          }
         }
-      }
 
-      val samplingFilePath = workingDir + "/sampling-" + fileSuffix + ".txt"
-      //generate sampling
-      s.sampling(locFilePath, samplingFilePath, singleLayerName=singleLayerName, batchSize=batchSize)
-      //load the loc table
-      s.loadSampling(samplingFilePath)
-      //clean up the file
-      if(!keepFiles){
-        logger.info("Removing temporary file: " + samplingFilePath)
-        (new File(samplingFilePath)).delete()
-        (new File(locFilePath)).delete()
+        val samplingFilePath = workingDir + "/sampling-" + fileSuffix + ".txt"
+        //generate sampling
+        s.sampling(locFilePath, samplingFilePath, singleLayerName=singleLayerName, batchSize=batchSize)
+        //load the loc table
+        s.loadSampling(samplingFilePath)
+        //clean up the file
+        if(!keepFiles){
+          logger.info("Removing temporary file: " + samplingFilePath)
+          (new File(samplingFilePath)).delete()
+          (new File(locFilePath)).delete()
+        }
       }
     }
   }
