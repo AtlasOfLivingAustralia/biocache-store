@@ -24,6 +24,23 @@ trait POSO {
 
   def hasProperty(name: String) = !lookup.get(name).isEmpty
 
+  /**
+   * Clear all properties for this POSO.
+   */
+  def clearAllProperties = {
+    propertyNames.foreach(propertyName => {
+      lookup.get(propertyName) match {
+        case Some(modelProperty) => {
+          val value = modelProperty.getter.invoke(this)
+          if(value !=null && value.toString !=""){
+            setProperty(propertyName, "")
+          }
+        }
+        case None => //do nothing
+      }
+    })
+  }
+
   def setProperty(name: String, value: String) = lookup.get(name) match {
     case Some(property) => {
       property.typeName match {
@@ -123,6 +140,10 @@ trait POSO {
   def getPropertyNames: List[String] = lookup.values.map(v => v.name).toList
 
   def toMap: Map[String, String] = {
+    toMap(false)
+  }
+
+  def toMap(includeEmpty:Boolean): Map[String, String] = {
 
     val map = new HashMap[String, String]
     lookup.values.foreach(property => {
@@ -134,7 +155,7 @@ trait POSO {
         property.typeName match {
           case "java.lang.String" => {
             val value = unparsed.asInstanceOf[String]
-            if (value != null && value != "") {
+            if (value != null && (includeEmpty || value != "")) {
               map.put(property.name, value)
             }
           }

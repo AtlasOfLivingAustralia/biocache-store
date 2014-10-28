@@ -11,7 +11,7 @@ import org.geotools.referencing.CRS
 import org.geotools.referencing.operation.DefaultCoordinateOperationFactory
 import org.geotools.geometry.GeneralDirectPosition
 import org.apache.commons.math3.util.Precision
-import au.org.ala.sds.validation.ServiceFactory
+import au.org.ala.sds.validation.{ValidationOutcome, ServiceFactory}
 import au.org.ala.biocache.caches.{TaxonProfileDAO, LocationDAO}
 import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
 import au.org.ala.biocache.model._
@@ -778,10 +778,10 @@ class LocationProcessor extends Processor {
       }
     }
   }
+
   /**
    * New version to process the sensitivity.  It allows for Pest sensitivity to be reported in the "informationWithheld" field.
    * Rework will be necessary when we work out the best way to handle these.
-   *
    */
   def processSensitivity(raw: FullRecord, processed: FullRecord, location: Location, contextualLayers: Map[String, String]) = {
     //needs to be performed for all records whether or not they are in Australia
@@ -817,56 +817,53 @@ class LocationProcessor extends Processor {
     if (outcome != null && outcome.isValid && outcome.isSensitive) {
 
       if (outcome.getResult != null) {
-        //conservation sensitive species will have a map of new values in the result
-        //the map that is returned needs to be used to update the raw record
-        val map: scala.collection.mutable.Map[java.lang.String, Object] = outcome.getResult
-        //logger.debug("SDS return map: "+map)
+
+        val map: scala.collection.mutable.Map[String, Object] = outcome.getResult
+
         //convert it to a string string map
         val stringMap = map.collect({
-          case (k, v) if v != null => if (k == "originalSensitiveValues") {
-            val osv = v.asInstanceOf[java.util.HashMap[String, String]]
+          case (key, value) if value != null => if (key == "originalSensitiveValues") {
+            val osv = value.asInstanceOf[java.util.HashMap[String, String]]
             //add the original "processed" coordinate uncertainty to the sensitive values so that it can be available if necessary
-            if (processed.location.coordinateUncertaintyInMeters != null)
+            if (processed.location.coordinateUncertaintyInMeters != null) {
               osv.put("coordinateUncertaintyInMeters.p", processed.location.coordinateUncertaintyInMeters)
-              //remove all the el/cl's from the original sensitive values
-              au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key =>osv.remove(key))
+            }
+            //remove all the el/cl's from the original sensitive values
+            au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key => osv.remove(key))
             val newv = Json.toJSON(osv)
-            (k -> newv)
+            (key -> newv)
           } else {
-            (k -> v.toString)
+            (key -> value.toString)
           }
         })
+
         //take away the values that need to be added to the processed record NOT the raw record
-        val uncertainty = map.get("generalisationInMetres")
+        val uncertainty = stringMap.get("generalisationInMetres")
         if (!uncertainty.isEmpty) {
           //we know that we have sensitised, add the uncertainty to the currently processed uncertainty
           if (StringUtils.isNotEmpty(uncertainty.get.toString)) {
             val currentUncertainty = if (StringUtils.isNotEmpty(processed.location.coordinateUncertaintyInMeters)) java.lang.Float.parseFloat(processed.location.coordinateUncertaintyInMeters) else 0
-            val newuncertainty = currentUncertainty + java.lang.Integer.parseInt(uncertainty.get.toString)
-            processed.location.coordinateUncertaintyInMeters = newuncertainty.toString
+            val newUncertainty = currentUncertainty + java.lang.Integer.parseInt(uncertainty.get.toString)
+            processed.location.coordinateUncertaintyInMeters = newUncertainty.toString
           }
           processed.location.decimalLatitude = stringMap.getOrElse("decimalLatitude", "")
           processed.location.decimalLongitude = stringMap.getOrElse("decimalLongitude", "")
           stringMap -= "generalisationInMetres"
         }
+
         processed.occurrence.informationWithheld = stringMap.getOrElse("informationWithheld", "")
         processed.occurrence.dataGeneralizations = stringMap.getOrElse("dataGeneralizations", "")
         stringMap -= "informationWithheld"
         stringMap -= "dataGeneralizations"
 
         //remove the day from the values if present
-//        if (stringMap.contains("day") || stringMap.contains("eventDate")) {
         raw.event.day = ""
         processed.event.day = ""
         processed.event.eventDate = ""
-//        }
 
         //update the raw record with whatever is left in the stringMap
         Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap)
 
-        //TODO may need to fix locality information... change this so that the generalisation
-        //is performed before the point matching to gazetteer..
-        //We want to associate the ibra layers to the sensitised point
         //update the required locality information
         logger.debug("**************** Performing lookup for new point ['" + raw.rowKey
           + "'," + processed.location.decimalLongitude + "," + processed.location.decimalLatitude + "]")
@@ -875,6 +872,16 @@ class LocationProcessor extends Processor {
           case Some((loc, el, cl)) => processed.location.lga = loc.lga
           case _ => processed.location.lga = null //unset the lga
         }
+      } else if(!outcome.isLoadable() && Config.obeySDSIsLoadable){
+          logger.warn("SDS isLoadable status is currently not being used. Would apply to: " + processed.uuid)
+//        //remove all event information
+//        raw.event.clearAllProperties
+//        raw.location.clearAllProperties
+//        Config.persistenceManager.put(raw.rowKey, "occ", raw.location.toMap(true))
+//        Config.persistenceManager.put(raw.rowKey, "occ", raw.event.toMap(true))
+//
+//        processed.event.clearAllProperties
+//        processed.location.clearAllProperties
       }
 
       if(outcome.getReport().getMessages() != null){
