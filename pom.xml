@@ -71,11 +71,6 @@
     </repositories>
     <pluginRepositories>
         <pluginRepository>
-            <id>ala-repository</id>
-            <name>ala-repository</name>
-            <url>http://maven.ala.org.au/repository</url>
-        </pluginRepository>
-        <pluginRepository>
             <id>scala-tools.org</id>
             <name>Scala-Tools Maven2 Repository</name>
             <url>https://oss.sonatype.org/content/groups/scala-tools/</url>
@@ -520,12 +515,16 @@
         </plugins>
     </reporting>
     <distributionManagement>
-        <downloadUrl>https://maven.ala.org.au/repository</downloadUrl>
         <repository>
-            <uniqueVersion>false</uniqueVersion>
-            <id>ala-repository</id>
-            <url>${ala.repository.url}</url>
+            <id>ala-repo</id>
+            <name>Internal Releases</name>
+            <url>http://ala-wonder.it.csiro.au/nexus/content/repositories/releases/</url>
         </repository>
+        <snapshotRepository>
+            <id>ala-repo</id>
+            <name>Internal Releases</name>
+            <url>http://ala-wonder.it.csiro.au/nexus/content/repositories/snapshots/</url>
+        </snapshotRepository>
     </distributionManagement>
     <profiles>
         <profile>
