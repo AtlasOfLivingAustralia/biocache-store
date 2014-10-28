@@ -6,7 +6,7 @@ branches:
   - master
 before_script:
 - mkdir -p ~/.m2; wget -q -O ~/.m2/settings.xml https://raw.githubusercontent.com/AtlasOfLivingAustralia/travis-build-configuration/master/travis_maven_settings.xml
-script: mvn clean install deploy
+script: mvn clean install deploy -DskipTests=true
 env:
   global:
   - secure: axYQe6Tn8TRXSnbaOcEBMVhGu/c7hwj5Pw9+tYMJ1eageVU6uSz2ilZgPzZBD09IiYfy9i92sugKFLTclhOKQplvUL9od+OGtPQK3Ecy8ZmEOp7Bk3SlsFtkDSXZhXdP6T5QYDpEWjJELp+5iO3QEqdAVHFJzpiHoflmNnp9eeA=
