@@ -1,5 +1,7 @@
 package au.org.ala.biocache
 
+import java.util.jar.Attributes
+
 import org.slf4j.LoggerFactory
 import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
 import au.org.ala.names.search.ALANameSearcher
@@ -14,12 +16,18 @@ import au.org.ala.biocache.persistence.{MockPersistenceManager, PostgresPersiste
 import au.org.ala.biocache.vocab.StateProvinces
 import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
 
+import scala.collection
+import scala.collection.JavaConversions
+import scala.collection.parallel.mutable
+
 /**
  * Simple singleton wrapper for Guice that reads from a properties file
  * and initialises the biocache configuration including database connections
  * and search indexes.
  */
 object Config {
+
+  import collection.JavaConversions._
 
   protected val logger = LoggerFactory.getLogger("Config")
   private val configModule = new ConfigModule()
@@ -160,11 +168,23 @@ object Config {
   val defaultCountry = configModule.properties.getProperty("default.country", "Australia")
 
   val versionProperties = {
-    //only load the properties file if it exists otherwise default to the biocache-test-config.properties on the classpath
-    val stream = this.getClass.getResourceAsStream("/git.properties")
     val properties = new Properties()
-    if(stream != null){
-      properties.load(stream)
+    //read manifest instead
+    val resources = getClass().getClassLoader().getResources("META-INF/MANIFEST.MF")
+    while (resources.hasMoreElements()) {
+      try {
+        val url = resources.nextElement()
+        val manifest = new java.util.jar.Manifest(url.openStream())
+        val title = manifest.getMainAttributes().get(new Attributes.Name("Implementation-Title"))
+        if("Biocache".equals(title)){
+          val entries:Attributes = manifest.getMainAttributes()
+          entries.entrySet().foreach(entry => {
+            properties.put(entry.getKey().toString, entry.getValue().toString)
+          })
+        }
+      } catch {
+        case e:Exception => e.printStackTrace()
+      }
     }
     properties
   }

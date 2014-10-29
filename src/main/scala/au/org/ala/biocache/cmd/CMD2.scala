@@ -73,9 +73,8 @@ object CMD2 {
     if (args.isEmpty) {
 
       val versionInfo =  if(!Config.versionProperties.isEmpty) {
-        "Commit ID: " + Config.versionProperties.getProperty("git.commit.id") +
-          "\n Build date: " +  Config.versionProperties.getProperty("git.build.time") +
-          "\n Revision date: " +  Config.versionProperties.getProperty("git.commit.time") +
+        "Commit ID: " + Config.versionProperties.getProperty("gitCommitID") +
+          "\n Build date: " +  Config.versionProperties.getProperty("buildTimestamp") +
           "\n For more detail run with --version or type 'version' at the prompt"
       } else {
         "Version information not available"

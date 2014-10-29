@@ -503,6 +503,11 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.1</version>
                 </plugin>
+                <plugin>
+                    <groupId>com.github.koraktor</groupId>
+                    <artifactId>mavanagaiata</artifactId>
+                    <version>0.7.0</version>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
@@ -537,49 +542,17 @@
                 <plugin>
                     <groupId>com.github.koraktor</groupId>
                     <artifactId>mavanagaiata</artifactId>
+                    <version>0.3.1</version>
                     <executions>
                         <execution>
-                            <id>load-git-branch</id>
+                            <id>git-commit</id>
+                            <phase>validate</phase>
                             <goals>
-                                <goal>branch</goal>
+                                <goal>commit</goal>
                             </goals>
                         </execution>
                     </executions>
                 </plugin>
-                <!--<plugin>-->
-                    <!--<groupId>pl.project13.maven</groupId>-->
-                    <!--<artifactId>git-commit-id-plugin</artifactId>-->
-                    <!--<version>2.1.3</version>-->
-                    <!--<executions>-->
-                        <!--<execution>-->
-                            <!--<goals>-->
-                                <!--<goal>revision</goal>-->
-                            <!--</goals>-->
-                        <!--</execution>-->
-                    <!--</executions>-->
-                    <!--<configuration>-->
-                        <!--<prefix>git</prefix>-->
-                        <!--<dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>-->
-                        <!--<verbose>false</verbose>-->
-                        <!--<useNativeGit>false</useNativeGit>-->
-                        <!--<dotGitDirectory>${project.basedir}/.git</dotGitDirectory>-->
-                        <!--<skipPoms>true</skipPoms>-->
-                        <!--<generateGitPropertiesFile>true</generateGitPropertiesFile>-->
-                        <!--<generateGitPropertiesFilename>src/main/resources/git.properties</generateGitPropertiesFilename>-->
-                        <!--<failOnNoGitDirectory>false</failOnNoGitDirectory>-->
-                        <!--<abbrevLength>7</abbrevLength>-->
-                        <!--<skip>false</skip>-->
-                        <!--<excludeProperties>-->
-                        <!--</excludeProperties>-->
-                        <!--<gitDescribe>-->
-                            <!--<skip>false</skip>-->
-                            <!--<always>false</always>-->
-                            <!--<abbrev>7</abbrev>-->
-                            <!--<dirty>-dirty</dirty>-->
-                            <!--<forceLongFormat>false</forceLongFormat>-->
-                        <!--</gitDescribe>-->
-                    <!--</configuration>-->
-                <!--</plugin>-->
                 <plugin>
                     <groupId>org.scala-tools</groupId>
                     <artifactId>maven-scala-plugin</artifactId>
@@ -616,29 +589,6 @@
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-eclipse-plugin</artifactId>
-                    <configuration>
-                        <downloadSources>true</downloadSources>
-                        <buildcommands>
-                            <buildcommand>ch.epfl.lamp.sdt.core.scalabuilder</buildcommand>
-                        </buildcommands>
-                        <additionalProjectnatures>
-                            <projectnature>ch.epfl.lamp.sdt.core.scalanature</projectnature>
-                        </additionalProjectnatures>
-                        <classpathContainers>
-                            <classpathContainer>org.eclipse.jdt.launching.JRE_CONTAINER</classpathContainer>
-                            <classpathContainer>ch.epfl.lamp.sdt.launching.SCALA_CONTAINER</classpathContainer>
-                        </classpathContainers>
-                        <excludes>
-                            <exclude>org.scala-lang:scala-compiler</exclude>
-                        </excludes>
-                        <sourceIncludes>
-                            <sourceInclude>**/*.scala</sourceInclude>
-                        </sourceIncludes>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
                     <executions>
                         <execution>
@@ -654,7 +604,7 @@
                                 <overWriteIfNewer>true</overWriteIfNewer>
                             </configuration>
                         </execution>
-                    </executions>
+                      </executions>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -667,6 +617,22 @@
                                 <classpathPrefix>lib/</classpathPrefix>
                                 <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
                             </manifest>
+                            <manifestEntries>
+                                <gitCommitID>${mavanagaiata.commit.id}</gitCommitID>
+                                <gitCommitAuthor>${mavanagaiata.commit.author.name}</gitCommitAuthor>
+                                <gitCommitAuthor>${mvngit.commit.author.name}</gitCommitAuthor>
+                                <gitCommitAuthorEmail>${mvngit.commit.author.email}</gitCommitAuthorEmail>
+                                <gitCommitter>${mavanagaiata.commit.committer.name}</gitCommitter>
+                                <gitCommitterEmail>${mavanagaiata.commit.committer.email}</gitCommitterEmail>
+                                <gitCommitSummary>${mavanagaiata.commit.abbrev}</gitCommitSummary>
+                                <buildTimestamp>${maven.build.timestamp}</buildTimestamp>
+                                <sha1>${mavanagaiata.commit.sha}</sha1>
+                                <Implementation-Version>${mvngit.commit.id}</Implementation-Version>
+                                <Implementation-Title>Biocache</Implementation-Title>
+                                <Comment>Manages the loading, processing, sampling and indexing of occurrence records.</Comment>
+                                <Implementation-Vendor>Atlas of Living Australia</Implementation-Vendor>
+                                <Implementation-Vendor-Id>au.org.ala</Implementation-Vendor-Id>
+                            </manifestEntries>
                         </archive>
                     </configuration>
                 </plugin>
