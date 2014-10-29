@@ -99,14 +99,10 @@
         </dependency>
         <!-- layers store -->
         <dependency>
-            <groupId>org.ala.layers</groupId>
+            <groupId>au.org.ala</groupId>
             <artifactId>layers-store</artifactId>
-            <version>1.0</version>
+            <version>1.1</version>
             <exclusions>
-                <exclusion>
-                    <artifactId>xercesImpl</artifactId>
-                    <groupId>xerces</groupId>
-                </exclusion>
                 <exclusion>
                     <artifactId>xercesImpl</artifactId>
                     <groupId>xerces</groupId>
@@ -475,7 +471,7 @@
         <dependency>
             <groupId>org.geotools.xsd</groupId>
             <artifactId>gt-xsd-gml3</artifactId>
-            <version>2.7.5</version>
+            <version>11.1</version>
         </dependency>
         <dependency>
             <groupId>org.geotools</groupId>
