@@ -392,9 +392,11 @@ class Sampling {
     var row = samples.readNext()
 
     //write sampling
-    while ((row = samples.readNext()) != null) {
+    row = samples.readNext();
+    while (row != null) {
       writer.writeNext(row)
       writer.flush
+      row = samples.readNext()
     }
   }
 
