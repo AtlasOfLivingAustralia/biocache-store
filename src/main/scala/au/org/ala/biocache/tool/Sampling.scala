@@ -389,10 +389,10 @@ class Sampling {
   /* remote sampling */
   private def processBatchRemote(writer: CSVWriter, points: Array[Array[Double]], fields: Array[String], callback:IntersectCallback=null): Unit = {
 
-    def layersStore = new LayersStore(Config.layersServiceUrl);
+    def layersStore = new LayersStore(Config.layersServiceUrl)
 
     //do sampling
-    var samples: CSVReader = new CSVReader(layersStore.sample(fields, points, callback))
+    val samples = new CSVReader(layersStore.sample(fields, points, callback))
 
     //discard header
     var row = samples.readNext()
