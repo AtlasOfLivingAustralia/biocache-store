@@ -1,12 +1,12 @@
 package au.org.ala.biocache
 
+import au.org.ala.biocache.util.LayersStore
 import java.util.jar.Attributes
 
 import org.slf4j.LoggerFactory
 import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
 import au.org.ala.names.search.ALANameSearcher
 import au.org.ala.sds.SensitiveSpeciesFinderFactory
-import org.ala.layers.client.Client
 import java.util.Properties
 import java.io.FileInputStream
 import com.google.inject.name.Names
@@ -67,6 +67,15 @@ object Config {
     SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl, nameIndex)
   }
 
+  val allowLayerLookup = {
+    val str = configModule.properties.getProperty("allow.layer.lookup")
+    if(str != null){
+      str.toBoolean
+    } else {
+      false
+    }
+  }
+
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
 
   val collectoryApiKey = configModule.properties.getProperty("registry.api.key","xxxxxxxxxxxxxxxxx")
@@ -100,7 +109,7 @@ object Config {
 
     if (str == null || str.trim == "" ){
       val dbfields = try {
-        Client.getLayerIntersectDao.getConfig.getFieldsByDB
+        new LayersStore(Config.layersServiceUrl).getFieldIds();
       } catch {
         case e:Exception => new java.util.ArrayList()
       }
@@ -113,7 +122,7 @@ object Config {
 
       if(!dbfields.isEmpty){
         for (a <- 0 until dbfields.size()) {
-          fields(a) = dbfields.get(a).getId()
+          fields(a) = dbfields.get(a)
         }
       }
       logger.info("Fields to sample: " + fields.mkString(","))
@@ -146,6 +155,8 @@ object Config {
   lazy val reindexViewDataResourceUrl = configModule.properties.getProperty("reindex.data.resource.url")
 
   lazy val layersServiceUrl = configModule.properties.getProperty("layers.service.url")
+
+  lazy val layersServiceSampling = configModule.properties.getProperty("layers.service.sampling", "true")
 
   lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
 

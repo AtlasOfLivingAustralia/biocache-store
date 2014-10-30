@@ -1,11 +1,16 @@
 package au.org.ala.biocache.caches
 
+import java.util
+
+import au.com.bytecode.opencsv.CSVReader
+import au.org.ala.biocache.util.LayersStore
+import org.ala.layers.client.Client
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import scala.collection.mutable.HashMap
-import org.ala.layers.client.Client
 import au.org.ala.biocache.model.Location
 import au.org.ala.biocache.vocab.StateProvinces
+import scala.collection.JavaConverters._
 
 /**
  * DAO for location lookups (lat, long -> locality).
@@ -170,16 +175,32 @@ object LocationDAO {
   private def doLayerIntersectForPoint(latitude:String, longitude:String) : Option[(Location, Map[String,String], Map[String,String])] = {
 
     //do a layers-store lookup
-    val layerIntersectDAO = Client.getLayerIntersectDao()
     val points = Array(Array[Double](longitude.toDouble, latitude.toDouble))
-    val samples:java.util.ArrayList[String] = layerIntersectDAO.sampling(Config.fieldsToSample, points)
+
+    var samples: java.util.ArrayList[String] = new util.ArrayList[String]()
+
+    //allow local and remote sampling
+    if ("true".equalsIgnoreCase(Config.layersServiceSampling)) {
+      var layersStore = new LayersStore(Config.layersServiceUrl);
+      val samplesReader:CSVReader = new CSVReader(layersStore.sample(Config.fieldsToSample, points));
+      val samplesRemote:util.List[Array[String]] = samplesReader.readAll();
+
+      //exclude header and longitude,latitude in the first 2 columns
+      if (samplesRemote.size() == 2) {
+        samples = new util.ArrayList[String](samplesRemote.get(1).length - 2)
+        samplesRemote.get(1).slice(2, samplesRemote.get(1).length).foreach(samples.add(_))
+      }
+    } else {
+      val layerIntersectDAO = Client.getLayerIntersectDao()
+      samples = layerIntersectDAO.sampling(Config.fieldsToSample, points)
+    }
 
     if(!samples.isEmpty){
       val values:Array[String] = samples.toArray(Array[String]())
       //create a map to store in loc
       val mapBuffer = new HashMap[String, String]
       mapBuffer += (latitudeCol -> latitude)
-      mapBuffer += (longitude -> longitude)
+      mapBuffer += (longitudeCol -> longitude)
       mapBuffer ++= (Config.fieldsToSample zip values).filter(x => x._2.trim.length != 0 && x._2 != "n/a")
       val propertyMap = mapBuffer.toMap
       val guid = getLatLongKey(latitude, longitude)
