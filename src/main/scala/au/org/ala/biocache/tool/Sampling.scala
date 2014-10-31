@@ -392,8 +392,13 @@ class Sampling {
     var row = samples.readNext()
 
     //write sampling
-    row = samples.readNext();
+    row = samples.readNext()
     while (row != null) {
+      //swap longitude and latitude
+      val lng = row(0)
+      row(0) = row(1)
+      row(1) = lng
+
       writer.writeNext(row)
       writer.flush
       row = samples.readNext()
