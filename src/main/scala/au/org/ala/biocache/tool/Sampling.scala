@@ -424,7 +424,13 @@ class Sampling {
       while (line != null) {
         try {
           val map = (header zip line).filter(x => !StringUtils.isEmpty(x._2.trim) && x._1 != "latitude" && x._1 != "longitude").toMap
-          val el = map.filter(x => x._1.startsWith("el")).map(y => y._1 -> y._2.toFloat).toMap
+          val el = map.filter(x => x._1.startsWith("el")).map(y => {
+            if(y._2 != "n/a"){
+              y._1 -> y._2.toFloat
+            } else {
+              y._1 -> null
+            }
+          }).toMap
           val cl = map.filter(x => x._1.startsWith("cl")).toMap
           LocationDAO.addLayerIntersects(line(1), line(0), cl, el)
           if (counter % 1000 == 0) {
