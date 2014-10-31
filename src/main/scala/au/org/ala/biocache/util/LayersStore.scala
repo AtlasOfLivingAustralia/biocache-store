@@ -15,24 +15,23 @@ class LayersStore ( layersStoreUrl: String) {
 
   val logger = LoggerFactory.getLogger("LayersStore")
 
-  /*
-  Sampling
-  - strings contains valid fieldIds, see getFieldIds()
-  - doubles is Array(Array(longitude,latitude))
-
-  returns the sampling csv as a Reader e.g. csv = new CSVReader(sample(strings, doubles))
+  /**
+   * Sampling
+   * - strings contains valid fieldIds, see getFieldIds()
+   * - doubles is Array(Array(longitude,latitude))
+   * returns the sampling csv as a Reader e.g. csv = new CSVReader(sample(strings, doubles))
    */
   def sample(strings: Array[String], doubles: Array[Array[Double]], callback: IntersectCallback = null): java.io.Reader = {
 
     //format inputs
-    val doublesString: StringBuilder = new StringBuilder();
+    val doublesString: StringBuilder = new StringBuilder()
     for ( i <- 0 until doubles.length ) {
       if ( i > 0) {
         doublesString.append(",")
       }
       doublesString.append(doubles(i)(1)).append(",").append(doubles(i)(0))
     }
-    val stringsString: StringBuilder = new StringBuilder();
+    val stringsString: StringBuilder = new StringBuilder()
     for ( i <- 0 until strings.length ) {
       if ( i > 0) {
         stringsString.append(",")
@@ -41,31 +40,31 @@ class LayersStore ( layersStoreUrl: String) {
     }
 
     //start
-    val statusUrl = samplingStart(stringsString.toString(), doublesString.toString());
+    val statusUrl = samplingStart(stringsString.toString(), doublesString.toString())
 
     //monitor (sleep 5s if > 200 points, else 1s)
     val sleepLength = if (doubles.length < 200) 1000 else 5000
     var (respCode, respBody, retry) = samplingStatus(statusUrl)
 
     while( retry ) {
-      Thread.sleep(sleepLength);
-      var r = samplingStatus(statusUrl)
-      respCode = r._1;
-      respBody = r._2;
-      retry = r._3;
+      Thread.sleep(sleepLength)
+      val r = samplingStatus(statusUrl)
+      respCode = r._1
+      respBody = r._2
+      retry = r._3
     }
 
     try {
-      val downloadUrl = Json.toMap(respBody).get("downloadUrl").get.asInstanceOf[String];
+      val downloadUrl = Json.toMap(respBody).get("downloadUrl").get.asInstanceOf[String]
 
       //get download stream and open as zip
       val zipInputStream: ZipInputStream = new ZipInputStream(new java.net.URL(downloadUrl).openStream())
-      zipInputStream.getNextEntry;
+      zipInputStream.getNextEntry
 
       (new InputStreamReader(zipInputStream))
     } catch {
       case _:Exception => {
-        logger.error("Failed to download from download_url: " + respBody);
+        logger.error("Failed to download from download_url: " + respBody)
         (null)
       }
     }
