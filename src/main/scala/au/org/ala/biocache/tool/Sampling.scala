@@ -394,7 +394,7 @@ class Sampling {
       //dummy info
       val intersectionFiles: Array[IntersectionFile] = new Array[IntersectionFile](fields.length)
       for (j <- 0 until fields.length) {
-        intersectionFiles(j) = new IntersectionFile(fields(j),"","","layer " + (j + 1),"","","","",null);
+        intersectionFiles(j) = new IntersectionFile(fields(j),"","","layer " + (j + 1),"","","","",null)
       }
       callback.setLayersToSample(intersectionFiles)
     }
@@ -409,8 +409,8 @@ class Sampling {
     var rowCounter: Integer = 0
     while (row != null) {
       if (callback != null && rowCounter % 500 == 0) {
-        callback.setCurrentLayer(new IntersectionFile("","","","finished. Loaded " + rowCounter, "","","","",null));
-        callback.progressMessage("Loading sampling.");
+        callback.setCurrentLayer(new IntersectionFile("","","","finished. Loaded " + rowCounter, "","","","",null))
+        callback.progressMessage("Loading sampling.")
 
       }
       rowCounter += 1
@@ -427,8 +427,8 @@ class Sampling {
     writer.flush()
 
     if (callback != null) {
-      callback.setCurrentLayer(new IntersectionFile("", "", "", "finished. Load sampling finished", "", "", "", "", null));
-      callback.progressMessage("Load sampling finished.");
+      callback.setCurrentLayer(new IntersectionFile("", "", "", "finished. Load sampling finished", "", "", "", "", null))
+      callback.progressMessage("Load sampling finished.")
     }
   }
 
@@ -456,7 +456,7 @@ class Sampling {
           val cl = map.filter(x => x._1.startsWith("cl")).toMap
           LocationDAO.addLayerIntersects(line(1), line(0), cl, el)
           if (counter % 200 == 0 && callback != null) {
-            callback.setCurrentLayer(new IntersectionFile("","","","finished. Processing loaded samples " + counter, "","","","",null));
+            callback.setCurrentLayer(new IntersectionFile("","","","finished. Processing loaded samples " + counter, "","","","",null))
             callback.progressMessage("Loading sampling.")
           }
           if (counter % 1000 == 0) {
@@ -474,6 +474,6 @@ class Sampling {
       }
       csvReader.close
     }
-    logger.info("Finished loading: " + inputFileName + " in " + (System.currentTimeMillis - startTime) + "ms");
+    logger.info("Finished loading: " + inputFileName + " in " + (System.currentTimeMillis - startTime) + "ms")
   }
 }

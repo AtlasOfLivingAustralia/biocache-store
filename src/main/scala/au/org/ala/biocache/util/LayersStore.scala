@@ -56,18 +56,18 @@ class LayersStore ( layersStoreUrl: String) {
       if (callback != null) {
         val json = Json.toMap(respBody)
         if (json.get("status").get == "waiting") {
-          callback.progressMessage("In queue for sampling.");
+          callback.progressMessage("In queue for sampling.")
         } else if (json.get("status").get == "error") {
-          callback.progressMessage("Error while sampling.");
+          callback.progressMessage("Error while sampling.")
         } else if (json.get("status").get == "finished") {
-          callback.setCurrentLayerIdx(strings.length - 1);
-          callback.setCurrentLayer(new IntersectionFile("","","","finished. Now loading", "","","","",null));
+          callback.setCurrentLayerIdx(strings.length - 1)
+          callback.setCurrentLayer(new IntersectionFile("","","","finished. Now loading", "","","","",null))
           callback.progressMessage("Loading sampling.")
         } else if (json.get("status").get == "started") {
           try {
             var pos: Integer = Integer.parseInt(String.valueOf(json.get("progress").get))
-            callback.setCurrentLayerIdx(pos);
-            callback.setCurrentLayer(new IntersectionFile("","","","layer " + (pos + 1), "","","","",null));
+            callback.setCurrentLayerIdx(pos)
+            callback.setCurrentLayer(new IntersectionFile("","","","layer " + (pos + 1), "","","","",null))
           } catch {
             case _: Exception => {
               logger.error("Failed to check progress: " + respBody)
@@ -81,9 +81,9 @@ class LayersStore ( layersStoreUrl: String) {
 
     try {
       if (callback != null) {
-        callback.setCurrentLayerIdx(strings.length - 1);
-        callback.setCurrentLayer(new IntersectionFile("","","","finished. Now loading", "","","","",null));
-        callback.progressMessage("Loading sampling.");
+        callback.setCurrentLayerIdx(strings.length - 1)
+        callback.setCurrentLayer(new IntersectionFile("","","","finished. Now loading", "","","","",null))
+        callback.progressMessage("Loading sampling.")
       }
 
       val downloadUrl = Json.toMap(respBody).get("downloadUrl").get.asInstanceOf[String]
@@ -111,7 +111,7 @@ class LayersStore ( layersStoreUrl: String) {
     val responseBody: String = Source.fromInputStream(response.getEntity().getContent()).mkString
     logger.debug("Response code: " + result.getStatusCode)
 
-    val fields: util.ArrayList[String] = new util.ArrayList[String]();
+    val fields: util.ArrayList[String] = new util.ArrayList[String]()
     val ja: JSONArray = JSONArray.fromObject(responseBody)
     for (j <- 0 until ja.size()) {
       fields.add(ja.getJSONObject(j).getString("id"))
@@ -121,9 +121,9 @@ class LayersStore ( layersStoreUrl: String) {
   }
 
   private def samplingStart(fields:String, points:String) : (String) = {
-    val (responseCode, respBody) = HttpUtil.postBody(layersStoreUrl + "/intersect/batch", "application/json", "fids=" + fields + "&points=" + points);
+    val (responseCode, respBody) = HttpUtil.postBody(layersStoreUrl + "/intersect/batch", "application/json", "fids=" + fields + "&points=" + points)
 
-    (Json.toMap(respBody).get("statusUrl").get.asInstanceOf[String]);
+    (Json.toMap(respBody).get("statusUrl").get.asInstanceOf[String])
   }
 
   private def samplingStatus(statusUrl: String) : (Int, String, Boolean) = {
