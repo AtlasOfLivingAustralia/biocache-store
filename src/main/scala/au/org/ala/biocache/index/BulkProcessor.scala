@@ -45,6 +45,8 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var forceMerge = true
     var mergeSegments = 1
     var deleteSources = false
+    var includeRowkey = true
+    var charSeparator = '\t'
 
     val parser = new OptionParser(help) {
       arg("<action>", "The action to perform. Supported values :  range, process or index, col", {
@@ -74,8 +76,16 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
       opt("c", "columns", "The columns to export", {
         v: String => columns = Some(v.split(","))
       })
+      opt("c", "columns", "The columns to export", {
+        v: String => columns = Some(v.split(","))
+      })
+      opt("erk", "exclude-rowkey", "Exclude rowkey from export.", {
+        includeRowkey = false
+      })
+      opt("sep", "char=separator", "Character separator for CSV exports. Defaults to tab.", {
+        v: String => charSeparator = v.trim().charAt(0)
+      })
       opt("sm", "skipMerge", "Force merge of segments. Default is " + forceMerge + ". For index only.", { forceMerge = false })
-
       intOpt("ms", "max segments", "Max merge segments. Default " + mergeSegments + ". For index only.", {
         v: Int => mergeSegments = v
       })
@@ -131,7 +141,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
                 if (columns.isEmpty) {
                   new ColumnReporterRunner(this, counter, startKey, endKey)
                 } else {
-                  new ColumnExporter(this, counter, startKey, endKey, columns.get.toList)
+                  new ColumnExporter(this, counter, startKey, endKey, columns.get.toList, includeRowkey, charSeparator)
                 }
               } else {
                 new Thread()
