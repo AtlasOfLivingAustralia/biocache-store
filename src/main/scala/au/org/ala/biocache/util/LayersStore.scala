@@ -1,14 +1,14 @@
 package au.org.ala.biocache.util
 
 import java.util
-import java.util.zip.ZipInputStream
 
 import net.sf.json.JSONArray
 import org.ala.layers.dao.IntersectCallback
+import org.ala.layers.dto.IntersectionFile
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.client.methods.HttpGet
 import scala.io.Source
-import java.io.InputStreamReader
+import java.io.{BufferedInputStream, InputStreamReader}
 import org.slf4j.LoggerFactory
 
 class LayersStore ( layersStoreUrl: String) {
@@ -42,8 +42,8 @@ class LayersStore ( layersStoreUrl: String) {
     //start
     val statusUrl = samplingStart(stringsString.toString(), doublesString.toString())
 
-    //monitor (sleep 5s if > 200 points, else 1s)
-    val sleepLength = if (doubles.length < 200) 1000 else 5000
+    //monitor (sleep 3s if > 1000 points, else 1s)
+    val sleepLength = if (doubles.length < 1000) 1000 else 3000
     var (respCode, respBody, retry) = samplingStatus(statusUrl)
 
     while( retry ) {
@@ -52,16 +52,46 @@ class LayersStore ( layersStoreUrl: String) {
       respCode = r._1
       respBody = r._2
       retry = r._3
+
+      if (callback != null) {
+        val json = Json.toMap(respBody)
+        if (json.get("status").get == "waiting") {
+          callback.progressMessage("In queue for sampling.");
+        } else if (json.get("status").get == "error") {
+          callback.progressMessage("Error while sampling.");
+        } else if (json.get("status").get == "finished") {
+          callback.setCurrentLayerIdx(strings.length - 1);
+          callback.setCurrentLayer(new IntersectionFile("","","","finished. Now loading", "","","","",null));
+          callback.progressMessage("Loading sampling.")
+        } else if (json.get("status").get == "started") {
+          try {
+            var pos: Integer = Integer.parseInt(String.valueOf(json.get("progress").get))
+            callback.setCurrentLayerIdx(pos);
+            callback.setCurrentLayer(new IntersectionFile("","","","layer " + (pos + 1), "","","","",null));
+          } catch {
+            case _: Exception => {
+              logger.error("Failed to check progress: " + respBody)
+              (null)
+            }
+          }
+          callback.progressMessage("Sampling " + json.get("progress") + " of " + json.get("fields") + " layers.")
+        }
+      }
     }
 
     try {
+      if (callback != null) {
+        callback.setCurrentLayerIdx(strings.length - 1);
+        callback.setCurrentLayer(new IntersectionFile("","","","finished. Now loading", "","","","",null));
+        callback.progressMessage("Loading sampling.");
+      }
+
       val downloadUrl = Json.toMap(respBody).get("downloadUrl").get.asInstanceOf[String]
 
-      //get download stream and open as zip
-      val zipInputStream: ZipInputStream = new ZipInputStream(new java.net.URL(downloadUrl).openStream())
-      zipInputStream.getNextEntry
+      //download stream as csv
+      val inputStream: BufferedInputStream = new BufferedInputStream(new java.net.URL(downloadUrl + "?csv=true").openStream())
+      (new InputStreamReader(inputStream))
 
-      (new InputStreamReader(zipInputStream))
     } catch {
       case _:Exception => {
         logger.error("Failed to download from download_url: " + respBody)
@@ -107,11 +137,11 @@ class LayersStore ( layersStoreUrl: String) {
 
     val status  = json.get("status").get
     if (status.equals("error") || status.equals("cancelled")) {
-      (result.getStatusCode, null, false)
+      (result.getStatusCode, responseBody, false)
     } else if (status.equals("finished")) {
       (result.getStatusCode, responseBody, false)
     } else {
-      (result.getStatusCode, null, true)
+      (result.getStatusCode, responseBody, true)
     }
   }
 }
