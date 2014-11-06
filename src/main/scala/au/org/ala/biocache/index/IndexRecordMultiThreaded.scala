@@ -144,7 +144,7 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
       }
       true
     }, startKey, endKey, 1000, columns: _*)
-
+    writer.flush()
     val fin = System.currentTimeMillis
     logger.info("[Exporter Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
   }
