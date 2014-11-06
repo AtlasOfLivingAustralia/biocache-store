@@ -1,11 +1,11 @@
 package au.org.ala.biocache.tool
 
 import java.io._
+import org.ala.layers.dto.IntersectionFile
 import org.apache.commons.lang.StringUtils
 import au.org.ala.biocache._
 import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
 import scala.collection.mutable.{ArrayBuffer, HashSet}
-import scala.Some
 import org.slf4j.LoggerFactory
 import org.ala.layers.dao.IntersectCallback
 import collection.mutable
@@ -13,9 +13,7 @@ import au.org.ala.biocache.processor.LocationProcessor
 import au.org.ala.biocache.caches.LocationDAO
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.util.{LayersStore, OptionParser, Json, FileHelper}
-import org.drools.core.factmodel.traits.Trait
 import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
-import scala.Some
 
 /**
  * Executable for running the sampling for a data resource.
@@ -126,7 +124,7 @@ object Sampling extends Tool with IncrementalTool {
     //generate sampling
     s.sampling(locFilePath, samplingFilePath, callback, singleLayerName)
     //load the loc table
-    s.loadSampling(samplingFilePath)
+    s.loadSampling(samplingFilePath, callback)
     //clean up the file
     logger.info("Removing temporary file: " + samplingFilePath)
     (new File(samplingFilePath)).delete()
@@ -189,7 +187,7 @@ class Sampling {
       case None => {}
     }
   }
-  
+
   def handleRecordMap(map:Map[String,String], coordinates:HashSet[String], lp:LocationProcessor){
     handleLatLongInMap(map, coordinates, lp)
 
@@ -319,7 +317,7 @@ class Sampling {
   /**
    * Run the sampling with a file
    */
-  def sampling(filePath: String, outputFilePath: String, callback:IntersectCallback = null,singleLayerName: String = "",batchSize:Int= 10000) {
+  def sampling(filePath: String, outputFilePath: String, callback:IntersectCallback = null,singleLayerName: String = "",batchSize:Int= 100000) {
 
     logger.info("********* START - TEST BATCH SAMPLING FROM FILE ***************")
     //load the CSV of points into memory
@@ -391,30 +389,53 @@ class Sampling {
 
     def layersStore = new LayersStore(Config.layersServiceUrl)
 
+    //callback setup
+    if (callback != null) {
+      //dummy info
+      val intersectionFiles: Array[IntersectionFile] = new Array[IntersectionFile](fields.length)
+      for (j <- 0 until fields.length) {
+        intersectionFiles(j) = new IntersectionFile(fields(j),"","","layer " + (j + 1),"","","","",null)
+      }
+      callback.setLayersToSample(intersectionFiles)
+    }
     //do sampling
     val samples = new CSVReader(layersStore.sample(fields, points, callback))
 
-    //discard header
-    var row = samples.readNext()
+    //header
+    var header = samples.readNext()
 
     //write sampling
-    row = samples.readNext()
+    var row = samples.readNext()
+    var rowCounter: Integer = 0
     while (row != null) {
+      if (callback != null && rowCounter % 500 == 0) {
+        callback.setCurrentLayer(new IntersectionFile("","","","finished. Loaded " + rowCounter, "","","","",null))
+        callback.progressMessage("Loading sampling.")
+
+      }
+      rowCounter += 1
+
       //swap longitude and latitude
       val lng = row(0)
       row(0) = row(1)
       row(1) = lng
 
       writer.writeNext(row)
-      writer.flush
       row = samples.readNext()
+    }
+
+    writer.flush()
+
+    if (callback != null) {
+      callback.setCurrentLayer(new IntersectionFile("", "", "", "finished. Load sampling finished", "", "", "", "", null))
+      callback.progressMessage("Load sampling finished.")
     }
   }
 
   /**
    * Load the sampling into the loc table
    */
-  def loadSampling(inputFileName: String) {
+  def loadSampling(inputFileName: String, callback: IntersectCallback = null) {
 
     logger.info("Loading the sampling into the database")
 
@@ -434,6 +455,10 @@ class Sampling {
           }).toMap
           val cl = map.filter(x => x._1.startsWith("cl")).toMap
           LocationDAO.addLayerIntersects(line(1), line(0), cl, el)
+          if (counter % 200 == 0 && callback != null) {
+            callback.setCurrentLayer(new IntersectionFile("","","","finished. Processing loaded samples " + counter, "","","","",null))
+            callback.progressMessage("Loading sampling.")
+          }
           if (counter % 1000 == 0) {
             logger.info("writing to loc:" + counter + ": records per sec: " + 1000f / (((System.currentTimeMillis - nextTime).toFloat) / 1000f))
             nextTime = System.currentTimeMillis
@@ -449,6 +474,6 @@ class Sampling {
       }
       csvReader.close
     }
-    logger.info("Finished loading: " + inputFileName + " in " + (System.currentTimeMillis - startTime) + "ms");
+    logger.info("Finished loading: " + inputFileName + " in " + (System.currentTimeMillis - startTime) + "ms")
   }
 }
