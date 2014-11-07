@@ -219,8 +219,6 @@ trait DataLoader {
    */
   def processMedia(dataResourceUid: String, fr: FullRecord) : FullRecord = {
 
-
-
     //download the media - checking if it exists already
     val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter(url => Config.blacklistedMediaUrls.forall(!url.startsWith(_)))
 
