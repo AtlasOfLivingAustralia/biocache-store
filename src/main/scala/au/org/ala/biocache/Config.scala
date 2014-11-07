@@ -8,7 +8,7 @@ import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
 import au.org.ala.names.search.ALANameSearcher
 import au.org.ala.sds.SensitiveSpeciesFinderFactory
 import java.util.Properties
-import java.io.FileInputStream
+import java.io.{File, FileInputStream}
 import com.google.inject.name.Names
 import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
@@ -19,6 +19,7 @@ import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
 import scala.collection
 import scala.collection.JavaConversions
 import scala.collection.parallel.mutable
+import scala.io.Source
 
 /**
  * Simple singleton wrapper for Guice that reads from a properties file
@@ -133,6 +134,17 @@ object Config {
       val fields = str.split(",").map(x => x.trim).toArray
       logger.info("Fields to sample: " + fields.mkString(","))
       fields
+    }
+  }
+
+  val blacklistedMediaUrls = {
+    val blacklistMediaUrlsFile = configModule.properties.getProperty("blacklist.media.file","/data/biocache/config/blacklistMediaUrls.txt")
+    if(new File(blacklistMediaUrlsFile).exists()){
+      logger.info("Using the set of blacklisted media URLs defined in: " + blacklistMediaUrlsFile)
+      Source.fromFile(new File(blacklistMediaUrlsFile)).getLines().map(_.trim()).toList
+    } else {
+      logger.info("Using the default set of blacklisted media URLs")
+      List("http://www.inaturalist.org/photos/", "http://www.flickr.com/photos/", "http://www.facebook.com/photo.php", "https://picasaweb.google.com")
     }
   }
 
