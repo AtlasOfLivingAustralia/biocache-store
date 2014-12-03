@@ -1,12 +1,3 @@
-
-release.properties
-
-src/main/resources/git.properties
-
-biocache.tgz
-
-temp/biocache-store-1.2-SNAPSHOT-distribution.zip
-
-src/test/scala/au/org/ala/biocache/PlantPestTests.scala
-
-src/test/scala/au/org/ala/biocache/PlantPestTest.scala
+*.iml
+target/*
+.idea/*

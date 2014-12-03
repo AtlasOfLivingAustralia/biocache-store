@@ -1,5 +1,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>au.org.ala</groupId>
+        <artifactId>ala-parent-pom</artifactId>
+        <version>1.0</version>
+    </parent>
+
     <groupId>au.org.ala</groupId>
     <artifactId>biocache-store</artifactId>
     <version>1.3-SNAPSHOT</version>
@@ -32,55 +39,6 @@
         <developerConnection>scm:git:git@github.com:AtlasOfLivingAustralia/biocache-store.git</developerConnection>
         <tag>HEAD</tag>
     </scm>
-    <repositories>
-        <repository>
-            <id>repo2</id>
-            <name>Maven Repo2</name>
-            <url>http://repo1.maven.org/maven2</url>
-        </repository>
-        <repository>
-            <id>ala-repository</id>
-            <name>ala-repository</name>
-            <url>http://maven.ala.org.au/repository</url>
-        </repository>
-        <repository>
-            <id>scala-tools.org</id>
-            <name>Scala-Tools Maven2 Repository</name>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </repository>
-        <repository>
-            <id>maven2-repository.dev.java.net</id>
-            <name>Java.net repository</name>
-            <url>http://download.java.net/maven/2</url>
-        </repository>
-        <repository>
-            <id>osgeo</id>
-            <name>Open Source Geospatial Foundation Repository</name>
-            <url>http://download.osgeo.org/webdav/geotools/</url>
-        </repository>
-        <repository>
-            <id>opengeo</id>
-            <name>opengeo Repository</name>
-            <url>http://repo.opengeo.org</url>
-        </repository>
-        <repository>
-            <id>gbif</id>
-            <name>gbif</name>
-            <url>http://repository.gbif.org/content/groups/gbif</url>
-        </repository>
-    </repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <id>scala-tools.org</id>
-            <name>Scala-Tools Maven2 Repository</name>
-            <url>https://oss.sonatype.org/content/groups/scala-tools/</url>
-        </pluginRepository>
-        <pluginRepository>
-            <id>repo2</id>
-            <name>Maven Repo2</name>
-            <url>http://repo1.maven.org/maven2</url>
-        </pluginRepository>
-    </pluginRepositories>
     <dependencies>
         <dependency>
             <groupId>postgresql</groupId>
@@ -519,18 +477,6 @@
             </plugin>
         </plugins>
     </reporting>
-    <distributionManagement>
-        <repository>
-            <id>ala-repo</id>
-            <name>Internal Releases</name>
-            <url>http://nexus.ala.org.au/content/repositories/releases/</url>
-        </repository>
-        <snapshotRepository>
-            <id>ala-repo</id>
-            <name>Internal Releases</name>
-            <url>http://nexus.ala.org.au/content/repositories/snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
     <profiles>
         <profile>
             <id>default</id>
