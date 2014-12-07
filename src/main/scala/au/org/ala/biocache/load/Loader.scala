@@ -27,23 +27,29 @@ object Loader extends Tool {
     var loadAll = false
 
     val parser = new OptionParser(help) {
-      arg("data-resource-uid","The data resource to process", { v:String => dataResourceUid = v })
+      arg("data-resource-uid","The data resource to load. Specify 'all' to load all", {
+        v:String =>
+          if(v == "all"){
+            loadAll = true
+          } else {
+            dataResourceUid = v
+          }
+      })
       opt("fl", "force-load", "Force the (re)load of media", { forceLoad = true })
       opt("t", "test-load", "Test the (re)load of media", { testLoad = true })
-      opt("all", "load-all", "Load all registered resources", { loadAll = true })
     }
 
     if(parser.parse(args)){
       if(loadAll){
         val l = new Loader
-        l.resourceList.foreach(resource => {
+        l.resourceList.foreach { resource => {
           val uid = resource.getOrElse("uid", "")
           val name = resource.getOrElse("name", "")
           logger.info(s"Loading resource $name, uid: $uid")
           if (uid != "") {
-            l.load(dataResourceUid, testLoad, forceLoad)
+            l.load(uid, testLoad, forceLoad)
           }
-        })
+        }}
       } else {
         logger.info("Starting to load resource: " + dataResourceUid)
         val l = new Loader
