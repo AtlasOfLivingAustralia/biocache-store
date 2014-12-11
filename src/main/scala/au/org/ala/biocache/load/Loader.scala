@@ -47,7 +47,11 @@ object Loader extends Tool {
           val name = resource.getOrElse("name", "")
           logger.info(s"Loading resource $name, uid: $uid")
           if (uid != "") {
-            l.load(uid, testLoad, forceLoad)
+            try {
+              l.load(uid, testLoad, forceLoad)
+            } catch {
+              case e:Exception => logger.error(s"Unable to load data resource with $uid. Exception message: $e.getMessage", e)
+            }
           }
         }}
       } else {

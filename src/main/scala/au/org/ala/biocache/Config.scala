@@ -77,6 +77,8 @@ object Config {
     }
   }
 
+  val solrUpdateThreads = configModule.properties.getProperty("solr.update.threads", "4").toInt
+
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
 
   val collectoryApiKey = configModule.properties.getProperty("registry.api.key","xxxxxxxxxxxxxxxxx")
