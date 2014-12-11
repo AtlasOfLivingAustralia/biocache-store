@@ -187,6 +187,14 @@ class LocationProcessor extends Processor {
         processed.location.country = countryTerm.get.canonical
       }
     }
+
+    //Try the country code
+    if( processed.location.country == null && raw.location.countryCode != null){
+      val countryCodeTerm = Countries.matchTerm(raw.location.countryCode)
+      if (!countryCodeTerm.isEmpty) {
+        processed.location.country = countryCodeTerm.get.canonical
+      }
+    }
   }
 
   /**
