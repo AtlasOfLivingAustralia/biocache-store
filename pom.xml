@@ -9,7 +9,7 @@
 
     <groupId>au.org.ala</groupId>
     <artifactId>biocache-store</artifactId>
-    <version>1.3</version>
+    <version>1.4-SNAPSHOT</version>
     <url>http://biocache.ala.org.au</url>
     <issueManagement>
         <system>GitHub</system>
@@ -37,7 +37,7 @@
         <connection>scm:git:git@github.com:AtlasOfLivingAustralia/biocache-store.git</connection>
         <url>https://github.com/AtlasOfLivingAustralia/biocache-store</url>
         <developerConnection>scm:git:git@github.com:AtlasOfLivingAustralia/biocache-store.git</developerConnection>
-        <tag>biocache-store-1.3</tag>
+        <tag>HEAD</tag>
     </scm>
     <dependencies>
         <dependency>
