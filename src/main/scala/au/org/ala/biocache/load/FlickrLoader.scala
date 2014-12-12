@@ -1,5 +1,6 @@
 package au.org.ala.biocache.load
 
+import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang.time.DateUtils
 import java.text.SimpleDateFormat
 import scala.xml.XML
@@ -290,6 +291,25 @@ class FlickrLoader extends DataLoader {
       return false
     }
 
+    val geoTags = new ListBuffer[String]() //(fr.location.country, fr.location.stateProvince, fr.location.locality)
+    if(StringUtils.isNotEmpty(fr.location.country)){
+      geoTags.append(fr.location.country.toLowerCase().trim())
+    }
+    if(StringUtils.isNotEmpty(fr.location.stateProvince)){
+      geoTags.append(fr.location.stateProvince.toLowerCase().trim())
+    }
+    if(StringUtils.isNotEmpty(fr.location.locality)){
+      geoTags.append(fr.location.locality.toLowerCase().trim())
+    }
+
+    logger.info("GEOTAGS: " + geoTags.mkString(","))
+    geoTags.foreach { geoTag =>
+      val indexOfKeyword = keywords.indexWhere(keyword => geoTag.equalsIgnoreCase(keyword))
+      if(indexOfKeyword > 0) {
+        return true
+      }
+    }
+
     //match on keywords
     val index = tags.indexWhere(
       tag => {
@@ -389,6 +409,33 @@ class FlickrLoader extends DataLoader {
       fr.location.decimalLatitude = locationElem.attribute("latitude").get.text
       fr.location.decimalLongitude = locationElem.attribute("longitude").get.text
       fr.location.coordinateUncertaintyInMeters = locationElem.attribute("accuracy").get.text
+
+
+      val countryElem =  (locationElem \\ "country")
+      if(!countryElem.isEmpty){
+        fr.location.country = countryElem.text
+      }
+
+      val localityElem =  (locationElem \\ "locality")
+      if(!localityElem.isEmpty){
+        fr.location.locality = localityElem.text
+      }
+
+      val regionElem =  (locationElem \\ "region")
+      if(!regionElem.isEmpty){
+        fr.location.stateProvince = regionElem.text
+      }
+
+      if(StringUtils.isEmpty(fr.location.locality) && !location.isEmpty){
+        fr.location.locality = location.get.text //use the owners locality
+      }
+
+//      if(!locationElem.attribute("locality").isEmpty)
+//        fr.location.locality = locationElem.attribute("locality").get.text
+//      if(!locationElem.attribute("region").isEmpty)
+//        fr.location.stateProvince = locationElem.attribute("region").get.text
+//      if(!locationElem.attribute("country").isEmpty)
+//        fr.location.country = locationElem.attribute("country").get.text
       //println("Found lat, long: " + fr.location.decimalLatitude +", " +fr.location.decimalLongitude)
     }
 
