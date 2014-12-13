@@ -105,24 +105,31 @@ object DateParser {
 
   def isValid(eventDate: EventDate): Boolean = {
 
-    val currentYear = DateUtil.getCurrentYear
+    try {
+      val currentYear = DateUtil.getCurrentYear
 
-    if (eventDate.startYear != null) {
-      val year = eventDate.startYear.toInt
-      if (year > currentYear) return false
-    }
+      if (eventDate.startYear != null) {
+        val year = eventDate.startYear.toInt
+        if (year > currentYear) return false
+      }
 
-    if (eventDate.endYear != null) {
-      val year = eventDate.endYear.toInt
-      if (year < 1600) return false
-    }
+      if (eventDate.endYear != null) {
+        val year = eventDate.endYear.toInt
+        if (year < 1600) return false
+      }
 
-    if (eventDate.startYear != null && eventDate.endYear != null) {
-      val startYear = eventDate.startYear.toInt
-      val endYear = eventDate.endYear.toInt
-      if (startYear > endYear) return false
+      if (eventDate.startYear != null && eventDate.endYear != null) {
+        val startYear = eventDate.startYear.toInt
+        val endYear = eventDate.endYear.toInt
+        if (startYear > endYear) return false
+      }
+      true
+    } catch {
+      case e: Exception => {
+        logger.debug("Exception thrown parsing date: " + eventDate, e)
+        false
+      }
     }
-    true
   }
 }
 
