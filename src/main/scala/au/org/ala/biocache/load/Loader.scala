@@ -162,6 +162,20 @@ class Loader extends DataLoader {
           else
             println("TESTING is not supported for Flickr")
         }
+        case "eol" => {
+          logger.info("EOL webservice loading")
+          val l = new EolLoader
+          if (!test) {
+            val speciesListUrl = params.getOrElse("species_list_url", "")
+            if (speciesListUrl != "") {
+              l.load(dataResourceUid, speciesListUrl)
+            } else {
+              println("speciesListUrl not configured for EOL loader")
+            }
+          } else {
+            println("TESTING is not supported for EOL")
+          }
+        }
         case "customwebservice" => {
           logger.info("custom webservice loading")
           if(!test){

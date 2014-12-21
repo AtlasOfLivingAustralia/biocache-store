@@ -5,6 +5,7 @@ import java.net.{URLEncoder}
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.util.OptionParser
+import org.slf4j.LoggerFactory
 
 import scala.io.Source
 import scala.util.parsing.json.JSON
@@ -21,7 +22,7 @@ object EolLoader {
 
     val parser = new OptionParser("Load EOL images for registered users") {
       arg("<data resource UID>", "The UID of the data resource to load", { v: String => dataResourceUid = v})
-      arg("<url>", "The url to scientific namesload", { v: String => url = v})
+      arg("<url>", "The url to scientific names load", { v: String => url = v})
     }
 
     if(parser.parse(args)){
@@ -35,12 +36,15 @@ object EolLoader {
  * Prototype loader for EOL images.x
  */
 class EolLoader extends DataLoader {
+
+  override val logger = LoggerFactory.getLogger("EolLoader")
+
   def load(dataResouceUid:String, url:String) {
     //val url = "http://130.56.248.115/solr/bie/select?wt=csv&q=rank:Species&fl=scientificName&rows=100"
     val names = Source.fromURL(url).getLines()
 
     names.foreach( name => {
-      println(name)
+      logger.info(s"Loading data for $name")
       val nameEncoded = URLEncoder.encode(name, "UTF-8")
       val searchURL = s"http://eol.org/api/search/1.0.json?q=$nameEncoded&page=1&exact=true&filter_by_taxon_concept_id=&filter_by_hierarchy_entry_id=&filter_by_string=&cache_ttl="
       val searchText = Source.fromURL(searchURL).getLines().mkString
@@ -50,7 +54,7 @@ class EolLoader extends DataLoader {
           if(!results.isEmpty && results.get.size > 0){
             val result = results.get.head
             val pageId = result.getOrElse("id", -1).asInstanceOf[Double].toInt
-            println(s"For $name pageId: $pageId")
+            logger.info(s"For $name pageId: $pageId")
             loadPage(dataResouceUid, pageId.toString)
           }
         }
@@ -83,7 +87,7 @@ class EolLoader extends DataLoader {
             agents.foreach { agent =>
               val fullName = agent.getOrElse("full_name", "no name for agent")
               val role = agent.getOrElse("role", "no name for agent")
-              println(s"agent $fullName" )
+              logger.info(s"agent $fullName" )
               if("photographer" == role){
                 photographer = fullName
               }
@@ -96,7 +100,7 @@ class EolLoader extends DataLoader {
               fullRecord.occurrence.associatedMedia = mediaURL
               load(dataResourceUID, fullRecord, List(identifier), false, true)
               Config.occurrenceDAO.addRawOccurrence(fullRecord)
-              println(s"URL $mediaURL Type: $dataType")
+              logger.info(s"URL $mediaURL Type: $dataType")
             }
           }
         }
