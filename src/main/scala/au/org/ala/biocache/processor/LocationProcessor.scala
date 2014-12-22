@@ -300,7 +300,15 @@ class LocationProcessor extends Processor {
     } else {
       //use raw values
       val (y, x, geodeticDatum) = processLatLong(raw.location.decimalLatitude,
-        raw.location.decimalLongitude, raw.location.geodeticDatum, raw.location.verbatimLatitude, raw.location.verbatimLongitude, raw.location.verbatimSRS, raw.location.easting, raw.location.northing, raw.location.zone, assertions).getOrElse((null, null, null))
+        raw.location.decimalLongitude,
+        raw.location.geodeticDatum,
+        raw.location.verbatimLatitude,
+        raw.location.verbatimLongitude,
+        raw.location.verbatimSRS,
+        raw.location.easting,
+        raw.location.northing,
+        raw.location.zone,
+        assertions).getOrElse((null, null, null))
 
       processed.location.decimalLatitude = y
       processed.location.decimalLongitude = x
@@ -343,7 +351,7 @@ class LocationProcessor extends Processor {
             }
           }
         } else {
-          assertions += QualityAssertion(AssertionCodes.UNRECOGNIZED_GEODETIC_DATUM, "Geodetic datum \"" + rawGeodeticDatum + "\" not recognized.")
+          assertions += QualityAssertion(AssertionCodes.UNRECOGNIZED_GEODETIC_DATUM, s"Geodetic datum $rawGeodeticDatum not recognized.")
           Some((rawLatitude, rawLongitude, rawGeodeticDatum))
         }
       } else {
@@ -417,7 +425,7 @@ class LocationProcessor extends Processor {
         }
       } else if (easting != null && northing != null && zone != null) {
         // Need a datum and a zone to get an epsg code for transforming easting/northing values
-        var epsgCodeKey = {
+        val epsgCodeKey = {
           if (verbatimSRS != null) {
             verbatimSRS.toUpperCase + "|" + zone
           } else {
@@ -428,8 +436,8 @@ class LocationProcessor extends Processor {
 
         if (zoneEpsgCodesMap.contains(epsgCodeKey)) {
           val crsEpsgCode = zoneEpsgCodesMap(epsgCodeKey)
-          val eastingAsDouble = easting.toDoubleWithOption;
-          val northingAsDouble = northing.toDoubleWithOption;
+          val eastingAsDouble = easting.toDoubleWithOption
+          val northingAsDouble = northing.toDoubleWithOption
 
           if (!eastingAsDouble.isEmpty && !northingAsDouble.isEmpty) {
             // Always round to 5 decimal places as easting/northing values are in metres and 0.00001 degree is approximately equal to 1m.
@@ -477,7 +485,7 @@ class LocationProcessor extends Processor {
       val directPosition = new GeneralDirectPosition(coordinate1, coordinate2)
       val wgs84LatLong = transformOp.getMathTransform().transform(directPosition, null)
 
-      //NOTE - returned coordinates are longitude, latitude, despite the fact that if coverting latitude and longitude values, they must be supplied as latitude, longitude.
+      //NOTE - returned coordinates are longitude, latitude, despite the fact that if converting latitude and longitude values, they must be supplied as latitude, longitude.
       //No idea why this is the case.
       val longitude = wgs84LatLong.getOrdinate(0)
       val latitude = wgs84LatLong.getOrdinate(1)
@@ -500,9 +508,9 @@ class LocationProcessor extends Processor {
 
     val tokens = decimalAsString.split('.')
     if (tokens.length == 2) {
-      return tokens(1).length
+      tokens(1).length
     } else {
-      return 0
+      0
     }
   }
 
