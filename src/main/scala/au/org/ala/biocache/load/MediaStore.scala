@@ -1,5 +1,9 @@
 package au.org.ala.biocache.load
 
+import java.security.MessageDigest
+
+import org.apache.commons.codec.digest.DigestUtils
+import org.restlet.engine.adapter.Call
 import org.slf4j.LoggerFactory
 import org.apache.commons.io.{FilenameUtils, FileUtils}
 import java.io._
@@ -67,6 +71,15 @@ trait MediaStore {
     urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace("?id=", "").replace("&imgType=", ".")
   } else if (urlToMedia.lastIndexOf("/") == urlToMedia.length - 1) {
     "raw"
+  } else if(Config.hashImageFileNames) {
+    val md = MessageDigest.getInstance("MD5")
+    val fileName = urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).trim()
+    val extension = FilenameUtils.getExtension(fileName)
+    if(extension !=null && extension !="") {
+      DigestUtils.md5Hex(fileName) + "." + extension
+    } else {
+      DigestUtils.md5Hex(fileName)
+    }
   } else {
     urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace(" ", "_")
   }

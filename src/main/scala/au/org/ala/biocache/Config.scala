@@ -77,6 +77,8 @@ object Config {
     }
   }
 
+  val hashImageFileNames = configModule.properties.getProperty("hash.image.filenames", "false").toBoolean
+
   val solrUpdateThreads = configModule.properties.getProperty("solr.update.threads", "4").toInt
 
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
