@@ -99,7 +99,6 @@ class EolLoader extends DataLoader {
               fullRecord.occurrence.photographer = photographer
               fullRecord.occurrence.associatedMedia = mediaURL
               load(dataResourceUID, fullRecord, List(identifier), false, true)
-              Config.occurrenceDAO.addRawOccurrence(fullRecord)
               logger.info(s"URL $mediaURL Type: $dataType")
             }
           }
