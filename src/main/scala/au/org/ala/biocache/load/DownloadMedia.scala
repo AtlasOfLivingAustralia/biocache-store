@@ -40,22 +40,23 @@ object DownloadMedia extends Tool {
   def unpackAssociatedMedia(associatedMedia:String) : Seq[String] = {
     if(associatedMedia == null || associatedMedia.trim() == 0){
       Array[String]()
+    } else if(associatedMedia.indexOf('|') > 0){
+      splitByChar(associatedMedia, '|') //pipe is the default in DwC
     } else if(associatedMedia.indexOf(';') > 0){
-      val parts = associatedMedia.split(';').map(_.trim)
-      if(parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))){
-        parts
-      } else {
-        Array(associatedMedia)
-      }
+      splitByChar(associatedMedia, ';')
     } else if(associatedMedia.indexOf(',') > 0){
-      val parts = associatedMedia.split(',').map(_.trim)
-      if(parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))){
-        parts
-      } else {
-        Array(associatedMedia)
-      }
+      splitByChar(associatedMedia, ',')
     } else {
       //no delimiters in use
+      Array(associatedMedia)
+    }
+  }
+
+  def splitByChar(associatedMedia: String, char:Char): Array[String] = {
+    val parts = associatedMedia.split(char).map(_.trim)
+    if (parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))) {
+      parts
+    } else {
       Array(associatedMedia)
     }
   }
