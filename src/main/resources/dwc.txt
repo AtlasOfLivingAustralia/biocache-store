@@ -140,9 +140,9 @@ resourceRelationshipID
 rights	imageLicence
 samplingEffort
 samplingProtocol
-scientificName	sci name	taxon name	taxonomic name	bionomial	bionomial name	binomial	binomial name
+scientificName	sci name	taxon name	taxonomic name	bionomial	bionomial name	binomial	binomial name	organismName
 scientificNameAuthorship	author	authorship	ScientificNameAuthor
-scientificNameID	nameID	sciNameID	Taxon Rank - matched
+scientificNameID	nameID	sciNameID	Taxon Rank - matched	organismID
 sex	gender
 species	bionomial	binomial name	sp	species name
 specificEpithet
