@@ -101,7 +101,7 @@ object Config {
   /** Whether or not to strictly obey the isLoadable directive from the SDS */
   val obeySDSIsLoadable = configModule.properties.getProperty("obey.sds.is.loadable", "true").toBoolean
 
-  lazy val fieldsToSample = {
+  def fieldsToSample() = {
 
     val str = configModule.properties.getProperty("sample.fields")
 
