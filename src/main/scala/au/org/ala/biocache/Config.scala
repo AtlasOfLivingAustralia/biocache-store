@@ -170,10 +170,10 @@ object Config {
 
   //layer defaults
   val stateProvinceLayerID = configModule.properties.getProperty("layer.state.province", "cl927")
-  val terrestrialBioRegionsLayerID = configModule.properties.getProperty("layer.bio.regions", "cl20")
-  val marineBioRegionsLayerID = configModule.properties.getProperty("layer.bio.regions", "cl21")
+  val terrestrialBioRegionsLayerID = configModule.properties.getProperty("layer.bio.regions.terrestrial", "cl1048")
+  val marineBioRegionsLayerID = configModule.properties.getProperty("layer.bio.regions.marine", "cl21")
   val countriesLayerID = configModule.properties.getProperty("layer.countries", "cl932")
-  val localGovLayerID = configModule.properties.getProperty("layer.countries", "cl23")
+  val localGovLayerID = configModule.properties.getProperty("layer.localgov", "cl959")
 
   //used by location processor for associating a country with an occurrence record where only stateProvince supplied
   val defaultCountry = configModule.properties.getProperty("default.country", "Australia")
