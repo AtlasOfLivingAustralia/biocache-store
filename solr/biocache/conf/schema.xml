@@ -514,9 +514,9 @@
    <field name="data_hub_uid" type="string" indexed="true" stored="true" multiValued="true"/>
    <field name="data_hub" type="string" indexed="true" stored="true" multiValued="true" />
    
-    <field name="data_provider_uid" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="data_provider_uid" type="string" indexed="true" stored="true" multiValued="false"/>
    <field name="data_provider" type="string" indexed="true" stored="true" multiValued="false" />
-   
+   <field name="dataset_name" type="string" indexed="true" stored="true" multiValued="false" />
    
    <field name="data_resource_uid" type="string" indexed="true" stored="true" multiValued="false"/>
    <field name="data_resource" type="string" indexed="true" stored="true" multiValued="false" />
@@ -600,6 +600,9 @@
    <field name="coordinate_uncertainty" type="double" indexed="true" stored="true" multiValued="false" />
    <field name="sensitive_coordinate_uncertainty" type="double" indexed="true" stored="true" multiValued="false" />
    <field name="sensitive_locality" type="string" indexed="false" stored="true" multiValued="false" />
+
+   <field name="location_id" type="string" indexed="true" stored="true" multiValued="false" />
+   <field name="event_id" type="string" indexed="true" stored="true" multiValued="false" />
    <!-- Not displayed in search results -->
    <!-- field name="lat_long_precision" type="string" indexed="false" stored="true" multiValued="false" omitNorms="false" /-->
    <!-- <field name="lat_long" type="location" indexed="true" stored="true"/> Requires SOLR 1.5 -->
@@ -624,7 +627,7 @@
    <field name="collector" type="string" indexed="true" stored="true" multiValued="false"  />
    <field name="collectors" type="string" indexed="true" stored="true" multiValued="true"  />
 
-	<field name="establishment_means" type="string" indexed="true" stored="false" multiValued="true" />	
+	<field name="establishment_means" type="string" indexed="true" stored="true" multiValued="true" />
 	<field name="exchange_number" type="string" indexed="true" stored="false" multiValued="false" />
 	<field name="duplicate_inst" type="textgen" indexed="true" stored="false" multiValued="true" />
 	<field name="original_name_usage" type="string" indexed="true" stored="false" multiValued="false" />
@@ -635,10 +638,8 @@
 	<!--  stores phenology from AVH  -->
 	<field name="life_stage" type="textgen" indexed="true" stored="false" multiValued="false" />
 
-   
    <field name="identified_by" type="string" indexed="true" stored="false" multiValued="false" omitNorms="false" />
    <field name="identified_date" type="tdate" indexed="true" stored="false" multiValued="false" omitNorms="false" />
-   
    
    <!-- TODO work out the extra search fields that are required for the issues -->
    <field name="taxonomic_kosher" type="string" indexed="true" stored="true" multiValued="false" omitNorms="true" />
@@ -717,25 +718,23 @@
    <field name="duplicate_type" type="tint" indexed="true" stored="true" multiValued="true" omitNorms="true" />
 
 <!-- Distance from expert distribution for associated species -->
-	<field name="distance_outside_expert_range" type="double" indexed="true" stored="true" multiValued="false" />
+   <field name="distance_outside_expert_range" type="double" indexed="true" stored="true" multiValued="false" />
 
 <!-- used for harvesting images into the BIE -->
-     <field name="occurrence_details" type="string" indexed="false" stored="true" multiValued="false" omitNorms="true" />
-     <field name="rights" type="string" indexed="false" stored="true" multiValued="false" omitNorms="true" />
-     <field name="photographer_s" type="string" indexed="true" stored="true" multiValued="false" omitNorms="true" />
+   <field name="occurrence_details" type="string" indexed="false" stored="true" multiValued="false" omitNorms="true" />
+   <field name="rights" type="string" indexed="false" stored="true" multiValued="false" omitNorms="true" />
+   <field name="photographer_s" type="string" indexed="true" stored="true" multiValued="false" omitNorms="true" />
 
 
-	<field name="query_assertion_uuid" type="string" indexed="true" stored="true" multiValued="true" omitNorms="true" />
-	<field name="query_assertion_type_s" type="string" indexed="true" stored="true" multiValued="true" omitNorms="true" />
+   <field name="query_assertion_uuid" type="string" indexed="true" stored="true" multiValued="true" omitNorms="true" />
+   <field name="query_assertion_type_s" type="string" indexed="true" stored="true" multiValued="true" omitNorms="true" />
 
 <!-- SOLR 4.0 Spatial Fields -->   
    <field name="quad"     type="quad"     indexed="true" stored="true"  multiValued="false" />
    <field name="geohash"  type="geohash"  indexed="true" stored="true"  multiValued="false" />
 
-
-
    <!-- Some ALA dynamic fields -->
-      <dynamicField name="*_s" type="string" indexed="true" stored="false" omitNorms="true" /> 
+   <dynamicField name="*_s" type="string" indexed="true" stored="false" omitNorms="true" />
    <dynamicField name="*_d" type="double" indexed="true" stored="true" omitNorms="true" />
    <dynamicField name="*_d_rng" type="tdouble" indexed="true" stored="false" omitNorms="true" />
    <dynamicField name="*_i" type="int" indexed="true" stored="true" omitNorms="true" /> 
@@ -786,6 +785,8 @@
    <copyField source="collection_code" dest="text"/>
    <copyField source="collection_name" dest="text"/>
    <copyField source="catalogue_number" dest="text"/>
+   <copyField source="location_id" dest="text"/>
+   <copyField source="event_id" dest="text"/>
    <copyField source="taxon_name" dest="text"/>
    <copyField source="taxon_name" dest="matched_name"/>
    <copyField source="raw_taxon_name" dest="text" />

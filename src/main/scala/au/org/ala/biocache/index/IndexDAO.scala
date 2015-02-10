@@ -130,7 +130,7 @@ trait IndexDAO {
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
     "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
-    "sensitive_locality")
+    "sensitive_locality", "event_id", "location_id", "dataset_name")
 
   /**
    * Constructs a scientific name.
@@ -482,7 +482,10 @@ trait IndexDAO {
           map.getOrElse("decimalLongitude",""),
           map.getOrElse("geodeticDatum",""),
           map.getOrElse("sex",""),
-          sensitiveMap.getOrElse("locality", "")
+          sensitiveMap.getOrElse("locality", ""),
+          map.getOrElse("eventID",""),
+          map.getOrElse("locationID",""),
+          map.getOrElse("datasetName","")
         )
       } else {
         return List()
