@@ -2,12 +2,13 @@ package au.org.ala.biocache.index
 
 import com.google.inject.Inject
 import com.google.inject.name.Named
+import org.apache.solr.internal.csv.writer.CSVWriter
 import org.slf4j.LoggerFactory
 import org.apache.solr.core.CoreContainer
 import org.apache.solr.client.solrj.{StreamingResponseCallback, SolrQuery, SolrServer}
 import au.org.ala.biocache.dao.OccurrenceDAO
-import org.apache.solr.common.{SolrDocument, SolrInputDocument}
-import java.io.{OutputStream, File}
+import org.apache.solr.common.{SolrInputField, SolrDocument, SolrInputDocument}
+import java.io.{FileWriter, OutputStream, File}
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
 import org.apache.solr.client.solrj.impl.HttpSolrServer
 import org.apache.solr.client.solrj.response.FacetField
@@ -348,7 +349,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                             commit: Boolean = false,
                             miscIndexProperties: Seq[String] = Array[String](),
                             test:Boolean = false,
-                            batchID:String = "") {
+                            batchID:String = "",
+                            csvFileWriter:FileWriter = null) {
     init
 
     //val header = getHeaderValues()
@@ -402,6 +404,20 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                     doc.addField(prop + "_s", v.get.toString())
                   }
                 }
+              }
+            })
+          }
+        }
+
+        //add additional fields to index
+        if (!Config.additionalFieldsToIndex.isEmpty) {
+          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+          if (unparsedJson != "") {
+            val map = Json.toMap(unparsedJson)
+            Config.additionalFieldsToIndex.foreach(prop => {
+              val v = map.get(prop)
+              if (v.isDefined) {
+                doc.addField(prop, v.get.toString())
               }
             })
           }
@@ -540,12 +556,20 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
             solrServer.add(doc)
             solrServer.commit(false, false, true)
 
+            if (!Config.exportIndexAsCsvPath.isEmpty) {
+              writeDocToCsv(doc, csvFileWriter)
+            }
+
           } else {
             
             currentBatch.synchronized {
-              
+
               if (!StringUtils.isEmpty(values(0))){
                 currentBatch.add(doc)
+
+                if (csvFileWriter != null) {
+                  writeDocToCsv(doc, csvFileWriter)
+                }
               }
 
               if (currentBatch.size == BATCH_SIZE || (commit && !currentBatch.isEmpty)) {
@@ -560,6 +584,52 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           }
         }
       }
+    }
+  }
+
+  //ignores "index-custom" additionalFields
+  lazy val csvHeader =
+    header :::
+    arrDefaultMiscFields.toList :::
+    List(
+      FullRecordMapper.qualityAssertionColumn,
+      FullRecordMapper.miscPropertiesColumn,
+      "assertions_passed",
+      "assertions_missing",
+      "assertions",
+      "assertions_unchecked",
+      "system_assertions",
+      "species_list_uid",
+      "assertion_user_id",
+      "query_assertion_uuid",
+      "query_assertion_type_s",
+      "suitable_modelling",
+      "species_subgroup",
+      "batch_id_s" ) :::
+    Config.fieldsToSample().toList
+
+  override def getCsvWriter() = {
+    val fw = super.getCsvWriter
+    fw.write(csvHeader.mkString("\t"))
+    fw.write("\n")
+
+    fw
+  }
+
+  def writeDocToCsv(doc: SolrInputDocument, fileWriter: FileWriter): Unit = {
+    val header : List[String] = List()
+
+    for (i <- 0 to csvHeader.length - 1) {
+      val values = doc.getFieldValues(csvHeader.get(i))
+      if (values != null && values.size() > 0) {
+        var it = values.iterator();
+        fileWriter.write(it.next().toString)
+        while (it.hasNext) {
+          fileWriter.write("|")
+          fileWriter.write(it.next().toString)
+        }
+      }
+      fileWriter.write("\t");
     }
   }
 

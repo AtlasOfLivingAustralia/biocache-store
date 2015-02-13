@@ -199,6 +199,10 @@ object Config {
     }
     properties
   }
+
+  val additionalFieldsToIndex = configModule.properties.getProperty("additional.fields.to.index", "").split(",").toList
+
+  val exportIndexAsCsvPath = configModule.properties.getProperty("export.index.as.csv.path", "")
 }
 
 /**

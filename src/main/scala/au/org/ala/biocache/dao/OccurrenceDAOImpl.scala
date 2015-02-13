@@ -862,7 +862,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     if(map.isEmpty){
       logger.debug("Unable to reindex : " + rowKey)
     } else {
-      indexDAO.indexFromMap(rowKey, map.get, batch=false)
+      var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexDAO.getCsvWriter } else { null }
+      indexDAO.indexFromMap(rowKey, map.get, batch=false, csvFileWriter = csvFileWriter)
+      if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
     }
   }
   /**
