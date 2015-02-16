@@ -439,7 +439,8 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     var check = true
-    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter } else { null }
+    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter(true) } else { null }
 
     //page through and create and index for this range
     Config.persistenceManager.pageOverAll("occ", (guid, map) => {
@@ -451,10 +452,10 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
           check = false
           //dont index the start key - ranges will exclude the start key but include the endKey
           if (!guid.equals(startKey)) {
-            indexer.indexFromMap(guid, map, commit = commit, batchID = threadId.toString, csvFileWriter = csvFileWriter)
+            indexer.indexFromMap(guid, map, commit = commit, batchID = threadId.toString, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
           }
         } else {
-          indexer.indexFromMap(guid, map, commit = commit, batchID = threadId.toString, csvFileWriter = csvFileWriter)
+          indexer.indexFromMap(guid, map, commit = commit, batchID = threadId.toString, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
         }
       } catch {
         case e:Exception => logger.error("Problem indexing record: " + guid + ""  + e.getMessage())
@@ -473,6 +474,7 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     indexer.finaliseIndex(true, true)
 
     if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
+    if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
 
     finishTime = System.currentTimeMillis
     logger.info("Total indexing time for this thread " + ((finishTime - start).toFloat) / 60000f + " minutes.")

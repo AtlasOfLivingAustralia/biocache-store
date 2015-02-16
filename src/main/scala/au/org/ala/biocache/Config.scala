@@ -209,6 +209,7 @@ object Config {
   }
 
   val exportIndexAsCsvPath = configModule.properties.getProperty("export.index.as.csv.path", "")
+  val exportIndexAsCsvPathSensitive = configModule.properties.getProperty("export.index.as.csv.path.sensitive", "")
 }
 
 /**

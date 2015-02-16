@@ -54,7 +54,8 @@ trait IndexDAO {
                    miscIndexProperties: Seq[String] = Array[String](),
                    test:Boolean = false,
                    batchID:String = "",
-                   csvFileWriter:FileWriter = null)
+                   csvFileWriter:FileWriter = null,
+                   csvFileWriterSensitive:FileWriter = null)
 
   /**
    * Truncate the current index
@@ -149,6 +150,11 @@ trait IndexDAO {
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
     "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
     "sensitive_locality") ::: Config.additionalFieldsToIndex
+
+  /**
+   * sensitive csv header columns
+   */
+  val sensitiveHeader= List("sensitive_longitude", "sensitive_latitude", "sensitive_coordinate_uncertainty", "sensitive_locality")
 
   /**
    * Constructs a scientific name.
@@ -511,10 +517,13 @@ trait IndexDAO {
     }
   }
 
-  def getCsvWriter = {
+  def getCsvWriter(sensitive : Boolean = false) = {
     var fw : FileWriter = null
-    if (Config.exportIndexAsCsvPath != null && Config.exportIndexAsCsvPath.length > 0) {
+    if (!sensitive && Config.exportIndexAsCsvPath != null && Config.exportIndexAsCsvPath.length > 0) {
       fw = new FileWriter(File.createTempFile("index.", "." + System.currentTimeMillis() + ".csv", new File(Config.exportIndexAsCsvPath)))
+    }
+    if (sensitive && Config.exportIndexAsCsvPathSensitive != null && Config.exportIndexAsCsvPathSensitive.length > 0) {
+      fw = new FileWriter(File.createTempFile("index.sensitive.", "." + System.currentTimeMillis() + ".csv", new File(Config.exportIndexAsCsvPathSensitive)))
     }
     fw
   }

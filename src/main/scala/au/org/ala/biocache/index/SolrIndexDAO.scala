@@ -350,7 +350,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                             miscIndexProperties: Seq[String] = Array[String](),
                             test:Boolean = false,
                             batchID:String = "",
-                            csvFileWriter:FileWriter = null) {
+                            csvFileWriter:FileWriter = null,
+                            csvFileWriterSensitive:FileWriter = null) {
     init
 
     //val header = getHeaderValues()
@@ -556,8 +557,12 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
             solrServer.add(doc)
             solrServer.commit(false, false, true)
 
-            if (!Config.exportIndexAsCsvPath.isEmpty) {
+            if (csvFileWriter != null) {
               writeDocToCsv(doc, csvFileWriter)
+            }
+
+            if (csvFileWriterSensitive != null) {
+              writeDocToCsv(doc, csvFileWriterSensitive)
             }
 
           } else {
@@ -569,6 +574,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
                 if (csvFileWriter != null) {
                   writeDocToCsv(doc, csvFileWriter)
+                }
+
+                if (csvFileWriterSensitive != null) {
+                  writeDocToCsv(doc, csvFileWriterSensitive)
                 }
               }
 
@@ -608,19 +617,25 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       "batch_id_s" ) :::
     Config.fieldsToSample().toList
 
-  override def getCsvWriter() = {
-    val fw = super.getCsvWriter
-    fw.write(csvHeader.mkString("\t"))
+  lazy val csvHeaderSensitive = csvHeader.filterNot( h => sensitiveHeader.contains(h) )
+
+  override def getCsvWriter(sensitive : Boolean = false) = {
+    val fw = super.getCsvWriter(sensitive)
+    if (sensitive) {
+      fw.write(csvHeaderSensitive.mkString("\t"))
+    } else {
+      fw.write(csvHeader.mkString("\t"))
+    }
     fw.write("\n")
 
     fw
   }
 
-  def writeDocToCsv(doc: SolrInputDocument, fileWriter: FileWriter): Unit = {
-    val header : List[String] = List()
+  def writeDocToCsv(doc: SolrInputDocument, fileWriter: FileWriter, sensitive: Boolean = false): Unit = {
+    val header : List[String] = if (sensitive) { csvHeaderSensitive } else { csvHeader }
 
-    for (i <- 0 to csvHeader.length - 1) {
-      val values = doc.getFieldValues(csvHeader.get(i))
+    for (i <- 0 to header.length - 1) {
+      val values = doc.getFieldValues(header.get(i))
       if (values != null && values.size() > 0) {
         var it = values.iterator();
         fileWriter.write(it.next().toString)
