@@ -261,10 +261,10 @@ object IndexRecords extends Tool with IncrementalTool {
       var finishTime = System.currentTimeMillis
       var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
       csvFileWriterList :+ csvFileWriter
-      var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter() } else { null }
-      csvFileWriterList :+ csvFileWriter
+      var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
+      csvFileWriterList :+ csvFileWriterSensitive
       indexer.init
-      val p = new StringFileWriterConsumer(queue, ids, csvFileWriter, { (rowKey, csvFileWriter) =>
+      val p = new StringFileWriterConsumer(queue, ids, csvFileWriter, csvFileWriterSensitive, { (rowKey, csvFileWriter, csvFileWriterSensitive) =>
         counter += 1
         val map = persistenceManager.get(rowKey, "occ")
         val shouldcommit = counter % 1000 == 0
