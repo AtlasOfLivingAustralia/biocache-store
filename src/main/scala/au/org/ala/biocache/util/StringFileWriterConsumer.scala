@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 /**
  * A generic threaded consumer that takes a string and FileWriter and calls the supplied proc
  */
-class StringFileWriterConsumer(q: BlockingQueue[String], id: Int, csvFileWriter: FileWriter, proc: (String, FileWriter) => Unit) extends Thread {
+class StringFileWriterConsumer(q: BlockingQueue[String], id: Int, csvFileWriter: FileWriter, csvFileWriterSensitive: FileWriter, proc: (String, FileWriter, FileWriter) => Unit) extends Thread {
 
   protected val logger = LoggerFactory.getLogger("StringFileWriterConsumer")
 
@@ -21,7 +21,7 @@ class StringFileWriterConsumer(q: BlockingQueue[String], id: Int, csvFileWriter:
         val guid = q.poll(1, java.util.concurrent.TimeUnit.SECONDS)
         if (guid != null) {
           logger.debug("Guid Consumer " + id + " is handling " + guid)
-          proc(guid, csvFileWriter)
+          proc(guid, csvFileWriter, csvFileWriterSensitive)
         }
       } catch {
         case e: Exception => e.printStackTrace()
