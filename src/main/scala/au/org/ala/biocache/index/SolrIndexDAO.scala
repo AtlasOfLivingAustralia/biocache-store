@@ -368,7 +368,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       }
       
       if (!values.isEmpty) {
-        
+
         val doc = new SolrInputDocument()
         for (i <- 0 to values.length - 1) {
           if (values(i) != "" && header(i) != "") {
@@ -633,6 +633,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   def writeDocToCsv(doc: SolrInputDocument, fileWriter: FileWriter, sensitive: Boolean = false): Unit = {
     val header : List[String] = if (sensitive) { csvHeaderSensitive } else { csvHeader }
+
+    fileWriter.write("\n")
 
     for (i <- 0 to header.length - 1) {
       val values = doc.getFieldValues(header.get(i))
