@@ -311,7 +311,13 @@ trait IndexDAO {
 
         val outlierForLayers: Array[String] = {
           val outlierForLayerStr = getValue("outlierForLayers.p", map)
-          if (outlierForLayerStr != "") Json.toStringArray(outlierForLayerStr)
+          if (outlierForLayerStr != "") {
+            try {
+              Json.toStringArray(outlierForLayerStr)
+            } catch {
+              case e:Exception => logger.warn(e.getMessage + " : " + guid); Array[String]()
+            }
+          }
           else Array()
         }
 
