@@ -1,8 +1,11 @@
 package au.org.ala.biocache.load
 
+import java.net.{URI, URL}
 import java.security.MessageDigest
 
 import org.apache.commons.codec.digest.DigestUtils
+import org.apache.http.NameValuePair
+import org.apache.http.client.utils.URLEncodedUtils
 import org.restlet.engine.adapter.Call
 import org.slf4j.LoggerFactory
 import org.apache.commons.io.{FilenameUtils, FileUtils}
@@ -208,7 +211,7 @@ object RemoteMediaStore extends MediaStore {
           (false, "", "")
         } else {
           val imageId = idArray.get(0)
-          logger.info(s"Image $urlToMedia already stored here: " + Config.remoteMediaStoreUrl + "/image/proxyImage?imageId=" + imageId )
+          logger.info(s"Image $urlToMedia already stored here: " + Config.remoteMediaStoreUrl + s"/image/proxyImage?imageId=$imageId")
           (true, extractFileName(urlToMedia), imageId.toString())
         }
       } catch {
@@ -243,6 +246,23 @@ object RemoteMediaStore extends MediaStore {
    * @return
    */
   def save(uuid: String, resourceUID: String, urlToMedia: String): Option[(String, String)] = {
+
+    //is the supplied URL an image service URL ?? If so extract imageID and return.....
+    if(urlToMedia.startsWith(Config.remoteMediaStoreUrl)){
+      logger.info("Remote media store URL recognised: " + urlToMedia)
+      //  http://images.ala.org.au/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf
+      val uri = new URI(urlToMedia)
+      val params:java.util.List[NameValuePair] = URLEncodedUtils.parse(uri, "UTF-8")
+      val param = params.get(0)
+      if(param.getName.toLowerCase == "imageid"){
+        val imageId = param.getValue()
+        val imageMetadataUrl = new URL(Config.remoteMediaStoreUrl + "/ws/getImageInfo?id=" + imageId)
+        val response = Source.fromURL(imageMetadataUrl).getLines().mkString
+        val metadata = Json.toMap(response)
+        return Some(metadata.getOrElse("originalFileName", "").toString, param.getValue())
+      }
+    }
+
     downloadToTmpFile(resourceUID, uuid, urlToMedia) match {
       case Some(tmpFile) => {
         try {
