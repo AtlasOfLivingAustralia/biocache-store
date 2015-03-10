@@ -259,6 +259,7 @@ private class ConfigModule extends AbstractModule {
     bind(classOf[DeletedRecordDAO]).to(classOf[DeletedRecordDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[DuplicateDAO]).to(classOf[DuplicateDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[ValidationRuleDAO]).to(classOf[ValidationRuleDAOImpl]).in(Scopes.SINGLETON)
+    bind(classOf[QidDAO]).to(classOf[QidDAOImpl]).in(Scopes.SINGLETON)
     logger.debug("Initialising name matching indexes")
     try {
       val nameIndexLocation = properties.getProperty("name.index.dir")
