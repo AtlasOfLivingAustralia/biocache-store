@@ -119,14 +119,14 @@ trait RangeCalculator {
  * @param endKey
  * @param columns
  */
-class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, endKey: String, columns: List[String]) extends Runnable {
+class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, endKey: String, columns: List[String], includeRowkey:Boolean, separator:Char = '\t') extends Runnable {
 
   val logger = LoggerFactory.getLogger("ColumnExporter")
 
   def run {
 
     val outWriter = new FileWriter(new File( Config.tmpWorkDir + "/fullexport" + threadId + ".txt"))
-    val writer = new CSVWriter(outWriter, '\t', '"', '\\')
+    val writer = new CSVWriter(outWriter, separator, '"', '\\')
     writer.writeNext(Array("rowKey") ++ columns.toArray[String])
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
@@ -135,7 +135,7 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
     val pageSize = 10000
     Config.persistenceManager.pageOverSelect("occ", (key, map) => {
       counter += 1
-      exportRecord(writer, columns, key, map)
+      exportRecord(writer, columns, key, map, includeRowkey)
       if (counter % pageSize == 0 && counter > 0) {
         centralCounter.addToCounter(pageSize)
         finishTime = System.currentTimeMillis
@@ -144,13 +144,17 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
       }
       true
     }, startKey, endKey, 1000, columns: _*)
-
+    writer.flush()
     val fin = System.currentTimeMillis
     logger.info("[Exporter Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
   }
 
-  def exportRecord(writer: CSVWriter, fieldsToExport: List[String], guid: String, map: Map[String, String]) {
-    val line = Array(guid) ++ (for (field <- fieldsToExport) yield map.getOrElse(field, ""))
+  def exportRecord(writer: CSVWriter, fieldsToExport: List[String], guid: String, map: Map[String, String], includeRowkey:Boolean) {
+    val line = if(includeRowkey){
+      Array(guid) ++ (for (field <- fieldsToExport) yield map.getOrElse(field, ""))
+    } else {
+      (for (field <- fieldsToExport) yield map.getOrElse(field, "")).toArray
+    }
     writer.writeNext(line)
   }
 }

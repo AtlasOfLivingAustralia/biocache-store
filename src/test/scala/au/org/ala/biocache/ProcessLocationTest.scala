@@ -12,6 +12,17 @@ import au.org.ala.biocache.model.FullRecord
  */
 @RunWith(classOf[JUnitRunner])
 class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
+
+  test("Country code only"){
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.location.countryCode = "GB"
+    (new LocationProcessor).process("test", raw, processed)
+    expectResult("United Kingdom") {
+      processed.location.country
+    }
+  }
+
 //
 //  test("Sensitive Species - Achatina fulica - cat1") {
 //

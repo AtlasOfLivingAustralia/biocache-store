@@ -10,7 +10,7 @@ import au.org.ala.biocache.dao.OccurrenceDAO
 import org.apache.solr.common.{SolrInputField, SolrDocument, SolrInputDocument}
 import java.io.{FileWriter, OutputStream, File}
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
-import org.apache.solr.client.solrj.impl.HttpSolrServer
+import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrServer, HttpSolrServer}
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.common.params.{MapSolrParams, ModifiableSolrParams}
 import java.util.Date
@@ -87,7 +87,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         }
       } else {
         logger.info("Initialising connection to SOLR server.....")
-        solrServer = new HttpSolrServer(solrHome)
+        solrServer = new ConcurrentUpdateSolrServer(solrHome, BATCH_SIZE, Config.solrUpdateThreads)
         logger.info("Initialising connection to SOLR server - done.")
       }
     }

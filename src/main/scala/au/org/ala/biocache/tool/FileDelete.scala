@@ -19,12 +19,12 @@ class FileDelete(fileName: String, useUUID: Boolean  = false, fieldDelimiter:Cha
   override def deleteFromPersistent {
     logger.info("Using file name: " + fileName)
     var counter = 0
-    getRemoteFile(fileName).readAsCSV(fieldDelimiter, '"', hdr => { List() },  (hdr, line) => {
-      logger.info("Deleting ID : " + line(0))
+    getRemoteFile(fileName).foreachLine(line => {
+      logger.info("Deleting ID : " + line)
       if (useUUID){
-        occurrenceDAO.deleteByUuid(line(0), false, true)
+        occurrenceDAO.deleteByUuid(line, false, true)
       } else {
-        occurrenceDAO.delete(line(0), false, true)
+        occurrenceDAO.delete(line, false, true)
       }
       counter += 1
     })

@@ -24,18 +24,43 @@ object Loader extends Tool {
     var dataResourceUid:String = ""
     var forceLoad = false
     var testLoad = false
+    var loadAll = false
 
     val parser = new OptionParser(help) {
-      arg("data-resource-uid","The data resource to process", {v:String => dataResourceUid = v})
-      opt("fl", "force-load", "Force the (re)load of media", {  forceLoad = true })
+      arg("data-resource-uid","The data resource to load. Specify 'all' to load all", {
+        v:String =>
+          if(v == "all"){
+            loadAll = true
+          } else {
+            dataResourceUid = v
+          }
+      })
+      opt("fl", "force-load", "Force the (re)load of media", { forceLoad = true })
       opt("t", "test-load", "Test the (re)load of media", { testLoad = true })
     }
 
     if(parser.parse(args)){
-      logger.info("Starting to load resource: " + dataResourceUid)
-      val l = new Loader
-      l.load(dataResourceUid, testLoad, forceLoad)
-      logger.info("Completed loading resource: " + dataResourceUid)
+      if(loadAll){
+        val l = new Loader
+        l.resourceList.foreach { resource => {
+          val uid = resource.getOrElse("uid", "")
+          val name = resource.getOrElse("name", "")
+          logger.info(s"Loading resource $name, uid: $uid")
+          if (uid != "") {
+            try {
+              l.load(uid, testLoad, forceLoad)
+            } catch {
+              case e:Exception => logger.error(s"Unable to load data resource with $uid. Exception message: $e.getMessage", e)
+            }
+          }
+        }}
+      } else {
+        logger.info("Starting to load resource: " + dataResourceUid)
+        val l = new Loader
+        l.load(dataResourceUid, testLoad, forceLoad)
+        logger.info("Completed loading resource: " + dataResourceUid)
+      }
+
       biocache.Config.persistenceManager.shutdown
     }
   }
@@ -136,6 +161,20 @@ class Loader extends DataLoader {
             l.load(dataResourceUid, true)
           else
             println("TESTING is not supported for Flickr")
+        }
+        case "eol" => {
+          logger.info("EOL webservice loading")
+          val l = new EolLoader
+          if (!test) {
+            val speciesListUrl = params.getOrElse("species_list_url", "")
+            if (speciesListUrl != "") {
+              l.load(dataResourceUid, speciesListUrl)
+            } else {
+              println("speciesListUrl not configured for EOL loader")
+            }
+          } else {
+            println("TESTING is not supported for EOL")
+          }
         }
         case "customwebservice" => {
           logger.info("custom webservice loading")

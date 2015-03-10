@@ -141,7 +141,7 @@ class DwCACreator {
       <files>
             <location>occurrence.csv</location>
       </files>
-            <id index="0"/>
+            <id index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
             {defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
       </core>
     </archive>

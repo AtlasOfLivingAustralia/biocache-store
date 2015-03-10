@@ -139,7 +139,7 @@ object LocationDAO {
             }
             location.ibra = map.getOrElse(Config.terrestrialBioRegionsLayerID, null)
             location.imcra = map.getOrElse(Config.marineBioRegionsLayerID, null)
-            location.country = map.getOrElse(Config.countriesLayerID, null) //NC 20130322 - this is the new layer that supersedes cl922
+            location.country = map.getOrElse(Config.countriesLayerID, null)
             location.lga = map.getOrElse(Config.localGovLayerID, null)
 
             //if the country is null but the stateProvince has a value we can assume that it is an Australian point
@@ -158,14 +158,9 @@ object LocationDAO {
           }
           case None => {
             //do a layer lookup???
-            logger.warn ("Location lookup failed for [" + latitude + "," + longitude +"] - Sampling may need to be re-ran")
-//            if(Config.allowLayerLookup){
-//              val intersection = doLayerIntersectForPoint(latitude, longitude)
-//              lock.synchronized {
-//                lru.put(uuid, intersection)
-//              }
-//              intersection
-//            } else {
+            if(!Config.fieldsToSample.isEmpty) {
+              logger.warn("Location lookup failed for [" + latitude + "," + longitude + "] - Sampling may need to be re-ran")
+            }
             None
           }
         }

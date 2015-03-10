@@ -139,7 +139,7 @@ class CassandraPersistenceManager @Inject() (
   def getFirstValuesFromIndex(entityName:String, idxColumn:String, value:String, slicePredicate:SlicePredicate) : Option[Map[String,String]] ={
     val selector = Pelops.createSelector(poolName)
     //set up the index clause information
-    val indexClause = Selector.newIndexClause(value, 1, Selector.newIndexExpression(idxColumn, IndexOperator.EQ, Bytes.fromUTF8(value) ))
+    val indexClause = Selector.newIndexClause(Bytes.EMPTY, 1, Selector.newIndexExpression(idxColumn, IndexOperator.EQ, Bytes.fromUTF8(value) ))
     try {
       val columnMap = selector.getIndexedColumns(entityName, indexClause,slicePredicate, ConsistencyLevel.ONE)
       if(columnMap != null && !columnMap.isEmpty){
@@ -406,9 +406,8 @@ class CassandraPersistenceManager @Inject() (
     //can't use this because we want to page of the column range too just in case the number of columns > than maxColumnLimit
     //pageOver(entityName, proc, pageSize, slicePredicate,true,startUuid=startUuid, endUuid=endUuid)
     var startKey = new Bytes(startUuid.getBytes)
-    var endKey = new Bytes(endUuid.getBytes)
+    val endKey = new Bytes(endUuid.getBytes)
     var keyRange = Selector.newKeyRange(startKey, endKey, pageSize+1)
-    var hasMore = true
     var counter = 0
     //Please note we are not paging by UTF8 because it is much slower
     var continue = true
@@ -425,21 +424,23 @@ class CassandraPersistenceManager @Inject() (
         //now get the remaining columns for the record
         var moreCols = true
         val uuid = buuid.toUTF8
-        var startCol = new String(columnList.get(columnList.size-1).getName(),"UTF-8")
-        while(moreCols){
-          var nextCols = get(uuid, entityName,startCol,endColumn)
-          if(nextCols.isDefined){
-            nextCols.get.remove(0) //remove the repeated item from the last set of columns
-            if(!nextCols.get.isEmpty()){
-              columnList.addAll(nextCols.get)
-              startCol = new String(columnList.get(columnList.size-1).getName(),"UTF-8")
-            } else {
-              moreCols = false
+
+        //check for empty column list
+        if(columnList != null && !columnList.isEmpty){
+
+          var startCol = new String(columnList.get(columnList.size - 1).getName(), "UTF-8")
+          while(moreCols){
+            val nextCols = get(uuid, entityName,startCol,endColumn)
+            if(nextCols.isDefined){
+              nextCols.get.remove(0) //remove the repeated item from the last set of columns
+              if(!nextCols.get.isEmpty()){
+                columnList.addAll(nextCols.get)
+                startCol = new String(columnList.get(columnList.size-1).getName(), "UTF-8")
+              } else {
+                moreCols = false
+              }
             }
           }
-        }
-
-        if(!columnList.isEmpty){
           //procedure a map of key value pairs
           val map = columnList2Map(columnList)
           //pass the record ID and the key value pair map to the proc

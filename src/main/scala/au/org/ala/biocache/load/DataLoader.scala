@@ -219,10 +219,8 @@ trait DataLoader {
    */
   def processMedia(dataResourceUid: String, fr: FullRecord) : FullRecord = {
 
-    val blacklistUrls = List("http://www.flickr.com/photos/", "http://www.facebook.com/photo.php", "https://picasaweb.google.com")
-
     //download the media - checking if it exists already
-    val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter(url => blacklistUrls.forall(!url.startsWith(_)))
+    val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter(url => Config.blacklistedMediaUrls.forall(!url.startsWith(_)))
 
     if (!filesToImport.isEmpty) {
 

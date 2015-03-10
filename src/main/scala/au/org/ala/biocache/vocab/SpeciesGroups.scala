@@ -105,7 +105,12 @@ object SpeciesGroups {
       if(snr != null){
         if(snr.isSynonym)
           snr = Config.nameIndex.searchForRecordByLsid(snr.getAcceptedLsid)
-          (Integer.parseInt(snr.getLeft()), Integer.parseInt(snr.getRight()),true)
+          if(snr != null && snr.getLeft() != null && snr.getRight() != null){
+            (Integer.parseInt(snr.getLeft()), Integer.parseInt(snr.getRight()),true)
+          } else {
+            logger.debug(v + " not recognised in the naming indexes. Please remove " + v + " from your species groups or update your indexes [1]." )
+            (-1,-1,false)
+          }
         } else {
           logger.debug(v + " has no name " )
           (-1,-1,false)
@@ -118,7 +123,13 @@ object SpeciesGroups {
         if(snr.isSynonym) {
           snr = Config.nameIndex.searchForRecordByLsid(snr.getAcceptedLsid)
         }
-        (Integer.parseInt(snr.getLeft()), Integer.parseInt(snr.getRight()),false)
+
+        if(snr != null && snr.getLeft() != null && snr.getRight() != null){
+          (Integer.parseInt(snr.getLeft()), Integer.parseInt(snr.getRight()),false)
+        } else {
+          logger.debug(v + " not recognised in the naming indexes. Please remove " + v + " from your species groups or update your indexes [2]." )
+          (-1,-1,false)
+        }
       } else {
         logger.debug(v + " has no name")
         (-1,-1,false)
