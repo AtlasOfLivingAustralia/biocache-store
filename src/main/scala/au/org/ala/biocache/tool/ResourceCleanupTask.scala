@@ -20,7 +20,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
   import FileHelper._
   val logger = LoggerFactory.getLogger("ResourceCleanupTask")
   def cmd = "resource-cleanup"
-  def desc = "Resource cleanup tool"
+  def desc = "Resource cleanup tool for removing record or columns which have not been updated since a supplied date."
 
   def main(args: Array[String]) {
 
@@ -87,7 +87,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
       }
 
       val checkDate = DateParser.parseStringToDate(lastLoadDate)
-      logger.info("Attempting to cleanup " + dataResourceUid + " based on a last load date of " + checkDate + " rows: " + removeRows + " columns: " + removeColumns + " start: " + start + " end: " + end)
+      logger.info(s"Attempting to cleanup $dataResourceUid based on a last load date of $checkDate rows: $removeRows  columns: $removeColumns, start:  $start,end:  $end.")
       if (checkDate.isDefined && columns.length == 0) {
         if (removeRows) {
           modifyRecord(dataResourceUid, checkDate.get, start, end, test)
