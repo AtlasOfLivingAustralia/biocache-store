@@ -2,14 +2,14 @@ package au.org.ala.biocache.index
 
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache._
-import java.io.File
+import java.io.{FileWriter, File}
 import java.util.Date
 import java.util.concurrent.ArrayBlockingQueue
 import au.org.ala.biocache.dao.OccurrenceDAO
 import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.persistence.PersistenceManager
-import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
+import au.org.ala.biocache.util.{StringFileWriterConsumer, FileHelper, StringConsumer, OptionParser}
 import au.org.ala.biocache.cmd.{IncrementalTool, NoArgsTool, Tool}
 
 /**
@@ -172,11 +172,13 @@ object IndexRecords extends Tool with IncrementalTool {
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
+    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
     performPaging( (guid, map) => {
       counter += 1
       ///convert EL and CL properties at this stage
       val shouldcommit = counter % 10000 == 0
-      indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, test=test)
+      indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, test=test, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (counter % pageSize == 0) {
         if(callback !=null) {
           callback.progressMessage(counter)
@@ -188,6 +190,9 @@ object IndexRecords extends Tool with IncrementalTool {
       }
       true
     }, startUuid, endUuid, checkDeleted = checkDeleted, pageSize = pageSize)
+
+    if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
+    if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
 
     finishTime = System.currentTimeMillis
     logger.info("Total indexing time " + ((finishTime-start).toFloat)/1000f + " seconds")
@@ -222,17 +227,21 @@ object IndexRecords extends Tool with IncrementalTool {
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
+    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
     rowKeys.foreach(rowKey=>{
       counter += 1
       val map = persistenceManager.get(rowKey, "occ")
       val shouldcommit = counter % 10000 == 0
-      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit=shouldcommit)
+      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit=shouldcommit, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (counter % 100 == 0) {
         finishTime = System.currentTimeMillis
         logger.debug(counter + " >> Last key : " + rowKey + ", records per sec: " + 100f / (((finishTime - startTime).toFloat) / 1000f))
         startTime = System.currentTimeMillis
       }
     })
+    if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
+    if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
     indexer.finaliseIndex(false, false)  //commit but don't optimise or shutdown
   }
 
@@ -245,17 +254,22 @@ object IndexRecords extends Tool with IncrementalTool {
   def indexListThreaded(rowKeys: File, threads: Int) {
     val queue = new ArrayBlockingQueue[String](100)
     var ids = 0
-    val pool: Array[StringConsumer] = Array.fill(threads) {
+    val csvFileWriterList : Array[FileWriter] = Array[FileWriter]()
+    val pool: Array[StringFileWriterConsumer] = Array.fill(threads) {
       var counter = 0
       var startTime = System.currentTimeMillis
       var finishTime = System.currentTimeMillis
+      var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+      csvFileWriterList :+ csvFileWriter
+      var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
+      csvFileWriterList :+ csvFileWriterSensitive
       indexer.init
-      val p = new StringConsumer(queue, ids, { rowKey =>
+      val p = new StringFileWriterConsumer(queue, ids, csvFileWriter, csvFileWriterSensitive, { (rowKey, csvFileWriter, csvFileWriterSensitive) =>
         counter += 1
         val map = persistenceManager.get(rowKey, "occ")
         val shouldcommit = counter % 1000 == 0
         if (!map.isEmpty) {
-          indexer.indexFromMap(rowKey, map.get, commit = shouldcommit)
+          indexer.indexFromMap(rowKey, map.get, commit = shouldcommit, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
         }
         //debug counter
         if (counter % 1000 == 0) {
@@ -275,6 +289,12 @@ object IndexRecords extends Tool with IncrementalTool {
     pool.foreach(t => t.shouldStop = true)
     pool.foreach(_.join)
     indexer.finaliseIndex(false, false)
+
+    csvFileWriterList.foreach( t =>
+      if ( t != null ) {
+        t.flush()
+        t.close()
+      } )
   }
 
   /**
@@ -285,19 +305,23 @@ object IndexRecords extends Tool with IncrementalTool {
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
+    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter() } else { null }
 
     file.foreachLine(line => {
       counter += 1
       val rowKey = if (line.head == '"' && line.last == '"') line.substring(1,line.length-1) else line
       val map = persistenceManager.get(rowKey, "occ")
       val shouldCommit = counter % 10000 == 0
-      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit=shouldCommit)
+      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit=shouldCommit, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (counter % 1000 == 0) {
         finishTime = System.currentTimeMillis
         logger.info(counter + " >> Last key : " + line + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
         startTime = System.currentTimeMillis
       }
     })
+    if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
+    if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
     indexer.finaliseIndex(false, shutdown)
   }
 
@@ -309,6 +333,8 @@ object IndexRecords extends Tool with IncrementalTool {
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
+    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
 
     file.foreachLine(line => {
       val uuid = line.replaceAll("\"","")
@@ -317,13 +343,15 @@ object IndexRecords extends Tool with IncrementalTool {
       val map = persistenceManager.getByIndex(uuid, "occ", "uuid")
       val shouldCommit = counter % 10000 == 0
 
-      if (!map.isEmpty) indexer.indexFromMap(uuid, map.get, commit=shouldCommit)
+      if (!map.isEmpty) indexer.indexFromMap(uuid, map.get, commit=shouldCommit, csvFileWriter=csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (counter % 1000 == 0) {
         finishTime = System.currentTimeMillis
         logger.info(counter + " >> Last key : " + line + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
         startTime = System.currentTimeMillis
       }
     })
+    if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
+    if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
 
     logger.info("Finalising index.....")
     indexer.finaliseIndex(false, true)

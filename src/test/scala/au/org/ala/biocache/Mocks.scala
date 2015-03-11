@@ -1,6 +1,6 @@
 package au.org.ala.biocache
 
-import au.org.ala.biocache.dao.{OccurrenceDAOImpl, OccurrenceDAO}
+import au.org.ala.biocache.dao.{QidDAO, QidDAOImpl, OccurrenceDAOImpl, OccurrenceDAO}
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import au.org.ala.biocache.persistence.{MockPersistenceManager, PersistenceManager}
 import org.scalatest.Ignore
@@ -21,6 +21,7 @@ class TestConfigModule extends com.google.inject.AbstractModule {
     //bind concrete implementations
     bind(classOf[OccurrenceDAO]).to(classOf[OccurrenceDAOImpl]).in(com.google.inject.Scopes.SINGLETON)
     bind(classOf[IndexDAO]).to(classOf[SolrIndexDAO]).in(com.google.inject.Scopes.SINGLETON)
+    bind(classOf[QidDAO]).to(classOf[QidDAOImpl]).in(com.google.inject.Scopes.SINGLETON)
     try {
       val nameIndex = new au.org.ala.names.search.ALANameSearcher(properties.getProperty("name.index.dir"))
       bind(classOf[au.org.ala.names.search.ALANameSearcher]).toInstance(nameIndex)

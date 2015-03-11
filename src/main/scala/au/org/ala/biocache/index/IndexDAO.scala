@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.mutable.ArrayBuffer
 import java.util.Date
 import org.apache.commons.lang.time.DateFormatUtils
-import java.io.OutputStream
+import java.io.{File, FileWriter, OutputStream}
 import scala.util.parsing.json.JSON
 import au.org.ala.biocache.processor.Processors
 import au.org.ala.biocache.dao.OccurrenceDAO
@@ -53,7 +53,9 @@ trait IndexDAO {
                    commit: Boolean = false,
                    miscIndexProperties: Seq[String] = Array[String](),
                    test:Boolean = false,
-                   batchID:String = "")
+                   batchID:String = "",
+                   csvFileWriter:FileWriter = null,
+                   csvFileWriterSensitive:FileWriter = null)
 
   /**
    * Truncate the current index
@@ -109,16 +111,33 @@ trait IndexDAO {
   }
 
   /**
+   * Returns a lat,long string expression formatted to the supplied Double format and step size.
+   *
+   * e.g. 0.02 step size
+   *
+   */
+  def getLatLongStringStep(lat: Double, lon: Double, format: String, step: Double): String = {
+    if (!lat.isNaN && !lon.isNaN) {
+      val df = new java.text.DecimalFormat(format)
+      //By some "strange" decision the default rounding model is HALF_EVEN
+      df.setRoundingMode(java.math.RoundingMode.HALF_UP)
+      df.format(Math.round(lat / step) * step) + "," + df.format(Math.round(lon / step) * step)
+    } else {
+      ""
+    }
+  }
+
+  /**
    * The header values for the CSV file.
    */
-  val header = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
+  lazy val header = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
     "data_resource", "institution_uid", "institution_code", "institution_name",
     "collection_uid", "collection_code", "collection_name", "catalogue_number",
     "taxon_concept_lsid", "occurrence_date", "occurrence_year", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
     "rank", "rank_id", "raw_taxon_name", "raw_common_name", "multimedia", "image_url", "all_image_url",
     "species_group", "country_code", "country", "lft", "rgt", "kingdom", "phylum", "class", "order",
     "family", "genus", "genus_guid", "species", "species_guid", "state", "imcra", "ibra", "places", "latitude", "longitude",
-    "lat_long", "point-1", "point-0.1", "point-0.01", "point-0.001", "point-0.0001",
+    "lat_long", "point-1", "point-0.1", "point-0.01", "point-0.02", "point-0.001", "point-0.0001",
     "year", "month", "basis_of_record", "raw_basis_of_record", "type_status",
     "raw_type_status", "taxonomic_kosher", "geospatial_kosher",  "location_remarks",
     "occurrence_remarks", "user_assertions", "collector", "state_conservation", "raw_state_conservation",
@@ -130,7 +149,12 @@ trait IndexDAO {
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
     "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
-    "sensitive_locality", "event_id", "location_id", "dataset_name")
+    "sensitive_locality", "event_id", "location_id", "dataset_name") ::: Config.additionalFieldsToIndex
+
+  /**
+   * sensitive csv header columns
+   */
+  val sensitiveHeader= List("sensitive_longitude", "sensitive_latitude", "sensitive_coordinate_uncertainty", "sensitive_locality")
 
   /**
    * Constructs a scientific name.
@@ -287,7 +311,13 @@ trait IndexDAO {
 
         val outlierForLayers: Array[String] = {
           val outlierForLayerStr = getValue("outlierForLayers.p", map)
-          if (outlierForLayerStr != "") Json.toStringArray(outlierForLayerStr)
+          if (outlierForLayerStr != "") {
+            try {
+              Json.toStringArray(outlierForLayerStr)
+            } catch {
+              case e:Exception => logger.warn(e.getMessage + " : " + guid); Array[String]()
+            }
+          }
           else Array()
         }
 
@@ -405,6 +435,7 @@ trait IndexDAO {
           getLatLongString(lat, lon, "#"),
           getLatLongString(lat, lon, "#.#"),
           getLatLongString(lat, lon, "#.##"),
+          getLatLongStringStep(lat, lon, "#.##", 0.02),
           getLatLongString(lat, lon, "#.###"),
           getLatLongString(lat, lon, "#.####"),
           getValue("year.p", map),
@@ -486,13 +517,24 @@ trait IndexDAO {
           map.getOrElse("eventID",""),
           map.getOrElse("locationID",""),
           map.getOrElse("datasetName","")
-        )
+        ) ::: Config.additionalFieldsToIndex.map(field => map.getOrElse(field, ""))
       } else {
         return List()
       }
     } catch {
       case e: Exception => logger.error(e.getMessage, e); throw e
     }
+  }
+
+  def getCsvWriter(sensitive : Boolean = false) = {
+    var fw : FileWriter = null
+    if (!sensitive && Config.exportIndexAsCsvPath != null && Config.exportIndexAsCsvPath.length > 0) {
+      fw = new FileWriter(File.createTempFile("index.", "." + System.currentTimeMillis() + ".csv", new File(Config.exportIndexAsCsvPath)))
+    }
+    if (sensitive && Config.exportIndexAsCsvPathSensitive != null && Config.exportIndexAsCsvPathSensitive.length > 0) {
+      fw = new FileWriter(File.createTempFile("index.sensitive.", "." + System.currentTimeMillis() + ".csv", new File(Config.exportIndexAsCsvPathSensitive)))
+    }
+    fw
   }
 }
 

@@ -215,6 +215,17 @@ object Config {
     }
     properties
   }
+
+  val additionalFieldsToIndex = {
+    var list = configModule.properties.getProperty("additional.fields.to.index", "").split(",").toList
+    if (list.length == 1 && list(0).length == 0) {
+      list = List()
+    }
+    list
+  }
+
+  val exportIndexAsCsvPath = configModule.properties.getProperty("export.index.as.csv.path", "")
+  val exportIndexAsCsvPathSensitive = configModule.properties.getProperty("export.index.as.csv.path.sensitive", "")
 }
 
 /**
@@ -264,6 +275,7 @@ private class ConfigModule extends AbstractModule {
     bind(classOf[DeletedRecordDAO]).to(classOf[DeletedRecordDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[DuplicateDAO]).to(classOf[DuplicateDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[ValidationRuleDAO]).to(classOf[ValidationRuleDAOImpl]).in(Scopes.SINGLETON)
+    bind(classOf[QidDAO]).to(classOf[QidDAOImpl]).in(Scopes.SINGLETON)
     logger.debug("Initialising name matching indexes")
     try {
       val nameIndexLocation = properties.getProperty("name.index.dir")

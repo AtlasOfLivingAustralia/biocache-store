@@ -120,6 +120,28 @@ class LayersStore ( layersStoreUrl: String) {
     (fields)
   }
 
+  /*
+  returns map of valid fieldIds for sampling
+  key = fieldId
+  value = display name
+   */
+  def getFieldIdsAndDisplayNames() : util.HashMap[String, String] = {
+    val httpClient = new DefaultHttpClient()
+    val httpGet = new HttpGet(layersStoreUrl + "/fieldsdb")
+    val response = httpClient.execute(httpGet)
+    val result = response.getStatusLine()
+    val responseBody: String = Source.fromInputStream(response.getEntity().getContent()).mkString
+    logger.debug("Response code: " + result.getStatusCode)
+
+    val fields: util.HashMap[String, String] = new util.HashMap[String, String]()
+    val ja: JSONArray = JSONArray.fromObject(responseBody)
+    for (j <- 0 until ja.size()) {
+      fields.put(ja.getJSONObject(j).getString("id"), ja.getJSONObject(j).getString("name"))
+    }
+
+    (fields)
+  }
+
   private def samplingStart(fields:String, points:String) : (String) = {
     val (responseCode, respBody) = HttpUtil.postBody(layersStoreUrl + "/intersect/batch", "application/json", "fids=" + fields + "&points=" + points)
 
