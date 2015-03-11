@@ -266,22 +266,17 @@ object IndexRecords extends Tool with IncrementalTool {
       indexer.init
       val p = new StringFileWriterConsumer(queue, ids, csvFileWriter, csvFileWriterSensitive, { (rowKey, csvFileWriter, csvFileWriterSensitive) =>
         counter += 1
-<<<<<<< HEAD
+
         try {
           val map = persistenceManager.get(rowKey, "occ")
           val shouldcommit = counter % 1000 == 0
           if (!map.isEmpty) {
-            indexer.indexFromMap(rowKey, map.get, commit = shouldcommit)
+            indexer.indexFromMap(rowKey, map.get, commit = shouldcommit, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
           }
         } catch {
           case e:Exception => logger.error("Problem indexing record with row key: '" + rowKey+"'.  ", e)
-=======
-        val map = persistenceManager.get(rowKey, "occ")
-        val shouldcommit = counter % 1000 == 0
-        if (!map.isEmpty) {
-          indexer.indexFromMap(rowKey, map.get, commit = shouldcommit, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
->>>>>>> origin/master
         }
+
         //debug counter
         if (counter % 1000 == 0) {
           finishTime = System.currentTimeMillis
@@ -289,6 +284,7 @@ object IndexRecords extends Tool with IncrementalTool {
           startTime = System.currentTimeMillis
         }
       })
+      
       ids += 1
       p.start
       p
