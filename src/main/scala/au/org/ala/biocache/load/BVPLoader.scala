@@ -24,6 +24,10 @@ object BVPLoader extends Tool {
     var ingestResources = false
     var syncOnly = false
     var debugOnly = false
+    var skipLoading = false
+    var skipSampling = false
+    var skipProcessing = false
+    var skipIndexing = false
     var startAt = ""
 
     val parser = new OptionParser(help) {
@@ -32,6 +36,18 @@ object BVPLoader extends Tool {
       })
       opt("sync-only", "synchronise the list of data resources. Dont ingest.", {
         syncOnly = true
+      })
+      opt("skip-loading", "Ingest but don't load.", {
+        skipLoading = true
+      })
+      opt("skip-sampling", "Ingest but don't sample.", {
+        skipSampling = true
+      })
+      opt("skip-processing", "Ingest but don't process.", {
+        skipProcessing = true
+      })
+      opt("skip-indexing", "Ingest but don't indexing.", {
+        skipIndexing = true
       })
       opt("i", "ingest", "flag to indicate all resources should be loaded", {
         ingestResources = true
@@ -66,7 +82,13 @@ object BVPLoader extends Tool {
         if (ingestResources && !syncOnly) {
           drsToIngest.foreach(drUid =>
             try {
-              IngestTool.ingestResource(drUid)
+              IngestTool.ingestResource(
+                drUid,
+                skipLoading = skipLoading,
+                skipSampling = skipSampling,
+                skipProcessing = skipProcessing,
+                skipIndexing = skipIndexing
+              )
             } catch {
               case e: Exception => logger.error(e.getMessage, e)
             }
