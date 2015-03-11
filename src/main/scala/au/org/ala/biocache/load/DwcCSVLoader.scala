@@ -129,7 +129,7 @@ class DwcCSVLoader extends DataLoader {
       if (separatorString == "\\t") '\t'
       else separatorString.toCharArray.head
     }
-    val escape = params.getOrElse("csv_escape_char","|").head
+    val escape = params.getOrElse("csv_escape_char","\\").head
     val reader = new CSVReader(new InputStreamReader(new org.apache.commons.io.input.BOMInputStream(new FileInputStream(file))), separator, quotechar, escape)
 
     logger.info("Using CSV reader with the following settings quotes: " + quotechar + " separator: " + separator + " escape: " + escape)

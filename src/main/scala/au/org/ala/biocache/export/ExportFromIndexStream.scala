@@ -1,9 +1,13 @@
 package au.org.ala.biocache.export
 
+import java.util
+
+import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.util.OptionParser
 import java.io.{File, FileWriter}
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.vocab.{ErrorCodeCategory, AssertionCodes}
 
 /**
  * Utility for exporting a list of fields from the index using SOLR streaming.
@@ -18,6 +22,7 @@ object ExportFromIndexStream extends Tool {
   var fieldsToExport = Array[String]()
   var counter = 0
   var orderFields = Array("row_key")
+  var queryAssertions = false
 
   def main(args: Array[String]) {
     val parser = new OptionParser(help) {
@@ -30,10 +35,21 @@ object ExportFromIndexStream extends Tool {
       opt("q", "query", "The SOLR query to use", {
         v: String => query = v
       })
+      opt("qa", "quality-assertions", "Include query assertions", {
+        queryAssertions = true
+      })
     }
 
     if (parser.parse(args)) {
       val fileWriter = new FileWriter(new File(outputFilePath))
+
+      //header
+      fileWriter.write(fieldsToExport.mkString("\t"))
+      if (queryAssertions) {
+        fileWriter.write(AssertionCodes.all.map(e => e.name).mkString("\t"))
+      }
+      fileWriter.write("\n")
+
       Config.indexDAO.streamIndex(map => {
         counter += 1
         if (counter % 1000 == 0) {
@@ -43,9 +59,31 @@ object ExportFromIndexStream extends Tool {
           if (map.containsKey(f)) map.get(f).toString else ""
         })
         fileWriter.write(outputLine.mkString("\t"))
+
+        if (queryAssertions) {
+          //these are multivalue fields
+          val assertions = (if (map.containsKey("assertions")) map.get("assertions") else null).asInstanceOf[util.Collection[String]]
+          val assertions_passed = (if (map.containsKey("assertions_passed")) map.get("assertions_passed") else null).asInstanceOf[util.Collection[String]]
+          val assertions_missing = (if (map.containsKey("assertions_missing")) map.get("assertions_missing") else null).asInstanceOf[util.Collection[String]]
+
+          AssertionCodes.all.map ( e => {
+            var a = e.name
+            if (assertions != null && assertions.contains(a)) {
+              fileWriter.write("\tfailed")
+            } else if (assertions_passed != null && assertions_passed.contains(a)) {
+              fileWriter.write("\tpassed")
+            } else if (assertions_missing != null && assertions_missing.contains(a)) {
+              fileWriter.write("\tmissing")
+            } else {
+              fileWriter.write("\t")
+            }
+          })
+        }
+
         fileWriter.write("\n")
         true
-      }, fieldsToExport, query, Array(), orderFields, None)
+      }, if (queryAssertions) fieldsToExport ++ Array("assertions", "assertions_passed", "assertions_missing") else fieldsToExport,
+        query, Array(), orderFields, None)
       Config.indexDAO.shutdown
       fileWriter.flush
       fileWriter.close

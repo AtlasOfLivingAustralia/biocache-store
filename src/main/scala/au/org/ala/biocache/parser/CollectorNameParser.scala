@@ -23,7 +23,7 @@ object CollectorNameParser {
   val SINGLE_NAME_PATTERN = ("(?:(?:" + titles + ")(?:[. ]|$))?([\\p{Lu}\\p{Ll}']*)").r
   val ORGANISATION_PATTERN = ("((?:.*?)?(?:" + ORGANISATION_WORDS + ")(?:.*)?)").r
   val AND = "AND|and|And|&"
-  val COLLECTOR_DELIM = ";|\"\"| - ".r;
+  val COLLECTOR_DELIM = ";|\"\"|\\|| - ".r;
   val COMMA_LIST = ",|&".r
   val suffixes = "jr|Jr|JR"
   val AND_NAME_LISTPattern = ("((?:[A-Z][. ] ?){0,3})([" + NAME_LETTERS + "][\\p{Ll}-']*)? ?([" + NAME_LETTERS + "][\\p{Ll}\\p{Lu}'-]*)? ?" + "(?:" + AND + ") ?((?:[A-Z][. ] ?){0,3})([" + NAME_LETTERS + "][\\p{Ll}'-]*)? ?([" + NAME_LETTERS + "][\\p{Ll}\\p{Lu}'-]*)?").r
