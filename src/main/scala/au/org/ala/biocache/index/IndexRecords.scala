@@ -252,10 +252,14 @@ object IndexRecords extends Tool with IncrementalTool {
       indexer.init
       val p = new StringConsumer(queue, ids, { rowKey =>
         counter += 1
-        val map = persistenceManager.get(rowKey, "occ")
-        val shouldcommit = counter % 1000 == 0
-        if (!map.isEmpty) {
-          indexer.indexFromMap(rowKey, map.get, commit = shouldcommit)
+        try {
+          val map = persistenceManager.get(rowKey, "occ")
+          val shouldcommit = counter % 1000 == 0
+          if (!map.isEmpty) {
+            indexer.indexFromMap(rowKey, map.get, commit = shouldcommit)
+          }
+        } catch {
+          case e:Exception => logger.error("Problem indexing record with row key: '" + rowKey+"'.  ", e)
         }
         //debug counter
         if (counter % 1000 == 0) {
