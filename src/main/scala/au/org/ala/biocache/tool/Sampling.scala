@@ -453,7 +453,7 @@ class Sampling {
           val el = map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
               y._1 -> y._2.toFloat
           }).toMap
-          val cl = map.filter(x => x._1.startsWith("cl")).toMap
+          val cl = map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap
           LocationDAO.addLayerIntersects(line(1), line(0), cl, el)
           if (counter % 200 == 0 && callback != null) {
             callback.setCurrentLayer(new IntersectionFile("","","","finished. Processing loaded samples " + counter, "","","","",null))
