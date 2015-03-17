@@ -1,5 +1,7 @@
 package au.org.ala.biocache.caches
 
+import java.util
+
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import scala.collection.mutable.ArrayBuffer
@@ -24,7 +26,20 @@ object TaxonSpeciesListDAO {
 
   private val lru = new org.apache.commons.collections.map.LRUMap(100000)
   private val lock : AnyRef = new Object()
-  private val validLists = Config.getProperty("specieslists","").split(",")
+  private val validLists = {
+    var splists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?isAuthoritative=eq:true"))
+    var ids = List[String]()
+    if (splists.containsKey("lists")) {
+      var authlists = splists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
+      for (a <- 0 until authlists.size()) {
+        if (authlists.get(a).containsKey("dataResourceUid")) {
+          ids = authlists.get(a).get("dataResourceUid").toString :: ids
+        }
+      }
+    }
+    ids
+  }
+
   private val prefixFields = Config.getProperty("slPrefix","stateProvince").split(",").toSet
   private val indexValues = Config.getProperty("slIndexKeys","category").split(",").toSet
   private val loadSpeciesLists = Config.getProperty("includeSpeciesLists","false").equals("true")
