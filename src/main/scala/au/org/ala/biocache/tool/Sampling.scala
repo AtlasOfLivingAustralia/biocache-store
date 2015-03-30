@@ -334,7 +334,7 @@ class Sampling {
     var points = pointsReader.loadPoints(batchSize)
     while(!points.isEmpty) {
       //do the sampling
-      if ("true".equalsIgnoreCase(Config.layersServiceSampling)) {
+      if (Config.layersServiceSampling) {
         processBatchRemote(writer, points, fields, callback)
       } else {
         processBatch(writer, points, fields, callback)

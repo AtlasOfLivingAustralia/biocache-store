@@ -59,9 +59,12 @@ class Location extends Cloneable with POSO {
   @BeanProperty var verbatimSRS:String = _
   @BeanProperty var waterBody:String = _
   //custom additional fields
-  @BeanProperty var ibra:String = _
-  @BeanProperty var ibraSubregion:String = _ //http://www.chah.org.au/hispid/terms/ibraSubregion
-  @BeanProperty var imcra:String = _
+//  @BeanProperty var ibra:String = _
+//  @BeanProperty var ibraSubregion:String = _ //http://www.chah.org.au/hispid/terms/ibraSubregion
+//  @BeanProperty var imcra:String = _
+
+
+
   @BeanProperty var lga:String = _
   //AVH additions
   @BeanProperty var generalisedLocality: String =_ ///http://wiki.tdwg.org/twiki/bin/view/ABCD/AbcdConcept0977
@@ -81,6 +84,8 @@ class Location extends Cloneable with POSO {
   var originalLocationRemarks:String=_
   var originalVerbatimLatitude:String=_
   var originalVerbatimLongitude:String=_
+  var isMarine: Boolean = false
+  var isTerrestrial: Boolean = false
 
   override def toString = ToStringBuilder.reflectionToString(this)
 

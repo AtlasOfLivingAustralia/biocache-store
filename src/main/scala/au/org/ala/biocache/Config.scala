@@ -13,12 +13,7 @@ import com.google.inject.name.Names
 import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import au.org.ala.biocache.persistence.{MockPersistenceManager, PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
-import au.org.ala.biocache.vocab.StateProvinces
 import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
-
-import scala.collection
-import scala.collection.JavaConversions
-import scala.collection.parallel.mutable
 import scala.io.Source
 
 /**
@@ -88,6 +83,8 @@ object Config {
   val loadFileStore = configModule.properties.getProperty("load.dir","/data/biocache-load/")
 
   val vocabDirectory = configModule.properties.getProperty("vocab.dir","/data/biocache/vocab/")
+
+  val layersDirectory = configModule.properties.getProperty("layers.dir","/data/biocache/layers/")
 
   val deletedFileStore = configModule.properties.getProperty("deleted.file.store","/data/biocache-delete/")
 
@@ -172,7 +169,7 @@ object Config {
 
   lazy val layersServiceUrl = configModule.properties.getProperty("layers.service.url")
 
-  lazy val layersServiceSampling = configModule.properties.getProperty("layers.service.sampling", "true")
+  lazy val layersServiceSampling = configModule.properties.getProperty("layers.service.sampling", "true").toBoolean
 
   lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
 

@@ -160,7 +160,6 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           threads.foreach(thread => thread.join)
 
           if (action == "index") {
-            //TODO - might be worth avoiding optimisation
             IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
             Config.persistenceManager.shutdown
             logger.info("Waiting to see if shutdown")

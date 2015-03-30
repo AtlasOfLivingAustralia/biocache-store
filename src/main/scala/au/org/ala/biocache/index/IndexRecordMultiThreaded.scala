@@ -443,8 +443,8 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     var check = true
-    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
-    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter(true) } else { null }
+    val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    val csvFileWriterSensitive = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter(true) } else { null }
 
     //page through and create and index for this range
     Config.persistenceManager.pageOverAll("occ", (guid, map) => {

@@ -27,10 +27,10 @@ object TaxonSpeciesListDAO {
   private val lru = new org.apache.commons.collections.map.LRUMap(100000)
   private val lock : AnyRef = new Object()
   private val validLists = {
-    var splists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?isAuthoritative=eq:true"))
+    val splists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?isAuthoritative=eq:true"))
     var ids = List[String]()
     if (splists.containsKey("lists")) {
-      var authlists = splists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
+      val authlists = splists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
       for (a <- 0 until authlists.size()) {
         if (authlists.get(a).containsKey("dataResourceUid")) {
           ids = authlists.get(a).get("dataResourceUid").toString :: ids
@@ -81,7 +81,7 @@ object TaxonSpeciesListDAO {
    * Updates the lists as configured to indicate which lists and properties are applicable for each guid
    * @return
    */
-  def updateLists():Map[String,(List[String], Map[String,String])] = {
+  def updateLists : Map[String,(List[String], Map[String,String])] = {
     logger.info("Updating the lists")
     val newMap = new scala.collection.mutable.HashMap[String, (List[String], Map[String,String])]()
     val guidsArray = new ArrayBuffer[String]()
@@ -113,13 +113,13 @@ object TaxonSpeciesListDAO {
    * @param conceptLsid
    * @return
    */
-  def getCachedListsForTaxon(conceptLsid:String):(List[String], Map[String,String])={
-    //check to see if the species list map has been intialised
+  def getCachedListsForTaxon(conceptLsid:String):(List[String], Map[String,String]) = {
+    //check to see if the species list map has been initialised
     if(speciesListMap == null){
       lock.synchronized{
         //only le the first thread actually perform the init by rechecking the null
         if(speciesListMap == null){
-          speciesListMap = updateLists()
+          speciesListMap = updateLists
         }
       }
     }
@@ -181,7 +181,7 @@ object TaxonSpeciesListDAO {
   def getValueBasedOnKVP(item:Map[String,String]):String =  if (item.getOrElse("vocabValue",null) != null) item.getOrElse("vocabValue",null) else item.getOrElse("value","")
 
   def refreshCache = lock.synchronized {
-    val tmpMap = updateLists()
+    val tmpMap = updateLists
     speciesListMap = tmpMap
   }
 }

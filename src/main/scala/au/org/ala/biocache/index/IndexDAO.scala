@@ -136,7 +136,7 @@ trait IndexDAO {
     "taxon_concept_lsid", "occurrence_date", "occurrence_year", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
     "rank", "rank_id", "raw_taxon_name", "raw_common_name", "multimedia", "image_url", "all_image_url",
     "species_group", "country_code", "country", "lft", "rgt", "kingdom", "phylum", "class", "order",
-    "family", "genus", "genus_guid", "species", "species_guid", "state", "imcra", "ibra", "places", "latitude", "longitude",
+    "family", "genus", "genus_guid", "species", "species_guid", "state", "places", "latitude", "longitude",
     "lat_long", "point-1", "point-0.1", "point-0.01", "point-0.02", "point-0.001", "point-0.0001",
     "year", "month", "basis_of_record", "raw_basis_of_record", "type_status",
     "raw_type_status", "taxonomic_kosher", "geospatial_kosher",  "location_remarks",
@@ -154,7 +154,7 @@ trait IndexDAO {
   /**
    * sensitive csv header columns
    */
-  val sensitiveHeader= List("sensitive_longitude", "sensitive_latitude", "sensitive_coordinate_uncertainty", "sensitive_locality")
+  val sensitiveHeader = List("sensitive_longitude", "sensitive_latitude", "sensitive_coordinate_uncertainty", "sensitive_locality")
 
   /**
    * Constructs a scientific name.
@@ -426,8 +426,6 @@ trait IndexDAO {
           getValue("species.p", map),
           getValue("speciesID.p", map),
           map.getOrElse("stateProvince.p", ""),
-          getValue("imcra.p", map),
-          getValue("ibra.p", map),
           getValue("lga.p", map),
           slat,
           slon,

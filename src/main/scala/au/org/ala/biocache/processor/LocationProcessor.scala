@@ -12,7 +12,7 @@ import org.geotools.referencing.operation.DefaultCoordinateOperationFactory
 import org.geotools.geometry.GeneralDirectPosition
 import org.apache.commons.math3.util.Precision
 import au.org.ala.sds.validation.{ValidationOutcome, ServiceFactory}
-import au.org.ala.biocache.caches.{TaxonProfileDAO, LocationDAO}
+import au.org.ala.biocache.caches.{SensitiveAreaDAO, TaxonProfileDAO, LocationDAO}
 import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.load.FullRecordMapper
@@ -65,6 +65,8 @@ class LocationProcessor extends Processor {
    */
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
 
+    logger.debug("Processing location for guid: " + guid)
+
     //retrieve the point
     var assertions = new ArrayBuffer[QualityAssertion]
 
@@ -82,59 +84,53 @@ class LocationProcessor extends Processor {
 
       //validate coordinate accuracy (coordinateUncertaintyInMeters) and coordinatePrecision (precision - A. Chapman)
       checkCoordinateUncertainty(raw, processed, assertions)
+    }
 
-      //generate coordinate accuracy if not supplied
-      val point = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
+    //sensitise the coordinates if necessary.  Do this last so that habitat checks etc are performed on originally supplied coordinates
+    processSensitivity(raw, processed)
 
-      if (!point.isEmpty) {
-        val (location, environmentalLayers, contextualLayers) = point.get
-        processed.locationDetermined = true
-        //add state information
-        processed.location.stateProvince = location.stateProvince
-        processed.location.ibra = location.ibra
-        processed.location.imcra = location.imcra
-        processed.location.lga = location.lga
-        processed.location.country = location.country
-        processed.el = environmentalLayers
-        processed.cl = contextualLayers
+    //generate coordinate accuracy if not supplied
+    val point = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
 
-        //add the layers that are associated with the point
-        //processed.environmentalLayers = environmentalLayers
-        //processed.contextualLayers = contextualLayers
-        //TODO find out if the EEZ layer has been include so the value can be obtained for this.
-        processed.location.habitat = {
-          if (!StringUtils.isEmpty(location.ibra)) "Terrestrial"
-          else if (!StringUtils.isEmpty(location.imcra)) "Marine"
-          else null
-        }
+    if (!point.isEmpty) {
+      val (location, environmentalLayers, contextualLayers) = point.get
+      processed.locationDetermined = true
+      //add state information
+      processed.location.stateProvince = location.stateProvince
+      processed.location.lga = location.lga
+      processed.location.country = location.country
+      processed.el = environmentalLayers
+      processed.cl = contextualLayers
 
-        //check matched stateProvince
-        checkForStateMismatch(raw, processed, assertions)
-
-        //retrieve the species profile
-        val taxonProfile = TaxonProfileDAO.getByGuid(processed.classification.taxonConceptID)
-        if (!taxonProfile.isEmpty) {
-          //add the conservation status if necessary
-          addConservationStatus(raw, processed, taxonProfile.get)
-          //check marine/non-marine
-          checkForHabitatMismatch(raw, processed, taxonProfile.get, assertions)
-        }
-
-        //sensitise the coordinates if necessary.  Do this last so that habitat checks etc are performed on originally supplied coordinates
-        try {
-          processSensitivity(raw, processed, location, contextualLayers)
-        } catch {
-          case e: Exception => logger.error("Problem processing using the SDS for record " + guid, e)
-        }
+      //add the layers that are associated with the point
+      processed.location.habitat = {
+        if (location.isTerrestrial) "Terrestrial"
+        else if (location.isMarine) "Marine"
+        else null
       }
-      assertions += QualityAssertion(AssertionCodes.LOCATION_NOT_SUPPLIED,1)
-    } else{
+
+      //check matched stateProvince
+      checkForStateMismatch(raw, processed, assertions)
+
+      //retrieve the species profile
+      val taxonProfile = TaxonProfileDAO.getByGuid(processed.classification.taxonConceptID)
+      if (!taxonProfile.isEmpty) {
+        //add the conservation status if necessary
+        addConservationStatus(raw, processed, taxonProfile.get)
+        //check marine/non-marine
+        checkForHabitatMismatch(raw, processed, taxonProfile.get, assertions)
+      }
+    }
+
+    if (processed.location.decimalLatitude == null || processed.location.decimalLongitude == null) {
       //check to see if we have any location information at all for the record
       if (raw.location.footprintWKT == null && raw.location.locality == null && raw.location.locationID == null){
         assertions += QualityAssertion(AssertionCodes.LOCATION_NOT_SUPPLIED)
       } else {
         assertions += QualityAssertion(AssertionCodes.LOCATION_NOT_SUPPLIED, 1)
       }
+    } else {
+      assertions += QualityAssertion(AssertionCodes.LOCATION_NOT_SUPPLIED,1)
     }
 
     processLocations(raw, processed, assertions)
@@ -174,7 +170,7 @@ class LocationProcessor extends Processor {
       if (!stateTerm.isEmpty) {
         processed.location.stateProvince = stateTerm.get.canonical
         //now check for sensitivity based on state
-        processSensitivity(raw, processed, processed.location, Map())
+        processSensitivity(raw, processed)
         processed.location.country = StateProvinceToCountry.map.getOrElse(processed.location.stateProvince, "")
       }
     }
@@ -202,49 +198,12 @@ class LocationProcessor extends Processor {
    */
   def processAltitudeAndDepth(guid: String, raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //check that the values are numeric
-    if (raw.location.verbatimDepth != null) {
-      val parseDepthResult = DistanceRangeParser.parse(raw.location.verbatimDepth)
-      if (parseDepthResult.isDefined){
-        val (vdepth, sourceUnit) = parseDepthResult.get
-        processed.location.verbatimDepth = vdepth.toString
-        if (vdepth > 10000)
-          assertions += QualityAssertion(AssertionCodes.DEPTH_OUT_OF_RANGE, "Depth " + vdepth + " is greater than 10,000 metres")
-        else
-          assertions += QualityAssertion(AssertionCodes.DEPTH_OUT_OF_RANGE, 1)
-        assertions += QualityAssertion(AssertionCodes.DEPTH_NON_NUMERIC, 1)
-        //check on the units
-        if(sourceUnit == Feet){
-          assertions += QualityAssertion(AssertionCodes.DEPTH_IN_FEET, "The supplied depth was in feet it has been converted to metres")
-        } else {
-          assertions += QualityAssertion(AssertionCodes.DEPTH_IN_FEET, 1)
-        }
-      } else{
-        assertions += QualityAssertion(AssertionCodes.DEPTH_NON_NUMERIC, "Can't parse verbatimDepth " + raw.location.verbatimDepth)
-      }
-    }
+    processVerbatimDepth(raw, processed, assertions)
+    processVerbatimElevation(raw, processed, assertions)
+    processMinMaxDepth(raw, processed, assertions)
+  }
 
-    if (raw.location.verbatimElevation != null) {
-      val parseElevationResult = DistanceRangeParser.parse(raw.location.verbatimElevation)
-      if(parseElevationResult.isDefined){
-        val (velevation, sourceUnit) = parseElevationResult.get
-        processed.location.verbatimElevation = velevation.toString
-        if (velevation > 10000 || velevation < -100){
-          assertions += QualityAssertion(AssertionCodes.ALTITUDE_OUT_OF_RANGE, "Elevation " + velevation + " is greater than 10,000 metres or less than -100 metres.")
-        } else {
-          assertions += QualityAssertion(AssertionCodes.ALTITUDE_OUT_OF_RANGE, 1)
-        }
-        assertions += QualityAssertion(AssertionCodes.ALTITUDE_NON_NUMERIC,1)
-
-        if(sourceUnit == Feet){
-          assertions += QualityAssertion(AssertionCodes.ALTITUDE_IN_FEET, "The supplied altitude was in feet it has been converted to metres")
-        } else {
-          assertions += QualityAssertion(AssertionCodes.ALTITUDE_IN_FEET , 1)
-        }
-      } else {
-        assertions += QualityAssertion(AssertionCodes.ALTITUDE_NON_NUMERIC, "Can't parse verbatimElevation " + raw.location.verbatimElevation)
-      }
-    }
-
+  def processMinMaxDepth(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
     //check for max and min reversals
     if (raw.location.minimumDepthInMeters != null && raw.location.maximumDepthInMeters != null) {
       try {
@@ -261,7 +220,7 @@ class LocationProcessor extends Processor {
         }
       }
       catch {
-        case _:Exception =>
+        case e: Exception => logger.debug("Exception thrown processing minimumDepthInMeters:" + e.getMessage())
       }
     }
 
@@ -276,10 +235,57 @@ class LocationProcessor extends Processor {
         } else {
           processed.location.minimumElevationInMeters = min.toString
           processed.location.maximumElevationInMeters = max.toString
-          assertions += QualityAssertion(AssertionCodes.MIN_MAX_ALTITUDE_REVERSED,1)
+          assertions += QualityAssertion(AssertionCodes.MIN_MAX_ALTITUDE_REVERSED, 1)
         }
       } catch {
-        case e:Exception => logger.debug("Exception thrown processing elevation:" + e.getMessage())
+        case e: Exception => logger.debug("Exception thrown processing elevation:" + e.getMessage())
+      }
+    }
+  }
+
+  def processVerbatimElevation(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
+    if (raw.location.verbatimElevation != null) {
+      val parseElevationResult = DistanceRangeParser.parse(raw.location.verbatimElevation)
+      if (parseElevationResult.isDefined) {
+        val (velevation, sourceUnit) = parseElevationResult.get
+        processed.location.verbatimElevation = velevation.toString
+        if (velevation > 10000 || velevation < -100) {
+          assertions += QualityAssertion(AssertionCodes.ALTITUDE_OUT_OF_RANGE, "Elevation " + velevation + " is greater than 10,000 metres or less than -100 metres.")
+        } else {
+          assertions += QualityAssertion(AssertionCodes.ALTITUDE_OUT_OF_RANGE, 1)
+        }
+        assertions += QualityAssertion(AssertionCodes.ALTITUDE_NON_NUMERIC, 1)
+
+        if (sourceUnit == Feet) {
+          assertions += QualityAssertion(AssertionCodes.ALTITUDE_IN_FEET, "The supplied altitude was in feet it has been converted to metres")
+        } else {
+          assertions += QualityAssertion(AssertionCodes.ALTITUDE_IN_FEET, 1)
+        }
+      } else {
+        assertions += QualityAssertion(AssertionCodes.ALTITUDE_NON_NUMERIC, "Can't parse verbatimElevation " + raw.location.verbatimElevation)
+      }
+    }
+  }
+
+  def processVerbatimDepth(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
+    if (raw.location.verbatimDepth != null) {
+      val parseDepthResult = DistanceRangeParser.parse(raw.location.verbatimDepth)
+      if (parseDepthResult.isDefined) {
+        val (vdepth, sourceUnit) = parseDepthResult.get
+        processed.location.verbatimDepth = vdepth.toString
+        if (vdepth > 10000)
+          assertions += QualityAssertion(AssertionCodes.DEPTH_OUT_OF_RANGE, "Depth " + vdepth + " is greater than 10,000 metres")
+        else
+          assertions += QualityAssertion(AssertionCodes.DEPTH_OUT_OF_RANGE, 1)
+        assertions += QualityAssertion(AssertionCodes.DEPTH_NON_NUMERIC, 1)
+        //check on the units
+        if (sourceUnit == Feet) {
+          assertions += QualityAssertion(AssertionCodes.DEPTH_IN_FEET, "The supplied depth was in feet it has been converted to metres")
+        } else {
+          assertions += QualityAssertion(AssertionCodes.DEPTH_IN_FEET, 1)
+        }
+      } else {
+        assertions += QualityAssertion(AssertionCodes.DEPTH_NON_NUMERIC, "Can't parse verbatimDepth " + raw.location.verbatimDepth)
       }
     }
   }
@@ -317,7 +323,10 @@ class LocationProcessor extends Processor {
     }
   }
 
-  def processLatLong(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String, verbatimLatitude: String, verbatimLongitude: String, verbatimSRS: String, easting: String, northing: String, zone: String, assertions: ArrayBuffer[QualityAssertion]): Option[(String, String, String)] = {
+  def processLatLong(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String, verbatimLatitude: String,
+                     verbatimLongitude: String, verbatimSRS: String, easting: String, northing: String, zone: String,
+                     assertions: ArrayBuffer[QualityAssertion]): Option[(String, String, String)] = {
+
     //check to see if we have coordinates specified
     if (rawLatitude != null && rawLongitude != null && !rawLatitude.toFloatWithOption.isEmpty && !rawLongitude.toFloatWithOption.isEmpty) {
       //coordinates were supplied so the test passed
@@ -799,24 +808,36 @@ class LocationProcessor extends Processor {
    * New version to process the sensitivity.  It allows for Pest sensitivity to be reported in the "informationWithheld" field.
    * Rework will be necessary when we work out the best way to handle these.
    */
-  def processSensitivity(raw: FullRecord, processed: FullRecord, location: Location, contextualLayers: Map[String, String]) = {
+  def processSensitivity(raw: FullRecord, processed: FullRecord) : Unit = {
+
     //needs to be performed for all records whether or not they are in Australia
     //get a map representation of the raw record...
+    /************** SDS check ************/
+    logger.debug("Starting SDS check")
     val rawMap = scala.collection.mutable.Map[String, String]()
     raw.objectArray.foreach(poso => {
       val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
       rawMap.putAll(map)
     })
 
-    //put the state information that we have from the point
-    if(location.stateProvince != null){
-      rawMap.put("stateProvince", location.stateProvince)
-    }
+    if(!processed.location.decimalLongitude.toDoubleWithOption.isEmpty && !processed.location.decimalLatitude.toDoubleWithOption.isEmpty){
+      //do a dynamic lookup for the layers required for the SDS
+      val layerIntersect = SensitiveAreaDAO.intersect(processed.location.decimalLongitude.toDouble, processed.location.decimalLatitude.toDouble)
+      au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key => {
+        rawMap.put(key, layerIntersect.getOrElse(key, "n/a"))
+      })
 
-    //put the required contextual layers in the map
-    au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key => {
-      rawMap.put(key, contextualLayers.getOrElse(key, "n/a"))
-    })
+      val intersectStateProvince = layerIntersect.getOrElse(Config.stateProvinceLayerID, "")
+
+      if(StringUtils.isBlank(intersectStateProvince)){
+        val stringMatchState = StateProvinces.matchTerm(raw.location.stateProvince)
+        if(!stringMatchState.isEmpty){
+          rawMap.put("stateProvince", stringMatchState.get.canonical)
+        }
+      } else {
+        rawMap.put("stateProvince", intersectStateProvince)
+      }
+    }
 
     //put the processed event date components in to allow for correct date applications of the rules
     if(processed.event.day != null)
@@ -829,6 +850,10 @@ class LocationProcessor extends Processor {
     val exact = getExactSciName(raw)
     //now get the ValidationOutcome from the Sensitive Data Service
     val outcome = sds.testMapDetails(sdsFinder, rawMap, exact, processed.classification.taxonConceptID)
+
+    logger.debug("SDS outcome: " + outcome)
+
+    /************** SDS check end ************/
 
     if (outcome != null && outcome.isValid && outcome.isSensitive) {
 
@@ -858,7 +883,13 @@ class LocationProcessor extends Processor {
         if (!uncertainty.isEmpty) {
           //we know that we have sensitised, add the uncertainty to the currently processed uncertainty
           if (StringUtils.isNotEmpty(uncertainty.get.toString)) {
-            val currentUncertainty = if (StringUtils.isNotEmpty(processed.location.coordinateUncertaintyInMeters)) java.lang.Float.parseFloat(processed.location.coordinateUncertaintyInMeters) else 0
+
+            val currentUncertainty = if (StringUtils.isNotEmpty(processed.location.coordinateUncertaintyInMeters)) {
+              java.lang.Float.parseFloat(processed.location.coordinateUncertaintyInMeters)
+            } else {
+              0
+            }
+
             val newUncertainty = currentUncertainty + java.lang.Integer.parseInt(uncertainty.get.toString)
             processed.location.coordinateUncertaintyInMeters = newUncertainty.toString
           }
@@ -877,8 +908,10 @@ class LocationProcessor extends Processor {
         processed.event.day = ""
         processed.event.eventDate = ""
 
-        //update the raw record with whatever is left in the stringMap
-        Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap)
+        //FIXME update the raw record with whatever is left in the stringMap - change to use DAO method...
+        if(StringUtils.isNotBlank(raw.rowKey)){
+          Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap)
+        }
 
         //update the required locality information
         logger.debug("**************** Performing lookup for new point ['" + raw.rowKey
@@ -910,7 +943,7 @@ class LocationProcessor extends Processor {
     } else {
       //Species is NOT sensitive
       //if the raw record has originalSensitive values we need to re-initialise the value
-      if (raw.occurrence.originalSensitiveValues != null && !raw.occurrence.originalSensitiveValues.isEmpty) {
+      if (StringUtils.isNotBlank(raw.rowKey) && raw.occurrence.originalSensitiveValues != null && !raw.occurrence.originalSensitiveValues.isEmpty) {
         Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""))
       }
     }

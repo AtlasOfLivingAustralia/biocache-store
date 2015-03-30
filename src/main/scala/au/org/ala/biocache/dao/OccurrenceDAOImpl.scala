@@ -1,20 +1,22 @@
 package au.org.ala.biocache.dao
 
+import java.util.Date
+
+import org.apache.commons.lang.StringUtils
+
 import scala.collection.JavaConversions
 import org.slf4j.LoggerFactory
 import com.google.inject.Inject
 import au.org.ala.biocache._
 import java.io.OutputStream
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
-import scala.Some
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.index.{IndexFields, IndexDAO}
-import au.org.ala.biocache.load.{DownloadMedia, MediaStore, FullRecordMapper}
+import au.org.ala.biocache.load.{DownloadMedia, FullRecordMapper}
 import au.org.ala.biocache.persistence.PersistenceManager
-import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode}
-import scala.Some
+import au.org.ala.biocache.vocab.{AssertionCodes}
 import au.org.ala.biocache.vocab.ErrorCode
-import au.org.ala.biocache.util.Json
+import au.org.ala.biocache.util.{BiocacheConversions, Json}
 import au.org.ala.biocache.processor.Processors
 
 /**
@@ -29,6 +31,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   var persistenceManager: PersistenceManager = _
   @Inject
   var indexDAO: IndexDAO = _
+
+  import BiocacheConversions._
 
   val elpattern = """el[0-9]+""".r
   val clpattern = """cl[0-9]+""".r
@@ -378,8 +382,16 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    * Update the version of the occurrence record.
    */
   def addRawOccurrence(fr:FullRecord) {
+
+    //add the last load time
+    fr.lastModifiedTime = new Date
+    if(fr.firstLoaded == null){
+      fr.firstLoaded = fr.lastModifiedTime
+    }
+
     //process the record
     val properties = FullRecordMapper.fullRecord2Map(fr, Versions.RAW)
+
     //commit
     persistenceManager.put(fr.rowKey, entityName, properties.toMap)
   }
@@ -934,5 +946,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       indexDAO.removeFromIndex("id", uuid)
     }
     true
+  }
+
+  def isSensitive(fr:FullRecord): Boolean = {
+    StringUtils.isNotBlank(fr.occurrence.getDataGeneralizations)
   }
 }

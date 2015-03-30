@@ -2,15 +2,14 @@ package au.org.ala.biocache.index
 
 import com.google.inject.Inject
 import com.google.inject.name.Named
-import org.apache.solr.internal.csv.writer.CSVWriter
 import org.slf4j.LoggerFactory
 import org.apache.solr.core.CoreContainer
 import org.apache.solr.client.solrj.{StreamingResponseCallback, SolrQuery, SolrServer}
 import au.org.ala.biocache.dao.OccurrenceDAO
-import org.apache.solr.common.{SolrInputField, SolrDocument, SolrInputDocument}
+import org.apache.solr.common.{SolrDocument, SolrInputDocument}
 import java.io.{FileWriter, OutputStream, File}
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
-import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrServer, HttpSolrServer}
+import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrServer}
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.common.params.{MapSolrParams, ModifiableSolrParams}
 import java.util.Date
@@ -495,7 +494,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.addField("system_assertions", sa)
 
         //load the species lists that are configured for the matched guid.
-        val (speciesLists,extraValues) = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p",""))
+        val (speciesLists, extraValues) = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p",""))
         speciesLists.foreach(v => {
           doc.addField("species_list_uid", v)
         })

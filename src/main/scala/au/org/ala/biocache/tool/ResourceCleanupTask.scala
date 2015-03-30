@@ -20,7 +20,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
   import FileHelper._
   val logger = LoggerFactory.getLogger("ResourceCleanupTask")
   def cmd = "resource-cleanup"
-  def desc = "Resource cleanup tool for removing record or columns which have not been updated since a supplied date."
+  def desc = "Resource cleanup tool for removing records or columns which have not been updated since a supplied date."
 
   def main(args: Array[String]) {
 

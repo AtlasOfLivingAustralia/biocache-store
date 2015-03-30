@@ -209,7 +209,7 @@ object Store {
     //rowKey = dr|<cxyzsuid>
     if(record.rowKey != null){
       val (recordUuid, isNew) = occurrenceDAO.createOrRetrieveUuid(record.rowKey)
-      record.uuid =recordUuid
+      record.uuid = recordUuid
       //add the last load time
       record.lastModifiedTime = new Date
       if(isNew){

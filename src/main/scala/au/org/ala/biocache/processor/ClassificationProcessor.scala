@@ -183,8 +183,11 @@ class ClassificationProcessor extends Processor {
 
           //Add the species group information - I think that it is better to store this value than calculate it at index time
           //val speciesGroups = SpeciesGroups.getSpeciesGroups(processed.classification)
-          val speciesGroups = SpeciesGroups.getSpeciesGroups(processed.classification.getLeft(), processed.classification.getRight())
-          logger.debug("Species Groups: " + speciesGroups)
+//          val speciesGroups = SpeciesGroups.getSpeciesGroups(processed.classification.getLeft(), processed.classification.getRight())
+          val speciesGroups:Option[List[String]] = None
+
+            logger.debug("Species groups: " + speciesGroups.getOrElse(List[String]()))
+
           if (!speciesGroups.isEmpty && !speciesGroups.get.isEmpty) {
             processed.classification.speciesGroups = speciesGroups.get.toArray[String]
           }

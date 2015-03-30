@@ -69,7 +69,7 @@ object LocationDAO {
   def addRegionToPoint (latitude:String, longitude:String, mapping:Map[String,String]) {
     if (latitude!=null && latitude.trim.length>0 && longitude!=null && longitude.trim.length>0){
       val guid = getLatLongKey(latitude, longitude)
-      persistenceManager.put(guid, columnFamily, Map(latitudeCol-> latitude, longitudeCol -> longitude) ++ mapping)
+      persistenceManager.put(guid, columnFamily, Map(latitudeCol -> latitude, longitudeCol -> longitude) ++ mapping)
     }
   }
 
@@ -137,8 +137,15 @@ object LocationDAO {
                 }
               }
             }
-            location.ibra = map.getOrElse(Config.terrestrialBioRegionsLayerID, null)
-            location.imcra = map.getOrElse(Config.marineBioRegionsLayerID, null)
+
+            location.isTerrestrial = {
+              !map.get(Config.terrestrialBioRegionsLayerID).isEmpty
+            }
+
+            location.isMarine = {
+              !map.get(Config.marineBioRegionsLayerID).isEmpty
+            }
+
             location.country = map.getOrElse(Config.countriesLayerID, null)
             location.lga = map.getOrElse(Config.localGovLayerID, null)
 
@@ -175,10 +182,10 @@ object LocationDAO {
     var samples: java.util.ArrayList[String] = new util.ArrayList[String]()
 
     //allow local and remote sampling
-    if ("true".equalsIgnoreCase(Config.layersServiceSampling)) {
-      var layersStore = new LayersStore(Config.layersServiceUrl);
-      val samplesReader:CSVReader = new CSVReader(layersStore.sample(Config.fieldsToSample, points));
-      val samplesRemote:util.List[Array[String]] = samplesReader.readAll();
+    if (Config.layersServiceSampling) {
+      val layersStore = new LayersStore(Config.layersServiceUrl)
+      val samplesReader:CSVReader = new CSVReader(layersStore.sample(Config.fieldsToSample, points))
+      val samplesRemote:util.List[Array[String]] = samplesReader.readAll()
 
       //exclude header and longitude,latitude in the first 2 columns
       if (samplesRemote.size() == 2) {
@@ -215,8 +222,6 @@ object LocationDAO {
           }
         }
       }
-      location.ibra = propertyMap.getOrElse(Config.terrestrialBioRegionsLayerID, null)
-      location.imcra = propertyMap.getOrElse(Config.marineBioRegionsLayerID, null)
       location.country = propertyMap.getOrElse(Config.countriesLayerID, null)
 
       val el = propertyMap.filter(x => x._1.startsWith("el"))

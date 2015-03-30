@@ -160,9 +160,9 @@ object AdHocParser {
       })
     }})
 
-    //add miscellaneous properties that arent recognised.
+    //add miscellaneous properties that are not recognised.
     raw.miscProperties.foreach({case (k,v) => listBuff += ProcessedValue(k, v, "")})
-    ParsedRecord(listBuff.toList.toArray, assertions.values.flatten.toArray)
+    ParsedRecord(listBuff.toList.toArray, assertions.values.flatten.toArray, Config.occurrenceDAO.isSensitive(processed))
   }
 
   def processCSV(filepath: String) {

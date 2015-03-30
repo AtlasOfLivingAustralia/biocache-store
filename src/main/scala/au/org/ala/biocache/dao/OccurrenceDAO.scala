@@ -89,4 +89,6 @@ trait OccurrenceDAO extends DAO {
   def deleteByUuid(uuid: String, removeFromIndex:Boolean=true, logDeleted:Boolean=false) : Boolean
 
   def downloadMedia(fr:FullRecord) : Boolean
+
+  def isSensitive(fr:FullRecord) : Boolean
 }

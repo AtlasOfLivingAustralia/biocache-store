@@ -1,6 +1,7 @@
 package au.org.ala.biocache
 
 import au.org.ala.biocache.vocab.AssertionCodes
+import org.apache.commons.lang.StringUtils
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.BeforeAndAfterAll
@@ -152,7 +153,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     raw.location.locality = "My test locality"
     (new LocationProcessor).process("test", raw, processed)
     expectResult(true) {
-      processed.occurrence.dataGeneralizations.length() > 0
+      StringUtils.isNotBlank(processed.occurrence.dataGeneralizations)
     }
   }
 
@@ -173,7 +174,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
       processed.location.decimalLongitude
     }
     expectResult(true) {
-      processed.occurrence.dataGeneralizations == null
+      StringUtils.isBlank(processed.occurrence.dataGeneralizations)
     }
   }
 
@@ -204,7 +205,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("Uncertainty in Precision") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.location.decimalLatitude = "-35.21667"
     raw.location.decimalLongitude = "144.81060"
     raw.location.coordinatePrecision = "100.66"

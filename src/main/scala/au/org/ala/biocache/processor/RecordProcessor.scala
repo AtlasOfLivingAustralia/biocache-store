@@ -112,6 +112,9 @@ class RecordProcessor {
     val assertions = new scala.collection.mutable.HashMap[String, Array[QualityAssertion]]
 
     Processors.foreach(processor => {
+      if(logger.isDebugEnabled){
+        logger.debug("Running processor " + processor.getName)
+      }
       assertions += (processor.getName -> processor.process(raw.rowKey, raw, processed))
     })
   
