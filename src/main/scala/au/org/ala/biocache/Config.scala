@@ -72,6 +72,8 @@ object Config {
     }
   }
 
+  val sdsEnabled = configModule.properties.getProperty("sds.enabled", "true").toBoolean
+
   val hashImageFileNames = configModule.properties.getProperty("hash.image.filenames", "false").toBoolean
 
   val solrUpdateThreads = configModule.properties.getProperty("solr.update.threads", "4").toInt
@@ -111,7 +113,7 @@ object Config {
 
     if (str == null || str.trim == "" ){
       val dbfields = try {
-        new LayersStore(Config.layersServiceUrl).getFieldIds();
+        new LayersStore(Config.layersServiceUrl).getFieldIds()
       } catch {
         case e:Exception => new java.util.ArrayList()
       }
@@ -173,9 +175,15 @@ object Config {
 
   lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
 
+  val stateProvincePrefixFields = configModule.properties.getProperty("species.list.prefix","stateProvince").split(",").toSet
+
+  val speciesListIndexValues = configModule.properties.getProperty("species.list.index.keys", "category,status,sourceStatus").split(",").toSet
+
+  val loadSpeciesLists = configModule.properties.getProperty("include.species.lists", "false").toBoolean
+
   def getProperty(prop:String) = configModule.properties.getProperty(prop)
 
-  def getProperty(prop:String, default:String) = configModule.properties.getProperty(prop,default)
+  private def getProperty(prop:String, default:String) = configModule.properties.getProperty(prop,default)
 
   def outputConfig = {
     configModule.properties.stringPropertyNames().toArray.sortWith(_.toString() < _.toString()).foreach(name => println(name.toString() + " = " + configModule.properties.getProperty(name.toString(), "NOT DEFINED")))
@@ -239,7 +247,7 @@ private class ConfigModule extends AbstractModule {
     //or the default /data/biocache/config/biocache-test-config.properties file is used.
 
     //check to see if a system property has been supplied with the location of the config file
-    val filename = System.getProperty("biocache.config","/data/biocache/config/biocache-config.properties")
+    val filename = System.getProperty("biocache.config", "/data/biocache/config/biocache-config.properties")
     logger.info("Using config file: " + filename)
 
     val file = new java.io.File(filename)
@@ -265,14 +273,15 @@ private class ConfigModule extends AbstractModule {
 
     Names.bindProperties(this.binder, properties)
     //bind concrete implementations
+    logger.debug("Initialising DAOs")
     bind(classOf[OccurrenceDAO]).to(classOf[OccurrenceDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[OutlierStatsDAO]).to(classOf[OutlierStatsDAOImpl]).in(Scopes.SINGLETON)
-    logger.debug("Initialising SOLR")
-    bind(classOf[IndexDAO]).to(classOf[SolrIndexDAO]).in(Scopes.SINGLETON)
     bind(classOf[DeletedRecordDAO]).to(classOf[DeletedRecordDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[DuplicateDAO]).to(classOf[DuplicateDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[ValidationRuleDAO]).to(classOf[ValidationRuleDAOImpl]).in(Scopes.SINGLETON)
     bind(classOf[QidDAO]).to(classOf[QidDAOImpl]).in(Scopes.SINGLETON)
+    logger.debug("Initialising SOLR")
+    bind(classOf[IndexDAO]).to(classOf[SolrIndexDAO]).in(Scopes.SINGLETON)
     logger.debug("Initialising name matching indexes")
     try {
       val nameIndexLocation = properties.getProperty("name.index.dir")
@@ -280,7 +289,8 @@ private class ConfigModule extends AbstractModule {
       val nameIndex = new ALANameSearcher(nameIndexLocation)
       bind(classOf[ALANameSearcher]).toInstance(nameIndex)
     } catch {
-      case e: Exception => logger.warn("Lucene indexes are not currently available. Please check 'name.index.dir' property in config. Message: " + e.getMessage())
+      case e: Exception => logger.warn("Lucene indexes are not currently available. " +
+        "Please check 'name.index.dir' property in config. Message: " + e.getMessage())
     }
     logger.debug("Initialising persistence manager")
     properties.getProperty("db") match {
