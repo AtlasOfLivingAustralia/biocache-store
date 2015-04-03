@@ -24,6 +24,7 @@ class ClassificationProcessor extends Processor {
 
   import BiocacheConversions._
   import JavaConversions._
+  import AssertionCodes._
   /**
    * Parse the hints into a usable map with rank -> Set.
    */
@@ -76,24 +77,24 @@ class ClassificationProcessor extends Processor {
     processed.classification.taxonomicIssue = if(nameMetrics.getErrors != null)nameMetrics.getErrors.toList.map(_.toString).toArray else Array("noIssue")
     //check the name parse tye to see if the scientific name was valid
     if (processed.classification.nameParseType == "blacklisted"){
-      assertions += QualityAssertion(AssertionCodes.INVALID_SCIENTIFIC_NAME)
+      assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME)
     } else {
-      assertions += QualityAssertion(AssertionCodes.INVALID_SCIENTIFIC_NAME, 1)
+      assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME, 1)
     }
   }
 
   def testSuppliedValues(raw:FullRecord, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
     //test for the missing taxon rank
     if (StringUtils.isBlank(raw.classification.taxonRank)){
-      assertions += QualityAssertion(AssertionCodes.MISSING_TAXONRANK, "Missing taxonRank")
+      assertions += QualityAssertion(MISSING_TAXONRANK, "Missing taxonRank")
     } else {
-      assertions += QualityAssertion(AssertionCodes.MISSING_TAXONRANK, 1)
+      assertions += QualityAssertion(MISSING_TAXONRANK, 1)
     }
     //test that a scientific name or vernacular name has been supplied
     if (StringUtils.isBlank(raw.classification.scientificName) && StringUtils.isBlank(raw.classification.vernacularName)){
-      assertions += QualityAssertion(AssertionCodes.NAME_NOT_SUPPLIED, "No scientificName or vernacularName has been supplied. Name match will be based on a constructed name.")
+      assertions += QualityAssertion(NAME_NOT_SUPPLIED, "No scientificName or vernacularName has been supplied. Name match will be based on a constructed name.")
     } else {
-      assertions += QualityAssertion(AssertionCodes.NAME_NOT_SUPPLIED, 1)
+      assertions += QualityAssertion(NAME_NOT_SUPPLIED, 1)
     }
 
     //test for mismatch in kingdom
@@ -101,9 +102,9 @@ class ClassificationProcessor extends Processor {
       val matchedKingdom = Kingdoms.matchTerm(raw.classification.kingdom)
       if (matchedKingdom.isDefined){
         //the supplied kingdom is recognised
-        assertions += QualityAssertion(AssertionCodes.UNKNOWN_KINGDOM, 1)
+        assertions += QualityAssertion(UNKNOWN_KINGDOM, 1)
       } else {
-        assertions += QualityAssertion(AssertionCodes.UNKNOWN_KINGDOM, "The supplied kingdom is not recognised")
+        assertions += QualityAssertion(UNKNOWN_KINGDOM, "The supplied kingdom is not recognised")
       }
     }
   }
@@ -135,7 +136,7 @@ class ClassificationProcessor extends Processor {
         //store the matched classification
         if (nsr != null) {
           //The name is recognised:
-          assertions += QualityAssertion(AssertionCodes.NAME_NOTRECOGNISED, 1)
+          assertions += QualityAssertion(NAME_NOTRECOGNISED, 1)
           val classification = nsr.getRankClassification
           //Check to see if the classification fits in with the supplied taxonomic hints
           //get the taxonomic hints from the collection or data resource
@@ -153,10 +154,10 @@ class ClassificationProcessor extends Processor {
                 logger.info("Conflict in matched classification. Matched: " + guid + ", Matched: " + comment + ", Taxonomic hints in use: " + taxonHints.toList)
                 hintsPassed =false
                 processed.classification.nameMatchMetric = "matchFailedHint"
-                assertions += QualityAssertion(AssertionCodes.RESOURCE_TAXONOMIC_SCOPE_MISMATCH, comment)
+                assertions += QualityAssertion(RESOURCE_TAXONOMIC_SCOPE_MISMATCH, comment)
               } else if (attribution.get.retrieveParseHints.size >0){
                 //the taxonomic hints passed
-                assertions += QualityAssertion(AssertionCodes.RESOURCE_TAXONOMIC_SCOPE_MISMATCH, 1)
+                assertions += QualityAssertion(RESOURCE_TAXONOMIC_SCOPE_MISMATCH, 1)
               }
             }
           }
@@ -211,9 +212,9 @@ class ClassificationProcessor extends Processor {
 
           //is the name in the NSLs ???
           if (afdApniIdentifier.findFirstMatchIn(nsr.getLsid).isEmpty) {
-            assertions += QualityAssertion(AssertionCodes.NAME_NOT_IN_NATIONAL_CHECKLISTS, "Record not attached to concept in national species lists")
+            assertions += QualityAssertion(NAME_NOT_IN_NATIONAL_CHECKLISTS, "Record not attached to concept in national species lists")
           } else {
-            assertions += QualityAssertion(AssertionCodes.NAME_NOT_IN_NATIONAL_CHECKLISTS, 1)
+            assertions += QualityAssertion(NAME_NOT_IN_NATIONAL_CHECKLISTS, 1)
           }
 
         } else if(nameMetrics.getErrors.contains(au.org.ala.names.model.ErrorType.HOMONYM)){
@@ -222,21 +223,21 @@ class ClassificationProcessor extends Processor {
             ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
           processed.classification.nameMatchMetric = "noMatch"
           setMatchStats(nameMetrics,processed, assertions)
-          assertions += QualityAssertion(AssertionCodes.HOMONYM_ISSUE, "A homonym was detected in supplied classificaiton.")
+          assertions += QualityAssertion(HOMONYM_ISSUE, "A homonym was detected in supplied classificaiton.")
         } else {
           logger.debug("[QualityAssertion] No match for record, classification for Kingdom: " +
             raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
             ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
           processed.classification.nameMatchMetric = "noMatch"
           setMatchStats(nameMetrics,processed,assertions)
-          assertions += QualityAssertion(AssertionCodes.NAME_NOTRECOGNISED, "Name not recognised")
+          assertions += QualityAssertion(NAME_NOTRECOGNISED, "Name not recognised")
         }
       } else {
         logger.debug("[QualityAssertion] No match for record, classification for Kingdom: " +
           raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
           ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
         processed.classification.nameMatchMetric = "noMatch"
-        assertions += QualityAssertion(AssertionCodes.NAME_NOTRECOGNISED, "Name not recognised")
+        assertions += QualityAssertion(NAME_NOTRECOGNISED, "Name not recognised")
       }
     } catch {
       case e: Exception => logger.error("Exception during classification match for record " + guid, e)

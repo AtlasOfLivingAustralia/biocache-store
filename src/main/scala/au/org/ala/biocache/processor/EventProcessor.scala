@@ -16,6 +16,7 @@ import au.org.ala.biocache.util.{DateUtil, StringHelper}
 class EventProcessor extends Processor {
 
   import StringHelper._
+  import AssertionCodes._
 
   /**
    * Validate the supplied number using the supplied function.
@@ -46,7 +47,7 @@ class EventProcessor extends Processor {
       && (raw.event.eventDate == null || raw.event.eventDate.isEmpty)
       && (raw.event.verbatimEventDate == null || raw.event.verbatimEventDate.isEmpty)
     ){
-      assertions += QualityAssertion(AssertionCodes.MISSING_COLLECTION_DATE, "No date information supplied")
+      assertions += QualityAssertion(MISSING_COLLECTION_DATE, "No date information supplied")
     } else {
 
       var date: Option[java.util.Date] = None
@@ -72,19 +73,19 @@ class EventProcessor extends Processor {
         if (monthValue > 12 && dayValue < 12) {
           month = dayValue
           day = monthValue
-          assertions += QualityAssertion(AssertionCodes.DAY_MONTH_TRANSPOSED, "Assume day and month transposed")
-          //assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE,1) //this one is not applied
+          assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, "Assume day and month transposed")
+          //assertions += QualityAssertion(INVALID_COLLECTION_DATE,1) //this one is not applied
           validMonth = true
         } else {
-          assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, "Invalid month supplied")
+          assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Invalid month supplied")
           addPassedInvalidCollectionDate = false
-          assertions += QualityAssertion(AssertionCodes.DAY_MONTH_TRANSPOSED, 1) //this one has been tested and does not apply
+          assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, 1) //this one has been tested and does not apply
         }
       }
 
       //TODO need to check for other months
       if (day == 0 || day > 31) {
-        assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, "Invalid day supplied")
+        assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Invalid day supplied")
         addPassedInvalidCollectionDate = false
       }
 
@@ -96,7 +97,7 @@ class EventProcessor extends Processor {
         year = newYear
 
         if (StringUtils.isNotEmpty(comment)){
-          assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, comment)
+          assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
           addPassedInvalidCollectionDate=false
         }
       }
@@ -120,7 +121,7 @@ class EventProcessor extends Processor {
           case e: Exception => {
             validDayMonthYear = false
             comment = "Invalid year, day, month"
-            assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, comment)
+            assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
             addPassedInvalidCollectionDate = false
           }
         }
@@ -155,7 +156,7 @@ class EventProcessor extends Processor {
           }
 
           if (DateUtil.isFutureDate(parsedDate.get)) {
-            assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, "Future date supplied")
+            assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
             addPassedInvalidCollectionDate = false
           }
         }
@@ -185,7 +186,7 @@ class EventProcessor extends Processor {
           }
 
           if (DateUtil.isFutureDate(parsedDate.get)) {
-            assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, "Future date supplied")
+            assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
             addPassedInvalidCollectionDate = false
           }
         }
@@ -193,26 +194,26 @@ class EventProcessor extends Processor {
 
       //if invalid date, add assertion
       if (!validYear && (processed.event.eventDate == null || processed.event.eventDate == "" || comment != "")) {
-        assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, comment)
+        assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
         addPassedInvalidCollectionDate = false
       }
 
       //chec for future date
       if (!date.isEmpty && date.get.after(new Date())) {
-        assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, "Future date supplied")
+        assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
         addPassedInvalidCollectionDate = false
       }
 
       //check to see if we need add a passed test for the invalid collection dates
       if(addPassedInvalidCollectionDate)
-        assertions += QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE, 1)
+        assertions += QualityAssertion(INVALID_COLLECTION_DATE, 1)
 
       if(dateComplete){
         //add a pass condition for this test
-        assertions += QualityAssertion(AssertionCodes.INCOMPLETE_COLLECTION_DATE, 1)
+        assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, 1)
       } else{
         //incomplete date
-        assertions += QualityAssertion(AssertionCodes.INCOMPLETE_COLLECTION_DATE, "The supplied collection date is not complete")
+        assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, "The supplied collection date is not complete")
       }
     }
 
@@ -253,7 +254,7 @@ class EventProcessor extends Processor {
         year = -1
         validYear = false
         comment = "Future year supplied"
-        //assertions + QualityAssertion(AssertionCodes.INVALID_COLLECTION_DATE,comment)
+        //assertions + QualityAssertion(INVALID_COLLECTION_DATE,comment)
       } else if (year == 1788 && month == 1 && day == 26) {
         //First fleet arrival date indicative of a null date.
         validYear = false
@@ -267,29 +268,29 @@ class EventProcessor extends Processor {
   def processFirstDates(raw:FullRecord, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
     //check to see if the date is the first of a month
     if(processed.event.day == "1" || processed.event.day == "01"){
-      assertions += QualityAssertion(AssertionCodes.FIRST_OF_MONTH)
+      assertions += QualityAssertion(FIRST_OF_MONTH)
       //check to see if the date is the first of the year
       if(processed.event.month == "01" || processed.event.month == "1") {
-        assertions += QualityAssertion(AssertionCodes.FIRST_OF_YEAR)
+        assertions += QualityAssertion(FIRST_OF_YEAR)
         //check to see if the date is the first of the century
         if(processed.event.year != null){
           var (year, validYear) = validateNumber(processed.event.year, {
             year => year > 0
           })
           if(validYear && year % 100 == 0){
-            assertions += QualityAssertion(AssertionCodes.FIRST_OF_CENTURY)
+            assertions += QualityAssertion(FIRST_OF_CENTURY)
           } else {
             //the date is NOT the first of the century
-            assertions += QualityAssertion(AssertionCodes.FIRST_OF_CENTURY, 1)
+            assertions += QualityAssertion(FIRST_OF_CENTURY, 1)
           }
         }
       } else if(processed.event.month != null) {
         //the date is not the first of the year
-        assertions += QualityAssertion(AssertionCodes.FIRST_OF_YEAR, 1)
+        assertions += QualityAssertion(FIRST_OF_YEAR, 1)
       }
     } else if(processed.event.day != null) {
       //the date is not the first of the month
-      assertions += QualityAssertion(AssertionCodes.FIRST_OF_MONTH, 1)
+      assertions += QualityAssertion(FIRST_OF_MONTH, 1)
     }
   }
 
@@ -328,9 +329,9 @@ class EventProcessor extends Processor {
       if(StringUtils.isNotBlank(processed.identification.dateIdentified)){
         if (DateParser.parseStringToDate(processed.identification.dateIdentified).get.before(eventDate)){
           //the record was identified before it was collected !!
-          assertions += QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, "The records was identified before it was collected")
+          assertions += QualityAssertion(ID_PRE_OCCURRENCE, "The records was identified before it was collected")
         } else {
-          assertions += QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, 1)
+          assertions += QualityAssertion(ID_PRE_OCCURRENCE, 1)
         }
       }
 
@@ -338,9 +339,9 @@ class EventProcessor extends Processor {
       if(StringUtils.isNotBlank(processed.location.georeferencedDate)) {
         if(DateParser.parseStringToDate(processed.location.georeferencedDate).get.after(eventDate)){
           //the record was not georeference when it was collected!!
-          assertions += QualityAssertion(AssertionCodes.GEOREFERENCE_POST_OCCURRENCE, "The record was not georeferenced when it was collected")
+          assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, "The record was not georeferenced when it was collected")
         } else {
-          assertions += QualityAssertion(AssertionCodes.GEOREFERENCE_POST_OCCURRENCE, 1)
+          assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, 1)
         }
       }
     }

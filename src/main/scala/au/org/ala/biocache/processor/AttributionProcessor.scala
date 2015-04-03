@@ -12,6 +12,7 @@ import au.org.ala.biocache.vocab.AssertionCodes
 class AttributionProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("AttributionProcessor")
+  import AssertionCodes._
 
   /**
    * Retrieve attribution information from collectory and tag the occurrence record.
@@ -31,14 +32,14 @@ class AttributionProcessor extends Processor {
           val attribution = AttributionDAO.getByCodes(instCode, collCode)
           if (!attribution.isEmpty) {
             processed.attribution = attribution.get
-            assertions ++= Array(QualityAssertion(AssertionCodes.UNRECOGNISED_COLLECTIONCODE,1))
-            assertions ++= Array(QualityAssertion(AssertionCodes.UNRECOGNISED_INSTITUTIONCODE,1))
+            assertions ++= Array(QualityAssertion(UNRECOGNISED_COLLECTIONCODE,1))
+            assertions ++= Array(QualityAssertion(UNRECOGNISED_INSTITUTIONCODE,1))
             //need to reinitialise the object array - DM switched to def, that
             //way objectArray created each time its accessed
             //processed.reinitObjectArray
           } else {
-            assertions ++= Array(QualityAssertion(AssertionCodes.UNRECOGNISED_COLLECTIONCODE, "Unrecognised collection code institution code combination"))
-            assertions ++= Array(QualityAssertion(AssertionCodes.UNRECOGNISED_INSTITUTIONCODE, "Unrecognised collection code institution code combination"))
+            assertions ++= Array(QualityAssertion(UNRECOGNISED_COLLECTIONCODE, "Unrecognised collection code institution code combination"))
+            assertions ++= Array(QualityAssertion(UNRECOGNISED_INSTITUTIONCODE, "Unrecognised collection code institution code combination"))
           }
         }
         //update the details that come from the data resource

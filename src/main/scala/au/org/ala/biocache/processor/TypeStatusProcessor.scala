@@ -7,6 +7,9 @@ import au.org.ala.biocache.vocab.{TypeStatus, AssertionCodes}
  * Process type status information
  */
 class TypeStatusProcessor extends Processor {
+
+  import AssertionCodes._
+
   /**
    * Process the type status
    */
@@ -16,10 +19,10 @@ class TypeStatusProcessor extends Processor {
       val term = TypeStatus.matchTerm(raw.identification.typeStatus)
       if (term.isEmpty) {
         //add a quality assertion
-        Array(QualityAssertion(AssertionCodes.UNRECOGNISED_TYPESTATUS, "Unrecognised type status"))
+        Array(QualityAssertion(UNRECOGNISED_TYPESTATUS, "Unrecognised type status"))
       } else {
         processed.identification.typeStatus = term.get.canonical
-        Array(QualityAssertion(AssertionCodes.UNRECOGNISED_TYPESTATUS,1))
+        Array(QualityAssertion(UNRECOGNISED_TYPESTATUS,1))
       }
     } else {
       Array()

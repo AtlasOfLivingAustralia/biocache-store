@@ -7,6 +7,8 @@ import au.org.ala.biocache.vocab.AssertionCodes
  */
 object Processors {
 
+  import AssertionCodes._
+  
   def foreach(proc: Processor => Unit) = processorMap.values.foreach(proc)
 
   //need to preserve the ordering of the Processors so that the default values are populated first
@@ -26,14 +28,14 @@ object Processors {
   //TODO A better way to do this. Maybe need to group QA failures by issue type instead of phase.
   //Can't change until we are able to reprocess the complete set records.
   def getProcessorForError(code: Int): String = code match {
-    case c if c == AssertionCodes.INFERRED_DUPLICATE_RECORD.code || c == AssertionCodes.DETECTED_OUTLIER.code || c == AssertionCodes.SPECIES_OUTSIDE_EXPERT_RANGE.code => "offline"
-    case c if c >= AssertionCodes.geospatialBounds._1 && c < AssertionCodes.geospatialBounds._2 => "loc"
-    case c if c >= AssertionCodes.taxonomicBounds._1 && c < AssertionCodes.taxonomicBounds._2 => "class"
-    case c if c == AssertionCodes.MISSING_BASIS_OF_RECORD.code || c == AssertionCodes.BADLY_FORMED_BASIS_OF_RECORD.code => "bor"
-    case c if c == AssertionCodes.UNRECOGNISED_TYPESTATUS.code => "type"
-    case c if c == AssertionCodes.UNRECOGNISED_COLLECTIONCODE.code || c == AssertionCodes.UNRECOGNISED_INSTITUTIONCODE.code => "attr"
-    case c if c == AssertionCodes.INVALID_IMAGE_URL.code => "image"
-    case c if c >= AssertionCodes.temporalBounds._1 && c < AssertionCodes.temporalBounds._2 => "event"
+    case c if c == INFERRED_DUPLICATE_RECORD.code || c == DETECTED_OUTLIER.code || c == SPECIES_OUTSIDE_EXPERT_RANGE.code => "offline"
+    case c if c >= geospatialBounds._1 && c < geospatialBounds._2 => "loc"
+    case c if c >= taxonomicBounds._1 && c < taxonomicBounds._2 => "class"
+    case c if c == MISSING_BASIS_OF_RECORD.code || c == BADLY_FORMED_BASIS_OF_RECORD.code => "bor"
+    case c if c == UNRECOGNISED_TYPESTATUS.code => "type"
+    case c if c == UNRECOGNISED_COLLECTIONCODE.code || c == UNRECOGNISED_INSTITUTIONCODE.code => "attr"
+    case c if c == INVALID_IMAGE_URL.code => "image"
+    case c if c >= temporalBounds._1 && c < temporalBounds._2 => "event"
     case _ => ""
   }
 }

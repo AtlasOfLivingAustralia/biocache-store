@@ -27,8 +27,12 @@ import au.org.ala.biocache.util.{Json, StringHelper}
 class LocationProcessor extends Processor {
 
   import StringHelper._
+  import AssertionCodes._
+  import JavaConversions._
 
   val logger = LoggerFactory.getLogger("LocationProcessor")
+  val WGS84_EPSG_Code = "EPSG:4326"
+
   //This is being initialised here because it may take some time to load all the XML records...
   lazy val sdsFinder = Config.sdsFinder
   val sds = new SensitiveDataService()
@@ -51,17 +55,11 @@ class LocationProcessor extends Processor {
     valuesMap
   }
 
-  val WGS84_EPSG_Code = "EPSG:4326"
-
-  import JavaConversions._
-
   /**
-   * Process geospatial details
+   * Process geospatial details.
    *
-   * TODO: Handle latitude and longitude that is supplied in verbatim format
    * We will need to parse a variety of formats. Bryn was going to find some regular
    * expressions/test cases he has used previously...
-   *
    */
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
 
@@ -125,43 +123,26 @@ class LocationProcessor extends Processor {
     if (processed.location.decimalLatitude == null || processed.location.decimalLongitude == null) {
       //check to see if we have any location information at all for the record
       if (raw.location.footprintWKT == null && raw.location.locality == null && raw.location.locationID == null){
-        assertions += QualityAssertion(AssertionCodes.LOCATION_NOT_SUPPLIED)
+        assertions += QualityAssertion(LOCATION_NOT_SUPPLIED)
       } else {
-        assertions += QualityAssertion(AssertionCodes.LOCATION_NOT_SUPPLIED, 1)
+        assertions += QualityAssertion(LOCATION_NOT_SUPPLIED, 1)
       }
     } else {
-      assertions += QualityAssertion(AssertionCodes.LOCATION_NOT_SUPPLIED,1)
+      assertions += QualityAssertion(LOCATION_NOT_SUPPLIED, 1)
     }
+
+    validateCoordinates(raw, processed, assertions)
 
     processLocations(raw, processed, assertions)
 
-    //validate the gereference values
-    //TODO re-enable georeferencing processing after we have categorised issues better.
+    //validate the georeference values
     validateGeoreferenceValues(raw, processed, assertions)
 
     assertions.toArray
   }
 
-  def processLocations(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
-    if(raw.location.country == null && processed.location.country != null){
-      assertions += QualityAssertion(AssertionCodes.COUNTRY_INFERRED_FROM_COORDINATES,0)
-    } else{
-      assertions += QualityAssertion(AssertionCodes.COUNTRY_INFERRED_FROM_COORDINATES,1)
-    }
 
-    //check centre point of the state
-    if (StateProvinceCentrePoints.coordinatesMatchCentre(processed.location.stateProvince, raw.location.decimalLatitude, raw.location.decimalLongitude)) {
-      assertions += QualityAssertion(AssertionCodes.COORDINATES_CENTRE_OF_STATEPROVINCE, "Coordinates are centre point of " + processed.location.stateProvince)
-    } else{
-      assertions += QualityAssertion(AssertionCodes.COORDINATES_CENTRE_OF_STATEPROVINCE,1)
-    }
-
-    //check centre point of the country
-    if (CountryCentrePoints.coordinatesMatchCentre(processed.location.country, raw.location.decimalLatitude, raw.location.decimalLongitude)) {
-      assertions += QualityAssertion(AssertionCodes.COORDINATES_CENTRE_OF_COUNTRY, "Coordinates are centre point of " + processed.location.country)
-    } else {
-      assertions += QualityAssertion(AssertionCodes.COORDINATES_CENTRE_OF_COUNTRY, 1)
-    }
+  private def processLocations(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
 
     //Only process the raw state value if no latitude and longitude is provided
     if (processed.location.stateProvince == null && raw.location.decimalLatitude == null && raw.location.decimalLongitude == null) {
@@ -193,17 +174,39 @@ class LocationProcessor extends Processor {
     }
   }
 
+  def validateCoordinates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
+    if (raw.location.country == null && processed.location.country != null) {
+      assertions += QualityAssertion(COUNTRY_INFERRED_FROM_COORDINATES, 0)
+    } else {
+      assertions += QualityAssertion(COUNTRY_INFERRED_FROM_COORDINATES, 1)
+    }
+
+    //check centre point of the state
+    if (StateProvinceCentrePoints.coordinatesMatchCentre(processed.location.stateProvince, raw.location.decimalLatitude, raw.location.decimalLongitude)) {
+      assertions += QualityAssertion(COORDINATES_CENTRE_OF_STATEPROVINCE, "Coordinates are centre point of " + processed.location.stateProvince)
+    } else {
+      assertions += QualityAssertion(COORDINATES_CENTRE_OF_STATEPROVINCE, 1)
+    }
+
+    //check centre point of the country
+    if (CountryCentrePoints.coordinatesMatchCentre(processed.location.country, raw.location.decimalLatitude, raw.location.decimalLongitude)) {
+      assertions += QualityAssertion(COORDINATES_CENTRE_OF_COUNTRY, "Coordinates are centre point of " + processed.location.country)
+    } else {
+      assertions += QualityAssertion(COORDINATES_CENTRE_OF_COUNTRY, 1)
+    }
+  }
+
   /**
    * Performs the QAs associated with elevation and depth
    */
-  def processAltitudeAndDepth(guid: String, raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
+  private def processAltitudeAndDepth(guid: String, raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //check that the values are numeric
     processVerbatimDepth(raw, processed, assertions)
     processVerbatimElevation(raw, processed, assertions)
     processMinMaxDepth(raw, processed, assertions)
   }
 
-  def processMinMaxDepth(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
+  private def processMinMaxDepth(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
     //check for max and min reversals
     if (raw.location.minimumDepthInMeters != null && raw.location.maximumDepthInMeters != null) {
       try {
@@ -212,11 +215,11 @@ class LocationProcessor extends Processor {
         if (min > max) {
           processed.location.minimumDepthInMeters = max.toString
           processed.location.maximumDepthInMeters = min.toString
-          assertions += QualityAssertion(AssertionCodes.MIN_MAX_DEPTH_REVERSED, "The minimum, " + min + ", and maximum, " + max + ", depths have been transposed.")
+          assertions += QualityAssertion(MIN_MAX_DEPTH_REVERSED, "The minimum, " + min + ", and maximum, " + max + ", depths have been transposed.")
         } else {
           processed.location.minimumDepthInMeters = min.toString
           processed.location.maximumDepthInMeters = max.toString
-          assertions += QualityAssertion(AssertionCodes.MIN_MAX_DEPTH_REVERSED, 1)
+          assertions += QualityAssertion(MIN_MAX_DEPTH_REVERSED, 1)
         }
       }
       catch {
@@ -231,11 +234,11 @@ class LocationProcessor extends Processor {
         if (min > max) {
           processed.location.minimumElevationInMeters = max.toString
           processed.location.maximumElevationInMeters = min.toString
-          assertions += QualityAssertion(AssertionCodes.MIN_MAX_ALTITUDE_REVERSED, "The minimum, " + min + ", and maximum, " + max + ", elevations have been transposed.")
+          assertions += QualityAssertion(MIN_MAX_ALTITUDE_REVERSED, "The minimum, " + min + ", and maximum, " + max + ", elevations have been transposed.")
         } else {
           processed.location.minimumElevationInMeters = min.toString
           processed.location.maximumElevationInMeters = max.toString
-          assertions += QualityAssertion(AssertionCodes.MIN_MAX_ALTITUDE_REVERSED, 1)
+          assertions += QualityAssertion(MIN_MAX_ALTITUDE_REVERSED, 1)
         }
       } catch {
         case e: Exception => logger.debug("Exception thrown processing elevation:" + e.getMessage())
@@ -243,54 +246,54 @@ class LocationProcessor extends Processor {
     }
   }
 
-  def processVerbatimElevation(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
+  private def processVerbatimElevation(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
     if (raw.location.verbatimElevation != null) {
       val parseElevationResult = DistanceRangeParser.parse(raw.location.verbatimElevation)
       if (parseElevationResult.isDefined) {
         val (velevation, sourceUnit) = parseElevationResult.get
         processed.location.verbatimElevation = velevation.toString
         if (velevation > 10000 || velevation < -100) {
-          assertions += QualityAssertion(AssertionCodes.ALTITUDE_OUT_OF_RANGE, "Elevation " + velevation + " is greater than 10,000 metres or less than -100 metres.")
+          assertions += QualityAssertion(ALTITUDE_OUT_OF_RANGE, "Elevation " + velevation + " is greater than 10,000 metres or less than -100 metres.")
         } else {
-          assertions += QualityAssertion(AssertionCodes.ALTITUDE_OUT_OF_RANGE, 1)
+          assertions += QualityAssertion(ALTITUDE_OUT_OF_RANGE, 1)
         }
-        assertions += QualityAssertion(AssertionCodes.ALTITUDE_NON_NUMERIC, 1)
+        assertions += QualityAssertion(ALTITUDE_NON_NUMERIC, 1)
 
         if (sourceUnit == Feet) {
-          assertions += QualityAssertion(AssertionCodes.ALTITUDE_IN_FEET, "The supplied altitude was in feet it has been converted to metres")
+          assertions += QualityAssertion(ALTITUDE_IN_FEET, "The supplied altitude was in feet it has been converted to metres")
         } else {
-          assertions += QualityAssertion(AssertionCodes.ALTITUDE_IN_FEET, 1)
+          assertions += QualityAssertion(ALTITUDE_IN_FEET, 1)
         }
       } else {
-        assertions += QualityAssertion(AssertionCodes.ALTITUDE_NON_NUMERIC, "Can't parse verbatimElevation " + raw.location.verbatimElevation)
+        assertions += QualityAssertion(ALTITUDE_NON_NUMERIC, "Can't parse verbatimElevation " + raw.location.verbatimElevation)
       }
     }
   }
 
-  def processVerbatimDepth(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
+  private def processVerbatimDepth(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
     if (raw.location.verbatimDepth != null) {
       val parseDepthResult = DistanceRangeParser.parse(raw.location.verbatimDepth)
       if (parseDepthResult.isDefined) {
         val (vdepth, sourceUnit) = parseDepthResult.get
         processed.location.verbatimDepth = vdepth.toString
         if (vdepth > 10000)
-          assertions += QualityAssertion(AssertionCodes.DEPTH_OUT_OF_RANGE, "Depth " + vdepth + " is greater than 10,000 metres")
+          assertions += QualityAssertion(DEPTH_OUT_OF_RANGE, "Depth " + vdepth + " is greater than 10,000 metres")
         else
-          assertions += QualityAssertion(AssertionCodes.DEPTH_OUT_OF_RANGE, 1)
-        assertions += QualityAssertion(AssertionCodes.DEPTH_NON_NUMERIC, 1)
+          assertions += QualityAssertion(DEPTH_OUT_OF_RANGE, 1)
+        assertions += QualityAssertion(DEPTH_NON_NUMERIC, 1)
         //check on the units
         if (sourceUnit == Feet) {
-          assertions += QualityAssertion(AssertionCodes.DEPTH_IN_FEET, "The supplied depth was in feet it has been converted to metres")
+          assertions += QualityAssertion(DEPTH_IN_FEET, "The supplied depth was in feet it has been converted to metres")
         } else {
-          assertions += QualityAssertion(AssertionCodes.DEPTH_IN_FEET, 1)
+          assertions += QualityAssertion(DEPTH_IN_FEET, 1)
         }
       } else {
-        assertions += QualityAssertion(AssertionCodes.DEPTH_NON_NUMERIC, "Can't parse verbatimDepth " + raw.location.verbatimDepth)
+        assertions += QualityAssertion(DEPTH_NON_NUMERIC, "Can't parse verbatimDepth " + raw.location.verbatimDepth)
       }
     }
   }
 
-  def setProcessedCoordinates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
+  private def setProcessedCoordinates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
     //handle the situation where the coordinates have already been sensitised
     // (LEGACY format - as of 2011-10-01 there we are storing original values in a map...)
@@ -330,16 +333,16 @@ class LocationProcessor extends Processor {
     //check to see if we have coordinates specified
     if (rawLatitude != null && rawLongitude != null && !rawLatitude.toFloatWithOption.isEmpty && !rawLongitude.toFloatWithOption.isEmpty) {
       //coordinates were supplied so the test passed
-      assertions += QualityAssertion(AssertionCodes.DECIMAL_COORDINATES_NOT_SUPPLIED, 1)
+      assertions += QualityAssertion(DECIMAL_COORDINATES_NOT_SUPPLIED, 1)
       // if decimal lat/long is provided in a CRS other than WGS84, then we need to reproject
 
       if (rawGeodeticDatum != null) {
         //no assumptions about the datum is being made:
-        assertions += QualityAssertion(AssertionCodes.GEODETIC_DATUM_ASSUMED_WGS84, 1)
+        assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, 1)
         val sourceEpsgCode = lookupEpsgCode(rawGeodeticDatum)
         if (!sourceEpsgCode.isEmpty) {
           //datum is recognised so pass the test:
-          assertions += QualityAssertion(AssertionCodes.UNRECOGNIZED_GEODETIC_DATUM,1)
+          assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM,1)
           if (sourceEpsgCode.get == WGS84_EPSG_Code) {
             //already in WGS84, no need to reproject
             Some((rawLatitude, rawLongitude, WGS84_EPSG_Code))
@@ -349,30 +352,30 @@ class LocationProcessor extends Processor {
 
             val reprojectedCoords = reprojectCoordinatesToWGS84(rawLatitude.toDouble, rawLongitude.toDouble, sourceEpsgCode.get, desiredNoDecimalPlaces)
             if (reprojectedCoords.isEmpty) {
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CONVERSION_FAILED, "Transformation of decimal latiude and longitude to WGS84 failed")
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, "Transformation of decimal latiude and longitude to WGS84 failed")
               None
             } else {
               //transformation of coordinates did not fail:
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CONVERSION_FAILED, 1)
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CONVERTED, "Decimal latitude and longitude were converted to WGS84 (EPSG:4326)")
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, 1)
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERTED, "Decimal latitude and longitude were converted to WGS84 (EPSG:4326)")
               val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
               Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
             }
           }
         } else {
-          assertions += QualityAssertion(AssertionCodes.UNRECOGNIZED_GEODETIC_DATUM, s"Geodetic datum $rawGeodeticDatum not recognized.")
+          assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, s"Geodetic datum $rawGeodeticDatum not recognized.")
           Some((rawLatitude, rawLongitude, rawGeodeticDatum))
         }
       } else {
         //assume coordinates already in WGS84
-        assertions += QualityAssertion(AssertionCodes.GEODETIC_DATUM_ASSUMED_WGS84, "Geodetic datum assumed to be WGS84 (EPSG:4326)")
+        assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, "Geodetic datum assumed to be WGS84 (EPSG:4326)")
         Some((rawLatitude, rawLongitude, WGS84_EPSG_Code))
       }
 
       // Attempt to infer the decimal latitude and longitude from the verbatim latitude and longitude
     } else {
       //no decimal latitude/longitude was provided
-      assertions += QualityAssertion(AssertionCodes.DECIMAL_COORDINATES_NOT_SUPPLIED)
+      assertions += QualityAssertion(DECIMAL_COORDINATES_NOT_SUPPLIED)
       if (verbatimLatitude != null && verbatimLongitude != null) {
         var decimalVerbatimLat = verbatimLatitude.toFloatWithOption
         var decimalVerbatimLong = verbatimLongitude.toFloatWithOption
@@ -391,39 +394,39 @@ class LocationProcessor extends Processor {
               val sourceEpsgCode = lookupEpsgCode(verbatimSRS)
               if (!sourceEpsgCode.isEmpty) {
                 //calculation from verbatim did NOT fail:
-                assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, 1)
+                assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, 1)
                 if (sourceEpsgCode.get == WGS84_EPSG_Code) {
                   //already in WGS84, no need to reproject
-                  assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
+                  assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
                   Some((decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code))
                 } else {
                   val desiredNoDecimalPlaces = math.min(getNumberOfDecimalPlacesInDouble(decimalVerbatimLat.get.toString), getNumberOfDecimalPlacesInDouble(decimalVerbatimLong.get.toString))
 
                   val reprojectedCoords = reprojectCoordinatesToWGS84(decimalVerbatimLat.get, decimalVerbatimLong.get, sourceEpsgCode.get, desiredNoDecimalPlaces)
                   if (reprojectedCoords.isEmpty) {
-                    assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Transformation of verbatim latiude and longitude to WGS84 failed")
+                    assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Transformation of verbatim latiude and longitude to WGS84 failed")
                     None
                   } else {
                     //reprojection did NOT fail:
-                    assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, 1)
-                    assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
+                    assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, 1)
+                    assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
                     val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
                     Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
                   }
                 }
               } else {
-                assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Unrecognized verbatimSRS " + verbatimSRS)
+                assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Unrecognized verbatimSRS " + verbatimSRS)
                 None
               }
               // Otherwise, assume latitude and longitude are already in WGS 84
             } else if (decimalVerbatimLat.get.toString.isLatitude && decimalVerbatimLong.get.toString.isLongitude) {
               //conversion dod NOT fail
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED,1)
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED,1)
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
               Some((decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code))
             } else {
               // Invalid latitude, longitude
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Could not parse verbatim latitude and longitude")
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Could not parse verbatim latitude and longitude")
               None
             }
           } else {
@@ -452,12 +455,12 @@ class LocationProcessor extends Processor {
             // Always round to 5 decimal places as easting/northing values are in metres and 0.00001 degree is approximately equal to 1m.
             val reprojectedCoords = reprojectCoordinatesToWGS84(eastingAsDouble.get, northingAsDouble.get, crsEpsgCode, 5)
             if (reprojectedCoords.isEmpty) {
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Transformation of verbatim easting and northing to WGS84 failed")
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Transformation of verbatim easting and northing to WGS84 failed")
               None
             } else {
               //lat and long from easting and northing did NOT fail:
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, 1)
-              assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING, "Decimal latitude and longitude were calculated using easting, northing and zone.")
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, 1)
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING, "Decimal latitude and longitude were calculated using easting, northing and zone.")
               val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
               Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
             }
@@ -466,9 +469,9 @@ class LocationProcessor extends Processor {
           }
         } else {
           if (verbatimSRS == null) {
-            assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Unrecognized zone GDA94 / MGA zone " + zone)
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Unrecognized zone GDA94 / MGA zone " + zone)
           } else {
-            assertions += QualityAssertion(AssertionCodes.DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Unrecognized zone " + verbatimSRS + " / zone " + zone)
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Unrecognized zone " + verbatimSRS + " / zone " + zone)
           }
           None
         }
@@ -486,7 +489,7 @@ class LocationProcessor extends Processor {
    * @param decimalPlacesToRoundTo number of decimal places to round the reprojected coordinates to
    * @return Reprojected coordinates (latitude, longitude), or None if the operation failed.
    */
-  def reprojectCoordinatesToWGS84(coordinate1: Double, coordinate2: Double, sourceCrsEpsgCode: String, decimalPlacesToRoundTo: Int): Option[(String, String)] = {
+  private def reprojectCoordinatesToWGS84(coordinate1: Double, coordinate2: Double, sourceCrsEpsgCode: String, decimalPlacesToRoundTo: Int): Option[(String, String)] = {
     try {
       val wgs84CRS = DefaultGeographicCRS.WGS84
       val sourceCRS = CRS.decode(sourceCrsEpsgCode)
@@ -528,7 +531,7 @@ class LocationProcessor extends Processor {
    * @param crs The coordinate reference system string.
    * @return The EPSG code associated with the CRS, or None if no matching code could be found. If the supplied string is already a valid EPSG code, it will simply be returned.
    */
-  def lookupEpsgCode(crs: String): Option[String] = {
+  private def lookupEpsgCode(crs: String): Option[String] = {
     if (StringUtils.startsWithIgnoreCase(crs, "EPSG:")) {
       // Do a lookup with the EPSG code to ensure that it is valid
       try {
@@ -545,7 +548,7 @@ class LocationProcessor extends Processor {
     }
   }
 
-  def checkCoordinateUncertainty(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
+  private def checkCoordinateUncertainty(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //validate coordinate accuracy (coordinateUncertaintyInMeters) and coordinatePrecision (precision - A. Chapman)
     var checkedPrecision =false
     if (raw.location.coordinateUncertaintyInMeters != null && raw.location.coordinateUncertaintyInMeters.length > 0) {
@@ -556,15 +559,15 @@ class LocationProcessor extends Processor {
         val (parsedValue, rawUnit) = parsedResult.get
         if(parsedValue > 0){
           //not an uncertainty mismatch
-          assertions += QualityAssertion(AssertionCodes.UNCERTAINTY_RANGE_MISMATCH, 1)
+          assertions += QualityAssertion(UNCERTAINTY_RANGE_MISMATCH, 1)
         } else {
           val comment = "Supplied uncertainty, " + raw.location.coordinateUncertaintyInMeters + ", is not a supported format"
-          assertions += QualityAssertion(AssertionCodes.UNCERTAINTY_RANGE_MISMATCH, comment)
+          assertions += QualityAssertion(UNCERTAINTY_RANGE_MISMATCH, comment)
         }
         processed.location.coordinateUncertaintyInMeters = parsedValue.toString
       } else {
         val comment = "Supplied uncertainty, " + raw.location.coordinateUncertaintyInMeters + ", is not a supported format"
-        assertions += QualityAssertion(AssertionCodes.UNCERTAINTY_RANGE_MISMATCH, comment)
+        assertions += QualityAssertion(UNCERTAINTY_RANGE_MISMATCH, comment)
       }
     } else {
       //check to see if the uncertainty has incorrectly been put in the precision
@@ -574,40 +577,38 @@ class LocationProcessor extends Processor {
         if (!value.isEmpty && value.get > 1) {
           processed.location.coordinateUncertaintyInMeters = value.get.toInt.toString
           val comment = "Supplied precision, " + raw.location.coordinatePrecision + ", is assumed to be uncertainty in metres";
-          assertions += QualityAssertion(AssertionCodes.UNCERTAINTY_IN_PRECISION, comment)
+          assertions += QualityAssertion(UNCERTAINTY_IN_PRECISION, comment)
           checkedPrecision = true
         }
       }
     }
     if (raw.location.coordinatePrecision == null){
-      assertions += QualityAssertion(AssertionCodes.MISSING_COORDINATEPRECISION, "Missing coordinatePrecision")
+      assertions += QualityAssertion(MISSING_COORDINATEPRECISION, "Missing coordinatePrecision")
     } else {
-      assertions += QualityAssertion(AssertionCodes.MISSING_COORDINATEPRECISION, 1)
+      assertions += QualityAssertion(MISSING_COORDINATEPRECISION, 1)
       if(!checkedPrecision){
         val value = raw.location.coordinatePrecision.toFloatWithOption
         if(value.isDefined){
           //Ensure that the precision is within the required ranges
           if (value.get > 0 && value.get <= 1){
-            assertions += QualityAssertion(AssertionCodes.PRECISION_RANGE_MISMATCH, 1)
+            assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, 1)
             //now test for coordinate precision
             val pre = if (raw.location.coordinatePrecision.contains(".")) raw.location.coordinatePrecision.split("\\.")(1).length else 0
             val lat = processed.location.decimalLatitude
             val long = processed.location.decimalLongitude
-            val latp = if(lat.contains("."))lat.split("\\.")(1).length else 0
-            val lonp = if(long.contains("."))long.split("\\.")(1).length else 0
+            val latp = if(lat.contains(".")) lat.split("\\.")(1).length else 0
+            val lonp = if(long.contains(".")) long.split("\\.")(1).length else 0
             if(pre == latp && pre == lonp){
               // no coordinate precision mismatch exists
-              assertions += QualityAssertion(AssertionCodes.COORDINATE_PRECISION_MISMATCH, 1)
+              assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH, 1)
             } else {
-              assertions += QualityAssertion(AssertionCodes.COORDINATE_PRECISION_MISMATCH)
+              assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH)
             }
+          } else{
+            assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, "Coordinate precision is not between 0 and 1" )
           }
-          else{
-            assertions += QualityAssertion(AssertionCodes.PRECISION_RANGE_MISMATCH, "Coordinate precision is not between 0 and 1" )
-          }
-        }
-        else {
-           assertions += QualityAssertion(AssertionCodes.PRECISION_RANGE_MISMATCH, "Unable to parse the coordinate precision")
+        } else {
+           assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, "Unable to parse the coordinate precision")
         }
       }
     }
@@ -617,9 +618,9 @@ class LocationProcessor extends Processor {
     // This step will pick up on default values because processed.location.coordinateUncertaintyInMeters
     // will already be populated if a default value exists
     if (processed.location.coordinateUncertaintyInMeters == null) {
-      assertions += QualityAssertion(AssertionCodes.UNCERTAINTY_NOT_SPECIFIED, "Uncertainty was not supplied")
+      assertions += QualityAssertion(UNCERTAINTY_NOT_SPECIFIED, "Uncertainty was not supplied")
     } else{
-      assertions += QualityAssertion(AssertionCodes.UNCERTAINTY_NOT_SPECIFIED, 1)
+      assertions += QualityAssertion(UNCERTAINTY_NOT_SPECIFIED, 1)
     }
   }
 
@@ -640,11 +641,11 @@ class LocationProcessor extends Processor {
               + processed.location.decimalLongitude)
             val comment = "Recognised habitats for species: " + habitatsAsString +
               ", Value determined from coordinates: " + habitatFromPoint
-            assertions += QualityAssertion(AssertionCodes.COORDINATE_HABITAT_MISMATCH, comment)
+            assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, comment)
           }
-        } else{
+        } else {
           //habitats ARE compatible
-          assertions += QualityAssertion(AssertionCodes.COORDINATE_HABITAT_MISMATCH, 1)
+          assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 1)
         }
       }
     }
@@ -670,10 +671,10 @@ class LocationProcessor extends Processor {
           + ", raw:" + raw.location.stateProvince)
         //add a quality assertion
         val comment = "Supplied: " + stateTerm.get.canonical + ", calculated: " + processed.location.stateProvince
-        assertions += QualityAssertion(AssertionCodes.STATE_COORDINATE_MISMATCH, comment)
-      } else{
+        assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, comment)
+      } else {
         //states are not in mismatch
-        assertions += QualityAssertion(AssertionCodes.STATE_COORDINATE_MISMATCH, 1)
+        assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, 1)
       }
     }
   }
@@ -681,34 +682,34 @@ class LocationProcessor extends Processor {
   def validateGeoreferenceValues(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) = {
     //check for missing geodeticDatum
     if (raw.location.geodeticDatum == null && processed.location.geodeticDatum == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEODETICDATUM, "Missing geodeticDatum")
+      assertions += QualityAssertion(MISSING_GEODETICDATUM, "Missing geodeticDatum")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEODETICDATUM,1)
+      assertions += QualityAssertion(MISSING_GEODETICDATUM,1)
     //check for missing georeferencedBy
     if (raw.location.georeferencedBy == null && processed.location.georeferencedBy == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERNCEDBY, "Missing georeferencedBy")
+      assertions += QualityAssertion(MISSING_GEOREFERNCEDBY, "Missing georeferencedBy")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERNCEDBY, 1)
+      assertions += QualityAssertion(MISSING_GEOREFERNCEDBY, 1)
     //check for missing georeferencedProtocol
     if (raw.location.georeferenceProtocol == null && processed.location.georeferenceProtocol == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERENCEPROTOCOL, "Missing georeferenceProtocol")
+      assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL, "Missing georeferenceProtocol")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERENCEPROTOCOL,1)
+      assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL,1)
     //check for missing georeferenceSources
     if (raw.location.georeferenceSources == null && processed.location.georeferenceSources == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERENCESOURCES, "Missing georeferenceSources")
+      assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES, "Missing georeferenceSources")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERENCESOURCES,1)
+      assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES,1)
     //check for missing georeferenceVerificationStatus
     if (raw.location.georeferenceVerificationStatus == null && processed.location.georeferenceVerificationStatus == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERENCEVERIFICATIONSTATUS, "Missing georeferenceVerificationStatus")
+      assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS, "Missing georeferenceVerificationStatus")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERENCEVERIFICATIONSTATUS,1)
+      assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS,1)
     //check for missing georeferenceDate
     if (StringUtils.isBlank(raw.location.georeferencedDate) && !raw.miscProperties.containsKey("georeferencedDate")){
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERENCE_DATE)
+      assertions += QualityAssertion(MISSING_GEOREFERENCE_DATE)
     } else {
-      assertions += QualityAssertion(AssertionCodes.MISSING_GEOREFERENCE_DATE, 1)
+      assertions += QualityAssertion(MISSING_GEOREFERENCE_DATE, 1)
     }
   }
 
@@ -730,28 +731,28 @@ class LocationProcessor extends Processor {
       if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
         //test to see if they have been inverted  (TODO other tests for inversion...)
         if (lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
-          assertions += QualityAssertion(AssertionCodes.INVERTED_COORDINATES, "Assume that coordinates have been inverted. Original values: " +
+          assertions += QualityAssertion(INVERTED_COORDINATES, "Assume that coordinates have been inverted. Original values: " +
             processed.location.decimalLatitude + "," + processed.location.decimalLongitude)
           val tmp = processed.location.decimalLatitude
           processed.location.decimalLatitude = processed.location.decimalLongitude
           processed.location.decimalLongitude = tmp
           //coordinates are not out of range:
-          assertions += QualityAssertion(AssertionCodes.COORDINATES_OUT_OF_RANGE, 1)
+          assertions += QualityAssertion(COORDINATES_OUT_OF_RANGE, 1)
         } else {
-          assertions += QualityAssertion(AssertionCodes.COORDINATES_OUT_OF_RANGE, "Coordinates are out of range: " +
+          assertions += QualityAssertion(COORDINATES_OUT_OF_RANGE, "Coordinates are out of range: " +
             processed.location.decimalLatitude + "," + processed.location.decimalLongitude)
-          assertions += QualityAssertion(AssertionCodes.INVERTED_COORDINATES,1)
+          assertions += QualityAssertion(INVERTED_COORDINATES,1)
         }
-      } else{
-        assertions ++= Array(QualityAssertion(AssertionCodes.INVERTED_COORDINATES,1), QualityAssertion(AssertionCodes.COORDINATES_OUT_OF_RANGE, 1))
+      } else {
+        assertions ++= Array(QualityAssertion(INVERTED_COORDINATES,1), QualityAssertion(COORDINATES_OUT_OF_RANGE, 1))
       }
 
       if (lat == 0.0f && lon == 0.0f) {
-        assertions += QualityAssertion(AssertionCodes.ZERO_COORDINATES, "Coordinates 0,0")
+        assertions += QualityAssertion(ZERO_COORDINATES, "Coordinates 0,0")
         processed.location.decimalLatitude = null
         processed.location.decimalLongitude = null
-      } else{
-        assertions += QualityAssertion(AssertionCodes.ZERO_COORDINATES,1)
+      } else {
+        assertions += QualityAssertion(ZERO_COORDINATES,1)
       }
 
       if (raw.location.country != null && raw.location.country != "") {
@@ -760,7 +761,7 @@ class LocationProcessor extends Processor {
 
         if (!country.isEmpty) {
 
-          assertions += QualityAssertion(AssertionCodes.UNKNOWN_COUNTRY_NAME, 1)
+          assertions += QualityAssertion(UNKNOWN_COUNTRY_NAME, 1)
 
           CountryCentrePoints.matchName(country.get.canonical) match {
 
@@ -772,7 +773,7 @@ class LocationProcessor extends Processor {
 
                 if (bbox.containsPoint(lat * -1, lon)) {
                   //latitude is negated
-                  assertions += QualityAssertion(AssertionCodes.NEGATED_LATITUDE,
+                  assertions += QualityAssertion(NEGATED_LATITUDE,
                     "Latitude seems to be negated. Original value:" + processed.location.decimalLatitude)
                   processed.location.decimalLatitude = (lat * -1).toString
                   hasCoordinateMismatch = false
@@ -780,17 +781,17 @@ class LocationProcessor extends Processor {
 
                 if (bbox.containsPoint(lat, lon * -1)) {
                   //point in wrong EW hemisphere - what do we do?
-                  assertions += QualityAssertion(AssertionCodes.NEGATED_LONGITUDE,
+                  assertions += QualityAssertion(NEGATED_LONGITUDE,
                     "Longitude seems to be negated. Original value: " + processed.location.decimalLongitude)
                   processed.location.decimalLongitude = (lon * -1).toString
                   hasCoordinateMismatch = false
                 }
 
                 if(hasCoordinateMismatch){
-                  assertions += QualityAssertion(AssertionCodes.COUNTRY_COORDINATE_MISMATCH)
+                  assertions += QualityAssertion(COUNTRY_COORDINATE_MISMATCH)
                 } else {
                   //there was no mismatch
-                  assertions += QualityAssertion(AssertionCodes.COUNTRY_COORDINATE_MISMATCH, 1)
+                  assertions += QualityAssertion(COUNTRY_COORDINATE_MISMATCH, 1)
                 }
 
               }
@@ -798,7 +799,7 @@ class LocationProcessor extends Processor {
             case _ => //do nothing
           }
         } else {
-          assertions += QualityAssertion(AssertionCodes.UNKNOWN_COUNTRY_NAME, "Country name '" + raw.location.country + "' not recognised.")
+          assertions += QualityAssertion(UNKNOWN_COUNTRY_NAME, "Country name '" + raw.location.country + "' not recognised.")
         }
       }
     }
@@ -934,8 +935,8 @@ class LocationProcessor extends Processor {
       }
 
       if(outcome.getReport().getMessages() != null){
-        var infoMessage =""
-        outcome.getReport().getMessages().foreach(message=>{
+        var infoMessage = ""
+        outcome.getReport().getMessages().foreach(message => {
           infoMessage += message.getCategory() + "\t" + message.getMessageText() + "\n"
         })
         processed.occurrence.informationWithheld = infoMessage
@@ -962,9 +963,9 @@ class LocationProcessor extends Processor {
           raw.classification.genus + " " + raw.classification.specificEpithet + " " + raw.classification.infraspecificEpithet
         else
           raw.classification.genus + " " + raw.classification.specificEpithet
-      }
-      else
+      } else {
         raw.classification.genus
+      }
     }
     else if (raw.classification.vernacularName != null) // handle the case where only a common name is provided.
       raw.classification.vernacularName

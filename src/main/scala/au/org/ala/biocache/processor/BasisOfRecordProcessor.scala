@@ -10,6 +10,7 @@ import au.org.ala.biocache.vocab.{BasisOfRecord, AssertionCodes}
 class BasisOfRecordProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("BasisOfRecordProcessor")
+  import AssertionCodes._
 
   /**
    * Process basis of record
@@ -20,16 +21,16 @@ class BasisOfRecordProcessor extends Processor {
       if (processed.occurrence.basisOfRecord != null && !processed.occurrence.basisOfRecord.isEmpty)
         Array[QualityAssertion]()//NC: When using default values we are not testing against so the QAs don't need to be included.
       else //add a quality assertion
-        Array(QualityAssertion(AssertionCodes.MISSING_BASIS_OF_RECORD, "Missing basis of record"))
+        Array(QualityAssertion(MISSING_BASIS_OF_RECORD, "Missing basis of record"))
     } else {
       val term = BasisOfRecord.matchTerm(raw.occurrence.basisOfRecord)
       if (term.isEmpty) {
         //add a quality assertion
         logger.debug("[QualityAssertion] " + guid + ", unrecognised BoR: " + guid + ", BoR:" + raw.occurrence.basisOfRecord)
-        Array(QualityAssertion(AssertionCodes.BADLY_FORMED_BASIS_OF_RECORD, "Unrecognised basis of record"), QualityAssertion(AssertionCodes.MISSING_BASIS_OF_RECORD,1))
+        Array(QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD, "Unrecognised basis of record"), QualityAssertion(MISSING_BASIS_OF_RECORD,1))
       } else {
         processed.occurrence.basisOfRecord = term.get.canonical
-        Array[QualityAssertion](QualityAssertion(AssertionCodes.MISSING_BASIS_OF_RECORD,1), QualityAssertion(AssertionCodes.BADLY_FORMED_BASIS_OF_RECORD,1))
+        Array[QualityAssertion](QualityAssertion(MISSING_BASIS_OF_RECORD,1), QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD,1))
       }
     }
   }

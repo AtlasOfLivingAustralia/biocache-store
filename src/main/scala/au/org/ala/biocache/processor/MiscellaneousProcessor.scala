@@ -16,6 +16,7 @@ class MiscellaneousProcessor extends Processor {
 
   val LIST_DELIM = ";".r
   val interactionPattern = """([A-Za-z]*):([\x00-\x7F\s]*)""".r
+  import AssertionCodes._
 
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
     val assertions = new ArrayBuffer[QualityAssertion]
@@ -48,28 +49,28 @@ class MiscellaneousProcessor extends Processor {
     if(StringUtils.isNotBlank(rawOccurrenceStatus)){
       val matchedTerm = OccurrenceStatus.matchTerm(rawOccurrenceStatus)
       if(matchedTerm.isEmpty){
-        ("unknown", Some(QualityAssertion(AssertionCodes.UNRECOGNISED_OCCURRENCE_STATUS)))
+        ("unknown", Some(QualityAssertion(UNRECOGNISED_OCCURRENCE_STATUS)))
       } else {
         (matchedTerm.get.canonical, None)
       }
     } else {
       //assume present
-      ("present", Some(QualityAssertion(AssertionCodes.ASSUMED_PRESENT_OCCURRENCE_STATUS)))
+      ("present", Some(QualityAssertion(ASSUMED_PRESENT_OCCURRENCE_STATUS)))
     }
   }
 
   def processMiscOccurrence(raw:FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
     if(StringUtils.isBlank(raw.occurrence.catalogNumber)){
-      assertions += QualityAssertion(AssertionCodes.MISSING_CATALOGUENUMBER, "No catalogue number provided")
+      assertions += QualityAssertion(MISSING_CATALOGUENUMBER, "No catalogue number provided")
     } else {
-      assertions += QualityAssertion(AssertionCodes.MISSING_CATALOGUENUMBER, 1)
+      assertions += QualityAssertion(MISSING_CATALOGUENUMBER, 1)
     }
     //check to see if the source data has been provided in a generalised form
     if(StringUtils.isNotBlank(raw.occurrence.dataGeneralizations)){
-      assertions += QualityAssertion(AssertionCodes.DATA_ARE_GENERALISED)
+      assertions += QualityAssertion(DATA_ARE_GENERALISED)
     } else {
       //data not generalised by the provider
-      assertions += QualityAssertion(AssertionCodes.DATA_ARE_GENERALISED, 1)
+      assertions += QualityAssertion(DATA_ARE_GENERALISED, 1)
     }
   }
 
@@ -81,10 +82,10 @@ class MiscellaneousProcessor extends Processor {
       val parsedCollectors = CollectorNameParser.parseForList(raw.occurrence.recordedBy)
       if (parsedCollectors.isDefined) {
         processed.occurrence.recordedBy = parsedCollectors.get.mkString("|")
-        assertions += QualityAssertion(AssertionCodes.RECORDED_BY_UNPARSABLE, 1)
+        assertions += QualityAssertion(RECORDED_BY_UNPARSABLE, 1)
       } else {
         //println("Unable to parse: " + raw.occurrence.recordedBy)
-        assertions += QualityAssertion(AssertionCodes.RECORDED_BY_UNPARSABLE, "Can not parse recordedBy")
+        assertions += QualityAssertion(RECORDED_BY_UNPARSABLE, "Can not parse recordedBy")
       }
     }
   }
@@ -108,10 +109,10 @@ class MiscellaneousProcessor extends Processor {
       //FIXME extract to a vocabulary
       val cultEscaped = newmeans.find(em => em == "cultivated" || em == "assumed to be cultivated" || em == "formerly cultivated (extinct)" || em == "possibly cultivated" || em == "presumably cultivated")
       if(cultEscaped.isDefined){
-        assertions += QualityAssertion(AssertionCodes.OCCURRENCE_IS_CULTIVATED_OR_ESCAPEE)
+        assertions += QualityAssertion(OCCURRENCE_IS_CULTIVATED_OR_ESCAPEE)
       } else {
         //represents a natural occurrence. not cultivated ot escaped
-        assertions += QualityAssertion(AssertionCodes.OCCURRENCE_IS_CULTIVATED_OR_ESCAPEE, 1)
+        assertions += QualityAssertion(OCCURRENCE_IS_CULTIVATED_OR_ESCAPEE, 1)
       }
     }
   }
@@ -119,24 +120,24 @@ class MiscellaneousProcessor extends Processor {
   def processIdentification(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) = {
     //check missing identification qualifier
     if (raw.identification.identificationQualifier == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_IDENTIFICATIONQUALIFIER, "Missing identificationQualifier")
+      assertions += QualityAssertion(MISSING_IDENTIFICATIONQUALIFIER, "Missing identificationQualifier")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_IDENTIFICATIONQUALIFIER, 1)
+      assertions += QualityAssertion(MISSING_IDENTIFICATIONQUALIFIER, 1)
     //check missing identifiedBy
     if (raw.identification.identifiedBy == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_IDENTIFIEDBY, "Missing identifiedBy")
+      assertions += QualityAssertion(MISSING_IDENTIFIEDBY, "Missing identifiedBy")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_IDENTIFIEDBY, 1)
+      assertions += QualityAssertion(MISSING_IDENTIFIEDBY, 1)
     //check missing identification references
     if (raw.identification.identificationReferences == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_IDENTIFICATIONREFERENCES, "Missing identificationReferences")
+      assertions += QualityAssertion(MISSING_IDENTIFICATIONREFERENCES, "Missing identificationReferences")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_IDENTIFICATIONREFERENCES,1)
+      assertions += QualityAssertion(MISSING_IDENTIFICATIONREFERENCES,1)
     //check missing date identified
     if (raw.identification.dateIdentified == null)
-      assertions += QualityAssertion(AssertionCodes.MISSING_DATEIDENTIFIED, "Missing dateIdentified")
+      assertions += QualityAssertion(MISSING_DATEIDENTIFIED, "Missing dateIdentified")
     else
-      assertions += QualityAssertion(AssertionCodes.MISSING_DATEIDENTIFIED,1)
+      assertions += QualityAssertion(MISSING_DATEIDENTIFIED,1)
   }
 
   def processInteractions(guid: String, raw: FullRecord, processed: FullRecord) = {
