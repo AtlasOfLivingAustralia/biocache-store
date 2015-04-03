@@ -13,6 +13,7 @@ object WebServiceLoader {
   } catch {
     case e: Exception => {
       logger.warn(s"Unable to load $url : " + e.getMessage)
+      logger.debug(e.getMessage, e)
       ""
     }
   }

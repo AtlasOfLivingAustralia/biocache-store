@@ -1,40 +1,22 @@
 package au.org.ala.biocache.load
 
+import java.util
+
 import au.org.ala.biocache._
 import au.com.bytecode.opencsv.CSVReader
 import java.io.FileReader
-import collection.mutable.ArrayBuffer
+import au.org.ala.biocache.util.Json
+
+import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 import java.text.MessageFormat
 import au.org.ala.names.model.LinnaeanRankClassification
 import au.org.ala.biocache.caches.{WebServiceLoader, TaxonSpeciesListDAO, TaxonProfileDAO}
-import au.org.ala.biocache.model.TaxonProfile
+import au.org.ala.biocache.model.{ConservationStatus, TaxonProfile}
 import scala.util.parsing.json.JSON
 
-object GenericTaxonProfileLoader {
-
-  def main(args:Array[String]){
-    //lsid, lft,rgt,rank,scientificname
-    val file = if(args.size == 1) args(0) else "/data/biocache-load/merge-taxon-profile.csv"
-    val reader =  new CSVReader(new FileReader(file), '\t', '"', '~')
-    var currentLine = reader.readNext
-    var count =0
-    while(currentLine != null){
-      val tp = new TaxonProfile()
-      tp.setGuid(currentLine(0))
-      tp.setLeft(currentLine(1))
-      tp.setRight(currentLine(2))
-      tp.setRankString(currentLine(3))
-      tp.setScientificName(currentLine(4))
-      TaxonProfileDAO.add(tp)
-      count+=1
-      if(count % 10000 == 0){
-        println("Loaded " + count + " taxon >>>> " + currentLine.mkString(","))
-      }
-      currentLine = reader.readNext()
-    }
-  }
-}
-
+/**
+ * A loader that imports data from IRMNG exports.
+ */
 object HabitatLoader {
 
   def main(args:Array[String]){
@@ -96,8 +78,8 @@ object HabitatLoader {
     }
   }
 
-  def getValue(v:String):String={
-    v match{
+  def getValue(v:String) : String = {
+    v match {
       case it if it == 'M' => "Marine"
       case it if it == "N" => "Non-Marine"
       case it if it == "MN" => "Marine and Non-marine"
@@ -107,33 +89,71 @@ object HabitatLoader {
 }
 
 /**
- * Loads the taxon profile information from the species list tool
- */
-object TaxonSpeciesListLoader {
+* Loads the taxon profile information from the species list tool.
+*/
+object ConservationListLoader {
 
   val guidUrl = Config.listToolUrl + "/speciesList/{0}/taxa"
   val guidsArray = new ArrayBuffer[String]()
 
+  def getListsForQuery(listToolQuery:String) : Seq[(String, String)] = {
+    val speciesLists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?" + listToolQuery))
+    val ids = ListBuffer[(String, String)]()
+    if (speciesLists.containsKey("lists")) {
+      val authlists = speciesLists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
+      for (listIdx <- 0 until authlists.size()) {
+
+        val listProperties = authlists.get(listIdx)
+
+        if (listProperties.containsKey("dataResourceUid") && listProperties.get("region") != null) {
+          ids +=( (listProperties.get("dataResourceUid").toString, listProperties.get("region").toString) )
+        }
+      }
+    }
+    ids
+  }
+
   def main(args:Array[String]){
+
+    val listUids = getListsForQuery("isThreatened=eq:true")
     // grab a list of distinct guids that form the list
-    val lists = Config.getProperty("specieslists","").split(",")
-    lists.foreach(v => {
-      //get the guids on the list
-      val url = MessageFormat.format(guidUrl, v)
+    listUids.foreach { case (listUid, region) => {
+      //get the taxon guids on the list
+      val url = MessageFormat.format(guidUrl, listUid)
       val response = WebServiceLoader.getWSStringContent(url)
       if(response != ""){
         val list = JSON.parseFull(response).get.asInstanceOf[List[String]]
         guidsArray ++= list.filter(_ != null)
       }
-    })
+    }}
     val guids = guidsArray.toSet
-    //now load all the details
+    //now load all the details for each  taxon guids
     println("The number of distinct species " + guids.size)
-    guids.foreach(g =>{
+    guids.foreach(guid => {
       //get the values from the cache
-      val (lists, props) = TaxonSpeciesListDAO.getListsForTaxon(g, true)
+      val (lists, props) = TaxonSpeciesListDAO.getCachedListsForTaxon(guid)
       //now add the values to the DB
-      TaxonSpeciesListDAO.addToPM(g, lists, props)
+      val buff = new ListBuffer[ConservationStatus]
+
+      listUids.foreach { case (listUid, region) => {
+        if(props.getOrElse(listUid + "_status", "") != ""){
+          val status = props.getOrElse(listUid + "_status", "")
+          val rawStatus = props.getOrElse(listUid + "_sourceStatus", "")
+
+          val conservationStatus = new ConservationStatus(
+            region,
+            "",
+            status,
+            rawStatus
+          )
+          println(guid + ": " + conservationStatus)
+          buff += conservationStatus
+        }
+      }}
+
+      val csAsJson = Json.toJSON(buff.toList)
+
+      Config.persistenceManager.put(guid, "taxon", Map("conservation" -> csAsJson))
     })
   }
 }
