@@ -33,33 +33,44 @@ object SensitiveAreaDAO {
 
   init
 
+  /**
+   * Load polygon layers from the filesystem into memory to support fast intersect
+   * queries.
+   */
   private def init = {
-    logger.info("Loading Layer information from ....." + Config.layersServiceUrl)
-    val layersJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/layers")
-    val fieldsJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/fields")
 
-    //layers
-    val layers = JSON.parseFull(layersJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
-    layers.foreach(layer => {
-      idNameLookup.put(layer.getOrElse("uid", "-1"), layer.getOrElse("name", ""))
-    })
+    if(Config.sdsEnabled){
+      logger.info("Loading Layer information from ....." + Config.layersServiceUrl)
+      val layersJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/layers")
+      val fieldsJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/fields")
 
-    //fields
-    val fields = JSON.parseFull(fieldsJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
-    fields.foreach(field => {
-      nameFieldLookup.put(field.getOrElse("spid", "-1"), field.getOrElse("sname", ""))
-    })
+      //layers
+      val layers = JSON.parseFull(layersJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
+      logger.info("Number of layers loaded ....." + layers.size)
+      layers.foreach(layer => {
+        idNameLookup.put(layer.getOrElse("id", -1).asInstanceOf[Double].toInt.toString(), layer.getOrElse("name", ""))
+      })
 
-    //load layer metadata
-    au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(layerID => {
-      //check each layer is available on the local filesystem
-      val id = layerID.replaceAll("cl","")
-      val f = new File(Config.layersDirectory + idNameLookup.getOrElse(id, "xxxxx") + ".shp")
-      logger.info("Geospatial ID..." + layerID + " - available: " + f.exists() + " - " + f.getAbsolutePath + ", field name: " + nameFieldLookup.getOrElse(id, "xxxxx"))
-      if(f.exists()){
-        loadedShapeFiles.put(layerID, new SimpleShapeFile(Config.layersDirectory  + idNameLookup.getOrElse(id, "xxxxx"), nameFieldLookup.getOrElse(id, "xxxxx")))
-      }
-    })
+      //fields
+      val fields = JSON.parseFull(fieldsJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
+      logger.info("Number of fields loaded ....." + fields.size)
+      fields.foreach(field => {
+        nameFieldLookup.put(field.getOrElse("spid", "-1"), field.getOrElse("sname", ""))
+      })
+
+      //load layer metadata
+      au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(layerID => {
+        //check each layer is available on the local filesystem
+        val id = layerID.replaceAll("cl","")
+        val f = new File(Config.layersDirectory + idNameLookup.getOrElse(id, "xxxxx") + ".shp")
+        logger.info("Geospatial ID..." + layerID + " - available: " + f.exists() + " - " + f.getAbsolutePath + ", field name: " + nameFieldLookup.getOrElse(id, "xxxxx"))
+        if(f.exists()){
+          loadedShapeFiles.put(layerID, new SimpleShapeFile(Config.layersDirectory  + idNameLookup.getOrElse(id, "xxxxx"), nameFieldLookup.getOrElse(id, "xxxxx")))
+        } else {
+          throw new RuntimeException(s"SDS layer $layerID unavailable on local filesystem. To disable SDS checking set sds.enabled=false in your external config file." )
+        }
+      })
+    }
   }
 
   /**
@@ -71,7 +82,7 @@ object SensitiveAreaDAO {
    */
   def intersect(decimalLongitude:Double, decimalLatitude:Double) : Map[String, String] = {
 
-    if(decimalLongitude == null || decimalLatitude == null){
+    if(!Config.sdsEnabled || decimalLongitude == null || decimalLatitude == null){
       return Map[String,String]()
     }
 
