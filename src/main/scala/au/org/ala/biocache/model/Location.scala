@@ -58,13 +58,7 @@ class Location extends Cloneable with POSO {
   @BeanProperty var verbatimLongitude:String = _
   @BeanProperty var verbatimSRS:String = _
   @BeanProperty var waterBody:String = _
-  //custom additional fields
-//  @BeanProperty var ibra:String = _
-//  @BeanProperty var ibraSubregion:String = _ //http://www.chah.org.au/hispid/terms/ibraSubregion
-//  @BeanProperty var imcra:String = _
-
-
-
+  //custom additional fields not in darwin core
   @BeanProperty var lga:String = _
   //AVH additions
   @BeanProperty var generalisedLocality: String =_ ///http://wiki.tdwg.org/twiki/bin/view/ABCD/AbcdConcept0977
