@@ -1,106 +1,94 @@
 package au.org.ala.biocache.load
 
+import java.net.URL
 import java.util
 
 import au.org.ala.biocache._
-import au.com.bytecode.opencsv.CSVReader
-import java.io.FileReader
+import java.io.{File}
 import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.util.Json
+import org.gbif.dwc.terms.{DwcTerm, GbifTerm}
+import org.gbif.dwc.text.{Archive, ArchiveFactory}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 import java.text.MessageFormat
 import au.org.ala.names.model.LinnaeanRankClassification
-import au.org.ala.biocache.caches.{WebServiceLoader, TaxonSpeciesListDAO, TaxonProfileDAO}
-import au.org.ala.biocache.model.{ConservationStatus, TaxonProfile}
+import au.org.ala.biocache.caches.{WebServiceLoader, TaxonSpeciesListDAO}
+import au.org.ala.biocache.model.{ConservationStatus}
 import scala.util.parsing.json.JSON
-
+import sys.process._
 /**
  * A loader that imports data from IRMNG exports.
  *
- * TODO use the GBIF DwC archive of IRMNG to load this information
- *
- * //download DwC archive
- * //http://www.cmar.csiro.au/datacentre/downloads/IRMNG_DWC.zip
+ * Download DwC archive from:
+ * http://www.cmar.csiro.au/datacentre/downloads/IRMNG_DWC.zip
  */
-object HabitatLoader {
+object HabitatLoader extends Tool {
 
-  def main(args:Array[String]){
+  val logger = LoggerFactory.getLogger("HabitatLoader")
+  def cmd = "update-habitat-data"
+  def desc = "Load habitat data from sources (e.g. IRMNG)"
 
-    //read with DwC reader
-    //get the habitat information
-    val files = if(args.size == 0) {
-      Array(
-        "/data/biocache-load/species_list.txt",
-        "/data/biocache-load/family_list.txt",
-        "/data/biocache-load/genus_list.txt")
-    } else {
-      args
-    }
-    files.foreach { file => processFile(file) }
-  }
+  def main(args: Array[String]): Unit = {
 
-  def processFile(file:String){
+    import scala.collection.JavaConverters._
 
-    println("Loading habitats from " + file)
-    val reader =  new CSVReader(new FileReader(file), '\t', '"', '~')
-    var currentLine = reader.readNext()
-    var previousScientificName = ""
-    var count = 0
-    var loaded = 0
-    while(currentLine != null){
-      val currentScientificName = currentLine(1)
-      var habitat:String=null
-      if(currentScientificName != null && !currentScientificName.equalsIgnoreCase(previousScientificName)){
-        val cl = new LinnaeanRankClassification()
-        cl.setScientificName(currentScientificName)
-        if (currentLine.length == 12){
-          //we are dealing with a family
-          cl.setFamily(currentScientificName)
-          cl.setKingdom(currentLine(2))
-          habitat = getValue(currentLine(4))
-        } else if (currentLine.length==13){
-          //dealing with genus or species
-          val isGenus = !currentScientificName.contains(" ")
-          if(isGenus){
-            cl.setGenus(currentLine(1))
-            if(currentLine(2).contains("unallocated")){
-              cl.setFamily(currentLine(2))
-            }
-          } else {
-            cl.setGenus(currentLine(2))
-          }
-        }
-//        val guid = Config.nameIndex.searchForAcceptedLsidDefaultHandling(cl,false)
+    var counter = 0
+
+    val archiveFile = Config.tmpWorkDir + File.separator + "IRMNG_DWC.zip"
+
+    //download the archive
+    println("Downloading the IRMNG archive...")
+    new URL(Config.irmngDwcArchiveUrl) #> new File(Config.tmpWorkDir +  File.separator +  "IRMNG_DWC.zip") !!
+
+    val myArchiveFile = new File(archiveFile)
+    val extractToFolder = new File(Config.tmpWorkDir + File.separator + "IRMNG_DWC")
+    val dwcArchive:Archive = ArchiveFactory.openArchive(myArchiveFile, extractToFolder)
+    println("Archive rowtype: " + dwcArchive.getCore().getRowType() + ", "
+      + dwcArchive.getExtensions().size() + " extension(s)")
+
+    dwcArchive.asScala.foreach { starRecord =>
+
+      val cl = new LinnaeanRankClassification()
+      val scientificName = starRecord.core().value(DwcTerm.scientificName)
+      cl.setScientificName(scientificName)
+      cl.setSpecificEpithet(starRecord.core().value(DwcTerm.specificEpithet))
+      cl.setGenus(starRecord.core().value(DwcTerm.genus))
+      cl.setFamily(starRecord.core().value(DwcTerm.family))
+
+      val guid = {
         try {
-          val guid = Config.nameIndex.searchForLSID(currentScientificName)
-          previousScientificName = currentScientificName
-          if (guid != null && habitat != null) {
-            //add the habitat status
-            Config.persistenceManager.put(guid, "taxon", "habitats", habitat)
-            loaded += 1
-            //println("Adding " +habitat + " for " +guid)
-          }
+          Config.nameIndex.searchForAcceptedLsidDefaultHandling(cl, false)
         } catch {
-          case e:Exception => println("Error loading: " + currentScientificName + " - " + e.getMessage)
-        }
-        count += 1
-        if(count % 10000 == 0){
-          println(s"Processed $count, loaded $loaded taxon >>>> " + currentLine.mkString(","))
+          case e:Exception => {
+            println("Problem looking up name: " + scientificName+ ". " + e.getMessage)
+            null
+          }
         }
       }
-      currentLine = reader.readNext()
-    }
-  }
 
-  def getValue(v:String) : String = {
-    v match {
-      case it if it == 'M' => "Marine"
-      case it if it == "N" => "Non-Marine"
-      case it if it == "MN" => "Marine and Non-marine"
-      case _ => null
+      if(guid != null){
+        if (starRecord.extensions().containsKey(GbifTerm.SpeciesProfile)) {
+          starRecord.extension(GbifTerm.SpeciesProfile).asScala.foreach { extRec =>
+            val rawValue = extRec.value(GbifTerm.isMarine)
+            if(rawValue !=null && rawValue != "null"){
+              val habitat = if(rawValue.toBoolean){
+                "Marine"
+              } else {
+                "Terrestrial"
+              }
+              Config.persistenceManager.put(guid, "taxon", Map("habitat" -> habitat))
+              counter += 1
+              if(counter % 1000 == 0) {
+                println(s"Habitat values loaded: $counter")
+              }
+            }
+          }
+        }
+      }
     }
+    println(s"Finished. Total habitat values loaded: $counter")
   }
 }
 
@@ -136,6 +124,7 @@ object ConservationListLoader extends Tool {
   def main(args:Array[String]){
 
     val listUids = getListsForQuery("isThreatened=eq:true")
+
     // grab a list of distinct guids that form the list
     listUids.foreach { case (listUid, region) => {
       //get the taxon guids on the list
@@ -147,6 +136,7 @@ object ConservationListLoader extends Tool {
       }
     }}
     val guids = guidsArray.toSet
+
     //now load all the details for each  taxon guids
     logger.info("The number of distinct species " + guids.size)
     guids.foreach(guid => {
@@ -159,7 +149,6 @@ object ConservationListLoader extends Tool {
         if(props.getOrElse(listUid + "_status", "") != ""){
           val status = props.getOrElse(listUid + "_status", "")
           val rawStatus = props.getOrElse(listUid + "_sourceStatus", "")
-
           val conservationStatus = new ConservationStatus(
             region,
             "",

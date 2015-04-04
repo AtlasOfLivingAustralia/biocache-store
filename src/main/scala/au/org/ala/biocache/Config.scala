@@ -102,6 +102,8 @@ object Config {
 
   val technicalContact = configModule.properties.getProperty("technical.contact", "support@ala.org.au")
 
+  val irmngDwcArchiveUrl = configModule.properties.getProperty("irmng.archive.url", "http://www.cmar.csiro.au/datacentre/downloads/IRMNG_DWC.zip")
+
   /** Whether or not to strictly obey the isLoadable directive from the SDS */
   val obeySDSIsLoadable = configModule.properties.getProperty("obey.sds.is.loadable", "true").toBoolean
 

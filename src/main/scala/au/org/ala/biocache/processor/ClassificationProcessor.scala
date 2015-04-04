@@ -163,7 +163,11 @@ class ClassificationProcessor extends Processor {
           }
 
           //check for default match before updating the classification.
-          val hasDefaultMatch = processed.defaultValuesUsed && nsr.getRank() != null && hasMatchToDefault(nsr.getRank().getRank(), nsr.getRankClassification().getScientificName(), processed.classification)
+          val hasDefaultMatch = {
+            processed.defaultValuesUsed &&
+              nsr.getRank() != null &&
+              hasMatchToDefault(nsr.getRank().getRank(), nsr.getRankClassification().getScientificName(), processed.classification)
+          }
           //store ".p" values if thr taxonomic hinst passed
           if(hintsPassed) {
             processed.classification = nsr
@@ -176,8 +180,6 @@ class ClassificationProcessor extends Processor {
           //try to apply the vernacular name
           val taxonProfile = TaxonProfileDAO.getByGuid(nsr.getLsid)
           if (!taxonProfile.isEmpty) {
-            if (taxonProfile.get.commonName != null)
-              processed.classification.vernacularName = taxonProfile.get.commonName
             if (taxonProfile.get.habitats != null)
               processed.classification.speciesHabitats = taxonProfile.get.habitats
           }

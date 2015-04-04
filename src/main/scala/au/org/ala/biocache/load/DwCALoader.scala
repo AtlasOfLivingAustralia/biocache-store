@@ -1,7 +1,8 @@
 package au.org.ala.biocache.load
 
 import java.io._
-import org.gbif.dwc.text.{StarRecord, ArchiveFactory}
+import org.gbif.dwc.record.StarRecord
+import org.gbif.dwc.text.ArchiveFactory
 import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache._
 import org.gbif.dwc.terms.Term
@@ -11,7 +12,6 @@ import org.apache.commons.lang3.StringUtils
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.model.{Raw, FullRecord}
 import au.org.ala.biocache.vocab.DwC
-import scala.Some
 
 /**
  * Loading utility for pulling in a darwin core archive file.

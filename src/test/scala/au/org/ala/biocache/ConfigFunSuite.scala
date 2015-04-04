@@ -22,7 +22,7 @@ class ConfigFunSuite extends FunSuite {
   //Add conservation status
   val taxonProfile = new TaxonProfile
   taxonProfile.setGuid("urn:lsid:biodiversity.org.au:afd.taxon:3809b1ca-8b60-4fcb-acf5-ca4f1dc0e263")
-  taxonProfile.setScientificName("Victaphanta compacta")
+//  taxonProfile.setScientificName("Victaphanta compacta")
   taxonProfile.setConservation(Array(
     new ConservationStatus("Victoria", "aus_states/Victoria", "Endangered", "Endangered"),
     new ConservationStatus("Victoria", "aus_states/Victoria", null, "Listed under FFG Act")
@@ -31,7 +31,7 @@ class ConfigFunSuite extends FunSuite {
 
   val tp = new TaxonProfile
   tp.setGuid("urn:lsid:biodiversity.org.au:afd.taxon:aa745ff0-c776-4d0e-851d-369ba0e6f537")
-  tp.setScientificName("Macropus rufus")
+//  tp.setScientificName("Macropus rufus")
   tp.setHabitats(Array("Non-marine"))
   TaxonProfileDAO.add(tp)
 

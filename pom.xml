@@ -198,7 +198,7 @@
         <dependency>
             <groupId>org.gbif</groupId>
             <artifactId>dwca-reader</artifactId>
-            <version>1.17</version>
+            <version>1.21</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-io</groupId>

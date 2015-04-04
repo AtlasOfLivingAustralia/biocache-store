@@ -27,17 +27,17 @@ object TaxonProfileDAO {
       map.get.foreach(keyValue => {
         keyValue._1 match {
           case "guid" => taxonProfile.guid = keyValue._2
-          case "scientificName" => taxonProfile.scientificName = keyValue._2
-          case "commonName" => taxonProfile.commonName = keyValue._2
-          case "rankString" => taxonProfile.rankString = keyValue._2
+//          case "scientificName" => taxonProfile.scientificName = keyValue._2
+//          case "commonName" => taxonProfile.commonName = keyValue._2
+//          case "rankString" => taxonProfile.rankString = keyValue._2
           case "habitats" => if (keyValue._2 != null && !keyValue._2.isEmpty) {
             taxonProfile.habitats = keyValue._2.split(",")
           }
-          case "left" => taxonProfile.left = keyValue._2
-          case "right" => taxonProfile.right = keyValue._2
-          case "sensitive" => if (keyValue._2 != null && !keyValue._2.isEmpty) {
-            taxonProfile.sensitive = Json.toArray(keyValue._2, classOf[SensitiveSpecies].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[SensitiveSpecies]]
-          }
+//          case "left" => taxonProfile.left = keyValue._2
+//          case "right" => taxonProfile.right = keyValue._2
+//          case "sensitive" => if (keyValue._2 != null && !keyValue._2.isEmpty) {
+//            taxonProfile.sensitive = Json.toArray(keyValue._2, classOf[SensitiveSpecies].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[SensitiveSpecies]]
+//          }
           case "conservation" => if(keyValue._2 != null && keyValue._2.size >0){
             taxonProfile.conservation = Json.toArray(keyValue._2, classOf[ConservationStatus].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[ConservationStatus]]
           }
@@ -78,18 +78,18 @@ object TaxonProfileDAO {
 
       val properties = scala.collection.mutable.Map[String,String]()
       properties.put("guid", taxonProfile.guid)
-      properties.put("scientificName", taxonProfile.scientificName)
-      properties.put("commonName", taxonProfile.commonName)
-      properties.put("rankString", taxonProfile.rankString)
+//      properties.put("scientificName", taxonProfile.scientificName)
+//      properties.put("commonName", taxonProfile.commonName)
+//      properties.put("rankString", taxonProfile.rankString)
       if(taxonProfile.habitats!=null && !taxonProfile.habitats.isEmpty){
         val habitatString = taxonProfile.habitats.reduceLeft(_+","+_)
         properties.put("habitats", habitatString)
       }
-      properties.put("left", taxonProfile.left)
-      properties.put("right", taxonProfile.right)
-      if(taxonProfile.sensitive != null && taxonProfile.sensitive.size >0){
-        properties.put("sensitive", Json.toJSON(taxonProfile.sensitive.asInstanceOf[Array[AnyRef]]))
-      }
+//      properties.put("left", taxonProfile.left)
+//      properties.put("right", taxonProfile.right)
+//      if(taxonProfile.sensitive != null && taxonProfile.sensitive.size >0){
+//        properties.put("sensitive", Json.toJSON(taxonProfile.sensitive.asInstanceOf[Array[AnyRef]]))
+//      }
       if(taxonProfile.conservation != null && taxonProfile.conservation.size >0){
         properties.put("conservation", Json.toJSON(taxonProfile.conservation.asInstanceOf[Array[AnyRef]]))
       }
