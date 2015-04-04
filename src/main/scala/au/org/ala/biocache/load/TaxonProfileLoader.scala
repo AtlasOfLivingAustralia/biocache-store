@@ -5,7 +5,9 @@ import java.util
 import au.org.ala.biocache._
 import au.com.bytecode.opencsv.CSVReader
 import java.io.FileReader
+import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.util.Json
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 import java.text.MessageFormat
@@ -16,10 +18,17 @@ import scala.util.parsing.json.JSON
 
 /**
  * A loader that imports data from IRMNG exports.
+ *
+ * TODO use the GBIF DwC archive of IRMNG to load this information
+ *
+ * //download DwC archive
+ * //http://www.cmar.csiro.au/datacentre/downloads/IRMNG_DWC.zip
  */
 object HabitatLoader {
 
   def main(args:Array[String]){
+
+    //read with DwC reader
     //get the habitat information
     val files = if(args.size == 0) {
       Array(
@@ -39,6 +48,7 @@ object HabitatLoader {
     var currentLine = reader.readNext()
     var previousScientificName = ""
     var count = 0
+    var loaded = 0
     while(currentLine != null){
       val currentScientificName = currentLine(1)
       var habitat:String=null
@@ -62,16 +72,22 @@ object HabitatLoader {
             cl.setGenus(currentLine(2))
           }
         }
-        val guid = Config.nameIndex.searchForAcceptedLsidDefaultHandling(cl,false)
-        previousScientificName = currentScientificName
-        if(guid != null && habitat != null){
-          //add the habitat status
-          Config.persistenceManager.put(guid,"taxon","habitats",habitat)
-          //println("Adding " +habitat + " for " +guid)
+//        val guid = Config.nameIndex.searchForAcceptedLsidDefaultHandling(cl,false)
+        try {
+          val guid = Config.nameIndex.searchForLSID(currentScientificName)
+          previousScientificName = currentScientificName
+          if (guid != null && habitat != null) {
+            //add the habitat status
+            Config.persistenceManager.put(guid, "taxon", "habitats", habitat)
+            loaded += 1
+            //println("Adding " +habitat + " for " +guid)
+          }
+        } catch {
+          case e:Exception => println("Error loading: " + currentScientificName + " - " + e.getMessage)
         }
-        count+=1
+        count += 1
         if(count % 10000 == 0){
-          println("Loaded " + count + " taxon >>>> " + currentLine.mkString(","))
+          println(s"Processed $count, loaded $loaded taxon >>>> " + currentLine.mkString(","))
         }
       }
       currentLine = reader.readNext()
@@ -83,7 +99,7 @@ object HabitatLoader {
       case it if it == 'M' => "Marine"
       case it if it == "N" => "Non-Marine"
       case it if it == "MN" => "Marine and Non-marine"
-      case _ =>null
+      case _ => null
     }
   }
 }
@@ -91,7 +107,11 @@ object HabitatLoader {
 /**
 * Loads the taxon profile information from the species list tool.
 */
-object ConservationListLoader {
+object ConservationListLoader extends Tool {
+
+  val logger = LoggerFactory.getLogger("ConservationListLoader")
+  def cmd = "update-conservation-data"
+  def desc = "Load conservation data from sources (e.g. list tool)"
 
   val guidUrl = Config.listToolUrl + "/speciesList/{0}/taxa"
   val guidsArray = new ArrayBuffer[String]()
@@ -128,7 +148,7 @@ object ConservationListLoader {
     }}
     val guids = guidsArray.toSet
     //now load all the details for each  taxon guids
-    println("The number of distinct species " + guids.size)
+    logger.info("The number of distinct species " + guids.size)
     guids.foreach(guid => {
       //get the values from the cache
       val (lists, props) = TaxonSpeciesListDAO.getCachedListsForTaxon(guid)

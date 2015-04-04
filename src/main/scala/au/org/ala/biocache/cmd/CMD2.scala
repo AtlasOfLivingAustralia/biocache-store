@@ -158,6 +158,7 @@ object CMD2 {
 
   def tools = Array(
     CalculatedLayerHelper,
+    ConservationListLoader,
     DataResourceDelete,
     DeleteColumn,
     DeleteRecords,
