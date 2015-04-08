@@ -2,9 +2,10 @@ package au.org.ala.biocache.load
 
 import java.net.URL
 import java.util
+import java.util.Date
 
 import au.org.ala.biocache._
-import java.io.{File}
+import java.io.{BufferedOutputStream, FileOutputStream, File}
 import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.util.Json
 import org.gbif.dwc.terms.{DwcTerm, GbifTerm}
@@ -108,10 +109,10 @@ object ConservationListLoader extends Tool {
     val speciesLists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?" + listToolQuery))
     val ids = ListBuffer[(String, String)]()
     if (speciesLists.containsKey("lists")) {
-      val authlists = speciesLists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
-      for (listIdx <- 0 until authlists.size()) {
+      val authLists = speciesLists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
+      for (listIdx <- 0 until authLists.size()) {
 
-        val listProperties = authlists.get(listIdx)
+        val listProperties = authLists.get(listIdx)
 
         if (listProperties.containsKey("dataResourceUid") && listProperties.get("region") != null) {
           ids +=( (listProperties.get("dataResourceUid").toString, listProperties.get("region").toString) )
@@ -139,7 +140,13 @@ object ConservationListLoader extends Tool {
 
     //now load all the details for each  taxon guids
     logger.info("The number of distinct species " + guids.size)
+    var counter = 0
     guids.foreach(guid => {
+
+      counter += 1
+      if(counter % 100 == 0){
+        logger.info(s"$counter species load")
+      }
       //get the values from the cache
       val (lists, props) = TaxonSpeciesListDAO.getCachedListsForTaxon(guid)
       //now add the values to the DB
@@ -166,3 +173,64 @@ object ConservationListLoader extends Tool {
     })
   }
 }
+//
+//
+///**
+// * Loads the taxon profile information from the species list tool.
+// */
+//object ConservationListLoader2 extends Tool {
+//
+//  val logger = LoggerFactory.getLogger("ConservationListLoader")
+//  def cmd = "update-conservation-data"
+//  def desc = "Load conservation data from sources (e.g. list tool)"
+//
+//  val guidUrl = Config.listToolUrl + "/speciesList/{0}/taxa"
+//  val guidsArray = new ArrayBuffer[String]()
+//
+//  def getListsForQuery(listToolQuery:String) : Seq[(String, String)] = {
+//    val speciesLists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?" + listToolQuery))
+//    val ids = ListBuffer[(String, String)]()
+//    if (speciesLists.containsKey("lists")) {
+//      val authlists = speciesLists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
+//      for (listIdx <- 0 until authlists.size()) {
+//
+//        val listProperties = authlists.get(listIdx)
+//
+//        if (listProperties.containsKey("dataResourceUid") && listProperties.get("region") != null) {
+//          ids +=( (listProperties.get("dataResourceUid").toString, listProperties.get("region").toString) )
+//        }
+//      }
+//    }
+//    ids
+//  }
+//
+//  def main(args:Array[String]) {
+//
+//    val listUids = getListsForQuery("isThreatened=eq:true")
+//
+//    // grab a list of distinct guids that form the list
+//    listUids.foreach { case (listUid, region) => {
+//      //http://lists.ala.org.au/speciesListItem/downloadList/dr657?id=dr657&etch=%7BkvpValues%3Dselect%7D&file=dr657.zip
+//      val url = s"http://lists.ala.org.au/speciesListItem/downloadList/$listUid?id=dr657&fetch=%7BkvpValues%3Dselect%7D&file=$listUid.zip"
+//      val file = new FileOutputStream(Config.tmpWorkDir + File.separator + s"$listUid.zip")
+//      val out = new BufferedOutputStream(file)
+//
+//      val urlConnection = new java.net.URL(url).openConnection()
+//      val in = urlConnection.getInputStream()
+//      val buffer: Array[Byte] = new Array[Byte](40960)
+//      var numRead = 0
+//      var counter = 0
+//      while ( {
+//        numRead = in.read(buffer); numRead != -1
+//      }) {
+//        counter += numRead
+//        out.write(buffer, 0, numRead)
+//        out.flush
+//      }
+//      out.flush
+//      in.close
+//      out.close
+//      file.close()
+//    }}
+//  }
+//}

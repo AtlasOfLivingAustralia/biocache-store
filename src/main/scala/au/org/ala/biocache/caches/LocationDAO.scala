@@ -139,11 +139,11 @@ object LocationDAO {
             }
 
             location.isTerrestrial = {
-              !map.get(Config.terrestrialBioRegionsLayerID).isEmpty
+              !map.get(Config.terrestrialLayerID).isEmpty
             }
 
             location.isMarine = {
-              !map.get(Config.marineBioRegionsLayerID).isEmpty
+              !map.get(Config.marineLayerID).isEmpty
             }
 
             location.country = map.getOrElse(Config.countriesLayerID, null)

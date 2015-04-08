@@ -61,7 +61,7 @@ class LocationProcessor extends Processor {
    * We will need to parse a variety of formats. Bryn was going to find some regular
    * expressions/test cases he has used previously...
    */
-  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
+  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
 
     logger.debug("Processing location for guid: " + guid)
 
@@ -84,26 +84,24 @@ class LocationProcessor extends Processor {
       checkCoordinateUncertainty(raw, processed, assertions)
     }
 
-    //sensitise the coordinates if necessary.  Do this last so that habitat checks etc are performed on originally supplied coordinates
+    //sensitise the coordinates if necessary.  Do this last so that habitat checks
+    // etc are performed on originally supplied coordinates
     processSensitivity(raw, processed)
 
-    //generate coordinate accuracy if not supplied
-    val point = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
+    //more checks
+    if (processed.location.decimalLatitude != null && processed.location.decimalLongitude != null) {
+      //intersect values
+      val intersectValues = SensitiveAreaDAO.intersect(processed.location.decimalLongitude, processed.location.decimalLatitude)
 
-    if (!point.isEmpty) {
-      val (location, environmentalLayers, contextualLayers) = point.get
-      processed.locationDetermined = true
-      //add state information
-      processed.location.stateProvince = location.stateProvince
-      processed.location.lga = location.lga
-      processed.location.country = location.country
-      processed.el = environmentalLayers
-      processed.cl = contextualLayers
+      //add state province, country, LGA
+      processed.location.stateProvince = intersectValues.getOrElse(Config.stateProvinceLayerID, null)
+      processed.location.lga  = intersectValues.getOrElse(Config.localGovLayerID, null)
+      processed.location.country = intersectValues.getOrElse(Config.countriesLayerID, null)
 
       //add the layers that are associated with the point
       processed.location.habitat = {
-        if (location.isTerrestrial) "Terrestrial"
-        else if (location.isMarine) "Marine"
+        if (intersectValues.getOrElse(Config.terrestrialLayerID, null) != null) "Terrestrial"
+        else if (intersectValues.getOrElse(Config.marineLayerID, null) != null) "Marine"
         else null
       }
 
@@ -118,6 +116,16 @@ class LocationProcessor extends Processor {
         //check marine/non-marine
         checkForHabitatMismatch(raw, processed, taxonProfile.get, assertions)
       }
+    }
+
+    //add point sampling
+    val point = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
+    if (!point.isEmpty) {
+      val (location, environmentalLayers, contextualLayers) = point.get
+      processed.locationDetermined = true
+      //add state information
+      processed.el = environmentalLayers
+      processed.cl = contextualLayers
     }
 
     if (processed.location.decimalLatitude == null || processed.location.decimalLongitude == null) {
@@ -656,8 +664,10 @@ class LocationProcessor extends Processor {
     if (processed.location.country == Config.defaultCountry && taxonProfile.conservation != null) {
       val country = taxonProfile.retrieveConservationStatus(processed.location.country)
       val state = taxonProfile.retrieveConservationStatus(processed.location.stateProvince)
-      processed.occurrence.austConservation = country.getOrElse(null)
+      val global = taxonProfile.retrieveConservationStatus("Global")
+      processed.occurrence.countryConservation = country.getOrElse(null)
       processed.occurrence.stateConservation = state.getOrElse(null)
+      processed.occurrence.globalConservation = global.getOrElse(null)
     }
   }
 

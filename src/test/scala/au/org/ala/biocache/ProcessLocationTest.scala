@@ -334,25 +334,34 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     val processed = new FullRecord
     val locationProcessor = new LocationProcessor
     processed.classification.taxonConceptID = "urn:lsid:biodiversity.org.au:afd.taxon:aa745ff0-c776-4d0e-851d-369ba0e6f537"
-    raw.location.decimalLatitude = "-40.857"
+    raw.location.decimalLatitude = "-40.857" // this point is in the water
     raw.location.decimalLongitude = "145.52"
     raw.location.coordinateUncertaintyInMeters = "100"
     var qas = locationProcessor.process("test", raw, processed)
-    //qas.foreach(qa=>println( "HABITATAT: " +qa.code))
-    //println(pm)
     expectResult(true) {
-      qas.find(_.code == 19) != None
+      val assertion = qas.find(_.code == AssertionCodes.COORDINATE_HABITAT_MISMATCH.code)
+      val qaStatus = assertion match {
+        case Some(qa) => qa.getQaStatus
+        case None => false
+      }
+      qaStatus == 0
     }
-    raw.location.decimalLatitude = "-23.73750"
+    raw.location.decimalLatitude = "-23.73750"  // this point is on land
     raw.location.decimalLongitude = "133.85720"
     qas = locationProcessor.process("test", raw, processed)
-    expectResult(None) {
-      qas.find(_.code == 19)
+    expectResult(true) {
+      val assertion = qas.find(_.code == AssertionCodes.COORDINATE_HABITAT_MISMATCH.code)
+      val qaStatus = assertion match {
+        case Some(qa) => qa.getQaStatus
+        case None => false
+      }
+      qaStatus == 1
     }
   }
+
   test("zero coordinates") {
     val raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.location.decimalLatitude = "0.0"
     raw.location.decimalLongitude = "0.0"
     raw.location.coordinateUncertaintyInMeters = "100"

@@ -103,8 +103,9 @@ class Occurrence extends Cloneable with POSO {
   //Store the conservation status
   //austConservation = national conservation status.
   //FIXME These should be removed and just accessed at index time from list tool.
-  @BeanProperty var austConservation:String = _
+  @BeanProperty var countryConservation:String = _
   @BeanProperty var stateConservation:String = _
+  @BeanProperty var globalConservation:String = _
 
   //Store the original values before the SDS changes
   var originalSensitiveValues:Map[String,String] = _

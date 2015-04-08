@@ -78,18 +78,10 @@ object TaxonProfileDAO {
 
       val properties = scala.collection.mutable.Map[String,String]()
       properties.put("guid", taxonProfile.guid)
-//      properties.put("scientificName", taxonProfile.scientificName)
-//      properties.put("commonName", taxonProfile.commonName)
-//      properties.put("rankString", taxonProfile.rankString)
       if(taxonProfile.habitats!=null && !taxonProfile.habitats.isEmpty){
         val habitatString = taxonProfile.habitats.reduceLeft(_+","+_)
         properties.put("habitats", habitatString)
       }
-//      properties.put("left", taxonProfile.left)
-//      properties.put("right", taxonProfile.right)
-//      if(taxonProfile.sensitive != null && taxonProfile.sensitive.size >0){
-//        properties.put("sensitive", Json.toJSON(taxonProfile.sensitive.asInstanceOf[Array[AnyRef]]))
-//      }
       if(taxonProfile.conservation != null && taxonProfile.conservation.size >0){
         properties.put("conservation", Json.toJSON(taxonProfile.conservation.asInstanceOf[Array[AnyRef]]))
       }

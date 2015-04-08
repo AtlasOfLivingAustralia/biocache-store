@@ -193,8 +193,8 @@ object Config {
 
   //layer defaults
   val stateProvinceLayerID = configModule.properties.getProperty("layer.state.province", "cl927")
-  val terrestrialBioRegionsLayerID = configModule.properties.getProperty("layer.bio.regions.terrestrial", "cl1048")
-  val marineBioRegionsLayerID = configModule.properties.getProperty("layer.bio.regions.marine", "cl21")
+  val terrestrialLayerID = configModule.properties.getProperty("layer.terrestrial", "cl1048")
+  val marineLayerID = configModule.properties.getProperty("layer.marine", "cl21")
   val countriesLayerID = configModule.properties.getProperty("layer.countries", "cl932")
   val localGovLayerID = configModule.properties.getProperty("layer.localgov", "cl959")
 

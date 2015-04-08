@@ -66,7 +66,12 @@ object TaxonSpeciesListDAO {
     val guids = guidsArray.toSet
     //now load all the details
     logger.info("The number of distinct species " + guids.size)
+    var counter = 0
     guids.foreach(guid => {
+      counter += 1
+      if(counter % 100 == 0){
+        logger.info(s"$counter species load")
+      }
       //get the values from the cache
       newMap(guid) = TaxonSpeciesListDAO.getListsForTaxon(guid, true)
     })
