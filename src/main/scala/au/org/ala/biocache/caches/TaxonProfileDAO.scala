@@ -27,17 +27,9 @@ object TaxonProfileDAO {
       map.get.foreach(keyValue => {
         keyValue._1 match {
           case "guid" => taxonProfile.guid = keyValue._2
-//          case "scientificName" => taxonProfile.scientificName = keyValue._2
-//          case "commonName" => taxonProfile.commonName = keyValue._2
-//          case "rankString" => taxonProfile.rankString = keyValue._2
           case "habitats" => if (keyValue._2 != null && !keyValue._2.isEmpty) {
             taxonProfile.habitats = keyValue._2.split(",")
           }
-//          case "left" => taxonProfile.left = keyValue._2
-//          case "right" => taxonProfile.right = keyValue._2
-//          case "sensitive" => if (keyValue._2 != null && !keyValue._2.isEmpty) {
-//            taxonProfile.sensitive = Json.toArray(keyValue._2, classOf[SensitiveSpecies].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[SensitiveSpecies]]
-//          }
           case "conservation" => if(keyValue._2 != null && keyValue._2.size >0){
             taxonProfile.conservation = Json.toArray(keyValue._2, classOf[ConservationStatus].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[ConservationStatus]]
           }
@@ -49,7 +41,7 @@ object TaxonProfileDAO {
 
   def getByGuid(guid:String) : Option[TaxonProfile] = {
 
-    if(guid==null || guid.isEmpty) return None
+    if(guid == null || guid.isEmpty) return None
 
     val taxonProfile = {
 

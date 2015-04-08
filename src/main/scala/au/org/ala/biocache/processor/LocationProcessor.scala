@@ -108,14 +108,11 @@ class LocationProcessor extends Processor {
       //check matched stateProvince
       checkForStateMismatch(raw, processed, assertions)
 
-      //retrieve the species profile
-      val taxonProfile = TaxonProfileDAO.getByGuid(processed.classification.taxonConceptID)
-      if (!taxonProfile.isEmpty) {
-        //add the conservation status if necessary
-        addConservationStatus(raw, processed, taxonProfile.get)
-        //check marine/non-marine
-        checkForHabitatMismatch(raw, processed, taxonProfile.get, assertions)
-      }
+      //add the conservation status if necessary
+      addConservationStatus(raw, processed)
+
+      //check marine/non-marine
+      checkForHabitatMismatch(raw, processed, assertions)
     }
 
     //add point sampling
@@ -632,42 +629,74 @@ class LocationProcessor extends Processor {
     }
   }
 
-  def checkForHabitatMismatch(raw: FullRecord, processed: FullRecord, taxonProfile: TaxonProfile, assertions: ArrayBuffer[QualityAssertion]) {
-    if (processed.location.habitat != null && taxonProfile.habitats != null && !taxonProfile.habitats.isEmpty) {
-      val habitatsAsString = taxonProfile.habitats.mkString(",")
+  /**
+   * Check the habitats for the taxon profile against the habitat associated with the point.
+   * Retrieve the genus profile if
+   *
+   *
+   * @param raw
+   * @param processed
+   * @param assertions
+   */
+  def checkForHabitatMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
+
+    if(processed.location.habitat == null){
+      assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 2)
+      return
+    }
+
+    //retrieve taxon and genus profiles
+    val taxonProfileWithOption = TaxonProfileDAO.getByGuid(processed.classification.taxonConceptID)
+    val genusProfileWithOption = TaxonProfileDAO.getByGuid(processed.classification.genusID)
+    val habitats = {
+      if (!taxonProfileWithOption.isEmpty && taxonProfileWithOption.get.habitats != null && !taxonProfileWithOption.get.habitats.isEmpty) {
+        taxonProfileWithOption.get.habitats
+      } else if (!genusProfileWithOption.isEmpty && genusProfileWithOption.get.habitats != null && !genusProfileWithOption.get.habitats.isEmpty){
+        genusProfileWithOption.get.habitats
+      } else {
+        Array[String]()
+      }
+    }
+
+    if (!habitats.isEmpty) {
+      val habitatsAsString = habitats.mkString(",")
       val habitatFromPoint = processed.location.habitat
-      val habitatsForSpecies = taxonProfile.habitats
+      val habitatsForSpecies = habitats
       //is "terrestrial" the same as "non-marine" ??
       val validHabitat = HabitatMap.areTermsCompatible(habitatFromPoint, habitatsForSpecies)
       if (!validHabitat.isEmpty) {
         if (!validHabitat.get) {
-          //HACK FOR BAD DATA
-          if (habitatsAsString != "???") {
-            logger.debug("[QualityAssertion] ******** Habitats incompatible for ROWKEY: " + raw.rowKey + ", processed:"
-              + processed.location.habitat + ", retrieved:" + habitatsAsString
-              + ", http://maps.google.com/?ll=" + processed.location.decimalLatitude + ","
-              + processed.location.decimalLongitude)
-            val comment = "Recognised habitats for species: " + habitatsAsString +
-              ", Value determined from coordinates: " + habitatFromPoint
-            assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, comment)
-          }
+          logger.debug("[QualityAssertion] ******** Habitats incompatible for ROWKEY: " + raw.rowKey + ", processed:"
+            + processed.location.habitat + ", retrieved:" + habitatsAsString
+            + ", http://maps.google.com/?ll=" + processed.location.decimalLatitude + ","
+            + processed.location.decimalLongitude)
+          val comment = "Recognised habitats for species: " + habitatsAsString +
+            ", Value determined from coordinates: " + habitatFromPoint
+          assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, comment)
         } else {
           //habitats ARE compatible
           assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 1)
         }
       }
+    } else {
+      assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 2)
     }
   }
 
-  def addConservationStatus(raw: FullRecord, processed: FullRecord, taxonProfile: TaxonProfile) {
-    //add the conservation status if necessary
-    if (processed.location.country == Config.defaultCountry && taxonProfile.conservation != null) {
-      val country = taxonProfile.retrieveConservationStatus(processed.location.country)
-      val state = taxonProfile.retrieveConservationStatus(processed.location.stateProvince)
-      val global = taxonProfile.retrieveConservationStatus("Global")
-      processed.occurrence.countryConservation = country.getOrElse(null)
-      processed.occurrence.stateConservation = state.getOrElse(null)
-      processed.occurrence.globalConservation = global.getOrElse(null)
+  def addConservationStatus(raw: FullRecord, processed: FullRecord) {
+    //retrieve the species profile
+    val taxonProfileWithOption = TaxonProfileDAO.getByGuid(processed.classification.taxonConceptID)
+    if(!taxonProfileWithOption.isEmpty){
+      val taxonProfile = taxonProfileWithOption.get
+      //add the conservation status if necessary
+      if (processed.location.country == Config.defaultCountry && taxonProfile.conservation != null) {
+        val country = taxonProfile.retrieveConservationStatus(processed.location.country)
+        val state = taxonProfile.retrieveConservationStatus(processed.location.stateProvince)
+        val global = taxonProfile.retrieveConservationStatus("Global")
+        processed.occurrence.countryConservation = country.getOrElse(null)
+        processed.occurrence.stateConservation = state.getOrElse(null)
+        processed.occurrence.globalConservation = global.getOrElse(null)
+      }
     }
   }
 
@@ -686,6 +715,8 @@ class LocationProcessor extends Processor {
         //states are not in mismatch
         assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, 1)
       }
+    } else {
+      assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, 2)
     }
   }
 
@@ -919,19 +950,11 @@ class LocationProcessor extends Processor {
         processed.event.day = ""
         processed.event.eventDate = ""
 
-        //FIXME update the raw record with whatever is left in the stringMap - change to use DAO method...
+        //update the raw record with whatever is left in the stringMap - change to use DAO method...
         if(StringUtils.isNotBlank(raw.rowKey)){
           Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap)
         }
 
-        //update the required locality information
-        logger.debug("**************** Performing lookup for new point ['" + raw.rowKey
-          + "'," + processed.location.decimalLongitude + "," + processed.location.decimalLatitude + "]")
-        val newPoint = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
-        newPoint match {
-          case Some((loc, el, cl)) => processed.location.lga = loc.lga
-          case _ => processed.location.lga = null //unset the lga
-        }
       } else if(!outcome.isLoadable() && Config.obeySDSIsLoadable){
           logger.warn("SDS isLoadable status is currently not being used. Would apply to: " + processed.uuid)
 //        //remove all event information

@@ -40,13 +40,13 @@ object HabitatLoader extends Tool {
     val archiveFile = Config.tmpWorkDir + File.separator + "IRMNG_DWC.zip"
 
     //download the archive
-    println("Downloading the IRMNG archive...")
+    logger.info("Downloading the IRMNG archive...")
     new URL(Config.irmngDwcArchiveUrl) #> new File(Config.tmpWorkDir +  File.separator +  "IRMNG_DWC.zip") !!
 
     val myArchiveFile = new File(archiveFile)
     val extractToFolder = new File(Config.tmpWorkDir + File.separator + "IRMNG_DWC")
     val dwcArchive:Archive = ArchiveFactory.openArchive(myArchiveFile, extractToFolder)
-    println("Archive rowtype: " + dwcArchive.getCore().getRowType() + ", "
+    logger.info("Archive rowtype: " + dwcArchive.getCore().getRowType() + ", "
       + dwcArchive.getExtensions().size() + " extension(s)")
 
     dwcArchive.asScala.foreach { starRecord =>
@@ -79,7 +79,7 @@ object HabitatLoader extends Tool {
               } else {
                 "Terrestrial"
               }
-              Config.persistenceManager.put(guid, "taxon", Map("habitat" -> habitat))
+              Config.persistenceManager.put(guid, "taxon", Map("habitats" -> habitat))
               counter += 1
               if(counter % 1000 == 0) {
                 println(s"Habitat values loaded: $counter")
@@ -167,70 +167,10 @@ object ConservationListLoader extends Tool {
         }
       }}
 
-      val csAsJson = Json.toJSON(buff.toList)
-
-      Config.persistenceManager.put(guid, "taxon", Map("conservation" -> csAsJson))
+      if(!buff.isEmpty) {
+        val csAsJson = Json.toJSON(buff.toList)
+        Config.persistenceManager.put(guid, "taxon", Map("conservation" -> csAsJson))
+      }
     })
   }
 }
-//
-//
-///**
-// * Loads the taxon profile information from the species list tool.
-// */
-//object ConservationListLoader2 extends Tool {
-//
-//  val logger = LoggerFactory.getLogger("ConservationListLoader")
-//  def cmd = "update-conservation-data"
-//  def desc = "Load conservation data from sources (e.g. list tool)"
-//
-//  val guidUrl = Config.listToolUrl + "/speciesList/{0}/taxa"
-//  val guidsArray = new ArrayBuffer[String]()
-//
-//  def getListsForQuery(listToolQuery:String) : Seq[(String, String)] = {
-//    val speciesLists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?" + listToolQuery))
-//    val ids = ListBuffer[(String, String)]()
-//    if (speciesLists.containsKey("lists")) {
-//      val authlists = speciesLists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
-//      for (listIdx <- 0 until authlists.size()) {
-//
-//        val listProperties = authlists.get(listIdx)
-//
-//        if (listProperties.containsKey("dataResourceUid") && listProperties.get("region") != null) {
-//          ids +=( (listProperties.get("dataResourceUid").toString, listProperties.get("region").toString) )
-//        }
-//      }
-//    }
-//    ids
-//  }
-//
-//  def main(args:Array[String]) {
-//
-//    val listUids = getListsForQuery("isThreatened=eq:true")
-//
-//    // grab a list of distinct guids that form the list
-//    listUids.foreach { case (listUid, region) => {
-//      //http://lists.ala.org.au/speciesListItem/downloadList/dr657?id=dr657&etch=%7BkvpValues%3Dselect%7D&file=dr657.zip
-//      val url = s"http://lists.ala.org.au/speciesListItem/downloadList/$listUid?id=dr657&fetch=%7BkvpValues%3Dselect%7D&file=$listUid.zip"
-//      val file = new FileOutputStream(Config.tmpWorkDir + File.separator + s"$listUid.zip")
-//      val out = new BufferedOutputStream(file)
-//
-//      val urlConnection = new java.net.URL(url).openConnection()
-//      val in = urlConnection.getInputStream()
-//      val buffer: Array[Byte] = new Array[Byte](40960)
-//      var numRead = 0
-//      var counter = 0
-//      while ( {
-//        numRead = in.read(buffer); numRead != -1
-//      }) {
-//        counter += numRead
-//        out.write(buffer, 0, numRead)
-//        out.flush
-//      }
-//      out.flush
-//      in.close
-//      out.close
-//      file.close()
-//    }}
-//  }
-//}
