@@ -15,7 +15,7 @@ import javax.media.jai.JAI
 import com.sun.media.jai.codec.FileSeekableStream
 import java.awt.Image
 import java.awt.image.BufferedImage
-import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.model.{Multimedia, FullRecord}
 import au.org.ala.biocache.util.{ HttpUtil, Json, OptionParser}
 import au.org.ala.biocache.{Store, Config}
 import au.org.ala.biocache.cmd.Tool
@@ -23,6 +23,7 @@ import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntity}
 import org.apache.http.entity.mime.content.{StringBody, FileBody}
 import org.apache.http.client.methods.HttpPost
+import scala.collection.mutable
 import scala.io.Source
 import org.apache.commons.lang3.StringUtils
 import scala.util.parsing.json.JSON
@@ -143,12 +144,14 @@ trait MediaStore {
    * Save the supplied media file returning a handle for retrieving
    * the media file.
    *
-   * @param uuid
-   * @param resourceUID
-   * @param urlToMedia
+   * @param uuid Media uuid
+   * @param resourceUID Resource associated with the media
+   * @param urlToMedia The media source
+   * @param media Optional multimedia instance containing additional metadata
+   *
    * @return
    */
-  def save(uuid: String, resourceUID: String, urlToMedia: String) : Option[(String, String)]
+  def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]) : Option[(String, String)]
 
   def getSoundFormats(filePath: String): java.util.Map[String, String]
 
@@ -245,7 +248,7 @@ object RemoteMediaStore extends MediaStore {
    * @param urlToMedia
    * @return
    */
-  def save(uuid: String, resourceUID: String, urlToMedia: String): Option[(String, String)] = {
+  def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
 
     //is the supplied URL an image service URL ?? If so extract imageID and return.....
     if(urlToMedia.startsWith(Config.remoteMediaStoreUrl)){
@@ -266,7 +269,7 @@ object RemoteMediaStore extends MediaStore {
     downloadToTmpFile(resourceUID, uuid, urlToMedia) match {
       case Some(tmpFile) => {
         try {
-          val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile)
+          val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile, media)
           if(imageId.isDefined){
             Some((extractFileName(urlToMedia), imageId.getOrElse("")))
           } else {
@@ -311,7 +314,7 @@ object RemoteMediaStore extends MediaStore {
    * @param fileToUpload
    * @return
    */
-  private def uploadImage(uuid:String, resourceUID:String, urlToMedia:String, fileToUpload:File) : Option[String] = {
+  private def uploadImage(uuid:String, resourceUID:String, urlToMedia:String, fileToUpload:File, media: Option[Multimedia]) : Option[String] = {
     //upload an image
     val httpClient = new DefaultHttpClient()
     val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
@@ -322,17 +325,21 @@ object RemoteMediaStore extends MediaStore {
       logger.debug("File to upload: " + fileToUpload.getAbsolutePath + ", size:"  + fileToUpload.length())
     }
     val fileBody = new FileBody(fileToUpload, "image/jpeg")
+    val metadata = mutable.Map(
+      "occurrenceId" -> uuid,
+      "dataResourceUid" -> resourceUID,
+      "originalFileName" -> extractFileName(urlToMedia),
+      "fullOriginalUrl" -> urlToMedia
+    )
+
+    if (media isDefined)
+      metadata ++ media.get.metadataAsStrings
 
     entity.addPart("image", fileBody)
     entity.addPart("metadata",
       new StringBody(
         Json.toJSON(
-          Map(
-            "occurrenceId" -> uuid,
-            "dataResourceUid" -> resourceUID,
-            "originalFileName" -> extractFileName(urlToMedia),
-            "fullOriginalUrl" -> urlToMedia
-          )
+          metadata
         )
       )
     )
@@ -427,7 +434,7 @@ object LocalMediaStore extends MediaStore {
   /**
    * Saves the file to local filesystem and returns the file path where the file is stored.
    */
-  def save(uuid: String, resourceUID: String, urlToMedia: String): Option[(String, String)] = {
+  def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
 
     //handle the situation where the urlToMedia does not exits -
     var in: java.io.InputStream = null

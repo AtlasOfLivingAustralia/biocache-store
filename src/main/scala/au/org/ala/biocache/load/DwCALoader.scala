@@ -1,17 +1,19 @@
 package au.org.ala.biocache.load
 
 import java.io._
-import org.gbif.dwc.record.StarRecord
-import org.gbif.dwc.text.ArchiveFactory
+import java.net.URL
+import org.gbif.dwc.record.{Record, StarRecord}
+import org.gbif.dwc.text.{Archive, ArchiveFactory}
 import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache._
-import org.gbif.dwc.terms.Term
+import org.gbif.dwc.terms.{DwcTerm, DcTerm, GbifTerm, Term}
 import scala.collection.mutable.ListBuffer
 import scala.collection.{mutable, JavaConversions}
 import org.apache.commons.lang3.StringUtils
 import au.org.ala.biocache.util.OptionParser
-import au.org.ala.biocache.model.{Raw, FullRecord}
+import au.org.ala.biocache.model.{Multimedia, Raw, FullRecord}
 import au.org.ala.biocache.vocab.DwC
+import scala.collection.JavaConverters._
 
 /**
  * Loading utility for pulling in a darwin core archive file.
@@ -34,6 +36,8 @@ import au.org.ala.biocache.vocab.DwC
  * @author Dave Martin
  */
 object DwCALoader {
+  val IMAGE_TYPE = GbifTerm.Image
+  val MULTIMEDIA_TYPE = GbifTerm.Multimedia
 
   def main(args: Array[String]): Unit = {
 
@@ -56,7 +60,7 @@ object DwCALoader {
         l.load(resourceUid, logRowKeys,testFile)
       } else {
         if(bypassConnParamLookup){
-          l.loadArchive(localFilePath.get, resourceUid, List(), false, logRowKeys, testFile)
+          l.loadArchive(localFilePath.get, resourceUid, List(), None, false, logRowKeys, testFile)
         } else {
           l.loadLocal(resourceUid, localFilePath.get, logRowKeys,testFile)
         }
@@ -81,6 +85,7 @@ class DwCALoader extends DataLoader {
     deleteOldRowKeys(resourceUid)
     val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(resourceUid)
     val conceptTerms = mapConceptTerms(uniqueTerms)
+    val imageUrl = params.get("imageUrl")
     val incremental = params.getOrElse("incremental", false).asInstanceOf[Boolean]
     val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
     var loaded = false
@@ -94,7 +99,7 @@ class DwCALoader extends DataLoader {
       logger.info("File last modified date: " + maxLastModifiedDate)
       if(fileName != null){
         //load the DWC file
-        loadArchive(fileName, resourceUid, conceptTerms, strip, logRowKeys||incremental,testFile)
+        loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental,testFile)
         loaded = true
       }
     })
@@ -111,7 +116,7 @@ class DwCALoader extends DataLoader {
     val conceptTerms = mapConceptTerms(uniqueTerms)
     val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
     //load the DWC file
-    loadArchive(fileName, resourceUid, conceptTerms, strip, logRowKeys, testFile)
+    loadArchive(fileName, resourceUid, conceptTerms, params.get("imageUrl"), strip, logRowKeys, testFile)
   }
 
   def getUuid(uniqueID:Option[String], star:StarRecord, uniqueTerms:List[Term], mappedProperties:Option[Map[String,String]]) :((String, Boolean),Option[Map[String,String]])={
@@ -121,7 +126,7 @@ class DwCALoader extends DataLoader {
     }
   }
 
-  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:List[Term], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean){
+  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:List[Term], imageUrl:Option[String], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean){
     logger.info(s"Loading archive: $fileName " +
       s"for resource: $resourceUid, " +
       s"with unique terms: $uniqueTerms, " +
@@ -129,8 +134,10 @@ class DwCALoader extends DataLoader {
       s"incremental: $logRowKeys,  " +
       s"testing: $testFile")
 
+    val archiveDir = new File(fileName)
+    val imageBase = new URL(imageUrl getOrElse archiveDir.toURI.toURL.toString)
     val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
-    val archive = ArchiveFactory.openArchive(new File(fileName))
+    val archive = ArchiveFactory.openArchive(archiveDir)
     val iter = archive.iterator()
     var count = 0
     var newCount = 0
@@ -235,6 +242,8 @@ class DwCALoader extends DataLoader {
         fieldTuples += ("firstLoaded" -> loadTime)
         newCount +=1
       }
+      // Get any related multimedia
+      val multimedia = loadMultimedia(star, DwCALoader.IMAGE_TYPE, imageBase) ++ loadMultimedia(star, DwCALoader.MULTIMEDIA_TYPE, imageBase)
 
       val rowKey = if(uniqueID.isEmpty) {
         resourceUid + "|" + recordUuid
@@ -248,7 +257,7 @@ class DwCALoader extends DataLoader {
 
       if(!testFile){
         val fullRecord = FullRecordMapper.createFullRecord(rowKey, fieldTuples.toArray, Raw)
-        processMedia(resourceUid, fullRecord)
+        processMedia(resourceUid, fullRecord, multimedia)
         currentBatch += fullRecord
       }
 
@@ -291,5 +300,22 @@ class DwCALoader extends DataLoader {
     Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray)
     logger.info("Finished DwCA loader. Records processed: " + count)
     count
+  }
+
+  def loadMultimedia(star: StarRecord, rowType: Term, imageBase: URL): List[Multimedia] = {
+    if (!star.hasExtension(rowType))
+      return List.empty
+    val records = star.extension(rowType).asScala
+    val multimedia = records map { row =>
+      val metadata = (row.terms.map { term => term -> row.value(term) }).toMap[Term, String]
+      val location = this locateMultimedia(row, imageBase)
+      Multimedia.create(location, metadata)
+    }
+    multimedia toList
+  }
+
+  def locateMultimedia(row: Record, imageBase: URL): URL = {
+    val identifier = row.value(DcTerm.identifier)
+    new URL(imageBase, identifier)
   }
 }
