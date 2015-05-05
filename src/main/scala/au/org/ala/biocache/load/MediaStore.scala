@@ -41,9 +41,10 @@ trait MediaStore {
 
   //Regular expression used to parse an image URL - adapted from
   //http://stackoverflow.com/questions/169625/regex-to-check-if-valid-url-that-ends-in-jpg-png-or-gif#169656
-  lazy val imageParser = """^(https?://[^\'"<>]+?\.(jpg|jpeg|gif|png))$""".r
-  lazy val soundParser = """^(https?://[^\'"<>]+?\.(?:wav|mp3|ogg|flac))$""".r
-  lazy val videoParser = """^(https?://[^\'"<>]+?\.(?:wmv|mp4|mpg|avi|mov))$""".r
+  //Extended to allow query parameters after the path and ftp as well as http access
+  lazy val imageParser = """^((?:http|ftp|file)s?://[^\'"<>]+?\.(jpg|jpeg|gif|png)(\?.+)?)$""".r
+  lazy val soundParser = """^((?:http|ftp|file)s?://[^\'"<>]+?\.(?:wav|mp3|ogg|flac)(\?.+)?)$""".r
+  lazy val videoParser = """^((?:http|ftp|file)s?://[^\'"<>]+?\.(?:wmv|mp4|mpg|avi|mov)(\?.+)?)$""".r
 
   val imageExtension = Array(".jpg", ".gif", ".png", ".jpeg", "imgType=jpeg")
   val soundExtension = Array(".wav", ".mp3", ".ogg", ".flac")
@@ -67,17 +68,23 @@ trait MediaStore {
   def endsWithOneOf(acceptedExtensions: Array[String], url: String): Boolean =
     !(acceptedExtensions collectFirst { case x if url.toLowerCase().endsWith(x) => x } isEmpty)
 
+  protected def extractSimpleFileName(urlToMedia: String): String = {
+    val base = urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).trim
+    val queryPart = base.lastIndexOf("?")
+    if (queryPart < 0) base else base.substring(0, queryPart).trim
+  }
+
   protected def extractFileName(urlToMedia: String): String = if (urlToMedia.contains("fileName=")) {
     //HACK for CS URLs which dont make for nice file names
     urlToMedia.substring(urlToMedia.indexOf("fileName=") + "fileName=".length).replace(" ", "_")
   } else if (urlToMedia.contains("?id=") && urlToMedia.contains("imgType=")) {
     // HACK for Morphbank URLs which don't make nice file names
-    urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace("?id=", "").replace("&imgType=", ".")
+    extractSimpleFileName(urlToMedia).replace("?id=", "").replace("&imgType=", ".")
   } else if (urlToMedia.lastIndexOf("/") == urlToMedia.length - 1) {
     "raw"
   } else if(Config.hashImageFileNames) {
     val md = MessageDigest.getInstance("MD5")
-    val fileName = urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).trim()
+    val fileName = extractSimpleFileName(urlToMedia)
     val extension = FilenameUtils.getExtension(fileName)
     if(extension !=null && extension !="") {
       DigestUtils.md5Hex(fileName) + "." + extension
@@ -85,7 +92,7 @@ trait MediaStore {
       DigestUtils.md5Hex(fileName)
     }
   } else {
-    urlToMedia.substring(urlToMedia.lastIndexOf("/") + 1).replace(" ", "_")
+    extractSimpleFileName(urlToMedia).replace(" ", "_")
   }
 
   /**
