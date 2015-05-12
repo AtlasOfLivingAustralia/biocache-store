@@ -689,12 +689,12 @@ class LocationProcessor extends Processor {
     if(!taxonProfileWithOption.isEmpty){
       val taxonProfile = taxonProfileWithOption.get
       //add the conservation status if necessary
-      if (processed.location.country == Config.defaultCountry && taxonProfile.conservation != null) {
+      if (taxonProfile.conservation != null) {
         val country = taxonProfile.retrieveConservationStatus(processed.location.country)
-        val state = taxonProfile.retrieveConservationStatus(processed.location.stateProvince)
-        val global = taxonProfile.retrieveConservationStatus("Global")
         processed.occurrence.countryConservation = country.getOrElse(null)
+        val state = taxonProfile.retrieveConservationStatus(processed.location.stateProvince)
         processed.occurrence.stateConservation = state.getOrElse(null)
+        val global = taxonProfile.retrieveConservationStatus("Global")
         processed.occurrence.globalConservation = global.getOrElse(null)
       }
     }
