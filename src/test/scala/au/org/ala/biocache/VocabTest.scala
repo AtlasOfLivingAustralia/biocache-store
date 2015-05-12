@@ -17,8 +17,9 @@ class VocabTest extends ConfigFunSuite {
   }
 
   test("Basis of record matching"){
-    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("speci").get.canonical}
-    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("S").get.canonical}
+    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("PRESERVED_SPECIMEN").get.canonical }
+    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("speci").get.canonical }
+    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("S").get.canonical }
   }
 
   test("Type status matching"){
@@ -62,6 +63,7 @@ class VocabTest extends ConfigFunSuite {
     expectResult(true){CountryCentrePoints.coordinatesMatchCentre("Australia","-29.53280","145.4914")}
     expectResult(true){CountryCentrePoints.coordinatesMatchCentre("Australia","-29.532","145.491")}
   }
+
 //NC TODO This test needs to pass in order to support the DWC standard for the TypeStatus
 //  test("Holotype with extra info"){
 //    println(TypeStatus.matchTerm("Holotype: Scrobs pyramidatus Hedley, 1903 : Rissoidae : : Gastropoda : Mollusca"))
@@ -120,6 +122,6 @@ class VocabTest extends ConfigFunSuite {
   }
   
   test("establishmentMeans"){
-    expectResult("formerly cultivated (extinct)"){EstablishmentMeans.matchTerm("formerly cultivated (extinct)").get.canonical}
+    expectResult("formerly cultivated (extinct)"){ EstablishmentMeans.matchTerm("formerly cultivated (extinct)").get.canonical }
   }
 }
