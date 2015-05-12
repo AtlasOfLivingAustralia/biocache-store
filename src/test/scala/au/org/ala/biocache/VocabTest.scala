@@ -17,8 +17,9 @@ class VocabTest extends ConfigFunSuite {
   }
 
   test("Basis of record matching"){
-    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("speci").get.canonical}
-    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("S").get.canonical}
+    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("PRESERVED_SPECIMEN").get.canonical }
+    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("speci").get.canonical }
+    expectResult("PreservedSpecimen"){ BasisOfRecord.matchTerm("S").get.canonical }
   }
 
   test("Type status matching"){
@@ -26,17 +27,17 @@ class VocabTest extends ConfigFunSuite {
   }
 
   test("Basis of record matching with junk characters"){
-	  expectResult("syntype"){ TypeStatus.matchTerm("Syntype ?").get.canonical}
+    expectResult("syntype"){ TypeStatus.matchTerm("Syntype ?").get.canonical}
   }
 
   test("Expect non marine to match terrestrial"){
-	  expectResult(true){HabitatMap.isCompatible("non-marine", "terrestrial").get}
+    expectResult(true){HabitatMap.isCompatible("non-marine", "terrestrial").get}
   }
 
   test("Expect  marine to not match terrestrial"){
-	  expectResult(false){HabitatMap.isCompatible("marine", "terrestrial").get}
+    expectResult(false){HabitatMap.isCompatible("marine", "terrestrial").get}
   }
-  
+
   test("Expect marine and non-marine to match all"){
     expectResult(true){HabitatMap.isCompatible("marine","marine and non-marine").get}
     expectResult(true){HabitatMap.isCompatible("non-marine","marine and non-marine").get}
@@ -50,7 +51,7 @@ class VocabTest extends ConfigFunSuite {
     expectResult(true){StateProvinceCentrePoints.coordinatesMatchCentre("QLD","-20.917573","142.702795")}
     expectResult(true){StateProvinceCentrePoints.coordinatesMatchCentre("QLD","-20.917","142.702")}
   }
-  
+
   test("Coordinates unknown state"){
     StateProvinceCentrePoints.coordinatesMatchCentre("Unknown1","-54.50285462","158.9173835")
   }
@@ -62,20 +63,21 @@ class VocabTest extends ConfigFunSuite {
     expectResult(true){CountryCentrePoints.coordinatesMatchCentre("Australia","-29.53280","145.4914")}
     expectResult(true){CountryCentrePoints.coordinatesMatchCentre("Australia","-29.532","145.491")}
   }
-//NC TODO This test needs to pass in order to support the DWC standard for the TypeStatus
-//  test("Holotype with extra info"){
-//    println(TypeStatus.matchTerm("Holotype: Scrobs pyramidatus Hedley, 1903 : Rissoidae : : Gastropoda : Mollusca"))
-//    expectResult(false) {TypeStatus.matchTerm("Holotype: Scrobs pyramidatus Hedley, 1903 : Rissoidae : : Gastropoda : Mollusca").isEmpty}
-//  }
+
+  //NC TODO This test needs to pass in order to support the DWC standard for the TypeStatus
+  //  test("Holotype with extra info"){
+  //    println(TypeStatus.matchTerm("Holotype: Scrobs pyramidatus Hedley, 1903 : Rissoidae : : Gastropoda : Mollusca"))
+  //    expectResult(false) {TypeStatus.matchTerm("Holotype: Scrobs pyramidatus Hedley, 1903 : Rissoidae : : Gastropoda : Mollusca").isEmpty}
+  //  }
 
   test("Paratypes - case insensitive for types"){
     expectResult(false){ TypeStatus.matchTerm("Paratype").isEmpty}
   }
-  
+
   test("Paratypes - plurals for types"){
     expectResult(false){ TypeStatus.matchTerm("Paratypes").isEmpty}
   }
-  
+
   test("Observations - plurals for BOR"){
     expectResult(false){ BasisOfRecord.matchTerm("Observation").isEmpty}
   }
@@ -118,8 +120,8 @@ class VocabTest extends ConfigFunSuite {
       expectResult(false) { DwC.matchTerm(name).isEmpty }
     })
   }
-  
+
   test("establishmentMeans"){
-    expectResult("formerly cultivated (extinct)"){EstablishmentMeans.matchTerm("formerly cultivated (extinct)").get.canonical}
+    expectResult("formerly cultivated (extinct)"){ EstablishmentMeans.matchTerm("formerly cultivated (extinct)").get.canonical }
   }
 }
