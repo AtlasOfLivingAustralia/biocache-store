@@ -29,7 +29,7 @@
         <jts.version>1.12</jts.version>
     </properties>
     <description>
-        Scala implementation of biocache backend.
+        Scala implementation of biocache backend - 1.4 branch.
         This code base manages the loading, processing, sampling and indexing of occurrence records for the ALA.
         There are additional tools to support outlier detection, duplicate detection and extra-limital outliers.
     </description>
