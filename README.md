@@ -33,7 +33,6 @@ or wherever the ```name.dir``` is configured to point to in your ``` /data/bioca
 - [98d2e11](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/98d2e11beb5482ca3c63844ada6c8b2493da7c0b) Separate CSV export on index for sensitive (@adam-collins)
 - [4986928](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/49869282d7185c59f02f43b22b3b56a96366d972) Fix for missing parameter additional.fields.to.index (@adam-collins)
 - [9665417](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/9665417c6ac5a5d65497b4c4fb2eadf8ffecb400) Add index on point-0.02 (@adam-collins)
-- [efa6d95](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/efa6d95878bd41535717a668bd1b9b1984ce66ed) Merge branch 'master' of https://github.com/AtlasOfLivingAustralia/biocache-store (@djtfmartin)
 - [f95c4a1](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/f95c4a13d3eda6f068611992d062a84df3af6beb) The method readAsCSV was not looping over the rows. (@sadeghim)
 - [1e9f74b](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/1e9f74b1d9ac9286c8a5f4b9635b81a70f722cb5) Was returning no result ora result without any columns. First parameter is the starting column name which should have been passed as "rowKey". EMPTY works for now. (@sadeghim)
 - [222692b](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/222692b2bab6d18b2eb1c8ffb29f3d2fae0189c3) Update layer defaults. (@adam-collins)
