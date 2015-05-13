@@ -292,6 +292,38 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   }
 
+  test("Latitude Zero") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.location.decimalLatitude = "0"
+    raw.location.decimalLongitude = "149.099"
+    raw.location.coordinateUncertaintyInMeters = "100"
+    raw.location.country = "Australia"
+    val qas = (new LocationProcessor).process("test", raw, processed)
+    expectResult(true) {
+      qas.size > 0
+    }
+    expectResult(true) {
+      qas.map(q => q.code).contains(AssertionCodes.ZERO_LATITUDE_COORDINATES.code)
+    }
+  }
+
+  test("Longitude Zero") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.location.decimalLatitude = "-34.222"
+    raw.location.decimalLongitude = "0"
+    raw.location.coordinateUncertaintyInMeters = "100"
+    raw.location.country = "Australia"
+    val qas = (new LocationProcessor).process("test", raw, processed)
+    expectResult(true) {
+      qas.size > 0
+    }
+    expectResult(true) {
+      qas.map(q => q.code).contains(AssertionCodes.ZERO_LONGITUDE_COORDINATES.code)
+    }
+  }
+
   test("Latitude Negated") {
     val raw = new FullRecord
     val processed = new FullRecord
@@ -310,6 +342,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
       processed.location.decimalLatitude
     }
   }
+
   test("Longitude Negated") {
     val raw = new FullRecord
     val processed = new FullRecord

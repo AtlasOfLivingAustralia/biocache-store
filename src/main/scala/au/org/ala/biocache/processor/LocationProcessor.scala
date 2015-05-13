@@ -796,6 +796,18 @@ class LocationProcessor extends Processor {
         assertions += QualityAssertion(ZERO_COORDINATES,1)
       }
 
+      if (lat == 0.0f ) {
+        assertions += QualityAssertion(AssertionCodes.ZERO_LATITUDE_COORDINATES, "Latitude 0,0")
+      } else{
+        assertions += QualityAssertion(AssertionCodes.ZERO_LATITUDE_COORDINATES, 1)
+      }
+
+      if (lon == 0.0f) {
+        assertions += QualityAssertion(AssertionCodes.ZERO_LONGITUDE_COORDINATES, "Longitude 0,0")
+      } else{
+        assertions += QualityAssertion(AssertionCodes.ZERO_LONGITUDE_COORDINATES, 1)
+      }
+
       if (raw.location.country != null && raw.location.country != "") {
 
         val country = Countries.matchTerm(raw.location.country)

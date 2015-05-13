@@ -1,5 +1,4 @@
 package au.org.ala.biocache
-import org.scalatest.FunSuite
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import au.org.ala.biocache.parser.AdHocParser
