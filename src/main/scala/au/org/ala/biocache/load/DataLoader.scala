@@ -10,7 +10,7 @@ import java.util.Date
 import au.org.ala.biocache.parser.DateParser
 import org.gbif.dwc.terms.TermFactory
 import scala.collection.mutable.ArrayBuffer
-import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.model.{Multimedia, FullRecord}
 import scala.collection.mutable
 
 /**
@@ -216,17 +216,21 @@ trait DataLoader {
    *
    * @param dataResourceUid
    * @param fr
+   * @param multimedia An optional list of multimedia information derived from other sources
    */
-  def processMedia(dataResourceUid: String, fr: FullRecord) : FullRecord = {
+  def processMedia(dataResourceUid: String, fr: FullRecord, multimedia: List[Multimedia] = List.empty) : FullRecord = {
 
     //download the media - checking if it exists already
-    val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter(url => Config.blacklistedMediaUrls.forall(!url.startsWith(_)))
+    val associatedMedia = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
+    val suppliedMedia = multimedia map { media => media.location.toString }
+    val filesToImport = (associatedMedia ++ suppliedMedia).filter(url => Config.blacklistedMediaUrls.forall(!url.startsWith(_)))
 
     if (!filesToImport.isEmpty) {
 
       val fileNameToID = new mutable.HashMap[String, String]()
 
       filesToImport.foreach(fileToStore => {
+        val media = multimedia find { media => media.location.toString == fileToStore }
 
         val (exists, filename, filePathOrId) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
 
@@ -234,7 +238,7 @@ trait DataLoader {
           logger.info("Media file already stored: " + filePathOrId)
           fileNameToID.put(filename, filePathOrId)
         } else {
-          val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore)
+          val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, media)
           logger.info("Media file stored to: " + savedTo.getOrElse("**** not available ****"))
           savedTo match {
             case Some((savedFilename, savedFilePathOrId)) => fileNameToID.put(savedFilename, savedFilePathOrId)

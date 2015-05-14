@@ -421,7 +421,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
       val associatedMediaBuffer = new ArrayBuffer[String]
       filesToImport.foreach(fileToStore =>
-        Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore) match {
+        Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, None) match {
           case Some((filename, filePath)) => associatedMediaBuffer += filePath
           case None => logger.error("Unable to save media: " + fileToStore)
         }

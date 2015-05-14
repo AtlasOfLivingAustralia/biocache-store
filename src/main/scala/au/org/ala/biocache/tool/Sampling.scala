@@ -95,7 +95,7 @@ object Sampling extends Tool with IncrementalTool {
             s.getDistinctCoordinatesForResource(locFilePath, dataResourceUid)
           } else if (singleRowKey != "") {
             s.getDistinctCoordinatesForRowKey(singleRowKey)
-            exit(0)
+            sys.exit
           } else {
             s.getDistinctCoordinatesForFile(locFilePath, rowKeyFile)
           }

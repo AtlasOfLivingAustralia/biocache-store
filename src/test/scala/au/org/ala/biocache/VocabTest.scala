@@ -124,4 +124,14 @@ class VocabTest extends ConfigFunSuite {
   test("establishmentMeans"){
     expectResult("formerly cultivated (extinct)"){ EstablishmentMeans.matchTerm("formerly cultivated (extinct)").get.canonical }
   }
+
+  test("Mime Types") {
+    expectResult("image/jpeg"){MimeType.matchTerm("image/jpeg").get.canonical}
+    expectResult("image/jpeg"){MimeType.matchTerm("jpeg").get.canonical}
+    expectResult("image/jpeg"){MimeType.matchTerm("JPEG").get.canonical}
+    expectResult("image/png"){MimeType.matchTerm("png").get.canonical}
+    expectResult("image/gif"){MimeType.matchTerm("gif").get.canonical}
+    expectResult("audio/mp3"){MimeType.matchTerm("mp3").get.canonical}
+    expectResult("video/mp4"){MimeType.matchTerm("mp4").get.canonical}
+  }
 }

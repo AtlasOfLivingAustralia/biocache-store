@@ -45,7 +45,7 @@ object MigrateMedia extends Tool {
                 val (alreadyStored, fileName, identifer) = Config.mediaStore.alreadyStored(uuid, dataResourceUid, "file://" + filePath)
                 if (!dryRun && !alreadyStored) {
                   try {
-                    Config.mediaStore.save(uuid, dataResourceUid, "file://" + filePath)
+                    Config.mediaStore.save(uuid, dataResourceUid, "file://" + filePath, None)
                   } catch {
                     case e: Exception => println(s"Problem saving $uuid, $dataResourceUid, $filePath")
                   }
