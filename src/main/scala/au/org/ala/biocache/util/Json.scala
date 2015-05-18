@@ -36,7 +36,11 @@ object Json {
   def toJSON(a:AnyRef) : String = {
     val mapper = new ObjectMapper
     mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
-    mapper.writeValueAsString(a)
+    if(a.isInstanceOf[scala.collection.Map[AnyRef, AnyRef]]){
+      mapper.writeValueAsString(a.asInstanceOf[scala.collection.Map[AnyRef, AnyRef]].asJava)
+    } else {
+      mapper.writeValueAsString(a)
+    }
   }
 
   /**

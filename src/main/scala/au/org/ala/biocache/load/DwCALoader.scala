@@ -245,7 +245,10 @@ class DwCALoader extends DataLoader {
       // Get any related multimedia
       val multimedia = loadMultimedia(star, DwCALoader.IMAGE_TYPE, imageBase) ++ loadMultimedia(star, DwCALoader.MULTIMEDIA_TYPE, imageBase)
 
+      // If there are no unique terms, use the UUID as a key
+      // This isnt ideal and will stop any reloading
       val rowKey = if(uniqueID.isEmpty) {
+        logger.warn("Unable to construct a unique key for this data resource. No unique terms defined.")
         resourceUid + "|" + recordUuid
       } else {
         uniqueID.get
@@ -302,20 +305,28 @@ class DwCALoader extends DataLoader {
     count
   }
 
-  def loadMultimedia(star: StarRecord, rowType: Term, imageBase: URL): List[Multimedia] = {
-    if (!star.hasExtension(rowType))
+  def loadMultimedia(star: StarRecord, rowType: Term, imageBase: URL): Seq[Multimedia] = {
+    if (!star.hasExtension(rowType)) {
       return List.empty
-    val records = star.extension(rowType).asScala
-    val multimedia = records map { row =>
-      val metadata = (row.terms.map { term => term -> row.value(term) }).toMap[Term, String]
-      val location = this locateMultimedia(row, imageBase)
-      Multimedia.create(location, metadata)
     }
-    multimedia toList
+    val records = star.extension(rowType).asScala
+    val multimedia = new ListBuffer[Multimedia]
+    records.foreach { row =>
+      val metadata = (row.terms.map { term => term -> row.value(term) }).toMap[Term, String]
+      locateMultimedia(row, imageBase) match {
+        case Some(location) => multimedia.add(Multimedia.create(location, metadata))
+        case None => logger.debug("No location found for row")
+      }
+    }
+    multimedia
   }
 
-  def locateMultimedia(row: Record, imageBase: URL): URL = {
+  def locateMultimedia(row: Record, imageBase: URL): Option[URL] = {
     val identifier = row.value(DcTerm.identifier)
-    new URL(imageBase, identifier)
+    if(identifier != null){
+      Some(new URL(imageBase, identifier))
+    } else {
+      None
+    }
   }
 }
