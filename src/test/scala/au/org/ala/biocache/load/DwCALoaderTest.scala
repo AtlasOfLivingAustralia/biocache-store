@@ -32,7 +32,7 @@ class DwCALoaderTest extends ConfigFunSuite {
     val loader = new DwCALoader
     val archive = ArchiveFactory.openArchive(WORK_DIR)
     val row = archive.getExtension(DwCALoader.IMAGE_TYPE).iterator().next()
-    expectResult(new URL(IMAGE_BASE, "672737.jpg")) {
+    expectResult(Some(new URL(IMAGE_BASE, "672737.jpg"))) {
       loader.locateMultimedia(row, IMAGE_BASE)
     }
   }
@@ -43,7 +43,7 @@ class DwCALoaderTest extends ConfigFunSuite {
     val iterator = archive.getExtension(DwCALoader.IMAGE_TYPE).iterator()
     iterator.next()
     val row = iterator.next()
-    expectResult(new URL("http://localhost/nowhere/nothing.png")) {
+    expectResult(Some(new URL("http://localhost/nowhere/nothing.png"))) {
       loader.locateMultimedia(row, IMAGE_BASE)
     }
   }
