@@ -340,7 +340,7 @@ object RemoteMediaStore extends MediaStore {
     )
 
     if (media isDefined)
-      metadata ++ media.get.metadataAsStrings
+      metadata ++= media.get.metadataAsStrings
 
     entity.addPart("image", fileBody)
     entity.addPart("metadata",

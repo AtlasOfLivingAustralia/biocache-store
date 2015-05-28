@@ -220,7 +220,7 @@ class DwcCSVLoader extends DataLoader {
               val filesToImport = fr.occurrence.associatedMedia.split(";")
               val filePathsInStore = filesToImport.map(fileName => {
                 //if the file name isnt a HTTP URL construct file absolute file paths
-                if(!fileName.startsWith("http://")){
+                if(!fileName.startsWith("http://") && !fileName.startsWith("https://") && !fileName.startsWith("ftp://")  && !fileName.startsWith("ftps://")  && !fileName.startsWith("file://")){
                   val filePathBuffer = new ArrayBuffer[String]
                   filePathBuffer += "file:///" + file.getParent + File.separator + fileName
 
