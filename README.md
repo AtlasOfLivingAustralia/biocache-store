@@ -18,6 +18,36 @@ To skip this step, run a build with ```mvn install -DskipTests=true```.
 
 or wherever the ```name.dir``` is configured to point to in your ``` /data/biocache/config/biocache-config.properties ``` file.
 
+## Release notes - version 1.4
+- [92b8a9d](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/92b8a9dd917c6976717b65082b6fff3bc2523c27) ingest skip stages options (@djtfmartin)
+- [4a12610](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/4a1261072ebd986c2201227e2ca7bb9916cf4e4c) doco for cmd tool (@djtfmartin)
+- [9c24e7c](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/9c24e7c0ed86ac597cc68aabad2ca579ff3d903c) log indexing errors and continue (@djtfmartin)
+- [afb2612](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/afb2612bb02df0a036316841d25db74637a50044) gbif dwca fix (@djtfmartin)
+- [127b203](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/127b2033ea6568ebee58f9592b20b298190f3daf) CSV export on index sensitive (@adam-collins)
+- [9f1df9e](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/9f1df9e8acc3cdeddf7627ac64c792661d96f297) Pipeline delimited recordedBy values fixed. (@sadeghim)
+- [df9cfac](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/df9cfacc622aba82aa4ce624025bb9e4aeef3268) set the occurrenceID (@djtfmartin)
+- [bcde105](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/bcde1055ce46538cbd11d581bf19973bc7f97510) recognise image service URLs and act appropriately (@djtfmartin)
+- [4d94298](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/4d94298e0ad8aa09421c85d3ad103bc77042cfc3) catch JSON parse errors with outlierForLayers.p (@adam-collins)
+- [d022861](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/d0228617fe08550e66c9fe647f3304a95980a90e) CSV export on index sensitive (@adam-collins)
+- [a6dc107](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/a6dc1076e0dbad97bd769d91698bedd83d8b5da7) CSV export on index missing newline (@adam-collins)
+- [98d2e11](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/98d2e11beb5482ca3c63844ada6c8b2493da7c0b) Separate CSV export on index for sensitive (@adam-collins)
+- [4986928](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/49869282d7185c59f02f43b22b3b56a96366d972) Fix for missing parameter additional.fields.to.index (@adam-collins)
+- [9665417](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/9665417c6ac5a5d65497b4c4fb2eadf8ffecb400) Add index on point-0.02 (@adam-collins)
+- [f95c4a1](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/f95c4a13d3eda6f068611992d062a84df3af6beb) The method readAsCSV was not looping over the rows. (@sadeghim)
+- [1e9f74b](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/1e9f74b1d9ac9286c8a5f4b9635b81a70f722cb5) Was returning no result ora result without any columns. First parameter is the starting column name which should have been passed as "rowKey". EMPTY works for now. (@sadeghim)
+- [222692b](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/222692b2bab6d18b2eb1c8ffb29f3d2fae0189c3) Update layer defaults. (@adam-collins)
+- [5d89d87](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/5d89d871e25799666bbe3aa8191e19700f511b2c) remove caching of sampling fields (@adam-collins)
+- [bba4766](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/bba47669623b3d9322088ae52df93967798f3763) ignore target directory (@djtfmartin)
+- [8ecc255](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/8ecc255f454bf164d1c65beb10254bd8e5d0aba4) additional field mapping (@djtfmartin)
+- [6806934](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/6806934b10a84290053347497e3ce2da0a8489fa) support for pipe delimited associatedMedia string (@djtfmartin)
+- [1cafa26](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/1cafa26817f98bd8b43a662344bed7d95b3ac29c) code formatting (@djtfmartin)
+- [762de37](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/762de3723583d4636123097409645ac809192269) removed addRaw (@djtfmartin)
+- [18c6450](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/18c64500b0f13bc07135f693b3439e2f382dedf6) MD5 hashing of image file names (@djtfmartin)
+- [8f3b331](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/8f3b3311cceb08ca9ee2ca6a358efad49f050b73) EOL fixes (@djtfmartin)
+- [6a30d1f](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/6a30d1f39c24d1efc3002ca761db4fe719eca779) prototype loader of EOL images (@djtfmartin)
+- [c5608a9](https://github.com/AtlasOfLivingAustralia/biocache-store/commit/c5608a985a210de176d94358f561978349078933) exception handling in date parsing (@djtfmartin)
+
+
 ## Release notes - version 1.3
 
 * additional support for retrieve geotags for flickr

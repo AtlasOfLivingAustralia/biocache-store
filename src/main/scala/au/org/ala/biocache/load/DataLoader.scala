@@ -218,7 +218,7 @@ trait DataLoader {
    * @param fr
    * @param multimedia An optional list of multimedia information derived from other sources
    */
-  def processMedia(dataResourceUid: String, fr: FullRecord, multimedia: List[Multimedia] = List.empty) : FullRecord = {
+  def processMedia(dataResourceUid: String, fr: FullRecord, multimedia: Seq[Multimedia] = List.empty) : FullRecord = {
 
     //download the media - checking if it exists already
     //supplied media comes from a separate source. If it's also listed in the associatedMedia then don't double-load it

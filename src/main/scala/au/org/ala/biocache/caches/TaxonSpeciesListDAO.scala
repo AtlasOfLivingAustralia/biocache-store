@@ -2,6 +2,7 @@ package au.org.ala.biocache.caches
 
 import java.util
 
+import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import scala.collection.mutable.ArrayBuffer
@@ -31,7 +32,12 @@ object TaxonSpeciesListDAO {
 
   private val validLists = getListsForQuery("isAuthoritative=eq:true")
 
-  def getListsForQuery(listToolQuery:String) : Seq[String] = {
+
+  private def getListsForQuery(listToolQuery:String) : Seq[String] = {
+    if( StringUtils.isEmpty(Config.listToolUrl) ){
+      return List.empty
+    }
+
     val speciesLists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?" + listToolQuery))
     var ids = List[String]()
     if (speciesLists.containsKey("lists")) {
@@ -50,6 +56,11 @@ object TaxonSpeciesListDAO {
    * @return
    */
   private def updateLists : Map[String,(List[String], Map[String,String])] = {
+
+    if( StringUtils.isEmpty(Config.listToolUrl) ){
+      return Map.empty
+    }
+
     logger.info("Updating the lists")
     val newMap = new scala.collection.mutable.HashMap[String, (List[String], Map[String,String])]()
     val guidsArray = new ArrayBuffer[String]()
@@ -84,7 +95,12 @@ object TaxonSpeciesListDAO {
    * @param conceptLsid
    * @return
    */
-  def getCachedListsForTaxon(conceptLsid:String):(List[String], Map[String,String]) = {
+  def getCachedListsForTaxon(conceptLsid:String) : (List[String], Map[String,String]) = {
+
+    if( StringUtils.isEmpty(Config.listToolUrl) ){
+      return (List.empty, Map.empty)
+    }
+
     //check to see if the species list map has been initialised
     if(speciesListMap == null){
       lock.synchronized {
@@ -101,7 +117,7 @@ object TaxonSpeciesListDAO {
   /**
    * Retrieves the species list information from the WS
    */
-  def getListsForTaxon(conceptLsid:String, forceLoad:Boolean):(List[String], Map[String,String])={
+  private def getListsForTaxon(conceptLsid:String, forceLoad:Boolean):(List[String], Map[String,String])={
 
     val response = WebServiceLoader.getWSStringContent(listToolUrl + conceptLsid)
 

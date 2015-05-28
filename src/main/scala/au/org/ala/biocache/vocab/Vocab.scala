@@ -1,6 +1,5 @@
 package au.org.ala.biocache.vocab
 
-import au.org.ala.biocache.util._
 import java.io.File
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.Stemmer
@@ -18,7 +17,7 @@ trait Vocab {
 
   val logger = LoggerFactory.getLogger("Vocab")
 
-  val regexNorm = """[ \\"\\'\\.\\,\\-\\?]*"""
+  val regexNorm = """[^a-zA-Z0-9]+"""
 
   def getStringList : java.util.List[String] = all.map(t => t.canonical).toList.sorted
 
@@ -68,7 +67,7 @@ trait Vocab {
 
     val map = getSource(filePath).getLines.toList.map({ row =>
         val values = row.split("\t")
-        val variant = values.head.replaceAll(regexNorm,"").toLowerCase
+        val variant = values.head.replaceAll(regexNorm, "").toLowerCase
         val canonical = values.last
         (variant, canonical)
     }).toMap
@@ -83,7 +82,7 @@ trait Vocab {
 
   def loadVocabFromFile(filePath:String) : Set[Term] = getSource(filePath).getLines.toList.map({ row =>
     val values = row.split("\t")
-    val variants = values.map(x => x.replaceAll("""[ \\"\\'\\.\\,\\-\\?]*""","").toLowerCase)
+    val variants = values.map(x => x.replaceAll(regexNorm, "").toLowerCase)
     new Term(values.head, variants)
   }).toSet
 
@@ -106,9 +105,9 @@ trait Vocab {
    */
   def retrieveAll : Set[Term] = {
     val methods = this.getClass.getMethods
-    (for{
-      method<-methods
-      if(method.getReturnType.getName == "au.org.ala.biocache.vocab.Term")
+    (for {
+      method <- methods
+      if (method.getReturnType == classOf[Term])
     } yield (method.invoke(this).asInstanceOf[Term])).toSet[Term]
   }
 }
