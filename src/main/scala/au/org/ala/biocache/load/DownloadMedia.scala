@@ -54,7 +54,8 @@ object DownloadMedia extends Tool {
 
   def splitByChar(associatedMedia: String, char:Char): Array[String] = {
     val parts = associatedMedia.split(char).map(_.trim)
-    if (parts.forall(_.startsWith("http")) || parts.forall(!_.startsWith("http"))) {
+    def mediaUrl(url:String) =  url.startsWith("http") || url.startsWith("ftp") || url.startsWith("file:")
+    if (parts.forall(mediaUrl(_)) || parts.forall(!mediaUrl(_))) {
       parts
     } else {
       Array(associatedMedia)
