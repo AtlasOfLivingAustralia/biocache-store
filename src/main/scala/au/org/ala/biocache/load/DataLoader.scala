@@ -221,8 +221,9 @@ trait DataLoader {
   def processMedia(dataResourceUid: String, fr: FullRecord, multimedia: List[Multimedia] = List.empty) : FullRecord = {
 
     //download the media - checking if it exists already
-    val associatedMedia = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
+    //supplied media comes from a separate source. If it's also listed in the associatedMedia then don't double-load it
     val suppliedMedia = multimedia map { media => media.location.toString }
+    val associatedMedia = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter(url => suppliedMedia.forall(!_.endsWith(url)))
     val filesToImport = (associatedMedia ++ suppliedMedia).filter(url => Config.blacklistedMediaUrls.forall(!url.startsWith(_)))
 
     if (!filesToImport.isEmpty) {
