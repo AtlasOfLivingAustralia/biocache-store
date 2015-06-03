@@ -46,6 +46,7 @@ object ExportFromIndexStream extends Tool {
       //header
       fileWriter.write(fieldsToExport.mkString("\t"))
       if (queryAssertions) {
+        fileWriter.write("\t")
         fileWriter.write(AssertionCodes.all.map(e => e.name).mkString("\t"))
       }
       fileWriter.write("\n")
