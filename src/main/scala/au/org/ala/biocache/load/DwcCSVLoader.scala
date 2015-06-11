@@ -32,8 +32,12 @@ object DwcCSVLoader extends Tool {
     val parser = new OptionParser(help) {
       arg("data-resource-uid", "the data resource to import", {v: String => dataResourceUid = v})
       opt("l", "local", "skip the download and use local file", {v:String => localFilePath = Some(v) } )
-      opt("u", "updateLastChecked", "update registry with last loaded date. defaults to " + updateLastChecked, { updateLastChecked = true } )
-      opt("b", "bypassConnParamLookup", "bypass connection param lookup. defaults to " + bypassConnParamLookup, { bypassConnParamLookup = true } )
+      opt("u", "updateLastChecked", "update registry with last loaded date. defaults to " + updateLastChecked, {
+        updateLastChecked = true
+      })
+      opt("b", "bypassConnParamLookup", "bypass connection param lookup. defaults to " + bypassConnParamLookup, {
+        bypassConnParamLookup = true
+      })
       opt("test", "test the file only do not load", { testFile=true })
       opt("log","log row keys to file - allows processing/indexing of changed records",{ logRowKeys = true })
     }
@@ -107,7 +111,9 @@ class DwcCSVLoader extends DataLoader {
   }
 
   //loads all the files in the subdirectories that are not multimedia
-  def loadDirectory(directory:File, dataResourceUid:String, uniqueTerms:List[String], params:Map[String,String], stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false){
+  def loadDirectory(directory:File, dataResourceUid:String, uniqueTerms:List[String], params:Map[String,String],
+                    stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false){
+
     directory.listFiles.foreach(file => {
       if(file.isFile()&& !Config.mediaStore.isMediaFile(file)) {
         loadFile(file, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys, test)
@@ -119,6 +125,17 @@ class DwcCSVLoader extends DataLoader {
     })
   }
 
+  /**
+   * Load the supplied file of CSV data for the supplied data resource.
+   *
+   * @param file
+   * @param dataResourceUid
+   * @param uniqueTerms
+   * @param params
+   * @param stripSpaces
+   * @param logRowKeys
+   * @param test
+   */
   def loadFile(file:File, dataResourceUid:String, uniqueTerms:List[String], params:Map[String,String], stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false){
 
     val rowKeyWriter = getRowKeyWriter(dataResourceUid, logRowKeys)
@@ -172,8 +189,8 @@ class DwcCSVLoader extends DataLoader {
     logger.info("The current institution codes for the data resource: " + institutionCodes)
     logger.info("The current collection codes for the data resource: " + collectionCodes)
 
-    val newCollCodes=new scala.collection.mutable.HashSet[String]
-    val newInstCodes= new scala.collection.mutable.HashSet[String]
+    val newCollCodes =new scala.collection.mutable.HashSet[String]
+    val newInstCodes = new scala.collection.mutable.HashSet[String]
 
     var counter = 1
     var newCount = 0
@@ -198,8 +215,8 @@ class DwcCSVLoader extends DataLoader {
           }
         })
 
-        //only continue if there is at least one nonnull unique term
-        if(uniqueTerms.find(t => map.getOrElse(t,"").length>0).isDefined || uniqueTerms.length==0){
+        //only continue if there is at least one non-null unique term
+        if(uniqueTerms.find(t => map.getOrElse(t,"").length > 0).isDefined || uniqueTerms.length == 0){
 
           val uniqueTermsValues = uniqueTerms.map(t => map.getOrElse(t,""))
 
@@ -224,7 +241,6 @@ class DwcCSVLoader extends DataLoader {
                   val filePathBuffer = new ArrayBuffer[String]
                   filePathBuffer += "file:///" + file.getParent + File.separator + fileName
 
-                  //val filePath = MediaStore.save(fr.uuid, dataResourceUid, "file:///"+file.getParent+File.separator+fileName)
                   //do multiple formats exist? check for files of the same name, different extension
                   val directory = file.getParentFile
                   val differentFormats = directory.listFiles(new SameNameDifferentExtensionFilter(fileName))
