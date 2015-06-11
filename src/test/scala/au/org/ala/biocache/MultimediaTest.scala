@@ -79,7 +79,7 @@ class MultimediaTest extends ConfigFunSuite {
     expectResult(location){ multimedia.location }
     expectResult("image/jpeg"){ multimedia.mediaType }
     expectResult(3){ multimedia.metadata.size }
-    expectResult("fred.jpg"){ multimedia.metadata(DcTerm.identifier) }
+    expectResult("fred.jpg"){ multimedia.metadata(DcTerm.identifier.simpleName()) }
   }
 
   test("Test move 1"){
@@ -91,7 +91,7 @@ class MultimediaTest extends ConfigFunSuite {
     expectResult(location2){ multimedia2.location }
     expectResult("image/jpeg"){ multimedia2.mediaType }
     expectResult(3){ multimedia2.metadata.size }
-    expectResult("fred.jpg"){ multimedia2.metadata(DcTerm.identifier) }
+    expectResult("fred.jpg"){ multimedia2.metadata(DcTerm.identifier.simpleName()) }
   }
 
   test("Test addMetadata 1"){
@@ -102,7 +102,7 @@ class MultimediaTest extends ConfigFunSuite {
     expectResult(location){ multimedia2.location }
     expectResult("image/jpeg"){ multimedia2.mediaType }
     expectResult(4){ multimedia2.metadata.size }
-    expectResult("Nothing"){ multimedia2.metadata(DcTerm.alternative) }
+    expectResult("Nothing"){ multimedia2.metadata(DcTerm.alternative.simpleName()) }
   }
 
   test("Test addMetadata 2"){
@@ -113,14 +113,14 @@ class MultimediaTest extends ConfigFunSuite {
     expectResult(location){ multimedia2.location }
     expectResult("image/jpeg"){ multimedia2.mediaType }
     expectResult(3){ multimedia2.metadata.size }
-    expectResult("fred2.jpg" ){ multimedia2.metadata(DcTerm.identifier) }
+    expectResult("fred2.jpg" ){ multimedia2.metadata(DcTerm.identifier.simpleName()) }
   }
 
   test("Test metadataAsStrings 1"){
     val metadata: Map[Term, String] = Map(DcTerm.format -> "jpeg", DcTerm.identifier -> "fred.jpg", DcTerm.license -> "Public")
     val location = new URL("http://localhost/fred.jpg")
     val multimedia = Multimedia.create(location, metadata)
-    val result = multimedia.metadataAsStrings
+    val result = multimedia.metadata
     expectResult("jpeg"){ result(DcTerm.format.simpleName) }
     expectResult("Public"){ result(DcTerm.license.simpleName) }
     expectResult(None){ result.get("nothing") }
