@@ -1,8 +1,6 @@
 package au.org.ala.biocache.load
 
-import scala.collection.JavaConversions
 import collection.mutable.ArrayBuffer
-import com.fasterxml.jackson.databind.ObjectMapper
 import au.org.ala.biocache.processor.{Processor, Processors}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.Config
@@ -58,10 +56,10 @@ object FullRecordMapper {
     if(fullRecord.dateDeleted != null && !fullRecord.dateDeleted.isEmpty && version == Raw){
       properties.put(dateDeletedColumn, fullRecord.firstLoaded)
     }
-    if(fullRecord.el!=null && !fullRecord.el.isEmpty && version == Processed){
+    if(fullRecord.el != null && !fullRecord.el.isEmpty && version == Processed){
       properties.put(environmentalLayersColumn, Json.toJSON(fullRecord.el))        //store them as JSON array
     }
-    if(fullRecord.cl!=null && !fullRecord.cl.isEmpty && version == Processed){
+    if(fullRecord.cl != null && !fullRecord.cl.isEmpty && version == Processed){
       properties.put(contextualLayersColumn, Json.toJSON(fullRecord.cl))        //store them as JSON array
     }
     properties.put("uuid", fullRecord.uuid)
@@ -107,7 +105,7 @@ object FullRecordMapper {
    * </ol>
    */
   def mapmapPropertiesToObject(poso:POSO, valueMap:scala.collection.Map[String,Object], targetMap:scala.collection.Map[String,String]){
-    //for(sourceName <- valueMap.keySet){
+
     valueMap.keys.foreach(sourceName => {
       //get the target name
       val targetName = targetMap.getOrElse(sourceName,"")
@@ -132,30 +130,6 @@ object FullRecordMapper {
   }
 
   /**
-   * Creates a full record from a JSON serialisation of an array of records.
-   *
-   * @param json
-   * @return
-   */
-  def createFullRecordFromJsonArray(json:String) : FullRecord = {
-
-    import JavaConversions._
-    val om = new ObjectMapper
-    val objectMap = om.readValue(json, classOf[Array[java.util.Map[String,Object]]])
-    val rawVersion:Map[String,Object] = objectMap(0).toMap[String,Object]
-    var mapBuffer = scala.collection.mutable.ListMap[String,String]()
-    rawVersion.keySet.foreach(key => {
-      val value = rawVersion.get(key)
-      if(value.get.isInstanceOf[java.util.Map[String,String]]){
-        mapBuffer ++= value.get.asInstanceOf[java.util.Map[String,String]].toMap
-      } else {
-        mapBuffer.put(key, value.toString())
-      }
-    })
-    FullRecordMapper.createFullRecord("", mapBuffer, Versions.RAW)
-  }
-
-  /**
    * Creates an FullRecord from the map of properties
    */
   def createFullRecord(rowKey: String, fields: scala.collection.Map[String, String], version: Version): FullRecord = {
@@ -165,11 +139,9 @@ object FullRecordMapper {
     fullRecord.uuid = fields.getOrElse("uuid", "")
     fullRecord.lastModifiedTime = fields.getOrElse(markNameBasedOnVersion("lastModifiedTime",version),"")
     fullRecord.firstLoaded = fields.getOrElse("firstLoaded","")
-    //val miscProperties = new HashMap[String,String]()
 
     fields.keySet.foreach( fieldName => {
       //ascertain which term should be associated with which object
-      //println("field name: " + fieldName)
       val fieldValue = fields.getOrElse(fieldName, "").trim
       //only set the value if it is no null or empty string
       if (fieldValue != "") {
