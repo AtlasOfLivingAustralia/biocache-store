@@ -269,8 +269,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       solrServer.add(currentBatch)
       Thread.sleep(50)
     }
-
+    logger.info("Performing index commit....")
     solrServer.commit
+    logger.info("Performing index commit....done")
+    logger.info(printNumDocumentsInIndex)
     currentBatch.clear
     //clear the cache for the SpeciesLIst
     //now we should close the indexWriter

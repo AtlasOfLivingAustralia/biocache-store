@@ -459,6 +459,7 @@ object Store {
    * @param callback a callback used for monitoring the process
    */
   def index(dataResource:java.lang.String, customIndexFields:Array[String], callback:ObserverCallback = null) = {
+    logger.info("Indexing data resource " + dataResource)
     IndexRecords.index(None,
       None,
       Some(dataResource),
@@ -467,7 +468,10 @@ object Store {
       None,
       miscIndexProperties = customIndexFields,
       callback = callback)
+    logger.info("Finished indexing data resource " + dataResource)
+    logger.info("Storing custom index fields to the database....")
     storeCustomIndexFields(dataResource,customIndexFields)
+    logger.info("Storing custom index fields to the database....done")
   }
 
   /**
