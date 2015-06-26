@@ -34,7 +34,6 @@ class LocationProcessor extends Processor {
   val WGS84_EPSG_Code = "EPSG:4326"
 
   //This is being initialised here because it may take some time to load all the XML records...
-  lazy val sdsFinder = Config.sdsFinder
   val sds = new SensitiveDataService()
 
   lazy val crsEpsgCodesMap = {
@@ -86,10 +85,13 @@ class LocationProcessor extends Processor {
 
     //sensitise the coordinates if necessary.  Do this last so that habitat checks
     // etc are performed on originally supplied coordinates
-    processSensitivity(raw, processed)
+    if(Config.sdsEnabled){
+      processSensitivity(raw, processed)
+    }
 
     //more checks
     if (processed.location.decimalLatitude != null && processed.location.decimalLongitude != null) {
+
       //intersect values
       val intersectValues = SensitiveAreaDAO.intersect(processed.location.decimalLongitude, processed.location.decimalLatitude)
 
@@ -140,7 +142,7 @@ class LocationProcessor extends Processor {
 
     processLocations(raw, processed, assertions)
 
-    //validate the georeference values
+    //validate the geo-reference values
     validateGeoreferenceValues(raw, processed, assertions)
 
     assertions.toArray
@@ -156,7 +158,9 @@ class LocationProcessor extends Processor {
       if (!stateTerm.isEmpty) {
         processed.location.stateProvince = stateTerm.get.canonical
         //now check for sensitivity based on state
-        processSensitivity(raw, processed)
+        if(Config.sdsEnabled) {
+          processSensitivity(raw, processed)
+        }
         processed.location.country = StateProvinceToCountry.map.getOrElse(processed.location.stateProvince, "")
       }
     }
@@ -876,7 +880,8 @@ class LocationProcessor extends Processor {
 
     if(!processed.location.decimalLongitude.toDoubleWithOption.isEmpty && !processed.location.decimalLatitude.toDoubleWithOption.isEmpty){
       //do a dynamic lookup for the layers required for the SDS
-      val layerIntersect = SensitiveAreaDAO.intersect(processed.location.decimalLongitude.toDouble, processed.location.decimalLatitude.toDouble)
+      val layerIntersect = SensitiveAreaDAO.intersect(processed.location.decimalLongitude.toDouble,
+        processed.location.decimalLatitude.toDouble)
       au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key => {
         rawMap.put(key, layerIntersect.getOrElse(key, "n/a"))
       })
@@ -903,7 +908,7 @@ class LocationProcessor extends Processor {
 
     val exact = getExactSciName(raw)
     //now get the ValidationOutcome from the Sensitive Data Service
-    val outcome = sds.testMapDetails(sdsFinder, rawMap, exact, processed.classification.taxonConceptID)
+    val outcome = sds.testMapDetails(Config.sdsFinder, rawMap, exact, processed.classification.taxonConceptID)
 
     logger.debug("SDS outcome: " + outcome)
 

@@ -6,13 +6,21 @@ import au.org.ala.biocache.model.Versions
 import au.org.ala.biocache.vocab.DwC
 
 /**
- * Created by mar759 on 17/02/2014.
+ * A simple loader that loads a map of properties as a record.
  */
 class MapDataLoader extends DataLoader {
 
   import JavaConversions._
 
-  def load(dataResourceUid:String, values:List[java.util.Map[String,String]], uniqueTerms:List[String]):List[String]={
+  /**
+   * Simple loader that takes a map of properties and a set of unique terms.
+   *
+   * @param dataResourceUid
+   * @param values
+   * @param uniqueTerms
+   * @return
+   */
+  def load(dataResourceUid:String, values:List[java.util.Map[String,String]], uniqueTerms:List[String]):List[String] = {
     val rowKeys = new ArrayBuffer[String]
     values.foreach(jmap =>{
       val map = jmap.toMap[String,String]

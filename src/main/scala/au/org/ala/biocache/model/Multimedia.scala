@@ -6,10 +6,12 @@ import au.org.ala.biocache.vocab.MimeType
 import org.gbif.dwc.terms.{DcTerm, Term}
 
 import scala.util.matching.Regex
-import scala.xml.XML
-import scala.xml.Node
 
+/**
+ * Companion utility class for handling multimedia functions.
+ */
 object Multimedia {
+
   val IDENTIFIER_TERM =  DcTerm.identifier
   val FORMAT_TERM =  DcTerm.format
   val EXTENSION_PATTERN = raw"\.[\d\w\-_]+".r
@@ -52,35 +54,40 @@ object Multimedia {
   }
 
   /**
-   * Create a new multimedia instance
+   * Create a multimedia instance from a set of DwC terms.
    *
    * @param location The location of the multimedia
    * @param metadata The multimedia metadata
    *
    * @return The
    */
-  def create(location: URL, metadata: Map[Term, String]): Multimedia = new Multimedia(location, findMimeType(metadata), metadata)
+  def create(location: URL, metadata: Map[Term, String]) : Multimedia = {
+    val metadataKeyValuePairs = metadata map { case (key, value) => (key.simpleName, value) }
+    new Multimedia(location, findMimeType(metadata), metadataKeyValuePairs)
+  }
+
+  /**
+   * Create a multimedia instance from a simple map.
+   * @param location
+   * @param mimeType
+   * @param metadata
+   * @return
+   */
+  def create(location: URL, mimeType:String , metadata: Map[String, String]) : Multimedia = {
+    new Multimedia(location, mimeType, metadata)
+  }
 }
 
 /**
  * A description of some sort of multimedia instance.
  *
  * @author Doug Palmer &lt;Doug.Palmer@csiro.au&gt;
- *
- *         Copyright (c) 2015 CSIRO
  */
-class Multimedia(
+class Multimedia (
   val location: URL,
   val mediaType: String,
-  val metadata: Map[Term, String]
+  val metadata: Map[String, String]
   ) extends Cloneable {
-
-  /**
-   * Provide metadata as a map of string onto string using the term's simple name as a key
-   *
-   * @return The metadata map as strings
-   */
-  def metadataAsStrings = metadata map {case (key, value) => (key.simpleName, value) }
 
   /**
    * Move this multimedia instance to a new location.
@@ -99,8 +106,7 @@ class Multimedia(
    *
    * @return A new multimedia instance with the metadata added
    */
-  def addMetadata(term: Term, value: String) = new Multimedia(this.location, this.mediaType, this.metadata + (term -> value))
-
+  def addMetadata(term: Term, value: String) = new Multimedia(this.location, this.mediaType, this.metadata + (term.simpleName() -> value))
 
   override def clone(): Multimedia = super.clone().asInstanceOf[Multimedia]
 }

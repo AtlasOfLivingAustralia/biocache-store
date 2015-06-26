@@ -120,10 +120,10 @@ class LayersStore ( layersStoreUrl: String) {
     (fields)
   }
 
-  /*
-  returns map of valid fieldIds for sampling
-  key = fieldId
-  value = display name
+  /**
+   * Returns map of valid fieldIds for sampling
+   * key = fieldId
+   * value = display name
    */
   def getFieldIdsAndDisplayNames() : util.HashMap[String, String] = {
     val httpClient = new DefaultHttpClient()

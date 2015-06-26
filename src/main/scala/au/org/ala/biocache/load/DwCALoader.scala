@@ -57,7 +57,7 @@ object DwCALoader {
       val l = new DwCALoader
       l.deleteOldRowKeys(resourceUid)
       if(localFilePath.isEmpty){
-        l.load(resourceUid, logRowKeys,testFile)
+        l.load(resourceUid, logRowKeys, testFile)
       } else {
         if(bypassConnParamLookup){
           l.loadArchive(localFilePath.get, resourceUid, List(), None, false, logRowKeys, testFile)
@@ -305,6 +305,14 @@ class DwCALoader extends DataLoader {
     count
   }
 
+  /**
+   * Load multimedia via the supplied extension (rowType).
+   *
+   * @param star
+   * @param rowType
+   * @param imageBase
+   * @return
+   */
   def loadMultimedia(star: StarRecord, rowType: Term, imageBase: URL): Seq[Multimedia] = {
     if (!star.hasExtension(rowType)) {
       return List.empty

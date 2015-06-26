@@ -1,5 +1,7 @@
 package au.org.ala.biocache.load
 
+import java.util
+
 import au.org.ala.biocache.util.{HttpUtil, SFTPTools, FileHelper, BiocacheConversions}
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
@@ -28,7 +30,9 @@ trait DataLoader {
   val loadTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
   val sftpPattern = """sftp://([a-zA-z\.]*):([0-9a-zA-Z_/\.\-]*)""".r
 
-  def emptyTempFileStore(resourceUid:String) = FileUtils.deleteQuietly(new File(temporaryFileStore + File.separator + resourceUid))
+  def emptyTempFileStore(resourceUid:String) = {
+    FileUtils.deleteQuietly(new File(temporaryFileStore + File.separator + resourceUid))
+  }
 
   /**
    * Returns the file writer to be used to store the row keys that need to be deleted for a data resource
@@ -52,13 +56,13 @@ trait DataLoader {
       FileUtils.forceMkdir(new File(Config.tmpWorkDir))
       //the file is deleted first so we set it up to append.  allows resources with multiple files to have row keys recorded
       Some(new java.io.FileWriter(Config.tmpWorkDir + "/row_key_"+resourceUid+".csv", true))
+    } else {
+      None
     }
-    else None
   }
 
   //Sampling, Processing and Indexing look for the row key file.
   // An empty file should be enough to prevent the phase from going ahead...
-  //TODO We should probably change this to be more robust.
   def setNotLoadedForOtherPhases(resourceUid:String){
     def writer = getRowKeyWriter(resourceUid, true)
     if(writer.isDefined){
@@ -94,8 +98,9 @@ trait DataLoader {
     val map = getDataResourceDetailsAsMap(resourceUid)
 
     //connection details
-    val connectionParameters = map("connectionParameters").asInstanceOf[Map[String,AnyRef]]
-    val protocol = connectionParameters("protocol").asInstanceOf[String]
+    val connectionParameters = map.getOrElse("connectionParameters", Map[String, AnyRef]()).asInstanceOf[Map[String,AnyRef]]
+
+    val protocol:String = connectionParameters.getOrElse("protocol", "").asInstanceOf[String]
     val urlsObject = connectionParameters.getOrElse("url", List[String]())
     val urls = {
       if(urlsObject.isInstanceOf[List[_]]){
@@ -124,7 +129,10 @@ trait DataLoader {
     //last checked date
     val lastChecked = map("lastChecked").asInstanceOf[String]
     val dateLastChecked = DateParser.parseStringToDate(lastChecked)
-    (protocol, urls.asInstanceOf[List[String]], uniqueTerms, map("connectionParameters").asInstanceOf[Map[String,String]], customParams, dateLastChecked)
+
+    //retrieve connection params
+    (protocol, urls.asInstanceOf[List[String]], uniqueTerms,
+      connectionParameters.asInstanceOf[Map[String,String]], customParams, dateLastChecked)
   }
 
   def mapConceptTerms(terms: List[String]): List[org.gbif.dwc.terms.Term] = {
@@ -137,7 +145,7 @@ trait DataLoader {
   }
 
   protected def createUniqueID(dataResourceUid:String,identifyingTerms:List[String], stripSpaces:Boolean=false) : String = {
-    val uniqueId =(List(dataResourceUid) ::: identifyingTerms).mkString("|").trim
+    val uniqueId = (List(dataResourceUid) ::: identifyingTerms).mkString("|").trim
     if(stripSpaces)
       uniqueId.replaceAll("\\s","")
     else
@@ -145,7 +153,7 @@ trait DataLoader {
   }
 
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String]) : Boolean = {
-     load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], true, false, false, None)
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], true, false, false, None)
   }
 
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean) : Boolean = {
@@ -168,10 +176,15 @@ trait DataLoader {
    * @param rowKeyWriter
    * @return
    */
-  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean, downloadMedia:Boolean, stripSpaces:Boolean, rowKeyWriter:Option[java.io.Writer]) : Boolean = {
+  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean,
+            downloadMedia:Boolean, stripSpaces:Boolean, rowKeyWriter:Option[java.io.Writer]) : Boolean = {
 
     //the details of how to construct the UniqueID belong in the Collectory
-    val uniqueID = if(identifyingTerms.isEmpty) None else Some(createUniqueID(dataResourceUid,identifyingTerms,stripSpaces))
+    val uniqueID = if(identifyingTerms.isEmpty) {
+      None
+    } else {
+      Some(createUniqueID(dataResourceUid, identifyingTerms, stripSpaces))
+    }
 
     //lookup the column
     val (recordUuid, isNew) = {
@@ -188,8 +201,14 @@ trait DataLoader {
     //add the full record
     fr.uuid = recordUuid
     //The row key is the uniqueID for the record. This will always start with the dataResourceUid
-    fr.rowKey = if(uniqueID.isEmpty) dataResourceUid +"|"+recordUuid else uniqueID.get
-    //write the rowkey to file if a writer is provided. allows large data resources to be incrementally updated and only process/index changes
+    fr.rowKey = if(uniqueID.isEmpty) {
+      dataResourceUid + "|" + recordUuid
+    } else {
+      uniqueID.get
+    }
+
+    //write the rowkey to file if a writer is provided. allows large data resources to be
+    //incrementally updated and only process/index changes
     if(rowKeyWriter.isDefined){
       rowKeyWriter.get.write(fr.rowKey+"\n")
     }
@@ -198,9 +217,12 @@ trait DataLoader {
     if(updateLastModified){
       fr.lastModifiedTime = loadTime
     }
+
+    //set first loaded date indicating when this record was first loaded
     if(isNew){
       fr.firstLoaded = loadTime
     }
+
     fr.attribution.dataResourceUid = dataResourceUid
 
     //process the media for this record
@@ -223,8 +245,12 @@ trait DataLoader {
     //download the media - checking if it exists already
     //supplied media comes from a separate source. If it's also listed in the associatedMedia then don't double-load it
     val suppliedMedia = multimedia map { media => media.location.toString }
-    val associatedMedia = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter(url => suppliedMedia.forall(!_.endsWith(url)))
-    val filesToImport = (associatedMedia ++ suppliedMedia).filter(url => Config.blacklistedMediaUrls.forall(!url.startsWith(_)))
+    val associatedMedia = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter {
+      url => suppliedMedia.forall(!_.endsWith(url))
+    }
+    val filesToImport = (associatedMedia ++ suppliedMedia).filter(url => {
+      Config.blacklistedMediaUrls.forall(!url.startsWith(_))
+    })
 
     if (!filesToImport.isEmpty) {
 
@@ -279,7 +305,7 @@ trait DataLoader {
    * @param lastChecked
    * @return
    */
-  def downloadArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (String,Date) = {
+  protected def downloadArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (String,Date) = {
     //when the url starts with SFTP need to SCP the file from the supplied server.
     val (file, date, isZipped, isGzipped) = if (url.startsWith("sftp://")){
       downloadSFTPArchive(url, resourceUid, lastChecked)
@@ -311,7 +337,7 @@ trait DataLoader {
     }
   }
 
-  def downloadSFTPArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (File, Date,Boolean,Boolean) = {
+  protected def downloadSFTPArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (File, Date,Boolean,Boolean) = {
     url match {
       case sftpPattern(server, filename) => {
         val (targetfile, date, isZipped, isGzipped, downloaded) = {
@@ -343,7 +369,19 @@ trait DataLoader {
           }
         }}
 
-        val fileDetails = if(targetfile == null) None else if(!downloaded)SFTPTools.scpFile(server,Config.getProperty("uploadUser"), Config.getProperty("uploadPassword"),filename,targetfile) else Some((targetfile,date))
+        val fileDetails = if(targetfile == null) {
+          None
+        } else if(!downloaded){
+          SFTPTools.scpFile(
+            server,
+            Config.getProperty("uploadUser"),
+            Config.getProperty("uploadPassword"),
+            filename,
+            targetfile)
+        } else {
+          Some ((targetfile, date) )
+        }
+
         if(fileDetails.isDefined){
           val (file, date) = fileDetails.get
           (targetfile, date, isZipped, isGzipped)

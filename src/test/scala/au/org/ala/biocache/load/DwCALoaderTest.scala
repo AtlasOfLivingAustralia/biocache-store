@@ -58,13 +58,13 @@ class DwCALoaderTest extends ConfigFunSuite {
     val multimedia = multimediaList(0)
     expectResult(new URL(IMAGE_BASE, "672737.jpg")) { multimedia.location }
     expectResult("image/jpeg") { multimedia.mediaType }
-    expectResult("672737.jpg") { multimedia.metadata(DcTerm.identifier) }
-    expectResult("jpeg") { multimedia.metadata(DcTerm.format) }
-    expectResult("Tosia  australis") { multimedia.metadata(DcTerm.title) }
-    expectResult("Tosia australis, Biscuit Star specimen") { multimedia.metadata(DcTerm.description) }
-    expectResult("Healley, Benjamin") { multimedia.metadata(DcTerm.creator) }
-    expectResult("CC BY (Attribution)") { multimedia.metadata(DcTerm.license) }
-    expectResult("Benjamin Healley / Museum Victoria") { multimedia.metadata(DcTerm.rightsHolder) }
+    expectResult("672737.jpg") { multimedia.metadata(DcTerm.identifier.simpleName()) }
+    expectResult("jpeg") { multimedia.metadata(DcTerm.format.simpleName()) }
+    expectResult("Tosia  australis") { multimedia.metadata(DcTerm.title.simpleName()) }
+    expectResult("Tosia australis, Biscuit Star specimen") { multimedia.metadata(DcTerm.description.simpleName()) }
+    expectResult("Healley, Benjamin") { multimedia.metadata(DcTerm.creator.simpleName()) }
+    expectResult("CC BY (Attribution)") { multimedia.metadata(DcTerm.license.simpleName()) }
+    expectResult("Benjamin Healley / Museum Victoria") { multimedia.metadata(DcTerm.rightsHolder.simpleName()) }
   }
 
   test("load multimedia 2") {
@@ -77,13 +77,13 @@ class DwCALoaderTest extends ConfigFunSuite {
     val multimedia = multimediaList(1)
     expectResult(new URL("http://localhost/nowhere/nothing.png")) { multimedia.location }
     expectResult("image/png") { multimedia.mediaType }
-    expectResult("http://localhost/nowhere/nothing.png") { multimedia.metadata(DcTerm.identifier) }
-    expectResult("png") { multimedia.metadata(DcTerm.format) }
-    expectResult("Nowhere") { multimedia.metadata(DcTerm.title) }
-    expectResult(null) { multimedia.metadata(DcTerm.description) }
-    expectResult("A. N. Other") { multimedia.metadata(DcTerm.creator) }
-    expectResult("CC BY (Attribution)") { multimedia.metadata(DcTerm.license) }
-    expectResult("A. N. Other") { multimedia.metadata(DcTerm.rightsHolder) }
+    expectResult("http://localhost/nowhere/nothing.png") { multimedia.metadata(DcTerm.identifier.simpleName()) }
+    expectResult("png") { multimedia.metadata(DcTerm.format.simpleName()) }
+    expectResult("Nowhere") { multimedia.metadata(DcTerm.title.simpleName()) }
+    expectResult(null) { multimedia.metadata(DcTerm.description.simpleName()) }
+    expectResult("A. N. Other") { multimedia.metadata(DcTerm.creator.simpleName()) }
+    expectResult("CC BY (Attribution)") { multimedia.metadata(DcTerm.license.simpleName()) }
+    expectResult("A. N. Other") { multimedia.metadata(DcTerm.rightsHolder.simpleName()) }
   }
 
   test("load multimedia 3") {

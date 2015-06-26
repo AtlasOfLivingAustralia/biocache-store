@@ -3,6 +3,7 @@ package au.org.ala.biocache
 import au.org.ala.biocache.util.LayersStore
 import java.util.jar.Attributes
 
+import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
 import au.org.ala.names.search.ALANameSearcher
@@ -41,9 +42,11 @@ object Config {
   val validationRuleDAO = getInstance(classOf[ValidationRuleDAO]).asInstanceOf[ValidationRuleDAO]
   val indexDAO = getInstance(classOf[IndexDAO]).asInstanceOf[IndexDAO]
 
+  //URL to an instance of the ALA image-service
+  val remoteMediaStoreUrl = configModule.properties.getProperty("media.store.url", "")
+
   val mediaStore = {
-    val str = configModule.properties.getProperty("media.store.local", "true")
-    if(str.toBoolean){
+    if(StringUtils.isBlank(remoteMediaStoreUrl)){
       logger.debug("Using local media store")
       LocalMediaStore
     } else {
@@ -52,14 +55,14 @@ object Config {
     }
   }
 
-  val remoteMediaStoreUrl = configModule.properties.getProperty("media.store.url", "http://10.1.1.2/images")
 
   //name index
   val nameIndex = getInstance(classOf[ALANameSearcher]).asInstanceOf[ALANameSearcher]
 
   //load sensitive data service
   lazy val sdsFinder = {
-    val sdsUrl = configModule.properties.getProperty("sds.url","http://sds.ala.org.au/sensitive-species-data.xml")
+    logger.info("Initialising SDS lookups")
+    val sdsUrl = configModule.properties.getProperty("sds.url", "http://sds.ala.org.au/sensitive-species-data.xml")
     SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl, nameIndex)
   }
 
@@ -106,6 +109,17 @@ object Config {
 
   /** Whether or not to strictly obey the isLoadable directive from the SDS */
   val obeySDSIsLoadable = configModule.properties.getProperty("obey.sds.is.loadable", "true").toBoolean
+
+  //fields that should be hidden in certain views
+  val sensitiveFields = {
+    val configProps = configModule.properties.getProperty("sensitive.field", "")
+    if(configProps == ""){
+      Set("originalSensitiveValues","originalDecimalLatitude","originalDecimalLongitude", "originalLocationRemarks",
+        "originalVerbatimLatitude", "originalVerbatimLongitude")
+    } else {
+      configProps.split(",").map(x => x.trim).toSet[String]
+    }
+  }
 
   def fieldsToSample() = {
 
@@ -188,7 +202,9 @@ object Config {
   private def getProperty(prop:String, default:String) = configModule.properties.getProperty(prop,default)
 
   def outputConfig = {
-    configModule.properties.stringPropertyNames().toArray.sortWith(_.toString() < _.toString()).foreach(name => println(name.toString() + " = " + configModule.properties.getProperty(name.toString(), "NOT DEFINED")))
+    configModule.properties.stringPropertyNames().toArray.sortWith(_.toString() < _.toString()).foreach { name =>
+      println(name.toString() + " = " + configModule.properties.getProperty(name.toString(), "NOT DEFINED"))
+    }
   }
 
   //layer defaults

@@ -51,7 +51,7 @@ object AssertionCodes {
   val LOCATION_NOT_SUPPLIED = ErrorCode("locationNotSupplied", 43, false, "No location information has been provided with the record", Missing)
   val DECIMAL_COORDINATES_NOT_SUPPLIED = ErrorCode("decimalCoordinatesNotSupplied", 44, false, "No decimal longitude and latitude provided", Missing)
   val DECIMAL_LAT_LONG_CONVERTED = ErrorCode("decimalLatLongConverted", 45, false, "Decimal latitude and longitude were converted to WGS84", Warning)
-  val DECIMAL_LAT_LONG_CONVERSION_FAILED = ErrorCode("decimalLatLongConverionFailed", 46, true, "Conversion of decimal latitude and longitude to WGS84 failed", Error)
+  val DECIMAL_LAT_LONG_CONVERSION_FAILED = ErrorCode("decimalLatLongConversionFailed", 46, true, "Conversion of decimal latitude and longitude to WGS84 failed", Error)
   val DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM = ErrorCode("decimalLatLongCalculatedFromVerbatim", 47, false, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS", Warning )
   val DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED = ErrorCode("decimalLatLongCalculationFromVerbatimFailed", 48, true, "Failed to calculate decimal latitude and longitude from verbatimLatitude, verbatimLongitude and verbatimSRS", Error)
   val DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING = ErrorCode("decimalLatLongCalculatedFromEastingNorthing", 49, false, "Decimal latitude and longitude were calculated using easting, nothing and zone", Warning)
