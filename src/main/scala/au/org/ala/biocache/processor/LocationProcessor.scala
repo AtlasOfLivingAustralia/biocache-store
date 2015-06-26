@@ -158,7 +158,9 @@ class LocationProcessor extends Processor {
       if (!stateTerm.isEmpty) {
         processed.location.stateProvince = stateTerm.get.canonical
         //now check for sensitivity based on state
-        processSensitivity(raw, processed)
+        if(Config.sdsEnabled) {
+          processSensitivity(raw, processed)
+        }
         processed.location.country = StateProvinceToCountry.map.getOrElse(processed.location.stateProvince, "")
       }
     }
