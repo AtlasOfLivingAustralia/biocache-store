@@ -1,6 +1,6 @@
 package au.org.ala.biocache.load
 
-import java.util
+import java.net.URL
 
 import au.org.ala.biocache.util.{HttpUtil, SFTPTools, FileHelper, BiocacheConversions}
 import org.slf4j.LoggerFactory
@@ -160,7 +160,8 @@ trait DataLoader {
     load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified, false, false, None)
   }
 
-  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean, downloadMedia:Boolean):Boolean ={
+  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean,
+           downloadMedia:Boolean) : Boolean = {
     load(dataResourceUid, fr, identifyingTerms, updateLastModified, downloadMedia, false, None)
   }
 
@@ -225,7 +226,7 @@ trait DataLoader {
 
     fr.attribution.dataResourceUid = dataResourceUid
 
-    //process the media for this record
+    //process the media for this record, saving & thumb nailing any images
     processMedia(dataResourceUid, fr)
 
     //load the record
@@ -240,7 +241,7 @@ trait DataLoader {
    * @param fr
    * @param multimedia An optional list of multimedia information derived from other sources
    */
-  def processMedia(dataResourceUid: String, fr: FullRecord, multimedia: Seq[Multimedia] = List.empty) : FullRecord = {
+  def processMedia(dataResourceUid: String, fr: FullRecord, multimedia: Seq[Multimedia] = Seq.empty[Multimedia]) : FullRecord = {
 
     //download the media - checking if it exists already
     //supplied media comes from a separate source. If it's also listed in the associatedMedia then don't double-load it
@@ -248,6 +249,7 @@ trait DataLoader {
     val associatedMedia = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter {
       url => suppliedMedia.forall(!_.endsWith(url))
     }
+
     val filesToImport = (associatedMedia ++ suppliedMedia).filter(url => {
       Config.blacklistedMediaUrls.forall(!url.startsWith(_))
     })
@@ -257,21 +259,32 @@ trait DataLoader {
       val fileNameToID = new mutable.HashMap[String, String]()
 
       filesToImport.foreach(fileToStore => {
-        val media = multimedia find { media => media.location.toString == fileToStore }
 
-        val (exists, filename, filePathOrId) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
-
-        if (exists) {
-          logger.info("Media file already stored: " + filePathOrId)
-          fileNameToID.put(filename, filePathOrId)
-        } else {
-          val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, media)
-          logger.info("Media file stored to: " + savedTo.getOrElse("**** not available ****"))
-          savedTo match {
-            case Some((savedFilename, savedFilePathOrId)) => fileNameToID.put(savedFilename, savedFilePathOrId)
-            case None => logger.warn("Unable to save file: " + fileToStore)
+        val media = {
+          val multiMediaObject = multimedia.find { media => media.location.toString == fileToStore }
+          multiMediaObject match {
+            case Some(multimedia) => Some(multimedia)
+            case None => {
+              //construct metadata from record
+              Some(new Multimedia(new URL(fileToStore), "", Map(
+                "creator" -> fr.occurrence.recordedBy,
+                "title" -> fr.classification.scientificName,
+                "description" -> fr.occurrence.occurrenceRemarks,
+                "license" -> fr.occurrence.license,
+                "rights" -> fr.occurrence.rights,
+                "rightsHolder" -> fr.occurrence.rightsholder
+              )))
+            }
           }
         }
+
+        val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, media)
+        logger.info("Media file stored to: " + savedTo.getOrElse("**** not available ****"))
+        savedTo match {
+          case Some((savedFilename, savedFilePathOrId)) => fileNameToID.put(savedFilename, savedFilePathOrId)
+          case None => logger.warn("Unable to save file: " + fileToStore)
+        }
+
       })
 
       val associatedMediaBuffer = new ArrayBuffer[String]
@@ -319,7 +332,7 @@ trait DataLoader {
         file.extractZip
         val fileName = FilenameUtils.removeExtension(file.getAbsolutePath)
         logger.info("Archive extracted to directory: " + fileName)
-        (fileName,date)
+        (fileName, date)
       } else if (isGzipped){
         logger.info("Extracting GZIP " + file.getAbsolutePath)
         file.extractGzip
@@ -329,10 +342,10 @@ trait DataLoader {
         logger.info("Archive extracted to directory: " + fileName)
         ((new File(fileName)).getParentFile.getAbsolutePath,date)
       } else {
-        (file.getParentFile.getAbsolutePath,date)
+        (file.getParentFile.getAbsolutePath, date)
       }
     } else {
-      logger.info("Unable to extract a new file for " +resourceUid + " at " + url)
+      logger.info(s"Unable to extract a new file for $resourceUid at $url")
       (null,null)
     }
   }
@@ -362,7 +375,7 @@ trait DataLoader {
           def fileDetails = SFTPTools.sftpLatestArchive(url, resourceUid, temporaryFileStore,lastChecked)
           if(fileDetails.isDefined){
             val (file, date) = fileDetails.get
-            logger.info("The most recent file is " + file + " with last modified date : " + date)
+            logger.info(s"The most recent file is $file with last modified date : $date")
             (new File(file),date,file.endsWith("zip"),file.endsWith("gz"),true)
           } else {
             (null, null, false, false, false)
