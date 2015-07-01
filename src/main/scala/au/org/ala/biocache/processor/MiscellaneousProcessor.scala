@@ -5,7 +5,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.StringUtils
 import scala.Some
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{OccurrenceStatus, EstablishmentMeans, Interactions, AssertionCodes}
+import au.org.ala.biocache.vocab._
 import au.org.ala.biocache.parser.CollectorNameParser
 import au.org.ala.biocache.load.MediaStore
 
@@ -17,6 +17,7 @@ class MiscellaneousProcessor extends Processor {
   val LIST_DELIM = ";".r
   val interactionPattern = """([A-Za-z]*):([\x00-\x7F\s]*)""".r
   import AssertionCodes._
+  import AssertionStatus._
 
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
     val assertions = new ArrayBuffer[QualityAssertion]
@@ -63,14 +64,14 @@ class MiscellaneousProcessor extends Processor {
     if(StringUtils.isBlank(raw.occurrence.catalogNumber)){
       assertions += QualityAssertion(MISSING_CATALOGUENUMBER, "No catalogue number provided")
     } else {
-      assertions += QualityAssertion(MISSING_CATALOGUENUMBER, 1)
+      assertions += QualityAssertion(MISSING_CATALOGUENUMBER, PASSED)
     }
     //check to see if the source data has been provided in a generalised form
     if(StringUtils.isNotBlank(raw.occurrence.dataGeneralizations)){
       assertions += QualityAssertion(DATA_ARE_GENERALISED)
     } else {
       //data not generalised by the provider
-      assertions += QualityAssertion(DATA_ARE_GENERALISED, 1)
+      assertions += QualityAssertion(DATA_ARE_GENERALISED, PASSED)
     }
   }
 
@@ -122,17 +123,17 @@ class MiscellaneousProcessor extends Processor {
     if (raw.identification.identificationQualifier == null)
       assertions += QualityAssertion(MISSING_IDENTIFICATIONQUALIFIER, "Missing identificationQualifier")
     else
-      assertions += QualityAssertion(MISSING_IDENTIFICATIONQUALIFIER, 1)
+      assertions += QualityAssertion(MISSING_IDENTIFICATIONQUALIFIER, PASSED)
     //check missing identifiedBy
     if (raw.identification.identifiedBy == null)
       assertions += QualityAssertion(MISSING_IDENTIFIEDBY, "Missing identifiedBy")
     else
-      assertions += QualityAssertion(MISSING_IDENTIFIEDBY, 1)
+      assertions += QualityAssertion(MISSING_IDENTIFIEDBY, PASSED)
     //check missing identification references
     if (raw.identification.identificationReferences == null)
       assertions += QualityAssertion(MISSING_IDENTIFICATIONREFERENCES, "Missing identificationReferences")
     else
-      assertions += QualityAssertion(MISSING_IDENTIFICATIONREFERENCES,1)
+      assertions += QualityAssertion(MISSING_IDENTIFICATIONREFERENCES, PASSED)
     //check missing date identified
     if (raw.identification.dateIdentified == null)
       assertions += QualityAssertion(MISSING_DATEIDENTIFIED, "Missing dateIdentified")

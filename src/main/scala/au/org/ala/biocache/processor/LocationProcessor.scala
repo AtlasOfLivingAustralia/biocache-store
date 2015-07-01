@@ -11,14 +11,11 @@ import org.geotools.referencing.CRS
 import org.geotools.referencing.operation.DefaultCoordinateOperationFactory
 import org.geotools.geometry.GeneralDirectPosition
 import org.apache.commons.math3.util.Precision
-import au.org.ala.sds.validation.{ValidationOutcome, ServiceFactory}
 import au.org.ala.biocache.caches.{SensitiveAreaDAO, TaxonProfileDAO, LocationDAO}
 import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab._
-import scala.Some
-import scala.Some
 import au.org.ala.biocache.util.{Json, StringHelper}
 
 /**
@@ -28,6 +25,7 @@ class LocationProcessor extends Processor {
 
   import StringHelper._
   import AssertionCodes._
+  import AssertionStatus._
   import JavaConversions._
 
   val logger = LoggerFactory.getLogger("LocationProcessor")
@@ -132,10 +130,10 @@ class LocationProcessor extends Processor {
       if (raw.location.footprintWKT == null && raw.location.locality == null && raw.location.locationID == null){
         assertions += QualityAssertion(LOCATION_NOT_SUPPLIED)
       } else {
-        assertions += QualityAssertion(LOCATION_NOT_SUPPLIED, 1)
+        assertions += QualityAssertion(LOCATION_NOT_SUPPLIED, PASSED)
       }
     } else {
-      assertions += QualityAssertion(LOCATION_NOT_SUPPLIED, 1)
+      assertions += QualityAssertion(LOCATION_NOT_SUPPLIED, PASSED)
     }
 
     validateCoordinates(raw, processed, assertions)
@@ -185,23 +183,23 @@ class LocationProcessor extends Processor {
 
   def validateCoordinates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
     if (raw.location.country == null && processed.location.country != null) {
-      assertions += QualityAssertion(COUNTRY_INFERRED_FROM_COORDINATES, 0)
+      assertions += QualityAssertion(COUNTRY_INFERRED_FROM_COORDINATES, FAILED)
     } else {
-      assertions += QualityAssertion(COUNTRY_INFERRED_FROM_COORDINATES, 1)
+      assertions += QualityAssertion(COUNTRY_INFERRED_FROM_COORDINATES, PASSED)
     }
 
     //check centre point of the state
     if (StateProvinceCentrePoints.coordinatesMatchCentre(processed.location.stateProvince, raw.location.decimalLatitude, raw.location.decimalLongitude)) {
       assertions += QualityAssertion(COORDINATES_CENTRE_OF_STATEPROVINCE, "Coordinates are centre point of " + processed.location.stateProvince)
     } else {
-      assertions += QualityAssertion(COORDINATES_CENTRE_OF_STATEPROVINCE, 1)
+      assertions += QualityAssertion(COORDINATES_CENTRE_OF_STATEPROVINCE, PASSED)
     }
 
     //check centre point of the country
     if (CountryCentrePoints.coordinatesMatchCentre(processed.location.country, raw.location.decimalLatitude, raw.location.decimalLongitude)) {
       assertions += QualityAssertion(COORDINATES_CENTRE_OF_COUNTRY, "Coordinates are centre point of " + processed.location.country)
     } else {
-      assertions += QualityAssertion(COORDINATES_CENTRE_OF_COUNTRY, 1)
+      assertions += QualityAssertion(COORDINATES_CENTRE_OF_COUNTRY, PASSED)
     }
   }
 
@@ -228,7 +226,7 @@ class LocationProcessor extends Processor {
         } else {
           processed.location.minimumDepthInMeters = min.toString
           processed.location.maximumDepthInMeters = max.toString
-          assertions += QualityAssertion(MIN_MAX_DEPTH_REVERSED, 1)
+          assertions += QualityAssertion(MIN_MAX_DEPTH_REVERSED, PASSED)
         }
       }
       catch {
@@ -247,7 +245,7 @@ class LocationProcessor extends Processor {
         } else {
           processed.location.minimumElevationInMeters = min.toString
           processed.location.maximumElevationInMeters = max.toString
-          assertions += QualityAssertion(MIN_MAX_ALTITUDE_REVERSED, 1)
+          assertions += QualityAssertion(MIN_MAX_ALTITUDE_REVERSED, PASSED)
         }
       } catch {
         case e: Exception => logger.debug("Exception thrown processing elevation:" + e.getMessage())
@@ -264,14 +262,14 @@ class LocationProcessor extends Processor {
         if (velevation > 10000 || velevation < -100) {
           assertions += QualityAssertion(ALTITUDE_OUT_OF_RANGE, "Elevation " + velevation + " is greater than 10,000 metres or less than -100 metres.")
         } else {
-          assertions += QualityAssertion(ALTITUDE_OUT_OF_RANGE, 1)
+          assertions += QualityAssertion(ALTITUDE_OUT_OF_RANGE, PASSED)
         }
-        assertions += QualityAssertion(ALTITUDE_NON_NUMERIC, 1)
+        assertions += QualityAssertion(ALTITUDE_NON_NUMERIC, PASSED)
 
         if (sourceUnit == Feet) {
           assertions += QualityAssertion(ALTITUDE_IN_FEET, "The supplied altitude was in feet it has been converted to metres")
         } else {
-          assertions += QualityAssertion(ALTITUDE_IN_FEET, 1)
+          assertions += QualityAssertion(ALTITUDE_IN_FEET, PASSED)
         }
       } else {
         assertions += QualityAssertion(ALTITUDE_NON_NUMERIC, "Can't parse verbatimElevation " + raw.location.verbatimElevation)
@@ -288,13 +286,13 @@ class LocationProcessor extends Processor {
         if (vdepth > 10000)
           assertions += QualityAssertion(DEPTH_OUT_OF_RANGE, "Depth " + vdepth + " is greater than 10,000 metres")
         else
-          assertions += QualityAssertion(DEPTH_OUT_OF_RANGE, 1)
-        assertions += QualityAssertion(DEPTH_NON_NUMERIC, 1)
+          assertions += QualityAssertion(DEPTH_OUT_OF_RANGE,  PASSED)
+        assertions += QualityAssertion(DEPTH_NON_NUMERIC,  PASSED)
         //check on the units
         if (sourceUnit == Feet) {
           assertions += QualityAssertion(DEPTH_IN_FEET, "The supplied depth was in feet it has been converted to metres")
         } else {
-          assertions += QualityAssertion(DEPTH_IN_FEET, 1)
+          assertions += QualityAssertion(DEPTH_IN_FEET, PASSED)
         }
       } else {
         assertions += QualityAssertion(DEPTH_NON_NUMERIC, "Can't parse verbatimDepth " + raw.location.verbatimDepth)
@@ -305,7 +303,6 @@ class LocationProcessor extends Processor {
   private def setProcessedCoordinates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
     //handle the situation where the coordinates have already been sensitised
-    // (LEGACY format - as of 2011-10-01 there we are storing original values in a map...)
     if (raw.location.originalDecimalLatitude != null && raw.location.originalDecimalLongitude != null) {
       processed.location.decimalLatitude = raw.location.originalDecimalLatitude
       processed.location.decimalLongitude = raw.location.originalDecimalLongitude
@@ -342,16 +339,16 @@ class LocationProcessor extends Processor {
     //check to see if we have coordinates specified
     if (rawLatitude != null && rawLongitude != null && !rawLatitude.toFloatWithOption.isEmpty && !rawLongitude.toFloatWithOption.isEmpty) {
       //coordinates were supplied so the test passed
-      assertions += QualityAssertion(DECIMAL_COORDINATES_NOT_SUPPLIED, 1)
+      assertions += QualityAssertion(DECIMAL_COORDINATES_NOT_SUPPLIED, PASSED)
       // if decimal lat/long is provided in a CRS other than WGS84, then we need to reproject
 
       if (rawGeodeticDatum != null) {
         //no assumptions about the datum is being made:
-        assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, 1)
+        assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, PASSED)
         val sourceEpsgCode = lookupEpsgCode(rawGeodeticDatum)
         if (!sourceEpsgCode.isEmpty) {
           //datum is recognised so pass the test:
-          assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM,1)
+          assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM,PASSED)
           if (sourceEpsgCode.get == WGS84_EPSG_Code) {
             //already in WGS84, no need to reproject
             Some((rawLatitude, rawLongitude, WGS84_EPSG_Code))
@@ -365,7 +362,7 @@ class LocationProcessor extends Processor {
               None
             } else {
               //transformation of coordinates did not fail:
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, 1)
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, PASSED)
               assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERTED, "Decimal latitude and longitude were converted to WGS84 (EPSG:4326)")
               val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
               Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
@@ -403,7 +400,7 @@ class LocationProcessor extends Processor {
               val sourceEpsgCode = lookupEpsgCode(verbatimSRS)
               if (!sourceEpsgCode.isEmpty) {
                 //calculation from verbatim did NOT fail:
-                assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, 1)
+                assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
                 if (sourceEpsgCode.get == WGS84_EPSG_Code) {
                   //already in WGS84, no need to reproject
                   assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
@@ -417,7 +414,7 @@ class LocationProcessor extends Processor {
                     None
                   } else {
                     //reprojection did NOT fail:
-                    assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, 1)
+                    assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
                     assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
                     val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
                     Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
@@ -430,7 +427,7 @@ class LocationProcessor extends Processor {
               // Otherwise, assume latitude and longitude are already in WGS 84
             } else if (decimalVerbatimLat.get.toString.isLatitude && decimalVerbatimLong.get.toString.isLongitude) {
               //conversion dod NOT fail
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED,1)
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED,PASSED)
               assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
               Some((decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code))
             } else {
@@ -468,7 +465,7 @@ class LocationProcessor extends Processor {
               None
             } else {
               //lat and long from easting and northing did NOT fail:
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, 1)
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, PASSED)
               assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING, "Decimal latitude and longitude were calculated using easting, northing and zone.")
               val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
               Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
@@ -568,7 +565,7 @@ class LocationProcessor extends Processor {
         val (parsedValue, rawUnit) = parsedResult.get
         if(parsedValue > 0){
           //not an uncertainty mismatch
-          assertions += QualityAssertion(UNCERTAINTY_RANGE_MISMATCH, 1)
+          assertions += QualityAssertion(UNCERTAINTY_RANGE_MISMATCH, PASSED)
         } else {
           val comment = "Supplied uncertainty, " + raw.location.coordinateUncertaintyInMeters + ", is not a supported format"
           assertions += QualityAssertion(UNCERTAINTY_RANGE_MISMATCH, comment)
@@ -594,13 +591,13 @@ class LocationProcessor extends Processor {
     if (raw.location.coordinatePrecision == null){
       assertions += QualityAssertion(MISSING_COORDINATEPRECISION, "Missing coordinatePrecision")
     } else {
-      assertions += QualityAssertion(MISSING_COORDINATEPRECISION, 1)
+      assertions += QualityAssertion(MISSING_COORDINATEPRECISION, PASSED)
       if(!checkedPrecision){
         val value = raw.location.coordinatePrecision.toFloatWithOption
         if(value.isDefined){
           //Ensure that the precision is within the required ranges
           if (value.get > 0 && value.get <= 1){
-            assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, 1)
+            assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, PASSED)
             //now test for coordinate precision
             val pre = if (raw.location.coordinatePrecision.contains(".")) raw.location.coordinatePrecision.split("\\.")(1).length else 0
             val lat = processed.location.decimalLatitude
@@ -609,7 +606,7 @@ class LocationProcessor extends Processor {
             val lonp = if(long.contains(".")) long.split("\\.")(1).length else 0
             if(pre == latp && pre == lonp){
               // no coordinate precision mismatch exists
-              assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH, 1)
+              assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH, PASSED)
             } else {
               assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH)
             }
@@ -629,7 +626,7 @@ class LocationProcessor extends Processor {
     if (processed.location.coordinateUncertaintyInMeters == null) {
       assertions += QualityAssertion(UNCERTAINTY_NOT_SPECIFIED, "Uncertainty was not supplied")
     } else{
-      assertions += QualityAssertion(UNCERTAINTY_NOT_SPECIFIED, 1)
+      assertions += QualityAssertion(UNCERTAINTY_NOT_SPECIFIED, PASSED)
     }
   }
 
@@ -679,11 +676,11 @@ class LocationProcessor extends Processor {
           assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, comment)
         } else {
           //habitats ARE compatible
-          assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 1)
+          assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, PASSED)
         }
       }
     } else {
-      assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 2)
+      assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, UNCHECKED)
     }
   }
 
@@ -717,10 +714,10 @@ class LocationProcessor extends Processor {
         assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, comment)
       } else {
         //states are not in mismatch
-        assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, 1)
+        assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, PASSED)
       }
     } else {
-      assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, 2)
+      assertions += QualityAssertion(STATE_COORDINATE_MISMATCH, UNCHECKED)
     }
   }
 
@@ -729,32 +726,32 @@ class LocationProcessor extends Processor {
     if (raw.location.geodeticDatum == null && processed.location.geodeticDatum == null)
       assertions += QualityAssertion(MISSING_GEODETICDATUM, "Missing geodeticDatum")
     else
-      assertions += QualityAssertion(MISSING_GEODETICDATUM,1)
+      assertions += QualityAssertion(MISSING_GEODETICDATUM,PASSED)
     //check for missing georeferencedBy
     if (raw.location.georeferencedBy == null && processed.location.georeferencedBy == null)
       assertions += QualityAssertion(MISSING_GEOREFERNCEDBY, "Missing georeferencedBy")
     else
-      assertions += QualityAssertion(MISSING_GEOREFERNCEDBY, 1)
+      assertions += QualityAssertion(MISSING_GEOREFERNCEDBY, PASSED)
     //check for missing georeferencedProtocol
     if (raw.location.georeferenceProtocol == null && processed.location.georeferenceProtocol == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL, "Missing georeferenceProtocol")
     else
-      assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL,1)
+      assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL,PASSED)
     //check for missing georeferenceSources
     if (raw.location.georeferenceSources == null && processed.location.georeferenceSources == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES, "Missing georeferenceSources")
     else
-      assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES,1)
+      assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES,PASSED)
     //check for missing georeferenceVerificationStatus
     if (raw.location.georeferenceVerificationStatus == null && processed.location.georeferenceVerificationStatus == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS, "Missing georeferenceVerificationStatus")
     else
-      assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS,1)
+      assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS,PASSED)
     //check for missing georeferenceDate
     if (StringUtils.isBlank(raw.location.georeferencedDate) && !raw.miscProperties.containsKey("georeferencedDate")){
       assertions += QualityAssertion(MISSING_GEOREFERENCE_DATE)
     } else {
-      assertions += QualityAssertion(MISSING_GEOREFERENCE_DATE, 1)
+      assertions += QualityAssertion(MISSING_GEOREFERENCE_DATE, PASSED)
     }
   }
 
@@ -782,14 +779,14 @@ class LocationProcessor extends Processor {
           processed.location.decimalLatitude = processed.location.decimalLongitude
           processed.location.decimalLongitude = tmp
           //coordinates are not out of range:
-          assertions += QualityAssertion(COORDINATES_OUT_OF_RANGE, 1)
+          assertions += QualityAssertion(COORDINATES_OUT_OF_RANGE, PASSED)
         } else {
           assertions += QualityAssertion(COORDINATES_OUT_OF_RANGE, "Coordinates are out of range: " +
             processed.location.decimalLatitude + "," + processed.location.decimalLongitude)
-          assertions += QualityAssertion(INVERTED_COORDINATES,1)
+          assertions += QualityAssertion(INVERTED_COORDINATES,PASSED)
         }
       } else {
-        assertions ++= Array(QualityAssertion(INVERTED_COORDINATES,1), QualityAssertion(COORDINATES_OUT_OF_RANGE, 1))
+        assertions ++= Array(QualityAssertion(INVERTED_COORDINATES,PASSED), QualityAssertion(COORDINATES_OUT_OF_RANGE, PASSED))
       }
 
       if (lat == 0.0f && lon == 0.0f) {
@@ -797,19 +794,19 @@ class LocationProcessor extends Processor {
         processed.location.decimalLatitude = null
         processed.location.decimalLongitude = null
       } else {
-        assertions += QualityAssertion(ZERO_COORDINATES,1)
+        assertions += QualityAssertion(ZERO_COORDINATES,PASSED)
       }
 
       if (lat == 0.0f ) {
         assertions += QualityAssertion(AssertionCodes.ZERO_LATITUDE_COORDINATES, "Latitude 0,0")
       } else{
-        assertions += QualityAssertion(AssertionCodes.ZERO_LATITUDE_COORDINATES, 1)
+        assertions += QualityAssertion(AssertionCodes.ZERO_LATITUDE_COORDINATES, PASSED)
       }
 
       if (lon == 0.0f) {
         assertions += QualityAssertion(AssertionCodes.ZERO_LONGITUDE_COORDINATES, "Longitude 0,0")
       } else{
-        assertions += QualityAssertion(AssertionCodes.ZERO_LONGITUDE_COORDINATES, 1)
+        assertions += QualityAssertion(AssertionCodes.ZERO_LONGITUDE_COORDINATES, PASSED)
       }
 
       if (raw.location.country != null && raw.location.country != "") {
@@ -818,7 +815,7 @@ class LocationProcessor extends Processor {
 
         if (!country.isEmpty) {
 
-          assertions += QualityAssertion(UNKNOWN_COUNTRY_NAME, 1)
+          assertions += QualityAssertion(UNKNOWN_COUNTRY_NAME, PASSED)
 
           CountryCentrePoints.matchName(country.get.canonical) match {
 
@@ -848,7 +845,7 @@ class LocationProcessor extends Processor {
                   assertions += QualityAssertion(COUNTRY_COORDINATE_MISMATCH)
                 } else {
                   //there was no mismatch
-                  assertions += QualityAssertion(COUNTRY_COORDINATE_MISMATCH, 1)
+                  assertions += QualityAssertion(COUNTRY_COORDINATE_MISMATCH, PASSED)
                 }
 
               }

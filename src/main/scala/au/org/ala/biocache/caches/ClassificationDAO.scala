@@ -40,15 +40,13 @@ object ClassificationDAO {
   private val lock : AnyRef = new Object()
   private val nameIndex = Config.nameIndex
 
-  def stripStrayQuotes(str:String) : String  = {
+  private def stripStrayQuotes(str:String) : String  = {
     if (str == null){
       null
     } else {
       var normalised = str
       if(normalised.startsWith("'") || normalised.startsWith("\"")) normalised = normalised.drop(1)
       if(normalised.endsWith("'") || normalised.endsWith("\"")) normalised = normalised.dropRight(1)
-      //if((normalised.endsWith("'") || normalised.endsWith("\"")) && (normalised.startsWith("'") || normalised.startsWith("\"") || normalised.)) normalised = normalised.dropRight(1)
-      //if((normalised.endsWith("'") || normalised.endsWith("\"")) && (normalised.startsWith("'") || normalised.startsWith("\"") )) normalised = normalised.dropRight(1)
       normalised
     }
   }
@@ -88,8 +86,13 @@ object ClassificationDAO {
     if(cachedObject != null){
       cachedObject.asInstanceOf[Option[MetricsResultDTO]]
     } else {
-      //search for a scientific name if values for the classification were provided otherwise search for a common name
-      val idnsr = if(cl.taxonConceptID != null)  nameIndex.searchForRecordByLsid(cl.taxonConceptID) else null
+
+      //if provided, lookup via taxonConceptID
+      val idnsr = if(cl.taxonConceptID != null) {
+        nameIndex.searchForRecordByLsid(cl.taxonConceptID)
+      } else {
+        null
+      }
 
       var resultMetric = {
         try {
@@ -97,10 +100,7 @@ object ClassificationDAO {
             val metric = new MetricsResultDTO
             metric.setResult(idnsr)
             metric
-          }
-          //if (cl.taxonConceptID != null) nameIndex.searchForRecordByLsid(cl.taxonConceptID)
-
-          else if(hash.contains("|")) {
+          } else if(hash.contains("|")) {
             val lrcl = new LinnaeanRankClassification(
               stripStrayQuotes(cl.kingdom),
               stripStrayQuotes(cl.phylum),
@@ -117,20 +117,23 @@ object ClassificationDAO {
             nameIndex.searchForRecordMetrics(lrcl,
             true,
             true) //fuzzy matching is enabled because we have taxonomic hints to help prevent dodgy matches
+          } else {
+            null
           }
-          else null
         } catch {
           case e:Exception => {
             logger.debug(e.getMessage + ", hash =  " + hash, e)
-          }; null
+          }
+          null
         }
       }
 
+      //try a vernacular name match
       if(resultMetric == null) {
         val cnsr = nameIndex.searchForCommonName(cl.getVernacularName)
         if(cnsr != null){
           resultMetric = new MetricsResultDTO
-          resultMetric.setResult(cnsr);
+          resultMetric.setResult(cnsr)
         }
       }
 
@@ -138,13 +141,13 @@ object ClassificationDAO {
 
         //handle the case where the species is a synonym this is a temporary fix should probably go in ala-name-matching
         var result:Option[MetricsResultDTO] = if(resultMetric.getResult.isSynonym){
-          val ansr =nameIndex.searchForRecordByLsid(resultMetric.getResult.getAcceptedLsid)
+          val ansr = nameIndex.searchForRecordByLsid(resultMetric.getResult.getAcceptedLsid)
           if(ansr != null){
             //change the name match metric for a synonym
             ansr.setMatchType(resultMetric.getResult.getMatchType())
             resultMetric.setResult(ansr)
             Some(resultMetric)
-          } else{
+          } else {
             None
           }
         } else {
@@ -159,7 +162,10 @@ object ClassificationDAO {
           }
         } else {
           logger.debug("Unable to locate accepted concept for synonym " + resultMetric.getResult + ". Attempting a higher level match")
-          if((cl.kingdom != null || cl.phylum != null || cl.classs != null || cl.order != null || cl.family != null || cl.genus != null) && (cl.getScientificName() != null || cl.getSpecies() != null || cl.getSpecificEpithet() != null || cl.getInfraspecificEpithet() != null)){
+          if((cl.kingdom != null || cl.phylum != null || cl.classs != null || cl.order != null || cl.family != null
+            || cl.genus != null) && (cl.getScientificName() != null || cl.getSpecies() != null
+            || cl.getSpecificEpithet() != null || cl.getInfraspecificEpithet() != null)){
+
             val newcl = cl.clone()
             newcl.setScientificName(null)
             newcl.setInfraspecificEpithet(null)
@@ -167,11 +173,10 @@ object ClassificationDAO {
             newcl.setSpecies(null)
             updateClassificationRemovingMissingSynonym(newcl, resultMetric.getResult())
             if(count < 4){
-              result = getByHashLRU(newcl, count+1)
+              result = getByHashLRU(newcl, count + 1)
             } else {
-              logger.warn("Potential recursive issue with " + cl.getKingdom()+" " + cl.getPhylum + " " + cl.getClasss + " " + cl.getOrder + " " + cl.getFamily)
+              logger.warn("Potential recursive issue with " + cl.getKingdom() + " " + cl.getPhylum + " " + cl.getClasss + " " + cl.getOrder + " " + cl.getFamily)
             }
-            //[Processor Thread 7] 710000 >> Last key : dr695|BAS|SOMBASE/TOTAL BIOCONSTRUCTORS|74175, records per sec: 772.2008 recursive Stack overflow
           } else {
             logger.warn("Recursively unable to locate a synonym for " + cl)
           }
@@ -179,14 +184,18 @@ object ClassificationDAO {
         lock.synchronized { lru.put(hash, result) }
         result
       } else {
-        val result = if(resultMetric != null) Some(resultMetric) else None
+        val result = if(resultMetric != null) {
+          Some(resultMetric)
+        } else {
+          None
+        }
         lock.synchronized { lru.put(hash, result) }
         result
       }
     }
   }
 
-  def updateClassificationRemovingMissingSynonym(newcl:Classification, result:NameSearchResult){
+  private def updateClassificationRemovingMissingSynonym(newcl:Classification, result:NameSearchResult){
     val sciName = result.getRankClassification().getScientificName()
     if(newcl.genus == sciName)
       newcl.genus = null

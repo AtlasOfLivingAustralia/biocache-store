@@ -2,7 +2,7 @@ package au.org.ala.biocache.processor
 
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{BasisOfRecord, AssertionCodes}
+import au.org.ala.biocache.vocab.{AssertionStatus, BasisOfRecord, AssertionCodes}
 
 /**
  * A processor of basis of record information.
@@ -11,6 +11,7 @@ class BasisOfRecordProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("BasisOfRecordProcessor")
   import AssertionCodes._
+  import AssertionStatus._
 
   /**
    * Process basis of record
@@ -27,10 +28,10 @@ class BasisOfRecordProcessor extends Processor {
       if (term.isEmpty) {
         //add a quality assertion
         logger.debug("[QualityAssertion] " + guid + ", unrecognised BoR: " + guid + ", BoR:" + raw.occurrence.basisOfRecord)
-        Array(QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD, "Unrecognised basis of record"), QualityAssertion(MISSING_BASIS_OF_RECORD,1))
+        Array(QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD, "Unrecognised basis of record"), QualityAssertion(MISSING_BASIS_OF_RECORD, PASSED))
       } else {
         processed.occurrence.basisOfRecord = term.get.canonical
-        Array[QualityAssertion](QualityAssertion(MISSING_BASIS_OF_RECORD,1), QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD,1))
+        Array[QualityAssertion](QualityAssertion(MISSING_BASIS_OF_RECORD,1), QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD, PASSED))
       }
     }
   }

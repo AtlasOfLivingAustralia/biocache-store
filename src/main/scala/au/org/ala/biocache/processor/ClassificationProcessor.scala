@@ -10,7 +10,7 @@ import au.org.ala.biocache.caches.{TaxonProfileDAO, ClassificationDAO, Attributi
 import au.org.ala.biocache.util.BiocacheConversions
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord, Classification}
 import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.vocab.{Kingdoms, DwC, AssertionCodes}
+import au.org.ala.biocache.vocab.{AssertionStatus, Kingdoms, DwC, AssertionCodes}
 
 /**
  * A processor of taxonomic information.
@@ -27,6 +27,7 @@ class ClassificationProcessor extends Processor {
   import BiocacheConversions._
   import JavaConversions._
   import AssertionCodes._
+  import AssertionStatus._
 
   /**
    * Parse the hints into a usable map with rank -> Set.
@@ -96,7 +97,7 @@ class ClassificationProcessor extends Processor {
     if (processed.classification.nameParseType == "blacklisted"){
       assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME)
     } else {
-      assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME, 1)
+      assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME, PASSED)
     }
   }
 
@@ -106,14 +107,14 @@ class ClassificationProcessor extends Processor {
     if (StringUtils.isBlank(raw.classification.taxonRank)){
       assertions += QualityAssertion(MISSING_TAXONRANK, "Missing taxonRank")
     } else {
-      assertions += QualityAssertion(MISSING_TAXONRANK, 1)
+      assertions += QualityAssertion(MISSING_TAXONRANK, PASSED)
     }
 
     //test that a scientific name or vernacular name has been supplied
     if (StringUtils.isBlank(raw.classification.scientificName) && StringUtils.isBlank(raw.classification.vernacularName)){
       assertions += QualityAssertion(NAME_NOT_SUPPLIED, "No scientificName or vernacularName has been supplied. Name match will be based on a constructed name.")
     } else {
-      assertions += QualityAssertion(NAME_NOT_SUPPLIED, 1)
+      assertions += QualityAssertion(NAME_NOT_SUPPLIED, PASSED)
     }
 
     //test for mismatch in kingdom
@@ -121,7 +122,7 @@ class ClassificationProcessor extends Processor {
       val matchedKingdom = Kingdoms.matchTerm(raw.classification.kingdom)
       if (matchedKingdom.isDefined){
         //the supplied kingdom is recognised
-        assertions += QualityAssertion(UNKNOWN_KINGDOM, 1)
+        assertions += QualityAssertion(UNKNOWN_KINGDOM, PASSED)
       } else {
         assertions += QualityAssertion(UNKNOWN_KINGDOM, "The supplied kingdom is not recognised")
       }
@@ -155,8 +156,9 @@ class ClassificationProcessor extends Processor {
         //store the matched classification
         if (nsr != null) {
           //The name is recognised:
-          assertions += QualityAssertion(NAME_NOTRECOGNISED, 1)
+          assertions += QualityAssertion(NAME_NOTRECOGNISED, PASSED)
           val classification = nsr.getRankClassification
+
           //Check to see if the classification fits in with the supplied taxonomic hints
           //get the taxonomic hints from the collection or data resource
           var attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
@@ -177,7 +179,7 @@ class ClassificationProcessor extends Processor {
                 assertions += QualityAssertion(RESOURCE_TAXONOMIC_SCOPE_MISMATCH, comment)
               } else if (attribution.get.retrieveParseHints.size >0){
                 //the taxonomic hints passed
-                assertions += QualityAssertion(RESOURCE_TAXONOMIC_SCOPE_MISMATCH, 1)
+                assertions += QualityAssertion(RESOURCE_TAXONOMIC_SCOPE_MISMATCH, PASSED)
               }
             }
           }
@@ -222,7 +224,7 @@ class ClassificationProcessor extends Processor {
           if (nationalChecklistIdentifierPattern.findFirstMatchIn(nsr.getLsid).isEmpty) {
             assertions += QualityAssertion(NAME_NOT_IN_NATIONAL_CHECKLISTS, "Record not attached to concept in national species lists")
           } else {
-            assertions += QualityAssertion(NAME_NOT_IN_NATIONAL_CHECKLISTS, 1)
+            assertions += QualityAssertion(NAME_NOT_IN_NATIONAL_CHECKLISTS, PASSED)
           }
 
         } else if(nameMetrics.getErrors.contains(au.org.ala.names.model.ErrorType.HOMONYM)){
