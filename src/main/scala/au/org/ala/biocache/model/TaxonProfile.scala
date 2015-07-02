@@ -7,10 +7,11 @@ import scala.beans.BeanProperty
  */
 class TaxonProfile (
   @BeanProperty var guid:String,
+  @BeanProperty var commonName:String,
   @BeanProperty var habitats:Array[String],
   @BeanProperty var conservation:Array[ConservationStatus])
   extends Cloneable {
-  def this() = this(null,null,null)
+  def this() = this(null,null,null,null)
   override def clone : TaxonProfile = super.clone.asInstanceOf[TaxonProfile]
   private var conservationMap:Map[String,String] = null
 
