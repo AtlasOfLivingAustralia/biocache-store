@@ -171,16 +171,20 @@ trait DataLoader {
       uniqueId
   }
 
+  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], multimedia:Seq[Multimedia]) : Boolean = {
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None, multimedia)
+  }
+
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String]) : Boolean = {
-    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None)
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None, List())
   }
 
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean) : Boolean = {
-    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified, false, false, None)
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified, false, false, None, List())
   }
 
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean, downloadMedia:Boolean):Boolean ={
-    load(dataResourceUid, fr, identifyingTerms, updateLastModified, downloadMedia, false, None)
+    load(dataResourceUid, fr, identifyingTerms, updateLastModified, downloadMedia, false, None, List())
   }
 
   /**
@@ -196,7 +200,7 @@ trait DataLoader {
    * @return
    */
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean,
-            downloadMedia:Boolean, stripSpaces:Boolean, rowKeyWriter:Option[java.io.Writer]) : Boolean = {
+            downloadMedia:Boolean, stripSpaces:Boolean, rowKeyWriter:Option[java.io.Writer], multimedia: Seq[Multimedia]) : Boolean = {
 
     //the details of how to construct the UniqueID belong in the Collectory
     val uniqueID = if(identifyingTerms.isEmpty) {
@@ -245,7 +249,7 @@ trait DataLoader {
     fr.attribution.dataResourceUid = dataResourceUid
 
     //process the media for this record
-    processMedia(dataResourceUid, fr)
+    processMedia(dataResourceUid, fr, multimedia)
 
     //load the record
     Config.occurrenceDAO.addRawOccurrence(fr)

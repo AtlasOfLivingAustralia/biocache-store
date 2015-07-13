@@ -130,8 +130,15 @@ class LayersStore ( layersStoreUrl: String) {
     val httpGet = new HttpGet(layersStoreUrl + "/fieldsdb")
     val response = httpClient.execute(httpGet)
     val result = response.getStatusLine()
-    val responseBody: String = Source.fromInputStream(response.getEntity().getContent()).mkString
+
     logger.debug("Response code: " + result.getStatusCode)
+
+    val content = Source.fromInputStream(response.getEntity().getContent())
+    val responseBody = if(content.size > 1){
+      content.mkString
+    } else {
+      "[]"
+    }
 
     val fields: util.HashMap[String, String] = new util.HashMap[String, String]()
     val ja: JSONArray = JSONArray.fromObject(responseBody)

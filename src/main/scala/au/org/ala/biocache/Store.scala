@@ -223,10 +223,7 @@ object Store {
         }
 
         //load the record
-        (new SimpleLoader()).load(dataResourceUid, record, dataResourceConfig.uniqueTerms)
-
-        //load media
-        (new SimpleLoader()).processMedia(dataResourceUid, record, multimedia)
+        (new SimpleLoader()).load(dataResourceUid, record, dataResourceConfig.uniqueTerms, multimedia)
 
         //process record
         val processor = new RecordProcessor

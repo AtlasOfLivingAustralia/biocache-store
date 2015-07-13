@@ -63,7 +63,7 @@ object AutoDwcCSVLoader {
         l.pm.shutdown
         Console.flush()
         Console.err.flush()
-        exit(0)
+        sys.exit(0)
       }
     }
   }
@@ -78,12 +78,12 @@ class AutoDwcCSVLoader extends DataLoader {
 
   def load(dataResourceUid: String, includeIds: Boolean = true, forceLoad: Boolean = false) {
 
-//    val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
     retrieveConnectionParameters(dataResourceUid) match {
 
       case None => throw new Exception ("Unable to retrieve configuration for dataResourceUid " + dataResourceUid)
 
       case Some(dataResourceConfig) =>
+
         val strip = dataResourceConfig.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
         //clean out the dr load directory before downloading the new file.
         emptyTempFileStore(dataResourceUid)

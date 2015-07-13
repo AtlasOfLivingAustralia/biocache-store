@@ -141,7 +141,8 @@ class DwcCSVLoader extends DataLoader {
    * @param logRowKeys
    * @param test
    */
-  def loadFile(file:File, dataResourceUid:String, uniqueTerms:Seq[String], params:Map[String,String], stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false){
+  def loadFile(file:File, dataResourceUid:String, uniqueTerms:Seq[String], params:Map[String,String],
+               stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean = false){
 
     val rowKeyWriter = getRowKeyWriter(dataResourceUid, logRowKeys)
 
@@ -261,7 +262,7 @@ class DwcCSVLoader extends DataLoader {
               logger.info("Loading: " + filePathsInStore.mkString("; "))
               fr.occurrence.associatedMedia = filePathsInStore.mkString(";")
             }
-            load(dataResourceUid, fr, uniqueTermsValues, true, false, stripSpaces, rowKeyWriter)
+            load(dataResourceUid, fr, uniqueTermsValues, true, false, stripSpaces, rowKeyWriter, List())
           }
 
           if (counter % 1000 == 0 && counter > 0) {
