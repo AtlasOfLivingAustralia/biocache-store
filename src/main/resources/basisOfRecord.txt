@@ -262,3 +262,11 @@ vid	Video
 Video	Video
 Video	Video
 genomic DNA	GenomicDNA
+materialSample  MaterialSample
+Materialsample  MaterialSample
+materialsample  MaterialSample
+MaterialSample  MaterialSample
+material Sample  MaterialSample
+Material sample  MaterialSample
+material sample  MaterialSample
+Material Sample  MaterialSample
