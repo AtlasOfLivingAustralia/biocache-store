@@ -71,10 +71,13 @@ object DwcCSVLoader extends Tool {
 class DwcCSVLoader extends DataLoader {
 
   def loadLocalFile(dataResourceUid:String, filePath:String,logRowKeys:Boolean=false, testFile:Boolean=false){
-    val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
-    val incremental = params.getOrElse("incremental",false).asInstanceOf[Boolean]
-    loadFile(new File(filePath),dataResourceUid, uniqueTerms, params,strip, incremental || logRowKeys, testFile)
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => logger.error("Unable to retrieve connection details for " + dataResourceUid)
+      case Some(config) =>
+        val strip = config.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
+        val incremental = config.connectionParams.getOrElse("incremental",false).asInstanceOf[Boolean]
+        loadFile(new File(filePath),dataResourceUid, config.uniqueTerms, config.connectionParams, strip, incremental || logRowKeys, testFile)
+    }
   }
 
   def load(dataResourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean=false){
@@ -83,35 +86,37 @@ class DwcCSVLoader extends DataLoader {
     //delete the old file
     deleteOldRowKeys(dataResourceUid)
 
-    val (protocol, urls, uniqueTerms, params, customParams,lastChecked) = retrieveConnectionParameters(dataResourceUid)
-
-    val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
-    val incremental = params.getOrElse("incremental",false).asInstanceOf[Boolean]
-    var loaded = false
-    var maxLastModifiedDate:java.util.Date = null
-    urls.foreach(url => {
-      val (fileName, date) = downloadArchive(url, dataResourceUid, if(forceLoad)None else lastChecked)
-      if(maxLastModifiedDate == null || date.after(maxLastModifiedDate)) {
-        maxLastModifiedDate = date
-      }
-      logger.info("File last modified date: " + maxLastModifiedDate)
-      if(fileName != null){
-        val directory = new File(fileName)
-        loadDirectory(directory, dataResourceUid, uniqueTerms, params, strip, incremental || logRowKeys, testFile)
-        loaded = true
-      }
-    })
-    //now update the last checked and if necessary data currency dates
-    if(!testFile){
-      updateLastChecked(dataResourceUid, if(loaded) Some(maxLastModifiedDate) else None)
-      if(!loaded) {
-        setNotLoadedForOtherPhases(dataResourceUid)
-      }
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => logger.error("Unable to retrieve connection details for " + dataResourceUid)
+      case Some(config) =>
+        val strip = config.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
+        val incremental = config.connectionParams.getOrElse("incremental",false).asInstanceOf[Boolean]
+        var loaded = false
+        var maxLastModifiedDate:java.util.Date = null
+        config.urls.foreach(url => {
+          val (fileName, date) = downloadArchive(url, dataResourceUid, if(forceLoad)None else config.dateLastChecked)
+          if(maxLastModifiedDate == null || date.after(maxLastModifiedDate)) {
+            maxLastModifiedDate = date
+          }
+          logger.info("File last modified date: " + maxLastModifiedDate)
+          if(fileName != null){
+            val directory = new File(fileName)
+            loadDirectory(directory, dataResourceUid, config.uniqueTerms, config.connectionParams, strip, incremental || logRowKeys, testFile)
+            loaded = true
+          }
+        })
+        //now update the last checked and if necessary data currency dates
+        if(!testFile){
+          updateLastChecked(dataResourceUid, if(loaded) Some(maxLastModifiedDate) else None)
+          if(!loaded) {
+            setNotLoadedForOtherPhases(dataResourceUid)
+          }
+        }
     }
   }
 
   //loads all the files in the subdirectories that are not multimedia
-  def loadDirectory(directory:File, dataResourceUid:String, uniqueTerms:List[String], params:Map[String,String],
+  def loadDirectory(directory:File, dataResourceUid:String, uniqueTerms:Seq[String], params:Map[String,String],
                     stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false){
 
     directory.listFiles.foreach(file => {
@@ -136,7 +141,7 @@ class DwcCSVLoader extends DataLoader {
    * @param logRowKeys
    * @param test
    */
-  def loadFile(file:File, dataResourceUid:String, uniqueTerms:List[String], params:Map[String,String], stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false){
+  def loadFile(file:File, dataResourceUid:String, uniqueTerms:Seq[String], params:Map[String,String], stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false){
 
     val rowKeyWriter = getRowKeyWriter(dataResourceUid, logRowKeys)
 

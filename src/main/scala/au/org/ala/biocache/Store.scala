@@ -210,29 +210,34 @@ object Store {
     val loader = new SimpleLoader
 
     //retrieve details
-    val (protocol, url, uniqueTerms, params, customParams, lastChecked) = loader.retrieveConnectionParameters(dataResourceUid)
-    val record = FullRecordMapper.createFullRecord("", properties, Versions.RAW)
+    loader.retrieveConnectionParameters(dataResourceUid) match {
+      case None => throw new Exception("Unable to retrieve connection information for data resource UID: " + dataResourceUid)
+      case Some(dataResourceConfig) =>
 
-    //map multimedia
-    val multimedia = multimediaProperties.map { props =>
-      Multimedia.create(new URL(props.getOrElse("identifier", "")), "", props.asScala.toMap)
+        //create a record
+        val record = FullRecordMapper.createFullRecord("", properties, Versions.RAW)
+
+        //map multimedia
+        val multimedia = multimediaProperties.map { props =>
+          Multimedia.create(new URL(props.getOrElse("identifier", "")), "", props.asScala.toMap)
+        }
+
+        //load the record
+        (new SimpleLoader()).load(dataResourceUid, record, dataResourceConfig.uniqueTerms)
+
+        //load media
+        (new SimpleLoader()).processMedia(dataResourceUid, record, multimedia)
+
+        //process record
+        val processor = new RecordProcessor
+        processor.processRecordAndUpdate(record)
+
+        //index
+        if(shouldIndex){
+          occurrenceDAO.reIndex(record.rowKey)
+        }
+        record.uuid
     }
-
-    //load the record
-    (new SimpleLoader()).load(dataResourceUid, record, uniqueTerms)
-
-    //load media
-    (new SimpleLoader()).processMedia(dataResourceUid, record, multimedia)
-
-    //process record
-    val processor = new RecordProcessor
-    processor.processRecordAndUpdate(record)
-
-    //index
-    if(shouldIndex){
-      occurrenceDAO.reIndex(record.rowKey)
-    }
-    record.uuid
   }
 
   /**
