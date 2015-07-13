@@ -204,7 +204,7 @@ object Store {
   def upsertRecord(dataResourceUid:String,
                    properties:java.util.Map[String,String],
                    multimediaProperties:java.util.List[java.util.Map[String,String]],
-                   shouldIndex:Boolean) : String = {
+                   shouldIndex:Boolean) : FullRecord = {
 
     import JavaConversions._
     val loader = new SimpleLoader
@@ -233,7 +233,7 @@ object Store {
         if(shouldIndex){
           occurrenceDAO.reIndex(record.rowKey)
         }
-        record.uuid
+        record
     }
   }
 
