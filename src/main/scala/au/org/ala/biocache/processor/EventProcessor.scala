@@ -7,7 +7,7 @@ import org.apache.commons.lang.StringUtils
 import scala.Some
 import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.AssertionCodes
+import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes}
 import au.org.ala.biocache.util.{DateUtil, StringHelper}
 
 /**
@@ -17,6 +17,7 @@ class EventProcessor extends Processor {
 
   import StringHelper._
   import AssertionCodes._
+  import AssertionStatus._
 
   /**
    * Validate the supplied number using the supplied function.
@@ -74,12 +75,12 @@ class EventProcessor extends Processor {
           month = dayValue
           day = monthValue
           assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, "Assume day and month transposed")
-          //assertions += QualityAssertion(INVALID_COLLECTION_DATE,1) //this one is not applied
+          //assertions += QualityAssertion(INVALID_COLLECTION_DATE,PASSED) //this one is not applied
           validMonth = true
         } else {
           assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Invalid month supplied")
           addPassedInvalidCollectionDate = false
-          assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, 1) //this one has been tested and does not apply
+          assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, PASSED) //this one has been tested and does not apply
         }
       }
 
@@ -144,7 +145,7 @@ class EventProcessor extends Processor {
           processed.event.year = parsedDate.get.startYear
           //set the valid year if one was supplied in the eventDate
           if(parsedDate.get.startYear != "") {
-            val(newComment,newValidYear,newYear) = runYearValidation(parsedDate.get.startYear.toInt, currentYear,if(parsedDate.get.startDay =="") 0 else parsedDate.get.startDay.toInt, if(parsedDate.get.startMonth =="") 0 else parsedDate.get.startMonth.toInt)
+            val(newComment,newValidYear,newYear) = runYearValidation(parsedDate.get.startYear.toInt, currentYear, if(parsedDate.get.startDay =="") 0 else parsedDate.get.startDay.toInt, if(parsedDate.get.startMonth =="") 0 else parsedDate.get.startMonth.toInt)
             comment = newComment
             validYear = newValidYear
             year = newYear
@@ -206,11 +207,11 @@ class EventProcessor extends Processor {
 
       //check to see if we need add a passed test for the invalid collection dates
       if(addPassedInvalidCollectionDate)
-        assertions += QualityAssertion(INVALID_COLLECTION_DATE, 1)
+        assertions += QualityAssertion(INVALID_COLLECTION_DATE, PASSED)
 
       if(dateComplete){
         //add a pass condition for this test
-        assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, 1)
+        assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, PASSED)
       } else{
         //incomplete date
         assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, "The supplied collection date is not complete")
@@ -281,16 +282,16 @@ class EventProcessor extends Processor {
             assertions += QualityAssertion(FIRST_OF_CENTURY)
           } else {
             //the date is NOT the first of the century
-            assertions += QualityAssertion(FIRST_OF_CENTURY, 1)
+            assertions += QualityAssertion(FIRST_OF_CENTURY, PASSED)
           }
         }
       } else if(processed.event.month != null) {
         //the date is not the first of the year
-        assertions += QualityAssertion(FIRST_OF_YEAR, 1)
+        assertions += QualityAssertion(FIRST_OF_YEAR, PASSED)
       }
     } else if(processed.event.day != null) {
       //the date is not the first of the month
-      assertions += QualityAssertion(FIRST_OF_MONTH, 1)
+      assertions += QualityAssertion(FIRST_OF_MONTH, PASSED)
     }
   }
 
@@ -331,7 +332,7 @@ class EventProcessor extends Processor {
           //the record was identified before it was collected !!
           assertions += QualityAssertion(ID_PRE_OCCURRENCE, "The records was identified before it was collected")
         } else {
-          assertions += QualityAssertion(ID_PRE_OCCURRENCE, 1)
+          assertions += QualityAssertion(ID_PRE_OCCURRENCE, PASSED)
         }
       }
 
@@ -341,7 +342,7 @@ class EventProcessor extends Processor {
           //the record was not georeference when it was collected!!
           assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, "The record was not georeferenced when it was collected")
         } else {
-          assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, 1)
+          assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, PASSED)
         }
       }
     }

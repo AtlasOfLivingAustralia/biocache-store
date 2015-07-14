@@ -1,7 +1,7 @@
 package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{TypeStatus, AssertionCodes}
+import au.org.ala.biocache.vocab.{AssertionStatus, TypeStatus, AssertionCodes}
 
 /**
  * Process type status information
@@ -9,6 +9,7 @@ import au.org.ala.biocache.vocab.{TypeStatus, AssertionCodes}
 class TypeStatusProcessor extends Processor {
 
   import AssertionCodes._
+  import AssertionStatus._
 
   /**
    * Process the type status
@@ -22,7 +23,7 @@ class TypeStatusProcessor extends Processor {
         Array(QualityAssertion(UNRECOGNISED_TYPESTATUS, "Unrecognised type status"))
       } else {
         processed.identification.typeStatus = term.get.canonical
-        Array(QualityAssertion(UNRECOGNISED_TYPESTATUS,1))
+        Array(QualityAssertion(UNRECOGNISED_TYPESTATUS, PASSED))
       }
     } else {
       Array()

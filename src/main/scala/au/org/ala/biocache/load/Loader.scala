@@ -27,7 +27,7 @@ object Loader extends Tool {
     var loadAll = false
 
     val parser = new OptionParser(help) {
-      arg("data-resource-uid","The data resource to load. Specify 'all' to load all", {
+      arg("data-resource-uid","The data resource to load. Supports a comma separated list. Specify 'all' to load all", {
         v:String =>
           if(v == "all"){
             loadAll = true
@@ -55,9 +55,13 @@ object Loader extends Tool {
           }
         }}
       } else {
+
         logger.info("Starting to load resource: " + dataResourceUid)
+        val listOfResources = dataResourceUid.split(",").map(uid => uid.trim())
         val l = new Loader
-        l.load(dataResourceUid, testLoad, forceLoad)
+        listOfResources.foreach {
+          l.load(_, testLoad, forceLoad)
+        }
         logger.info("Completed loading resource: " + dataResourceUid)
       }
 

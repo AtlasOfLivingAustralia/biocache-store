@@ -22,7 +22,11 @@ class QidDAOImpl extends QidDAO {
     def map = persistenceManager.get(qid, "qid")
 
     if(map.isDefined) {
-      def qid = new Qid(map.get)
+      var m = map.get
+      if ("null".equals(m.getOrElse("bbox", "null").toString)) {
+        m = m - "bbox"
+      }
+      def qid = new Qid(m)
 
       //update lastUse time and commit if >5min difference
       if (qid.lastUse + 5 * 60 * 1000 < System.currentTimeMillis()) {

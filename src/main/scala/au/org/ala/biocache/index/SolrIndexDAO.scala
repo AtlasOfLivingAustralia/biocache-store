@@ -536,14 +536,21 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           case (key, value) => doc.addField(key, value)
         }
 
-        //TODO Think about moving species group stuff here.
         //index the additional species information - ie species groups
         val lft = map.get("left.p")
         val rgt = map.get("right.p")
         if(lft.isDefined && rgt.isDefined){
-          val sgs = SpeciesGroups.getSpeciesSubGroups(lft.get, rgt.get)
+
+          // add the species groups
+          val sgs = SpeciesGroups.getSpeciesGroups(lft.get, rgt.get)
           if(sgs.isDefined){
-            sgs.get.foreach{v:String => doc.addField("species_subgroup", v)}
+            sgs.get.foreach{v:String => doc.addField("species_group", v)}
+          }
+
+          // add the species subgroups
+          val ssgs = SpeciesGroups.getSpeciesSubGroups(lft.get, rgt.get)
+          if(ssgs.isDefined){
+            ssgs.get.foreach{v:String => doc.addField("species_subgroup", v)}
           }
         }
 

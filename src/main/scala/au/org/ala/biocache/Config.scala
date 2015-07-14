@@ -55,7 +55,6 @@ object Config {
     }
   }
 
-
   //name index
   val nameIndex = getInstance(classOf[ALANameSearcher]).asInstanceOf[ALANameSearcher]
 
@@ -110,6 +109,9 @@ object Config {
   /** Whether or not to strictly obey the isLoadable directive from the SDS */
   val obeySDSIsLoadable = configModule.properties.getProperty("obey.sds.is.loadable", "true").toBoolean
 
+  /** a regex pattern for identifying guids associated with the national checklists */
+  val nationalChecklistIdentifierPattern = configModule.properties.getProperty("national.checklist.guid.pattern", """(:afd.|:apni.)""")
+
   //fields that should be hidden in certain views
   val sensitiveFields = {
     val configProps = configModule.properties.getProperty("sensitive.field", "")
@@ -134,7 +136,7 @@ object Config {
         case e:Exception => new java.util.ArrayList()
       }
 
-      val fields: Array[String] = if(dbfields.size > 0){
+      val fields: Array[String] = if(!dbfields.isEmpty){
         Array.ofDim(dbfields.size())
       } else {
         defaultFields.split(",").map(x => x.trim).toArray

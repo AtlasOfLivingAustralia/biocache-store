@@ -298,14 +298,14 @@ object Store {
     val list = occurrenceDAO.getSystemAssertions(rowKey)
     val unchecked = AssertionCodes.getMissingCodes((list.map(it=>AssertionCodes.getByCode(it.code).getOrElse(null))).toSet)
 
-    ((list ++ unchecked.map(it => QualityAssertion(it, 3))).groupBy {
+    ((list ++ unchecked.map(it => QualityAssertion(it, AssertionStatus.UNCHECKED))).groupBy {
       case i if (i.qaStatus == 0)=> {
         AssertionCodes.getByCode(i.code).getOrElse(AssertionCodes.GEOSPATIAL_ISSUE).category match{
           case ErrorCodeCategory.Error => "failed"
           case code:String => code.toString.toLowerCase
         }
       }
-      case i if i.qaStatus == 1 => "passed"
+      case i if i.qaStatus == AssertionStatus.PASSED => "passed"
       case _ => "unchecked"
     }).mapValues(_.asJava).asJava
   }

@@ -36,6 +36,7 @@ import scala.collection.JavaConverters._
  * @author Dave Martin
  */
 object DwCALoader {
+
   val IMAGE_TYPE = GbifTerm.Image
   val MULTIMEDIA_TYPE = GbifTerm.Multimedia
 
@@ -259,8 +260,10 @@ class DwCALoader extends DataLoader {
         fieldTuples += ("firstLoaded" -> loadTime)
         newCount +=1
       }
+
       // Get any related multimedia
-      val multimedia = loadMultimedia(star, DwCALoader.IMAGE_TYPE, imageBase) ++ loadMultimedia(star, DwCALoader.MULTIMEDIA_TYPE, imageBase)
+      val multimedia = loadMultimedia(star, DwCALoader.IMAGE_TYPE, imageBase) ++
+        loadMultimedia(star, DwCALoader.MULTIMEDIA_TYPE, imageBase)
 
       // If there are no unique terms, use the UUID as a key
       // This isnt ideal and will stop any reloading
@@ -287,7 +290,8 @@ class DwCALoader extends DataLoader {
           Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray)
         }
         finishTime = System.currentTimeMillis
-        logger.info(count + ", >> last key : " + uniqueID + ", UUID: " + recordUuid + ", records per sec: " + 1000 / (((finishTime - startTime).toFloat) / 1000f))
+        val timeInSecs = 1000 / (((finishTime - startTime).toFloat) / 1000f)
+        logger.info(s"$count, >> last key : $uniqueID, UUID: $recordUuid, records per sec: $timeInSecs")
         startTime = System.currentTimeMillis
         //clear the buffer
         currentBatch.clear

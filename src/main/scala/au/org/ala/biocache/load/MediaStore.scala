@@ -273,20 +273,30 @@ object RemoteMediaStore extends MediaStore {
       }
     }
 
-    downloadToTmpFile(resourceUID, uuid, urlToMedia) match {
-      case Some(tmpFile) => {
-        try {
-          val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile, media)
-          if(imageId.isDefined){
-            Some((extractFileName(urlToMedia), imageId.getOrElse("")))
-          } else {
-            None
+    //already stored?
+    val (stored, fileName, imageId) = alreadyStored(uuid, resourceUID, urlToMedia)
+
+    //if already store, just update metadata
+    if(stored && !media.isEmpty){
+      updateMetadata(imageId, media.get)
+      Some((fileName, imageId))
+    } else {
+      //download to temp file and upload image
+      downloadToTmpFile(resourceUID, uuid, urlToMedia) match {
+        case Some(tmpFile) => {
+          try {
+            val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile, media)
+            if(imageId.isDefined){
+              Some((extractFileName(urlToMedia), imageId.getOrElse("")))
+            } else {
+              None
+            }
+          } finally {
+            FileUtils.forceDelete(tmpFile)
           }
-        } finally {
-          FileUtils.forceDelete(tmpFile)
         }
+        case None => None
       }
-      case None => None
     }
   }
 
@@ -316,12 +326,39 @@ object RemoteMediaStore extends MediaStore {
   }
 
   /**
+   * Updates the metadata associated with this image.
+   *
+   * @param imageId
+   * @param media
+   */
+  private def updateMetadata(imageId:String, media: Multimedia): Unit = {
+
+    logger.info(s"Updating the metadata for $imageId")
+    //upload an image
+    val httpClient = new DefaultHttpClient()
+    val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
+    val metadata = media.metadata
+    entity.addPart("metadata",
+      new StringBody(
+        Json.toJSON(
+          metadata
+        )
+      )
+    )
+
+    val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/updateMetadata/" + imageId)
+    httpPost.setEntity(entity)
+    val response = httpClient.execute(httpPost)
+  }
+
+  /**
    * Uploads an image to the service and returns a ID for the image.
    *
    * @param fileToUpload
    * @return
    */
-  private def uploadImage(uuid:String, resourceUID:String, urlToMedia:String, fileToUpload:File, media: Option[Multimedia]) : Option[String] = {
+  private def uploadImage(uuid:String, resourceUID:String, urlToMedia:String, fileToUpload:File,
+                          media: Option[Multimedia]) : Option[String] = {
     //upload an image
     val httpClient = new DefaultHttpClient()
     val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
@@ -443,6 +480,12 @@ object LocalMediaStore extends MediaStore {
    * Saves the file to local filesystem and returns the file path where the file is stored.
    */
   def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
+
+    //check to see if the media is already stored
+    val (stored, name, path) = alreadyStored(uuid, resourceUID, urlToMedia)
+    if(stored){
+      logger.info("Media already stored to: " + path)
+    }
 
     //handle the situation where the urlToMedia does not exits -
     var in: java.io.InputStream = null

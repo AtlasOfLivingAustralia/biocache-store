@@ -27,10 +27,11 @@ object TaxonProfileDAO {
       map.get.foreach(keyValue => {
         keyValue._1 match {
           case "guid" => taxonProfile.guid = keyValue._2
+          case "commonName" => taxonProfile.commonName = keyValue._2
           case "habitats" => if (keyValue._2 != null && !keyValue._2.isEmpty) {
             taxonProfile.habitats = keyValue._2.split(",")
           }
-          case "conservation" => if(keyValue._2 != null && keyValue._2.size >0){
+          case "conservation" => if(keyValue._2 != null && keyValue._2.size > 0){
             taxonProfile.conservation = Json.toArray(keyValue._2, classOf[ConservationStatus].asInstanceOf[java.lang.Class[AnyRef]]).asInstanceOf[Array[ConservationStatus]]
           }
           case _ => //ignore
@@ -70,11 +71,12 @@ object TaxonProfileDAO {
 
       val properties = scala.collection.mutable.Map[String,String]()
       properties.put("guid", taxonProfile.guid)
+      properties.put("commonName", taxonProfile.commonName)
       if(taxonProfile.habitats!=null && !taxonProfile.habitats.isEmpty){
         val habitatString = taxonProfile.habitats.reduceLeft(_+","+_)
         properties.put("habitats", habitatString)
       }
-      if(taxonProfile.conservation != null && taxonProfile.conservation.size >0){
+      if(taxonProfile.conservation != null && !taxonProfile.conservation.isEmpty){
         properties.put("conservation", Json.toJSON(taxonProfile.conservation.asInstanceOf[Array[AnyRef]]))
       }
       persistenceManager.put(taxonProfile.guid, columnFamily, properties.toMap)

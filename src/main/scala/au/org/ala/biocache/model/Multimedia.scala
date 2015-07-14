@@ -106,7 +106,9 @@ class Multimedia (
    *
    * @return A new multimedia instance with the metadata added
    */
-  def addMetadata(term: Term, value: String) = new Multimedia(this.location, this.mediaType, this.metadata + (term.simpleName() -> value))
+  def addMetadata(term: Term, value: String) = {
+    new Multimedia(this.location, this.mediaType, this.metadata + (term.simpleName() -> value))
+  }
 
   override def clone(): Multimedia = super.clone().asInstanceOf[Multimedia]
 }

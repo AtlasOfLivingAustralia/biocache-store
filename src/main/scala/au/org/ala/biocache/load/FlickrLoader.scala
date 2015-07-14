@@ -16,6 +16,7 @@ import au.org.ala.biocache.vocab.{TagsToDwc, DwC}
 import org.slf4j.LoggerFactory
 
 object FlickrUserLoader extends DataLoader {
+
   def main(args: Array[String]) {
 
     var dataResourceUid = ""
@@ -24,9 +25,14 @@ object FlickrUserLoader extends DataLoader {
 
     val parser = new OptionParser("Load flickr images for registered users") {
       arg("<data resource UID>", "The UID of the data resource to load", { v: String => dataResourceUid = v })
-      opt("nsid", "The Flickr NSID for this user", "The Flickr NSID (internal flickr ID) for this user", { v: String => flickrUserId = v })
-      opt("lu", "lastUpdated","A limit to load last updated in yyyy-MM-dd format", {v:String => lastUpdated = DateParser.parseStringToDate(v) })
+      opt("nsid", "The Flickr NSID for this user", "The Flickr NSID (internal flickr ID) for this user", {
+        v: String => flickrUserId = v
+      })
+      opt("lu", "lastUpdated","A limit to load last updated in yyyy-MM-dd format", {
+        v:String => lastUpdated = DateParser.parseStringToDate(v)
+      })
     }
+
     if(parser.parse(args)){
       val l = new FlickrLoader
       //get the connection details
@@ -68,8 +74,12 @@ object FlickrLoader extends DataLoader {
 
     val parser = new OptionParser("Load flickr resource") {
       arg("<data resource UID>", "The UID of the data resource to load", { v: String => dataResourceUid = v })
-      opt("s", "startDate", "start date to harvest from in yyyy-MM-dd format", { v: String => startDate = Some(DateUtils.parseDate(v, Array("yyyy-MM-dd"))) })
-      opt("e", "endDate", "end date in yyyy-MM-dd format", { v: String => endDate = Some(DateUtils.parseDate(v, Array("yyyy-MM-dd"))) })
+      opt("s", "startDate", "start date to harvest from in yyyy-MM-dd format", {
+        v: String => startDate = Some(DateUtils.parseDate(v, Array("yyyy-MM-dd")))
+      })
+      opt("e", "endDate", "end date in yyyy-MM-dd format", {
+        v: String => endDate = Some(DateUtils.parseDate(v, Array("yyyy-MM-dd")))
+      })
       opt("lm", "harvestLastMonth", "Harvest the last month of records", { lastMonth = true })
       opt("ld", "harvestLastDay", "Harvest the last day of records", { lastDay = true })
       opt("lw", "harvestLastWeek", "Harvest the last week of records", { lastWeek = true })
@@ -78,7 +88,9 @@ object FlickrLoader extends DataLoader {
       opt("mlw", "modifiedLastWeek", "Harvest the last week of records", { modifiedLastWeek = true })
       opt("o", "overwrite", "overwrite images", { overwriteImages = true })
       opt("u", "updateCollectory", "Update the harvesting information in the collectory", { updateCollectory = true })
-      opt("md", "lastModifiedDate","The earliest last modified date allowable on the records to load",{v:String => lastUpdatedDate = DateParser.parseStringToDate(v)})
+      opt("md", "lastModifiedDate","The earliest last modified date allowable on the records to load",{
+        v:String => lastUpdatedDate = DateParser.parseStringToDate(v)
+      })
     }
 
     if(parser.parse(args)){
@@ -146,27 +158,37 @@ class FlickrLoader extends DataLoader {
    */
   def load(dataResourceUid: String, suppliedStartDate: Option[Date], suppliedEndDate: Option[Date],
            updateCollectory: Boolean, overwriteImages: Boolean = false, lastUpdatedDate:Option[Date]){
-
     retrieveConnectionParameters(dataResourceUid) match {
       case None => logger.error("Unable to retrieve connection params for " + dataResourceUid)
       case Some(config) =>
         //if it is incremental make the lastUpdatedDate = to the lastChecked so that
         // we only process images that have been modified since the last time a harvest occurred.
         val incremental = config.connectionParams.getOrElse("incremental", false).asInstanceOf[Boolean]
-        load(config.connectionParams, suppliedEndDate, suppliedStartDate, dataResourceUid, updateCollectory, if(incremental) config.dateLastChecked else lastUpdatedDate)
+        load(config.connectionParams, suppliedEndDate, suppliedStartDate, dataResourceUid, updateCollectory,
+          if(incremental) config.dateLastChecked else lastUpdatedDate)
     }
+
   }
 
+  /**
+   * Retrieve a list of users with configured flickr accounts.
+   *
+   * @return
+   */
   def getUserLookup : Map[String,String] = {
-    if(Config.flickrUsersUrl == "")
+    if(Config.flickrUsersUrl == "") {
       return Map()
+    }
 
     try {
       val mapBuff = new mutable.HashMap[String,String]
       //retrieve from properties
       val userListJson = scala.io.Source.fromURL(Config.flickrUsersUrl, "UTF-8").getLines().mkString
       //convert to flickrId -> alaID map.....
-      val userArray:Seq[Map[String,String]] =  JSON.parseFull(userListJson).get.asInstanceOf[Seq[Map[String, String]]]
+      val userArray:Seq[Map[String,String]] =  JSON.parseFull(userListJson) match {
+        case Some(listOfDetails) => listOfDetails.asInstanceOf[Seq[Map[String, String]]]
+        case None => logger.warn("User details lookup failed."); List[Map[String,String]]()
+      }
       userArray.foreach(u => mapBuff.put(u.getOrElse("externalId",""), u.getOrElse("id","")))
       mapBuff.toMap
     } catch {
@@ -181,7 +203,8 @@ class FlickrLoader extends DataLoader {
    * @param dataResourceUid
    * @param updateCollectory
    */
-  def loadWithoutDateRange(params: Map[String, String], dataResourceUid: String, updateCollectory: Boolean, lastUpdatedDate:Option[Date]=None) {
+  def loadWithoutDateRange(params: Map[String, String], dataResourceUid: String, updateCollectory: Boolean,
+                           lastUpdatedDate:Option[Date] = None) {
     val licences = retrieveLicenceMap(params)
     val keywords = params.getOrElse("keywords", "").split(",").map(keyword => keyword.trim.replaceAll(" ", "").toLowerCase).toList
     val userLookup = getUserLookup
@@ -223,7 +246,8 @@ class FlickrLoader extends DataLoader {
    * @param dataResourceUid
    * @param updateCollectory
    */
-  def load(params: Map[String, String], suppliedEndDate: Option[Date], suppliedStartDate: Option[Date], dataResourceUid: String, updateCollectory: Boolean, lastUpdatedDate:Option[Date]) {
+  def load(params: Map[String, String], suppliedEndDate: Option[Date], suppliedStartDate: Option[Date],
+           dataResourceUid: String, updateCollectory: Boolean, lastUpdatedDate:Option[Date]) {
     val licences = retrieveLicenceMap(params)
     val keywords = params.getOrElse("keywords", "").split(",").map(keyword => keyword.trim.replaceAll(" ", "").toLowerCase).toList
     val userLookup = getUserLookup
@@ -310,7 +334,7 @@ class FlickrLoader extends DataLoader {
       geoTags.append(fr.location.locality.toLowerCase().trim())
     }
 
-    logger.info("GEOTAGS: " + geoTags.mkString(","))
+    logger.debug("GEOTAGS: " + geoTags.mkString(","))
     geoTags.foreach { geoTag =>
       val indexOfKeyword = keywords.indexWhere(keyword => geoTag.equalsIgnoreCase(keyword))
       if(indexOfKeyword > 0) {
@@ -409,7 +433,7 @@ class FlickrLoader extends DataLoader {
 
     //get the licence and rights fields
     val licence = licences.get(licenseID).get
-    fr.occurrence.rights = licence.name
+    fr.occurrence.license = licence.name
 
     //check the location elem
     if(!(photoElem \\ "location").isEmpty){

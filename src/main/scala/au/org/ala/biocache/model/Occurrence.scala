@@ -38,6 +38,7 @@ class Occurrence extends Cloneable with POSO {
   @BeanProperty var institutionCode:String = _
   @BeanProperty var institutionID:String = _
   @BeanProperty var language:String = _
+  @BeanProperty var license:String = _
   @BeanProperty var lifeStage:String = _
   @BeanProperty var modified:String = _
   @BeanProperty var occurrenceAttributes:String = _
