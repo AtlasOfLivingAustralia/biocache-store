@@ -167,7 +167,6 @@ class FlickrLoader extends DataLoader {
         load(config.connectionParams, suppliedEndDate, suppliedStartDate, dataResourceUid, updateCollectory,
           if(incremental) config.dateLastChecked else lastUpdatedDate)
     }
-
   }
 
   /**
