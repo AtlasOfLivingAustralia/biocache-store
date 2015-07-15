@@ -6,7 +6,7 @@ import scala.util.parsing.json.JSON
 import scala.collection.JavaConversions
 import scala.collection.mutable.HashMap
 import au.org.ala.biocache
-import au.org.ala.biocache.cmd.{NoArgsTool, Tool, CMD}
+import au.org.ala.biocache.cmd.{CMD2, NoArgsTool, Tool}
 import au.org.ala.biocache.util.{OptionParser, StringHelper}
 import org.slf4j.LoggerFactory
 
@@ -127,7 +127,7 @@ class Loader extends DataLoader {
 
   def printResourceList {
     if(!resourceList.isEmpty){
-      CMD.printTable(resourceList)
+      CMD2.printTable(resourceList)
     } else {
       println("No resources are registered in the registry.")
     }

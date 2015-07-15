@@ -1,10 +1,10 @@
 package au.org.ala.biocache.parser
 
+import au.org.ala.biocache.cmd.CMD2
 import au.org.ala.biocache.util._
 import scala.Some
 import au.com.bytecode.opencsv.{CSVReader, CSVWriter}
 import java.io.{File, StringReader, OutputStream, OutputStreamWriter}
-import au.org.ala.biocache.cmd.CMD
 import au.org.ala.biocache.vocab._
 import scala.collection.mutable.ListBuffer
 import au.org.ala.biocache.model.{MeasurementUnit, QualityAssertion, Versions}
@@ -168,7 +168,7 @@ object AdHocParser {
   def processCSV(filepath: String) {
     (new File(filepath)).readAsCSV(',', '"', processColumnHeaders, (hdrs, values) => {
       val result = processLine(hdrs, values)
-      CMD.printTable(result.values.map(r => {
+      CMD2.printTable(result.values.map(r => {
         Map("name" -> r.name, "raw" -> r.raw, "processed" -> r.processed)
       }).toList)
     })
