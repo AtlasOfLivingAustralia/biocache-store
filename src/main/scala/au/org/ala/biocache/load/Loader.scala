@@ -6,7 +6,7 @@ import scala.util.parsing.json.JSON
 import scala.collection.JavaConversions
 import scala.collection.mutable.HashMap
 import au.org.ala.biocache
-import au.org.ala.biocache.cmd.{NoArgsTool, Tool, CMD}
+import au.org.ala.biocache.cmd.{CMD2, NoArgsTool, Tool}
 import au.org.ala.biocache.util.{OptionParser, StringHelper}
 import org.slf4j.LoggerFactory
 
@@ -110,21 +110,24 @@ class Loader extends DataLoader {
 
   def describeResource(drlist:List[String]){
     drlist.foreach(dr => {
-      val (protocol, url, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dr)
-      println("UID: " + dr)
-      println("This data resource was last checked " + lastChecked)
-      println("Protocol: "+ protocol)
-      println("URL: " + url.mkString(";"))
-      println("Unique terms: " + uniqueTerms.mkString(","))
-      params.foreach { println(_)}
-      customParams.foreach{ println(_)}
-      println("---------------------------------------")
+      retrieveConnectionParameters(dr) match {
+        case None => println("Unable to retrieve details of " + dr)
+        case Some(dataResourceConfig) =>
+          println("UID: " + dr)
+          println("This data resource was last checked " + dataResourceConfig.dateLastChecked)
+          println("Protocol: " + dataResourceConfig.protocol)
+          println("URL: " + dataResourceConfig.urls.mkString(";"))
+          println("Unique terms: " + dataResourceConfig.uniqueTerms.mkString(","))
+          dataResourceConfig.connectionParams.foreach { println(_) }
+          dataResourceConfig.customParams.foreach { println(_) }
+          println("---------------------------------------")
+      }
     })
   }
 
   def printResourceList {
     if(!resourceList.isEmpty){
-      CMD.printTable(resourceList)
+      CMD2.printTable(resourceList)
     } else {
       println("No resources are registered in the registry.")
     }
@@ -138,8 +141,13 @@ class Loader extends DataLoader {
 
   def load(dataResourceUid: String, test:Boolean=false, forceLoad:Boolean=false) {
     try {
-      val (protocol, url, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-      protocol.toLowerCase match {
+      val config = retrieveConnectionParameters(dataResourceUid)
+      if(config.isEmpty){
+        logger.info("Unable to retrieve connection details for  " + dataResourceUid)
+        return
+      }
+
+      config.get.protocol.toLowerCase match {
         case "dwc" => {
           logger.info("Darwin core headed CSV loading")
           val l = new DwcCSVLoader
@@ -170,7 +178,7 @@ class Loader extends DataLoader {
           logger.info("EOL webservice loading")
           val l = new EolLoader
           if (!test) {
-            val speciesListUrl = params.getOrElse("species_list_url", "")
+            val speciesListUrl = config.get.connectionParams.getOrElse("species_list_url", "")
             if (speciesListUrl != "") {
               l.load(dataResourceUid, speciesListUrl)
             } else {
@@ -183,7 +191,7 @@ class Loader extends DataLoader {
         case "customwebservice" => {
           logger.info("custom webservice loading")
           if(!test){
-            val className = customParams.getOrElse("classname", null)
+            val className = config.get.customParams.getOrElse("classname", null)
             if (className == null) {
               println("Classname of custom harvester class not present in parameters")
             } else {
@@ -207,7 +215,7 @@ class Loader extends DataLoader {
           else
             logger.warn("TESTING is not supported for auto-feed")
         }
-        case _ => logger.warn("Protocol " + protocol + " currently unsupported.")
+        case _ => logger.warn("Protocol " + config.get.protocol + " currently unsupported.")
       }
     } catch {
       //NC 2013-05-10: Need to rethrow the exception to allow the tools to allow the tools to pick up on them.

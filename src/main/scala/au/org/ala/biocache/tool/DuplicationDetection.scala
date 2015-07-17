@@ -10,7 +10,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.io.FileUtils
 import org.slf4j.LoggerFactory
-import au.org.ala.biocache.export.ExportByFacetQuery
+import au.org.ala.biocache.export.{ExportAllSpatialSpecies, ExportByFacetQuery}
 import au.org.ala.biocache.util.{StringConsumer, OptionParser, FileHelper}
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.index.IndexRecords
@@ -34,16 +34,18 @@ import au.org.ala.biocache.cmd.Tool
  * b) Get a distinct list of subspecies lsids (without species lsisds) that have been matched
  *
  * Step 2
- * a) Break down all the records into groups based on the occurrence year - all null year (thus date) records will be handled together.
+ * Break down all the records into groups based on the occurrence year - all null year (thus date) records will be
+ * handled together.
  *
  * Step 3
  * a) within the year groupings break down into groups based on months - all nulls will be placed together
  * b) within month groupings break down into groups based on event date - all nulls will be placed together
  *
  * Step 4
- * a) With the smallest grained group from Step 3 group all the similar "collectors" together null or unknown collectors will be handled together
- * b) With the collector groups determine which of the records have the same coordinates (ignoring differences in precision)
- *
+ * a) With the smallest grained group from Step 3 group all the similar "collectors" together null or unknown collectors
+ * will be handled together
+ * b) With the collector groups determine which of the records have the same coordinates (ignoring differences in
+ * precision)
  */
 object DuplicationDetection extends Tool {
 
@@ -132,7 +134,12 @@ object DuplicationDetection extends Tool {
           updateLastDuplicateTime
         } else {
           //run the duplicate detection
-          dd.detect(dataFilename, new FileWriter(dupFilename), new FileWriter(passedFilename), guid.get, shouldDownloadRecords = !exist, cleanup = cleanup)
+          dd.detect(dataFilename,
+            new FileWriter(dupFilename),
+            new FileWriter(passedFilename),
+            guid.get,
+            shouldDownloadRecords = !exist,
+            cleanup = cleanup)
         }
 
         if (index){
@@ -167,6 +174,24 @@ object DuplicationDetection extends Tool {
   }
 
   /**
+   * Check to see if export files are available.
+   *
+   * @param offlineDir
+   * @param threads
+   * @return
+   */
+  def exportFilesAvailable(offlineDir:String, threads:Int) : Boolean = {
+
+    (0 until threads).foreach { threadId =>
+      val file = new File(offlineDir + File.separator + threadId + File.separator + "species.out")
+      if(!file.exists()){
+        return false
+      }
+    }
+    true
+  }
+
+  /**
    * Detect duplicates for all taxa
    * @param file
    * @param threads
@@ -177,48 +202,63 @@ object DuplicationDetection extends Tool {
    */
   def detectDuplicates(file: File, threads: Int, exist: Boolean, cleanup: Boolean, load: Boolean, offlineDir: String = "") {
 
-    var ids = 0
+    logger.info(s"Starting duplicate detection with $threads threads")
 
-    val pool = Array.fill(threads) {
+    //biocache export-by-species /data/offline/exports -t 8
+    if(!load && !exportFilesAvailable(offlineDir, threads)){
+      logger.info(s"Exporting spatial data for duplicate detection....")
+      val exporter = new ExportAllSpatialSpecies()
+      exporter.export(false, threads, offlineDir)
+      logger.info(s"Export spatial data for duplicate detection....finished")
+    }
 
-      val dir = workingTmpDir + ids + File.separator
-      FileUtils.forceMkdir(new File(dir))
-      val dupfilename = dir + "duplicates.txt"
-      val passedfilename = dir + "passed.txt"
-      val indexfilename = dir + "reindex.txt"
-      val olddupfilename = dir + "olddups.txt"
+    val pool = Array.ofDim[Thread](threads)
+    (0 until threads).foreach { threadId =>
+      pool(threadId) = {
+        val dir = workingTmpDir + threadId + File.separator
+        FileUtils.forceMkdir(new File(dir))
+        val dupfilename = dir + "duplicates.txt"
+        val passedfilename = dir + "passed.txt"
+        val indexfilename = dir + "reindex.txt"
+        val olddupfilename = dir + "olddups.txt"
 
-      val process = if (load) {
-        new Thread() {
-          override def run() {
-            new DuplicationDetection().loadMultipleDuplicatesFromFile(
-              dupfilename,
-              passedfilename,
-              threads,
-              new FileWriter(new File(indexfilename)),
-              new FileWriter(new File(olddupfilename)))
-            //now reindex all the items
-            IndexRecords.indexList(new File(indexfilename), false)
+        val process = if (load) {
+          logger.info("Starting loading thread with ID: " + threadId)
+          new Thread() {
+            override def run() {
+              new DuplicationDetection().loadMultipleDuplicatesFromFile(
+                dupfilename,
+                passedfilename,
+                threads,
+                new FileWriter(new File(indexfilename)),
+                new FileWriter(new File(olddupfilename)))
+              //now reindex all the items
+              IndexRecords.indexList(new File(indexfilename), false)
+            }
+          }
+        } else {
+          logger.info("Starting detection thread with ID: " + threadId)
+          new Thread() {
+            override def run() {
+              //the writers should override the files because they will only ever have one instance...
+              val sourceFileName = offlineDir + File.separator + threadId + File.separator + "species.out"
+              logger.debug(s"Checking file $sourceFileName is available.." )
+              if(new File(sourceFileName).exists()){
+                new DuplicationDetection().detectMultipleDuplicatesFromFile(
+                  sourceFileName,
+                  new FileWriter(dupfilename),
+                  new FileWriter(passedfilename),
+                  threads)
+              } else {
+                logger.warn(s"Source file $sourceFileName not available.")
+              }
+            }
           }
         }
-      } else {
 
-        new Thread() {
-          override def run() {
-            //the writers should override the files because they will only ever have one instance...
-            val sourceFileName = offlineDir + File.separator + ids + File.separator + "species.out"
-            new DuplicationDetection().detectMultipleDuplicatesFromFile(
-              sourceFileName,
-              new FileWriter(dupfilename),
-              new FileWriter(passedfilename),
-              threads)
-          }
-        }
+        process.start
+        process
       }
-
-      ids += 1
-      process.start
-      process
     }
 
     pool.foreach(t => {
@@ -329,7 +369,7 @@ class DuplicationDetection {
         val taxon_lsid = currentLine(2)
         if (currentLsid != taxon_lsid) {
           if (!buff.isEmpty) {
-            logger.info("Read in " + counter + " records for " + currentLsid)
+            logger.info("Read in " + counter + " records for GUID:" + currentLsid)
             //perform the duplication detection with the records that we have loaded.
             performDetection(buff.toList, duplicateWriter, passedWriter)
             buff.clear()
@@ -369,11 +409,12 @@ class DuplicationDetection {
           oldStatus,
           oldDuplicateOf)
       } else {
-        logger.warn("lsid " + currentLine(0) + " line " + counter + " has incorrect number of columns: " + currentLine.size + ", vs " + fieldsToExport.length )
+        logger.warn("lsid " + currentLine(0) + " line " + counter + " has incorrect number of columns: "
+          + currentLine.size + ", vs " + fieldsToExport.length )
       }
       currentLine = reader.readNext
     }
-    logger.info("Read in " + counter + " records for " + currentLsid)
+    logger.info("Read in " + counter + " records for GUID:" + currentLsid)
     //at this point we have all the records for a species that should be considered for duplication
     if (!buff.isEmpty) {
       performDetection(buff.toList, duplicateWriter, passedWriter)
@@ -695,7 +736,8 @@ class DuplicationDetection {
    * Duplicate detection for the supplied records which are all for the same year.
    * Each year is handled separately so they can be processed in a threaded manner
    */
-  class YearGroupDetection(year: String, records: List[DuplicateRecordDetails], duplicateWriter: FileWriter, passedWriter: FileWriter) extends Runnable {
+  class YearGroupDetection(year: String, records: List[DuplicateRecordDetails], duplicateWriter: FileWriter,
+                           passedWriter: FileWriter) extends Runnable {
 
     import JavaConversions._
 
@@ -964,12 +1006,18 @@ class DuplicationDetection {
     /**
      * Returns true of the supplied points.
      *
-     * @param pointsA lat,lat values for record 1 at different precisions
-     * @param pointsB lat,lat values for record 1 at different precisions
+     * @param pointsA lat,lng values for record 1 at different precisions
+     * @param pointsB lat,lng values for record 1 at different precisions
      * @return true if the values are considered the same
      */
     def isSpatialDuplicate(pointsA: Array[String], pointsB: Array[String]): Boolean = {
-      for (i <- 0 to pointsA.length) {
+
+      if(pointsB.length != pointsA.length){
+        throw new Exception("Points supplied with a differing number of precisions")
+      }
+
+      for (i <- 0 until pointsA.length) {
+
         if (pointsA(i) != pointsB(i)) {
           //check to see if the precision is different
           if (i > 0) {

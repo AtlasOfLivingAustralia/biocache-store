@@ -259,95 +259,102 @@ class TasNvaDataLoader extends CustomWebserviceLoader {
   val transformOp = new DefaultCoordinateOperationFactory().createOperation(gda94MGAZone55crs, wgs84crs)
 
   def load(dataResourceUid: String): Unit = {
-    val (protocol, urls, uniqueTerms, params, customParams,lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    val cacheDirectoryPath = customParams("cachedir")
-    val loadFromCache = false
-    var startAtPage = 0
-    if (customParams.contains("startAtPage")) {
-      startAtPage = Integer.parseInt(customParams("startAtPage"))
-    }
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => println("Unable to load config for " + dataResourceUid)
+      case Some(config) =>
+        val cacheDirectoryPath = config.customParams("cachedir")
+        val loadFromCache = false
+        var startAtPage = 0
+        if (config.customParams.contains("startAtPage")) {
+          startAtPage = Integer.parseInt(config.customParams("startAtPage"))
+        }
 
-    var pageLimit = -1
-    if (customParams.contains("pageLimit")) {
-      pageLimit = Integer.parseInt(customParams("pageLimit"))
-    }
+        var pageLimit = -1
+        if (config.customParams.contains("pageLimit")) {
+          pageLimit = Integer.parseInt(config.customParams("pageLimit"))
+        }
 
-    load(dataResourceUid, cacheDirectoryPath, loadFromCache, startAtPage, pageLimit)
+        load(dataResourceUid, cacheDirectoryPath, loadFromCache, startAtPage, pageLimit)
+    }
   }
 
   def load(dataResourceUid: String, cacheDirectoryPath: String, loadFromCache: Boolean, startAtPage: Int, pageLimit: Int) {
-    val (protocol, urls, uniqueTerms, params, customParams,lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    val username = customParams("username")
-    val password = customParams("password")
-    val pageSize = customParams("pagesize").toInt
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => println("Unable to retrieve details of " + dataResourceUid)
+      case Some(config) =>
+        val username = config.customParams("username")
+        val password = config.customParams("password")
+        val pageSize = config.customParams("pagesize").toInt
 
-    val urlTemplate = params("url")
-    var processedRecords = 0
+        val urlTemplate = config.urls.head
+        var processedRecords = 0
 
-    if (loadFromCache) {
-      // re-load previously cached data
-      var cacheDirectory = new File(cacheDirectoryPath)
-      for (cacheFileName <- cacheDirectory.list()) {
-        val cacheFile = new File(cacheDirectoryPath, cacheFileName)
-        val xml = XML.loadString(FileUtils.readFileToString(cacheFile, "UTF-8"))
-        val recordNodes = (xml \\ TasNvaDataLoader.OBSERVATION_KEY)
+        if (loadFromCache) {
+          // re-load previously cached data
+          var cacheDirectory = new File(cacheDirectoryPath)
+          for (cacheFileName <- cacheDirectory.list()) {
+            val cacheFile = new File(cacheDirectoryPath, cacheFileName)
+            val xml = XML.loadString(FileUtils.readFileToString(cacheFile, "UTF-8"))
+            val recordNodes = (xml \\ TasNvaDataLoader.OBSERVATION_KEY)
 
-        for (recordNode <- recordNodes) {
-          val mappedValues = processRecord(recordNode)
-          val fr = FullRecordMapper.createFullRecord("", mappedValues, Versions.RAW)
-          val uniqueTermsValues = uniqueTerms.map(t => mappedValues.getOrElse(t, ""))
-          load(dataResourceUid, fr, uniqueTermsValues)
-          processedRecords += 1
-        }
-      }
-    } else {
-      // load data using the web service
-      var moreRecords = true
-      var pageNumber = startAtPage
-      var startIndex = pageNumber * pageSize
-
-      while (moreRecords && (pageLimit == -1 || startIndex < pageSize * pageLimit)) {
-        println("Loading page " + pageNumber)
-
-        try {
-          val xml = XML.loadString(retrieveDataFromWebService(username, password, urlTemplate, pageSize, startIndex))
-          val recordNodes = (xml \\ TasNvaDataLoader.OBSERVATION_KEY)
-
-          if (recordNodes.isEmpty) {
-            if (xml.label != "FeatureCollection") {
-              println("ERROR: Server side error loading page " + pageNumber + ":")
-              println(xml.toString())
-            } else {
-              // We have received an empty response, therefore all records have been processed.
-              moreRecords = false
+            for (recordNode <- recordNodes) {
+              val mappedValues = processRecord(recordNode)
+              val fr = FullRecordMapper.createFullRecord("", mappedValues, Versions.RAW)
+              val uniqueTermsValues = config.uniqueTerms.map(t => mappedValues.getOrElse(t, ""))
+              load(dataResourceUid, fr, uniqueTermsValues)
+              processedRecords += 1
             }
           }
+        } else {
+          // load data using the web service
+          var moreRecords = true
+          var pageNumber = startAtPage
+          var startIndex = pageNumber * pageSize
 
-          for (recordNode <- recordNodes) {
-            val mappedValues = processRecord(recordNode)
-            val fr = FullRecordMapper.createFullRecord("", mappedValues, Versions.RAW)
-            val uniqueTermsValues = uniqueTerms.map(t => mappedValues.getOrElse(t, ""))
-            load(dataResourceUid, fr, uniqueTermsValues)
+          while (moreRecords && (pageLimit == -1 || startIndex < pageSize * pageLimit)) {
+            println("Loading page " + pageNumber)
 
-            processedRecords += 1
+            try {
+              val xml = XML.loadString(retrieveDataFromWebService(username, password, urlTemplate, pageSize, startIndex))
+              val recordNodes = (xml \\ TasNvaDataLoader.OBSERVATION_KEY)
+
+              if (recordNodes.isEmpty) {
+                if (xml.label != "FeatureCollection") {
+                  println("ERROR: Server side error loading page " + pageNumber + ":")
+                  println(xml.toString())
+                } else {
+                  // We have received an empty response, therefore all records have been processed.
+                  moreRecords = false
+                }
+              }
+
+              for (recordNode <- recordNodes) {
+                val mappedValues = processRecord(recordNode)
+                val fr = FullRecordMapper.createFullRecord("", mappedValues, Versions.RAW)
+                val uniqueTermsValues = config.uniqueTerms.map(t => mappedValues.getOrElse(t, ""))
+                load(dataResourceUid, fr, uniqueTermsValues)
+
+                processedRecords += 1
+              }
+              if (!recordNodes.isEmpty) {
+                writePageToCache(cacheDirectoryPath, xml.toString(), pageNumber)
+              }
+            } catch {
+              case ex: Throwable => println("ERROR: page " + pageNumber.toString() + " failed to load:"); ex.printStackTrace()
+            }
+
+            startIndex += pageSize
+            pageNumber += 1
           }
-          if (!recordNodes.isEmpty) {
-            writePageToCache(cacheDirectoryPath, xml.toString(), pageNumber)
-          }
-        } catch {
-          case ex: Throwable => println("ERROR: page " + pageNumber.toString() + " failed to load:"); ex.printStackTrace()
         }
 
-        startIndex += pageSize
-        pageNumber += 1
-      }
+        println(processedRecords + " records processed")
     }
-
-    println(processedRecords + " records processed")
   }
 
   def retrieveDataFromWebService(username: String, password: String, urlTemplate: String, numRecords: Int, startIndex: Int): String = {
-    var url = MessageFormat.format(urlTemplate, numRecords.toString(), startIndex.toString())
+
+    val url = MessageFormat.format(urlTemplate, numRecords.toString(), startIndex.toString())
     println(url)
 
     var dataXML: String = null

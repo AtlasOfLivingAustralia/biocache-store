@@ -1,7 +1,6 @@
 package au.org.ala.biocache.load
 
 import java.net.URL
-
 import au.org.ala.biocache.util.{HttpUtil, SFTPTools, FileHelper, BiocacheConversions}
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
@@ -61,8 +60,10 @@ trait DataLoader {
     }
   }
 
-  //Sampling, Processing and Indexing look for the row key file.
-  // An empty file should be enough to prevent the phase from going ahead...
+  /**
+   * Sampling, Processing and Indexing look for the row key file.
+   * An empty file should be enough to prevent the phase from going ahead...
+   */
   def setNotLoadedForOtherPhases(resourceUid:String){
     def writer = getRowKeyWriter(resourceUid, true)
     if(writer.isDefined){
@@ -92,18 +93,19 @@ trait DataLoader {
    * @param resourceUid
    * @return
    */
-  def retrieveConnectionParameters(resourceUid: String) : (String, List[String], List[String], Map[String,String], Map[String,String], Option[Date]) = {
+  def retrieveConnectionParameters(resourceUid: String) : Option[DataResourceConfig] = try {
 
     //full document
     val map = getDataResourceDetailsAsMap(resourceUid)
 
     //connection details
-    val connectionParameters = map.getOrElse("connectionParameters", Map[String, AnyRef]()).asInstanceOf[Map[String,AnyRef]]
+    val connectionParameters = map.getOrElse("connectionParameters", Map[String, AnyRef]()).asInstanceOf[Map[String, AnyRef]]
 
-    val protocol:String = connectionParameters.getOrElse("protocol", "").asInstanceOf[String]
+    //protocol
+    val protocol: String = connectionParameters.getOrElse("protocol", "").asInstanceOf[String]
     val urlsObject = connectionParameters.getOrElse("url", List[String]())
     val urls = {
-      if(urlsObject.isInstanceOf[List[_]]){
+      if (urlsObject.isInstanceOf[List[_]]) {
         urlsObject
       } else {
         val singleValue = connectionParameters("url").asInstanceOf[String]
@@ -113,29 +115,39 @@ trait DataLoader {
 
     //retrieve the unique terms for this data resource
     val uniqueTerms = connectionParameters.get("termsForUniqueKey") match {
-      case Some(list:List[String]) => list
-      case Some(singleValue:String) => List(singleValue)
+      case Some(list: List[String]) => list
+      case Some(singleValue: String) => List(singleValue)
       case None => List[String]()
     }
 
     //optional config params for custom services
     val customParams = protocol.asInstanceOf[String].toLowerCase match {
-        case "customwebservice" => {
-          val params = connectionParameters.getOrElse("params", "").asInstanceOf[String]
-          JSON.parseFull(params).getOrElse(Map[String,String]()).asInstanceOf[Map[String, String]]
-        }
-        case _ => Map[String,String]()
+      case "customwebservice" => {
+        val params = connectionParameters.getOrElse("params", "").asInstanceOf[String]
+        JSON.parseFull(params).getOrElse(Map[String, String]()).asInstanceOf[Map[String, String]]
+      }
+      case _ => Map[String, String]()
     }
+
     //last checked date
     val lastChecked = map("lastChecked").asInstanceOf[String]
     val dateLastChecked = DateParser.parseStringToDate(lastChecked)
 
-    //retrieve connection params
-    (protocol, urls.asInstanceOf[List[String]], uniqueTerms,
-      connectionParameters.asInstanceOf[Map[String,String]], customParams, dateLastChecked)
+    //return the config
+    Some(new DataResourceConfig(protocol,
+      urls.asInstanceOf[List[String]],
+      uniqueTerms,
+      connectionParameters.asInstanceOf[Map[String, String]],
+      customParams,
+      dateLastChecked)
+    )
+  } catch {
+    case e:Exception =>
+      logger.error(s"Problem retrieve data resource config for resource: $resourceUid", e)
+      None
   }
 
-  def mapConceptTerms(terms: List[String]): List[org.gbif.dwc.terms.Term] = {
+  def mapConceptTerms(terms: Seq[String]): Seq[org.gbif.dwc.terms.Term] = {
     val termFactory = TermFactory.instance()
     terms.map(term => termFactory.findTerm(term))
   }
@@ -144,25 +156,36 @@ trait DataLoader {
     !Config.occurrenceDAO.getUUIDForUniqueID(createUniqueID(dataResourceUid, identifyingTerms)).isEmpty
   }
 
-  protected def createUniqueID(dataResourceUid:String,identifyingTerms:List[String], stripSpaces:Boolean=false) : String = {
-    val uniqueId = (List(dataResourceUid) ::: identifyingTerms).mkString("|").trim
+  /**
+   * Creates a unique key for this record using the unique terms for this data resource.
+   *
+   * @param dataResourceUid
+   * @param identifyingTerms
+   * @param stripSpaces
+   * @return
+   */
+  protected def createUniqueID(dataResourceUid:String, identifyingTerms:Seq[String], stripSpaces:Boolean=false) : String = {
+    val uniqueId = (List(dataResourceUid) ::: identifyingTerms.toList).mkString("|").trim
     if(stripSpaces)
       uniqueId.replaceAll("\\s","")
     else
       uniqueId
   }
 
-  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String]) : Boolean = {
-    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], true, false, false, None)
+  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], multimedia:Seq[Multimedia]) : Boolean = {
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None, multimedia)
   }
 
-  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean) : Boolean = {
-    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified, false, false, None)
+  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String]) : Boolean = {
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None, List())
   }
 
-  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean,
-           downloadMedia:Boolean) : Boolean = {
-    load(dataResourceUid, fr, identifyingTerms, updateLastModified, downloadMedia, false, None)
+  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean) : Boolean = {
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified, false, false, None, List())
+  }
+
+  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean, downloadMedia:Boolean):Boolean ={
+    load(dataResourceUid, fr, identifyingTerms, updateLastModified, downloadMedia, false, None, List())
   }
 
   /**
@@ -177,8 +200,8 @@ trait DataLoader {
    * @param rowKeyWriter
    * @return
    */
-  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:List[String], updateLastModified:Boolean,
-            downloadMedia:Boolean, stripSpaces:Boolean, rowKeyWriter:Option[java.io.Writer]) : Boolean = {
+  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean,
+            downloadMedia:Boolean, stripSpaces:Boolean, rowKeyWriter:Option[java.io.Writer], multimedia: Seq[Multimedia]) : Boolean = {
 
     //the details of how to construct the UniqueID belong in the Collectory
     val uniqueID = if(identifyingTerms.isEmpty) {
@@ -226,8 +249,8 @@ trait DataLoader {
 
     fr.attribution.dataResourceUid = dataResourceUid
 
-    //process the media for this record, saving & thumb nailing any images
-    processMedia(dataResourceUid, fr)
+    //process the media for this record
+    processMedia(dataResourceUid, fr, multimedia)
 
     //load the record
     Config.occurrenceDAO.addRawOccurrence(fr)
@@ -246,61 +269,69 @@ trait DataLoader {
     //download the media - checking if it exists already
     //supplied media comes from a separate source. If it's also listed in the associatedMedia then don't double-load it
     val suppliedMedia = multimedia map { media => media.location.toString }
-    val associatedMedia = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter {
-      url => suppliedMedia.forall(!_.endsWith(url))
+    val associatedMedia = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia).filter { url =>
+      suppliedMedia.forall(!_.endsWith(url))
     }
 
-    val filesToImport = (associatedMedia ++ suppliedMedia).filter(url => {
+    val filesToImport = (associatedMedia ++ suppliedMedia).filter { url =>
       Config.blacklistedMediaUrls.forall(!url.startsWith(_))
-    })
+    }
 
-    if (!filesToImport.isEmpty) {
+    if (filesToImport.isEmpty) {
+      return fr
+    }
 
-      val fileNameToID = new mutable.HashMap[String, String]()
+    val fileNameToID = new mutable.HashMap[String, String]()
 
-      filesToImport.foreach(fileToStore => {
+    val associatedMediaBuffer = new ArrayBuffer[String]
+    val imagesBuffer = new ArrayBuffer[String]
+    val soundsBuffer = new ArrayBuffer[String]
+    val videosBuffer = new ArrayBuffer[String]
 
-        val media = {
-          val multiMediaObject = multimedia.find { media => media.location.toString == fileToStore }
-          multiMediaObject match {
-            case Some(multimedia) => Some(multimedia)
-            case None => {
-              //construct metadata from record
-              Some(new Multimedia(new URL(fileToStore), "", Map(
-                "creator" -> fr.occurrence.recordedBy,
-                "title" -> fr.classification.scientificName,
-                "description" -> fr.occurrence.occurrenceRemarks,
-                "license" -> fr.occurrence.license,
-                "rights" -> fr.occurrence.rights,
-                "rightsHolder" -> fr.occurrence.rightsholder
-              )))
-            }
+    filesToImport.foreach { fileToStore =>
+
+      val media = {
+        val multiMediaObject = multimedia.find { media => media.location.toString == fileToStore }
+        multiMediaObject match {
+          case Some(multimedia) => Some(multimedia)
+          case None => {
+            //construct metadata from record
+            Some(new Multimedia(new URL(fileToStore), "", Map(
+              "creator" -> fr.occurrence.recordedBy,
+              "title" -> fr.classification.scientificName,
+              "description" -> fr.occurrence.occurrenceRemarks,
+              "license" -> fr.occurrence.license,
+              "rights" -> fr.occurrence.rights,
+              "rightsHolder" -> fr.occurrence.rightsholder
+            )))
           }
         }
+      }
 
+      val (exists, filename, filePathOrId) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
+
+      if (exists) {
+        logger.info("Media file already stored: " + filePathOrId)
+        fileNameToID.put(filename, filePathOrId)
+      } else {
         val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, media)
-        logger.info("Media file stored to: " + savedTo.getOrElse("**** not available ****"))
         savedTo match {
-          case Some((savedFilename, savedFilePathOrId)) => fileNameToID.put(savedFilename, savedFilePathOrId)
+          case Some((savedFilename, savedFilePathOrId)) => {
+            logger.info("Media file stored to: " + savedFilePathOrId)
+            if (Config.mediaStore.isValidSound(fileToStore)) {
+              soundsBuffer += savedFilePathOrId
+            } else if (Config.mediaStore.isValidVideo(fileToStore)) {
+              videosBuffer += savedFilePathOrId
+            } else {
+              imagesBuffer += savedFilePathOrId
+            }
+            associatedMediaBuffer += filename
+          }
           case None => logger.warn("Unable to save file: " + fileToStore)
         }
+      }
 
-      })
-
-      val associatedMediaBuffer = new ArrayBuffer[String]
-      val imagesBuffer = new ArrayBuffer[String]
-      val soundsBuffer = new ArrayBuffer[String]
-      val videosBuffer = new ArrayBuffer[String]
-
-      fileNameToID.foreach({
-        case (filename, filePathOrID) => {
-          if (Config.mediaStore.isValidImage(filename)) imagesBuffer += filePathOrID
-          if (Config.mediaStore.isValidSound(filename)) soundsBuffer += filePathOrID
-          if (Config.mediaStore.isValidVideo(filename)) videosBuffer += filePathOrID
-          associatedMediaBuffer += filename
-        }
-      })
-
+      //add the references
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")
       fr.occurrence.images = imagesBuffer.toArray
       fr.occurrence.sounds = soundsBuffer.toArray
@@ -350,7 +381,15 @@ trait DataLoader {
     }
   }
 
-  protected def downloadSFTPArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (File, Date,Boolean,Boolean) = {
+  /**
+   * Download the archive from an SFTP endpoint.
+   *
+   * @param url
+   * @param resourceUid
+   * @param lastChecked
+   * @return
+   */
+  protected def downloadSFTPArchive(url:String, resourceUid:String, lastChecked:Option[Date]) : (File, Date, Boolean, Boolean) = {
     url match {
       case sftpPattern(server, filename) => {
         val (targetfile, date, isZipped, isGzipped, downloaded) = {
@@ -402,7 +441,7 @@ trait DataLoader {
           (null, null, false, false)
         }
       }
-      case _ => (null,null,false,false)
+      case _ => (null, null, false, false)
     }
   }
 
@@ -477,7 +516,8 @@ trait DataLoader {
       logger.info("Downloaded. File size: ", counter / 1024 +"kB, " + file.getAbsolutePath +", is zipped: " + isZipped+"\n")
       (file,date,isZipped,isGzipped)
     } else {
-      logger.info("The file has not changed since the last time it  was loaded. To load the data a force-load will need to be performed")
+      logger.info("The file has not changed since the last time it  was loaded. " +
+        "To load the data a force-load will need to be performed")
       (null,null,false,false)
     }
   }
@@ -485,14 +525,17 @@ trait DataLoader {
   /**
    * Calls the collectory webservice to update the last loaded time for a data resource
    */
-  def updateLastChecked(resourceUid:String,dataCurrency:Option[Date]=None) :Boolean ={
+  def updateLastChecked(resourceUid:String, dataCurrency:Option[Date] = None) : Boolean ={
     try {
       //set the last check time for the supplied resourceUid only if configured to allow updates
       if(Config.allowCollectoryUpdates == "true"){
-        val map =new  scala.collection.mutable.HashMap[String,String]()
+
+        val map = new  scala.collection.mutable.HashMap[String,String]()
         map ++= Map("user"-> user, "api_key"-> Config.collectoryApiKey, "lastChecked" -> loadTime)
-        if(dataCurrency.isDefined)
+
+        if(dataCurrency.isDefined) {
           map += ("dataCurrency" -> dataCurrency.get)
+        }
         //turn the map of values into JSON representation
         val data = map.map(pair => "\""+pair._1 +"\":\"" +pair._2 +"\"").mkString("{",",", "}")
 

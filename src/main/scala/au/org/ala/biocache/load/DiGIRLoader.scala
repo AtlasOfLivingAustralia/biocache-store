@@ -27,40 +27,42 @@ class DiGIRLoader extends DataLoader {
 
   def load(dataResourceUid: String) {
 
-    val (protocol, urls, uniqueTerms, params, customParams,lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    val url = urls(0)
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => throw new Exception("Unable to retrieve configuration for data resource UID: " + dataResourceUid)
+      case Some(dataResourceConfig) =>
+        val url = dataResourceConfig.urls(0)
 
-    val firstchars = (0 to 25).map(x => (x + 'A').toChar).toList
-    val secondchars = (0 to 25).map(x => (x + 'a').toChar).toList
+        val firstchars = (0 to 25).map(x => (x + 'A').toChar).toList
+        val secondchars = (0 to 25).map(x => (x + 'a').toChar).toList
 
-    val queryList = for {
-      firstChar <- firstchars
-      secondChar <- secondchars
-      if (secondChar < 'z')
-    } yield (firstChar.toString + secondChar.toString, firstChar.toString + (secondChar + 1).toChar.toString)
+        val queryList = for {
+          firstChar <- firstchars
+          secondChar <- secondchars
+          if (secondChar < 'z')
+        } yield (firstChar.toString + secondChar.toString, firstChar.toString + (secondChar + 1).toChar.toString)
 
-    val retries = 3
+        val retries = 3
 
-    queryList.foreach(range => {
+        queryList.foreach(range => {
 
-      val (start, end) = range
-      //retrieve all records for this name - requires paging
-      var startAt = 0
-      val pageSize = 10
-      var endOfRecord = doSearchRequest(dataResourceUid, uniqueTerms, url, params("resource"), start, end, startAt, pageSize)
+          val (start, end) = range
+          //retrieve all records for this name - requires paging
+          var startAt = 0
+          val pageSize = 10
+          var endOfRecord = doSearchRequest(dataResourceUid, dataResourceConfig.uniqueTerms, url, dataResourceConfig.connectionParams("resource"), start, end, startAt, pageSize)
 
-      while (!endOfRecord) {
-        startAt += pageSize
-        endOfRecord = {
-          doSearchRequest(dataResourceUid, uniqueTerms, url, params("resource"), start, end, startAt, pageSize)
-        }
-      }
-    })
-
-    println("done")
+          while (!endOfRecord) {
+            startAt += pageSize
+            endOfRecord = {
+              doSearchRequest(dataResourceUid, dataResourceConfig.uniqueTerms, url, dataResourceConfig.connectionParams("resource"), start, end, startAt, pageSize)
+            }
+          }
+        })
+        println("done")
+    }
   }
 
-  def doSearchRequest(dataResourceUid: String, uniqueTerms: List[String], url: String, resource: String, start: String, end: String, startAt: Int, pageSize: Int): Boolean = {
+  def doSearchRequest(dataResourceUid: String, uniqueTerms: Seq[String], url: String, resource: String, start: String, end: String, startAt: Int, pageSize: Int): Boolean = {
     val request = createSearchRequest("1.0", "search", url, resource, start, end, startAt, pageSize)
     //println(request.toString)
     println(start + ", " + end)

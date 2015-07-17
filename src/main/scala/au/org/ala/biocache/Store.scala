@@ -101,7 +101,7 @@ object Store {
         val (rawPoso, procPoso) = rawAndProcessed
         val listBuff = new java.util.LinkedList[ProcessedValue]
         
-        rawPoso.propertyNames.foreach(name => {
+        rawPoso.propertyNames.foreach { name =>
           if(!Config.sensitiveFields.contains(name)){
             val rawValue = rawPoso.getProperty(name)
             val procValue = procPoso.getProperty(name)
@@ -110,7 +110,7 @@ object Store {
               listBuff.add(term)
             }
           }
-        })
+        }
         
         val name = rawPoso.getClass().getName().substring(rawPoso.getClass().getName().lastIndexOf(".") + 1)
         map.put(name, listBuff)
@@ -204,35 +204,37 @@ object Store {
   def upsertRecord(dataResourceUid:String,
                    properties:java.util.Map[String,String],
                    multimediaProperties:java.util.List[java.util.Map[String,String]],
-                   shouldIndex:Boolean) : String = {
+                   shouldIndex:Boolean) : FullRecord = {
 
     import JavaConversions._
     val loader = new SimpleLoader
 
     //retrieve details
-    val (protocol, url, uniqueTerms, params, customParams, lastChecked) = loader.retrieveConnectionParameters(dataResourceUid)
-    val record = FullRecordMapper.createFullRecord("", properties, Versions.RAW)
+    loader.retrieveConnectionParameters(dataResourceUid) match {
+      case None => throw new Exception("Unable to retrieve connection information for data resource UID: " + dataResourceUid)
+      case Some(dataResourceConfig) =>
 
-    //map multimedia
-    val multimedia = multimediaProperties.map { props =>
-      Multimedia.create(new URL(props.getOrElse("identifier", "")), "", props.asScala.toMap)
+        //create a record
+        val record = FullRecordMapper.createFullRecord("", properties, Versions.RAW)
+
+        //map multimedia
+        val multimedia = multimediaProperties.map { props =>
+          Multimedia.create(new URL(props.getOrElse("identifier", "")), "", props.asScala.toMap)
+        }
+
+        //load the record
+        (new SimpleLoader()).load(dataResourceUid, record, dataResourceConfig.uniqueTerms, multimedia)
+
+        //process record
+        val processor = new RecordProcessor
+        processor.processRecordAndUpdate(record)
+
+        //index
+        if(shouldIndex){
+          occurrenceDAO.reIndex(record.rowKey)
+        }
+        record
     }
-
-    //load the record
-    (new SimpleLoader()).load(dataResourceUid, record, uniqueTerms)
-
-    //load media
-    (new SimpleLoader()).processMedia(dataResourceUid, record, multimedia)
-
-    //process record
-    val processor = new RecordProcessor
-    processor.processRecordAndUpdate(record)
-
-    //index
-    if(shouldIndex){
-      occurrenceDAO.reIndex(record.rowKey)
-    }
-    record.uuid
   }
 
   /**

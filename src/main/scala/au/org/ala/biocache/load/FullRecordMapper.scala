@@ -170,6 +170,7 @@ object FullRecordMapper {
               fullRecord.miscProperties = Json.toJavaMap(fieldValue).asInstanceOf[java.util.Map[String,String]]
             }
           }
+          case it if "class".equals(it.toLowerCase) || "clazz".equals(it.toLowerCase) || "classs".equals(it.toLowerCase) => fullRecord.classification.classs = fieldValue
           case it if userVerifiedColumn.equals(it) => fullRecord.userVerified = "true".equals(fieldValue)
           case it if taxonomicDecisionColumn.equals(it) => fullRecord.taxonomicallyKosher = "true".equals(fieldValue)
           case it if geospatialDecisionColumn.equals(it) => fullRecord.geospatiallyKosher = "true".equals(fieldValue)

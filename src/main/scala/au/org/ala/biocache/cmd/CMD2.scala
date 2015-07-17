@@ -53,9 +53,13 @@ object ShowVersion extends NoArgsTool {
   def main(args:Array[String]) = {
     import JavaConversions._
     val propertyNames = Config.versionProperties.stringPropertyNames().toList
-    propertyNames.foreach(name => {
-      println(name + " = " + Config.versionProperties.getProperty(name))
-    })
+    if(propertyNames.nonEmpty) {
+      propertyNames.foreach { name =>
+        println(name + " = " + Config.versionProperties.getProperty(name))
+      }
+    } else {
+      println("No version information available.")
+    }
   }
 }
 
@@ -148,6 +152,40 @@ object CMD2 {
       if(tool.cmd == str) return Some(tool)
     }
     None
+  }
+
+  def printTable(table: List[Map[String, String]]) {
+    if(table.isEmpty){
+      return
+    }
+    val keys = table(0).keys.toList
+    val valueLengths = keys.map(k => {
+      (k, table.map(x => x(k).length).max)
+    }).toMap[String, Int]
+    val columns = table(0).keys.map(k => {
+      if (k.length < valueLengths(k)) {
+        k + List.fill[String](valueLengths(k) - k.length)(" ").mkString
+      } else {
+        k
+      }
+    }).mkString(" | ", " | ", " |")
+
+    val sep = " " + List.fill[String](columns.length - 1)("-").mkString
+    println(sep)
+    println(columns)
+    println(" |" + List.fill[String](columns.length - 3)("-").mkString + "|")
+
+    table.foreach(dr => {
+      println(dr.map(kv => {
+        if (kv._2.length < valueLengths(kv._1)) {
+          kv._2 + List.fill[String](valueLengths(kv._1) - kv._2.length)(" ").mkString
+        } else {
+          kv._2
+        }
+      }).mkString(" | ", " | ", " |"))
+    })
+
+    println(" " + List.fill[String](columns.length - 1)("-").mkString)
   }
 
   def padAndPrint(str: String) = println(padElementTo25(str))

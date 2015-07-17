@@ -84,49 +84,53 @@ class MorphbankLoader extends CustomWebserviceLoader {
   val httpClient = new HttpClient()
 
   def load(dataResourceUid: String) {
-    val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    val idsUrlTemplate = params("url")
-    val objectUrlTemplate = customParams("objectRequestUrlTemplate")
-    val imageUrlTemplate = customParams("imageRequestUrlTemplate")
-    val specimenPageUrlTemplate = customParams("specimenDetailsPageUrlTemplate")
-    val allRecordSetKeywordsAsString = customParams("recordSetKeywords")
 
-    val recordSetKeywordsList = allRecordSetKeywordsAsString.split(";")
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => println("Unable to connection " + dataResourceUid)
+      case Some(config) => {
+        val idsUrlTemplate = config.connectionParams("url")
+        val objectUrlTemplate = config.customParams("objectRequestUrlTemplate")
+        val imageUrlTemplate = config.customParams("imageRequestUrlTemplate")
+        val specimenPageUrlTemplate = config.customParams("specimenDetailsPageUrlTemplate")
+        val allRecordSetKeywordsAsString = config.customParams("recordSetKeywords")
 
-    for (keywords <- recordSetKeywordsList) {
-      logger.info("Processing records with keywords " + keywords)
+        val recordSetKeywordsList = allRecordSetKeywordsAsString.split(";")
 
-      val idsUrl = MessageFormat.format(idsUrlTemplate, keywords)
-      val idsXml = getXMLFromWebService(idsUrl)
+        for (keywords <- recordSetKeywordsList) {
+          logger.info("Processing records with keywords " + keywords)
 
-      val idNodes = (idsXml \\ MorphbankLoader.ID_KEY)
-      val ids = for (idNode <- idNodes) yield idNode.text
+          val idsUrl = MessageFormat.format(idsUrlTemplate, keywords)
+          val idsXml = getXMLFromWebService(idsUrl)
 
-      var loadedSpecimens = 0
-      var loadedImages = 0
+          val idNodes = (idsXml \\ MorphbankLoader.ID_KEY)
+          val ids = for (idNode <- idNodes) yield idNode.text
 
-      for (id <- ids) {
-        val url = MessageFormat.format(objectUrlTemplate, id)
-        val recordXml = getXMLFromWebService(url)
-        val obj = (recordXml \\ MorphbankLoader.OBJECT_KEY).head
+          var loadedSpecimens = 0
+          var loadedImages = 0
 
-        val typ = obj.attribute(MorphbankLoader.TYPE_KEY).head.text
+          for (id <- ids) {
+            val url = MessageFormat.format(objectUrlTemplate, id)
+            val recordXml = getXMLFromWebService(url)
+            val obj = (recordXml \\ MorphbankLoader.OBJECT_KEY).head
 
-        if (typ == MorphbankLoader.SPECIMEN_TYPE) {
-          processSpecimen(obj, dataResourceUid, uniqueTerms, specimenPageUrlTemplate)
-          loadedSpecimens += 1
-        } else if (typ == MorphbankLoader.IMAGE_TYPE) {
-          processImage(obj)
-          loadedImages += 1
-        } else {
-          throw new IllegalArgumentException("Unrecognised object type: " + typ)
+            val typ = obj.attribute(MorphbankLoader.TYPE_KEY).head.text
+
+            if (typ == MorphbankLoader.SPECIMEN_TYPE) {
+              processSpecimen(obj, dataResourceUid, config.uniqueTerms, specimenPageUrlTemplate)
+              loadedSpecimens += 1
+            } else if (typ == MorphbankLoader.IMAGE_TYPE) {
+              processImage(obj)
+              loadedImages += 1
+            } else {
+              throw new IllegalArgumentException("Unrecognised object type: " + typ)
+            }
+          }
+
+          setSpecimenImagesLicenceAndPhotographer(imageUrlTemplate, dataResourceUid)
+          logger.info("Finished processing records with keywords " + keywords + ". Loaded " + loadedSpecimens + " specimens, and " + loadedImages + " images.")
         }
       }
-
-      setSpecimenImagesLicenceAndPhotographer(imageUrlTemplate, dataResourceUid)
-      logger.info("Finished processing records with keywords " + keywords + ". Loaded " + loadedSpecimens + " specimens, and " + loadedImages + " images.")
     }
-
   }
 
   def getXMLFromWebService(requestUrl: String): Elem = {
@@ -148,7 +152,7 @@ class MorphbankLoader extends CustomWebserviceLoader {
     XML.loadString(xmlContent)
   }
 
-  def processSpecimen(specimen: Node, dataResourceUid: String, uniqueTerms: List[String], specimenPageUrlTemplate: String) {
+  def processSpecimen(specimen: Node, dataResourceUid: String, uniqueTerms: Seq[String], specimenPageUrlTemplate: String) {
 
     var mappedValues = Map[String, String]()
     specimen.child.foreach(node => (mappedValues = addValue(node, mappedValues)))

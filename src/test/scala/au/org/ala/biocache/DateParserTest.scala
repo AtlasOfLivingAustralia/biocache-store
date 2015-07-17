@@ -291,4 +291,9 @@ class DateParserTest extends FunSuite {
     expectResult("09"){result.get.startDay}
     expectResult(true){result.get.singleDate}
   }
+
+  test("Badly formed date - 0 01"){
+    val result = DateParser.parseDate("0 01")
+    expectResult(true){result.isEmpty}
+  }
 }

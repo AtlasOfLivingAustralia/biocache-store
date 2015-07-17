@@ -1,10 +1,10 @@
 package au.org.ala.biocache.parser
 
+import au.org.ala.biocache.cmd.CMD2
 import au.org.ala.biocache.util._
 import scala.Some
 import au.com.bytecode.opencsv.{CSVReader, CSVWriter}
 import java.io.{File, StringReader, OutputStream, OutputStreamWriter}
-import au.org.ala.biocache.cmd.CMD
 import au.org.ala.biocache.vocab._
 import scala.collection.mutable.ListBuffer
 import au.org.ala.biocache.model.{MeasurementUnit, QualityAssertion, Versions}
@@ -149,16 +149,16 @@ object AdHocParser {
     //what values are processed???
     val rawAndProcessed = raw.objectArray zip processed.objectArray
     val listBuff = new ListBuffer[ProcessedValue]
-    rawAndProcessed.foreach( { case (rawPoso, procPoso) => {
-      rawPoso.propertyNames.foreach(name => {
+    rawAndProcessed.foreach { case (rawPoso, procPoso) =>
+      rawPoso.propertyNames.foreach { name =>
         val rawValue = rawPoso.getProperty(name)
         val procValue = procPoso.getProperty(name)
         if (!rawValue.isEmpty || !procValue.isEmpty) {
           val term = ProcessedValue(name, rawValue.getOrElse(""), procValue.getOrElse(""))
           listBuff += term
         }
-      })
-    }})
+      }
+    }
 
     //add miscellaneous properties that are not recognised.
     raw.miscProperties.foreach({case (k,v) => listBuff += ProcessedValue(k, v, "")})
@@ -168,7 +168,7 @@ object AdHocParser {
   def processCSV(filepath: String) {
     (new File(filepath)).readAsCSV(',', '"', processColumnHeaders, (hdrs, values) => {
       val result = processLine(hdrs, values)
-      CMD.printTable(result.values.map(r => {
+      CMD2.printTable(result.values.map(r => {
         Map("name" -> r.name, "raw" -> r.raw, "processed" -> r.processed)
       }).toList)
     })

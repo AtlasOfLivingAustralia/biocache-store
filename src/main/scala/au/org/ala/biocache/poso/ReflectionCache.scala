@@ -4,6 +4,8 @@ import scala.collection.mutable
 import java.lang.reflect.Method
 import org.apache.commons.lang3.StringUtils
 
+import scala.collection.mutable.ListBuffer
+
 /**
   * A singleton that keeps a cache of POSO reflection metadata.
   */
@@ -11,6 +13,25 @@ object ReflectionCache {
 
    var posoLookupCache = new mutable.HashMap[Class[_], Map[String, ModelProperty]]
    var compositeLookupCache = new mutable.HashMap[Class[_], Map[String, Method]]
+
+  def getCompositePropertyNames(cposo: CompositePOSO): List[String] = {
+
+    val list = new ListBuffer[String]()
+    cposo.getClass.getDeclaredFields.map(field => {
+      val name = field.getName
+      try {
+        val getter = cposo.getClass.getDeclaredMethod("get" + StringUtils.capitalize(name))
+        val isAPoso = !(getter.getReturnType.getInterfaces.forall(i => i == classOf[POSO]))
+        if (isAPoso) {
+          val poso = getter.invoke(cposo).asInstanceOf[POSO]
+          poso.propertyNames.foreach { name => list += name }
+        }
+      } catch {
+        case e: Exception =>
+      }
+    })
+    list.toList
+  }
 
    def getCompositeLookup(cposo: CompositePOSO): Map[String, Method] = {
 
@@ -25,7 +46,7 @@ object ReflectionCache {
            val isAPoso = !(getter.getReturnType.getInterfaces.forall(i => i == classOf[POSO]))
            if (isAPoso) {
              val poso = getter.invoke(cposo).asInstanceOf[POSO]
-             poso.propertyNames.foreach(name => map += (name -> getter))
+             poso.propertyNames.foreach { name => map += (name.toLowerCase -> getter) }
            }
          } catch {
            case e: Exception =>
@@ -49,7 +70,7 @@ object ReflectionCache {
          try {
            val getter = poso.getClass.getDeclaredMethod("get" + StringUtils.capitalize(name))
            val setter = poso.getClass.getDeclaredMethod("set" + StringUtils.capitalize(name), field.getType)
-           Some((name -> ModelProperty(name, field.getType.getName, getter, setter)))
+           Some((name.toLowerCase -> ModelProperty(name, field.getType.getName, getter, setter)))
          } catch {
            case e: Exception => None
          }

@@ -81,55 +81,70 @@ class DwCALoader extends DataLoader {
 
   import JavaConversions._
 
+  /**
+   * Load a resource
+   *
+   * @param resourceUid
+   * @param logRowKeys
+   * @param testFile
+   * @param forceLoad
+   */
   def load(resourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean = false){
     //remove the old files
     emptyTempFileStore(resourceUid)
     //remove the old row keys:
     deleteOldRowKeys(resourceUid)
-    val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(resourceUid)
-    val conceptTerms = mapConceptTerms(uniqueTerms)
-    val imageUrl = params.get("imageUrl")
-    val incremental = params.getOrElse("incremental", false).asInstanceOf[Boolean]
-    val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
-    var loaded = false
-    var maxLastModifiedDate:java.util.Date = null
-    urls.foreach(url => {
-      //download
-      val (fileName,date) = downloadArchive(url,resourceUid, if(forceLoad) None else lastChecked)
-      if(maxLastModifiedDate == null || date.after(maxLastModifiedDate)){
-        maxLastModifiedDate = date
-      }
-      logger.info("File last modified date: " + maxLastModifiedDate)
-      if(fileName != null){
-        //load the DWC file
-        loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental,testFile)
-        loaded = true
-      }
-    })
-    //now update the last checked and if necessary data currency dates
-    if(!testFile){
-      updateLastChecked(resourceUid, if(loaded) Some(maxLastModifiedDate) else None)
-      if(!loaded)
-        setNotLoadedForOtherPhases(resourceUid)
+    retrieveConnectionParameters(resourceUid) match {
+      case None => throw new Exception("Unable to retrieve connection params for " + resourceUid)
+      case Some(dataResourceConfig) =>
+        val conceptTerms = mapConceptTerms(dataResourceConfig.uniqueTerms)
+        val imageUrl = dataResourceConfig.connectionParams.get("imageUrl")
+        val incremental = dataResourceConfig.connectionParams.getOrElse("incremental", false).asInstanceOf[Boolean]
+        val strip = dataResourceConfig.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
+        var loaded = false
+        var maxLastModifiedDate:java.util.Date = null
+        dataResourceConfig.urls.foreach(url => {
+          //download
+          val (fileName,date) = downloadArchive(url,resourceUid, if(forceLoad) None else dataResourceConfig.dateLastChecked)
+          if(maxLastModifiedDate == null || date.after(maxLastModifiedDate)){
+            maxLastModifiedDate = date
+          }
+          logger.info("File last modified date: " + maxLastModifiedDate)
+          if(fileName != null){
+            //load the DWC file
+            loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental,testFile)
+            loaded = true
+          }
+        })
+        //now update the last checked and if necessary data currency dates
+        if(!testFile){
+          updateLastChecked(resourceUid, if(loaded) Some(maxLastModifiedDate) else None)
+          if(!loaded){
+            setNotLoadedForOtherPhases(resourceUid)
+          }
+        }
     }
   }
 
   def loadLocal(resourceUid:String, fileName:String, logRowKeys:Boolean, testFile:Boolean){
-    val (protocol, url, uniqueTerms, params, customParams,lastChecked) = retrieveConnectionParameters(resourceUid)
-    val conceptTerms = mapConceptTerms(uniqueTerms)
-    val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
-    //load the DWC file
-    loadArchive(fileName, resourceUid, conceptTerms, params.get("imageUrl"), strip, logRowKeys, testFile)
+    retrieveConnectionParameters(resourceUid) match {
+      case None => throw new Exception("Unable to load resourceUid: " + resourceUid)
+      case Some(dataResourceConfig) =>
+        val conceptTerms = mapConceptTerms(dataResourceConfig.uniqueTerms)
+        val strip = dataResourceConfig.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
+        //load the DWC file
+        loadArchive(fileName, resourceUid, conceptTerms, dataResourceConfig.connectionParams.get("imageUrl"), strip, logRowKeys, testFile)
+    }
   }
 
-  def getUuid(uniqueID:Option[String], star:StarRecord, uniqueTerms:List[Term], mappedProperties:Option[Map[String,String]]) :((String, Boolean),Option[Map[String,String]])={
+  def getUuid(uniqueID:Option[String], star:StarRecord, uniqueTerms:Seq[Term], mappedProperties:Option[Map[String,String]]) : ((String, Boolean), Option[Map[String,String]]) = {
     uniqueID match {
       case Some(value) => (Config.occurrenceDAO.createOrRetrieveUuid(value),mappedProperties)
       case None => ((Config.occurrenceDAO.createUuid, true), mappedProperties)
     }
   }
 
-  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:List[Term], imageUrl:Option[String], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean){
+  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:Seq[Term], imageUrl:Option[String], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean){
     logger.info(s"Loading archive: $fileName " +
       s"for resource: $resourceUid, " +
       s"with unique terms: $uniqueTerms, " +
@@ -176,8 +191,8 @@ class DwCALoader extends DataLoader {
     var finishTime = System.currentTimeMillis
     var currentBatch = new ArrayBuffer[FullRecord]
 
-    val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+resourceUid, "institution_code",100).getOrElse(List()).toSet[String]
-    val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+resourceUid, "collection_code",100).getOrElse(List()).toSet[String]
+    val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+resourceUid, "institution_code", 100).getOrElse(List()).toSet[String]
+    val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+resourceUid, "collection_code", 100).getOrElse(List()).toSet[String]
 
     logger.info("The current institution codes for the data resource: " + institutionCodes)
     logger.info("The current collection codes for the data resource: " + collectionCodes)
@@ -197,7 +212,7 @@ class DwCALoader extends DataLoader {
         //create the unique ID
         if (!uniqueTerms.isEmpty) {
           val uniqueTermValues = uniqueTerms.map(t => star.core.value(t))
-          val id = (List(resourceUid) ::: uniqueTermValues).mkString("|").trim
+          val id = (List(resourceUid) ::: uniqueTermValues.toList).mkString("|").trim
           Some(if(stripSpaces) id.replaceAll("\\s","") else id)
         } else {
           None
@@ -207,7 +222,7 @@ class DwCALoader extends DataLoader {
       if(testFile){
         //check to see if the key has at least on distinguishing value
         val icode = star.core.value(org.gbif.dwc.terms.DwcTerm.institutionCode)
-        newInstCodes.add(if(icode == null)"<NULL>" else icode)
+        newInstCodes.add(if(icode == null) "<NULL>" else icode)
         val ccode = star.core.value(org.gbif.dwc.terms.DwcTerm.collectionCode)
         newCollCodes.add(if(ccode == null) "<NULL>" else ccode)
       }
@@ -230,7 +245,7 @@ class DwCALoader extends DataLoader {
       }
 
       //lookup the column
-      val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID,star, uniqueTerms,None)
+      val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, star, uniqueTerms, None)
       if(mappedProps.isDefined && uniqueID.isDefined){
         Config.persistenceManager.put(uniqueID.get, "occ", mappedProps.get)
       }

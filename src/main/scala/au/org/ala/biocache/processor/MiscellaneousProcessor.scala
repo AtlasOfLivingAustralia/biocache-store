@@ -1,13 +1,10 @@
 package au.org.ala.biocache.processor
 
-import au.org.ala.biocache._
 import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.StringUtils
-import scala.Some
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 import au.org.ala.biocache.vocab._
 import au.org.ala.biocache.parser.CollectorNameParser
-import au.org.ala.biocache.load.MediaStore
 
 /**
  * A processor of miscellaneous information.
@@ -141,8 +138,15 @@ class MiscellaneousProcessor extends Processor {
       assertions += QualityAssertion(MISSING_DATEIDENTIFIED,1)
   }
 
+  /**
+   * more sophisticated parsing of the string. ATM we are only supporting the structure for dr642
+   * TODO support multiple interactions
+   * @param guid
+   * @param raw
+   * @param processed
+   */
   def processInteractions(guid: String, raw: FullRecord, processed: FullRecord) = {
-    //interactions are supplied as part of the assciatedTaxa string
+    //interactions are supplied as part of the associatedTaxa string
     //TODO more sophisticated parsing of the string. ATM we are only supporting the structure for dr642
     //TODO support multiple interactions
     if (raw.occurrence.associatedTaxa != null && !raw.occurrence.associatedTaxa.isEmpty) {

@@ -63,7 +63,7 @@ object AutoDwcCSVLoader {
         l.pm.shutdown
         Console.flush()
         Console.err.flush()
-        exit(0)
+        sys.exit(0)
       }
     }
   }
@@ -77,47 +77,56 @@ class AutoDwcCSVLoader extends DataLoader {
   logger.info("Load pattern in use: " + loadPattern.toString())
 
   def load(dataResourceUid: String, includeIds: Boolean = true, forceLoad: Boolean = false) {
-    //TODO support complete reload by looking up webservice
-    val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
-    //clean out the dr load directory before downloading the new file.
-    emptyTempFileStore(dataResourceUid)
-    //remove the old file
-    deleteOldRowKeys(dataResourceUid)
-    var loaded = false
-    var maxLastModifiedDate: java.util.Date = null
-    //the supplied url should be an sftp string to the directory that contains the dumps
-    urls.foreach(url => {
-      if (url.startsWith("sftp")) {
-        val fileDetails = sftpLatestArchive(url, dataResourceUid, if (forceLoad) None else lastChecked)
-        if (fileDetails.isDefined) {
-          val (filePath, date) = fileDetails.get
-          if (maxLastModifiedDate == null || date.after(maxLastModifiedDate)) {
-            maxLastModifiedDate = date
+
+    retrieveConnectionParameters(dataResourceUid) match {
+
+      case None => throw new Exception ("Unable to retrieve configuration for dataResourceUid " + dataResourceUid)
+
+      case Some(dataResourceConfig) =>
+
+        val strip = dataResourceConfig.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
+        //clean out the dr load directory before downloading the new file.
+        emptyTempFileStore(dataResourceUid)
+        //remove the old file
+        deleteOldRowKeys(dataResourceUid)
+        var loaded = false
+        var maxLastModifiedDate: java.util.Date = null
+        //the supplied url should be an sftp string to the directory that contains the dumps
+        dataResourceConfig.urls.foreach(url => {
+          if (url.startsWith("sftp")) {
+            val fileDetails = sftpLatestArchive(url, dataResourceUid, if (forceLoad) None else dataResourceConfig.dateLastChecked)
+            if (fileDetails.isDefined) {
+              val (filePath, date) = fileDetails.get
+              if (maxLastModifiedDate == null || date.after(maxLastModifiedDate)) {
+                maxLastModifiedDate = date
+              }
+              loadAutoFile(new File(filePath), dataResourceUid, dataResourceConfig, includeIds, strip)
+              loaded = true
+            }
+          } else {
+            logger.error("Unable to process " + url + " with the auto loader")
           }
-          loadAutoFile(new File(filePath), dataResourceUid, uniqueTerms, params, includeIds, strip)
-          loaded = true
+        })
+        //now update the last checked and if necessary data currency dates
+        updateLastChecked(dataResourceUid, if (loaded) Some(maxLastModifiedDate) else None)
+        if (!loaded) {
+          setNotLoadedForOtherPhases(dataResourceUid)
         }
-      } else {
-        logger.error("Unable to process " + url + " with the auto loader")
-      }
-    })
-    //now update the last checked and if necessary data currency dates
-    updateLastChecked(dataResourceUid, if (loaded) Some(maxLastModifiedDate) else None)
-    if (!loaded) {
-      setNotLoadedForOtherPhases(dataResourceUid)
     }
   }
 
   def loadLocalFile(dataResourceUid: String, filePath: String, includeIds: Boolean) {
-    val (protocol, urls, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    val strip = params.getOrElse("strip", false).asInstanceOf[Boolean]
-    //remove the old file
-    deleteOldRowKeys(dataResourceUid)
-    loadAutoFile(new File(filePath), dataResourceUid, uniqueTerms, params, includeIds, strip)
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => throw new Exception ("Unable to retrieve configuration for dataResourceUid " + dataResourceUid)
+      case Some(dataResourceConfig) =>
+        val strip = dataResourceConfig.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
+        //remove the old file
+        deleteOldRowKeys(dataResourceUid)
+        loadAutoFile(new File(filePath), dataResourceUid, dataResourceConfig, includeIds, strip)
+    }
   }
 
-  def loadAutoFile(file: File, dataResourceUid: String, uniqueTerms: List[String], params: Map[String, String], includeIds: Boolean, stripSpaces: Boolean) {
+  def loadAutoFile(file: File, dataResourceUid: String, dataResourceConfig:DataResourceConfig, includeIds: Boolean, stripSpaces: Boolean) {
     //From the file extract the files to load
     val baseDir = file.getParent
     val csvLoader = new DwcCSVLoader
@@ -164,13 +173,19 @@ class AutoDwcCSVLoader extends DataLoader {
           val storeKeys = !dfile.getName().contains("dwc-id") && !dfile.getName().contains("dwcid")
           logger.info("Loading " + dfile.getName() + " storing the keys for reprocessing: " + storeKeys)
           if (dfile.getName.endsWith("gz")) {
-            csvLoader.loadFile(dfile.extractGzip, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys = storeKeys)
+            csvLoader.loadFile(dfile.extractGzip, dataResourceUid, dataResourceConfig.uniqueTerms, dataResourceConfig.connectionParams, stripSpaces, logRowKeys = storeKeys)
           } else {
-            csvLoader.loadFile(dfile, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys = storeKeys)
+            csvLoader.loadFile(dfile, dataResourceUid, dataResourceConfig.uniqueTerms, dataResourceConfig.connectionParams, stripSpaces, logRowKeys = storeKeys)
           }
         } else {
           //load the id's into a list of valid rowKeys
-          validRowKeys ++= extractValidRowKeys(if (dfile.getName.endsWith(".gz")) dfile.extractGzip else dfile, dataResourceUid, uniqueTerms, params, stripSpaces)
+          val rowKeyFile = if (dfile.getName.endsWith(".gz")) {
+            dfile.extractGzip
+          } else {
+            dfile
+          }
+
+          validRowKeys ++= extractValidRowKeys(rowKeyFile, dataResourceUid, dataResourceConfig.uniqueTerms, dataResourceConfig.connectionParams, stripSpaces)
           logger.info("Number of validRowKeys: " + validRowKeys.size)
         }
       })
@@ -193,12 +208,6 @@ class AutoDwcCSVLoader extends DataLoader {
         writer.close()
       }
     }
-
-    //TODO use the id files to find out which records need to be deleted
-    // File contains a complete list of the current ids will need to mark records and ten delete all records that have not been marked???
-
-    //update the last time this data resource was loaded in the collectory
-    //updateLastChecked(dataResourceUid)
   }
 
   /**
@@ -210,7 +219,7 @@ class AutoDwcCSVLoader extends DataLoader {
    * @param stripSpaces
    * @return
    */
-  def extractValidRowKeys(file: File, dataResourceUid: String, uniqueTerms: List[String], params: Map[String, String], stripSpaces: Boolean): List[String] = {
+  def extractValidRowKeys(file: File, dataResourceUid: String, uniqueTerms: Seq[String], params: Map[String, String], stripSpaces: Boolean): List[String] = {
     logger.info("Extracting the valid row keys from " + file.getAbsolutePath)
     val quotechar = params.getOrElse("csv_text_enclosure", "\"").head
     val separator = {

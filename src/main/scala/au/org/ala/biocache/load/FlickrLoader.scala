@@ -36,16 +36,18 @@ object FlickrUserLoader extends DataLoader {
     if(parser.parse(args)){
       val l = new FlickrLoader
       //get the connection details
-      val (protocol, url, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-      if(flickrUserId != ""){
-        l.loadWithoutDateRange(params ++ Map("user_id"  -> flickrUserId), dataResourceUid, false, lastUpdated)
-      } else {
-        val userLookup = l.getUserLookup
-        userLookup.keys.foreach(flickrUserId => {
-          //get the connection details
-          val (protocol, url, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-          l.loadWithoutDateRange(params ++ Map("user_id"  -> flickrUserId), dataResourceUid, false, lastUpdated)
-        })
+      retrieveConnectionParameters(dataResourceUid) match {
+        case None => println("Unable to retrieve connection details for " + dataResourceUid)
+        case Some(config) =>
+          if(flickrUserId != ""){
+            l.loadWithoutDateRange(config.connectionParams ++ Map("user_id"  -> flickrUserId), dataResourceUid, false, lastUpdated)
+          } else {
+            val userLookup = l.getUserLookup
+            userLookup.keys.foreach(flickrUserId => {
+              //get the connection details
+              l.loadWithoutDateRange(config.connectionParams ++ Map("user_id"  -> flickrUserId), dataResourceUid, false, lastUpdated)
+            })
+          }
       }
     }
   }
@@ -156,12 +158,15 @@ class FlickrLoader extends DataLoader {
    */
   def load(dataResourceUid: String, suppliedStartDate: Option[Date], suppliedEndDate: Option[Date],
            updateCollectory: Boolean, overwriteImages: Boolean = false, lastUpdatedDate:Option[Date]){
-    val (protocol, url, uniqueTerms, params, customParams, lastChecked) = retrieveConnectionParameters(dataResourceUid)
-    // if it is incremental make the lastUpdatedDate = to the lastChecked so that we only
-    // process images that have been modified since the last time a harvest occurred.
-    val incremental = params.getOrElse("incremental", false).asInstanceOf[Boolean]
-    val lastUpdatedDateToUse = if(incremental) lastChecked else lastUpdatedDate
-    load(params, suppliedEndDate, suppliedStartDate, dataResourceUid, updateCollectory, lastUpdatedDateToUse)
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => logger.error("Unable to retrieve connection params for " + dataResourceUid)
+      case Some(config) =>
+        //if it is incremental make the lastUpdatedDate = to the lastChecked so that
+        // we only process images that have been modified since the last time a harvest occurred.
+        val incremental = config.connectionParams.getOrElse("incremental", false).asInstanceOf[Boolean]
+        load(config.connectionParams, suppliedEndDate, suppliedStartDate, dataResourceUid, updateCollectory,
+          if(incremental) config.dateLastChecked else lastUpdatedDate)
+    }
   }
 
   /**
