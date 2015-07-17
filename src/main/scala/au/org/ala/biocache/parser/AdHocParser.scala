@@ -149,16 +149,16 @@ object AdHocParser {
     //what values are processed???
     val rawAndProcessed = raw.objectArray zip processed.objectArray
     val listBuff = new ListBuffer[ProcessedValue]
-    rawAndProcessed.foreach( { case (rawPoso, procPoso) => {
-      rawPoso.propertyNames.foreach(name => {
+    rawAndProcessed.foreach { case (rawPoso, procPoso) =>
+      rawPoso.propertyNames.foreach { name =>
         val rawValue = rawPoso.getProperty(name)
         val procValue = procPoso.getProperty(name)
         if (!rawValue.isEmpty || !procValue.isEmpty) {
           val term = ProcessedValue(name, rawValue.getOrElse(""), procValue.getOrElse(""))
           listBuff += term
         }
-      })
-    }})
+      }
+    }
 
     //add miscellaneous properties that are not recognised.
     raw.miscProperties.foreach({case (k,v) => listBuff += ProcessedValue(k, v, "")})

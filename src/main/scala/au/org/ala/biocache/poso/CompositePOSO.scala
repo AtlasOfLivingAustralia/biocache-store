@@ -9,22 +9,25 @@ import au.org.ala.biocache.util.Json
  */
 trait CompositePOSO extends POSO {
 
-  val posoGetterLookup = ReflectionCache.getCompositeLookup(this)
-  val nestedProperties = posoGetterLookup.keys
+  private val posoGetterLookup = ReflectionCache.getCompositeLookup(this)
+  private val nestedProperties = posoGetterLookup.keys
 
-  override def hasProperty(name: String) = (!lookup.get(name).isEmpty || !posoGetterLookup.get(name).isEmpty)
+  override def hasProperty(name: String) = (!lookupProperty(name).isEmpty || !posoGetterLookup.get(name.toLowerCase).isEmpty)
 
-  def hasNestedProperty(name: String) = !posoGetterLookup.get(name).isEmpty
+  def hasNestedProperty(name: String) = !posoGetterLookup.get(name.toLowerCase).isEmpty
 
-  override def getPropertyNames: List[String] = nestedProperties.toList
+  /**
+   * Properties for this composite POSO lower cased.
+   * @return
+   */
+  override def getPropertyNames: List[String] = ReflectionCache.getCompositePropertyNames(this)
 
   override def setProperty(name: String, value: String) : Boolean = {
 
     var success = true
-    lookup.get(name) match {
+    lookupProperty(name) match {
 
       case Some(property) => {
-        //println(name + " :  " + property.typeName + " : " +  value)
         if (property.typeName == "scala.collection.immutable.Map") {
           val jsonOption = JSON.parseFull(value)
           if (!jsonOption.isEmpty) {
@@ -76,7 +79,7 @@ trait CompositePOSO extends POSO {
     success
   }
 
-  override def getProperty(name: String): Option[String] = lookup.get(name) match {
+  override def getProperty(name: String): Option[String] = lookupProperty(name) match {
     case Some(property) => Some(property.getter.invoke(this).toString)
     case None => getNestedProperty(name)
   }
@@ -93,7 +96,7 @@ trait CompositePOSO extends POSO {
   }
 
   def setNestedProperty(name: String, value: String) {
-    val getter = posoGetterLookup.get(name)
+    val getter = posoGetterLookup.get(name.toLowerCase)
     getter match {
       case Some(method) => {
         val poso = method.invoke(this).asInstanceOf[POSO]

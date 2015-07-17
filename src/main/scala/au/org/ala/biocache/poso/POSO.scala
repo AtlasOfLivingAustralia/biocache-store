@@ -20,28 +20,40 @@ trait POSO {
 
   protected val lookup = ReflectionCache.getPosoLookup(this)
 
-  val propertyNames = lookup.keys
+  val propertyNames = lookup.values.map(v => v.name)
 
-  def hasProperty(name: String) = !lookup.get(name).isEmpty
+  /**
+   * Case insensitive property check.
+   *
+   * @param name
+   * @return
+   */
+  def hasProperty(name: String) = !lookupProperty(name).isEmpty
+
+  /**
+   * Case insensitive property lookup.
+   *
+   * @param name
+   * @return
+   */
+  def lookupProperty(name:String) : Option[ModelProperty] = lookup.get(name.toLowerCase)
 
   /**
    * Clear all properties for this POSO.
    */
-  def clearAllProperties = {
-    propertyNames.foreach(propertyName => {
-      lookup.get(propertyName) match {
-        case Some(modelProperty) => {
-          val value = modelProperty.getter.invoke(this)
-          if(value !=null && value.toString !=""){
-            setProperty(propertyName, "")
-          }
+  def clearAllProperties = propertyNames.foreach { propertyName =>
+    lookupProperty(propertyName) match {
+      case Some(modelProperty) => {
+        val value = modelProperty.getter.invoke(this)
+        if(value !=null && value.toString !=""){
+          setProperty(propertyName, "")
         }
-        case None => //do nothing
       }
-    })
+      case None => //do nothing
+    }
   }
 
-  def setProperty(name: String, value: String) = lookup.get(name) match {
+  def setProperty(name: String, value: String) = lookupProperty(name) match {
     case Some(property) => {
       property.typeName match {
         case "java.lang.String" => property.setter.invoke(this, value)
@@ -81,7 +93,7 @@ trait POSO {
     case None => {} //println("Property not mapped: " +name +", on " + this.getClass.getName)
   }
 
-  def getProperty(name: String): Option[String] = lookup.get(name) match {
+  def getProperty(name: String): Option[String] = lookupProperty(name) match {
 
     case Some(property) => {
       val value = {

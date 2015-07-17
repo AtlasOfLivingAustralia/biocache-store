@@ -101,7 +101,7 @@ object Store {
         val (rawPoso, procPoso) = rawAndProcessed
         val listBuff = new java.util.LinkedList[ProcessedValue]
         
-        rawPoso.propertyNames.foreach(name => {
+        rawPoso.propertyNames.foreach { name =>
           if(!Config.sensitiveFields.contains(name)){
             val rawValue = rawPoso.getProperty(name)
             val procValue = procPoso.getProperty(name)
@@ -110,7 +110,7 @@ object Store {
               listBuff.add(term)
             }
           }
-        })
+        }
         
         val name = rawPoso.getClass().getName().substring(rawPoso.getClass().getName().lastIndexOf(".") + 1)
         map.put(name, listBuff)

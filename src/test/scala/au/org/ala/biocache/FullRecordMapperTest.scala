@@ -22,4 +22,20 @@ class FullRecordMapperTest extends ConfigFunSuite {
     expectResult("Platycercus"){ fullRecord.getClassification.getGenus }
     expectResult("Aves"){ fullRecord.getClassification.getClasss }
   }
+
+  test("Test wrong case"){
+
+    val fullRecord = FullRecordMapper.createFullRecord(
+      "test",
+      Map(
+        "SCIENTIFICNAME" -> "Aves"
+      ),
+      Versions.RAW
+    )
+    expectResult("Aves"){ fullRecord.getClassification.getScientificName }
+
+    expectResult(true){ fullRecord.getPropertyNames.contains("scientificName") }
+    expectResult(true){ fullRecord.hasProperty("scientificname") }
+    expectResult(true){ fullRecord.hasProperty("scientificName") }
+  }
 }
