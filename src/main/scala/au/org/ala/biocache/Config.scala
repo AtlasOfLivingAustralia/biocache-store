@@ -65,15 +65,6 @@ object Config {
     SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl, nameIndex)
   }
 
-  val allowLayerLookup = {
-    val str = configModule.properties.getProperty("allow.layer.lookup")
-    if(str != null){
-      str.toBoolean
-    } else {
-      false
-    }
-  }
-
   val sdsEnabled = configModule.properties.getProperty("sds.enabled", "true").toBoolean
 
   val hashImageFileNames = configModule.properties.getProperty("hash.image.filenames", "false").toBoolean
