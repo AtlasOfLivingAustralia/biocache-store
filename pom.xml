@@ -9,7 +9,7 @@
 
     <groupId>au.org.ala</groupId>
     <artifactId>biocache-store</artifactId>
-    <version>1.6</version>
+    <version>1.5.3</version>
     <url>http://biocache.ala.org.au</url>
     <issueManagement>
         <system>GitHub</system>
