@@ -27,6 +27,7 @@ class LocationProcessor extends Processor {
   import AssertionCodes._
   import AssertionStatus._
   import JavaConversions._
+  import au.org.ala.sds.util._
 
   val logger = LoggerFactory.getLogger("LocationProcessor")
   val WGS84_EPSG_Code = "EPSG:4326"
@@ -466,7 +467,8 @@ class LocationProcessor extends Processor {
             } else {
               //lat and long from easting and northing did NOT fail:
               assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, PASSED)
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING, "Decimal latitude and longitude were calculated using easting, northing and zone.")
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING,
+                "Decimal latitude and longitude were calculated using easting, northing and zone.")
               val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
               Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
             }
@@ -771,7 +773,7 @@ class LocationProcessor extends Processor {
 
       //Test that coordinates are in range
       if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        //test to see if they have been inverted  (TODO other tests for inversion...)
+        //test to see if they have been inverted
         if (lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
           assertions += QualityAssertion(INVERTED_COORDINATES, "Assume that coordinates have been inverted. Original values: " +
             processed.location.decimalLatitude + "," + processed.location.decimalLongitude)
@@ -870,18 +872,19 @@ class LocationProcessor extends Processor {
     /************** SDS check ************/
     logger.debug("Starting SDS check")
     val rawMap = scala.collection.mutable.Map[String, String]()
-    raw.objectArray.foreach(poso => {
+    raw.objectArray.foreach { poso =>
       val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
       rawMap.putAll(map)
-    })
+    }
 
     if(!processed.location.decimalLongitude.toDoubleWithOption.isEmpty && !processed.location.decimalLatitude.toDoubleWithOption.isEmpty){
       //do a dynamic lookup for the layers required for the SDS
       val layerIntersect = SensitiveAreaDAO.intersect(processed.location.decimalLongitude.toDouble,
         processed.location.decimalLatitude.toDouble)
-      au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key => {
+
+      GeoLocationHelper.getGeospatialLayers.foreach { key =>
         rawMap.put(key, layerIntersect.getOrElse(key, "n/a"))
-      })
+      }
 
       val intersectStateProvince = layerIntersect.getOrElse(Config.stateProvinceLayerID, "")
 

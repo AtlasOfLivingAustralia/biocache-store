@@ -27,23 +27,26 @@ object SFTPTools {
 
   def sftpLatestArchive(url:String, resourceUid:String, tempDir:String, afterDate:Option[Date]):Option[(String,Date)]={
 
-    val (user,password,host,directory) ={
-      url match{
+    val (user,password,host,directory) = url match {
       case connectionPattern(user, password, host, directory) => {
         (user, password, host, directory)
       }
       case sftpPattern(host,directory) => {
-        val u=Config.getProperty("uploadUser")
-        val p =Config.getProperty("uploadPassword")
+        val u = Config.getProperty("uploadUser")
+        val p = Config.getProperty("uploadPassword")
         if(StringUtils.isEmpty(u) || StringUtils.isEmpty(p))
           logger.error("SCP User or password has not been supplied. Please supply as part of the biocache-test-config.properties")
          (u,p,host,directory)
       }
       case _=>logger.error("Unable to connect to " + url);(null,null,null,null)
-    }}
+    }
+
     connect(host, user, password)
+
     val lastFile = getLatestFile(directory, "*.*",afterDate)
+
     disconnect
+
     if(lastFile.isDefined){
       val dir = tempDir + resourceUid
       //scp the file is faster than sftp
@@ -53,7 +56,7 @@ object SFTPTools {
     }
   }
 
-  def connect(host:String,  user:String, password:String,port:Int=22){
+  def connect(host:String,  user:String, password:String, port:Int=22) : Unit = {
     val jsch = new JSch()
     session = jsch.getSession(user,host,port)
     val config = new java.util.Properties()
@@ -63,21 +66,21 @@ object SFTPTools {
     session.connect()
     val channel = session.openChannel("sftp")
     channel.connect()
-    channelSftp =channel.asInstanceOf[ChannelSftp]
+    channelSftp = channel.asInstanceOf[ChannelSftp]
   }
 
-  def disconnect(){
+  def disconnect {
     channelSftp.disconnect()
     session.disconnect()
   }
 
-  def getLatestFile(dir:String, filePattern:String, afterDate:Option[Date]):Option[String]={
+  def getLatestFile(dir:String, filePattern:String, afterDate:Option[Date]):Option[String] = {
 
     val list = listFiles(dir+File.separator+filePattern)
-    if(list.size>0){
-      val item=list.reduceLeft((a,b)=>if(a.getAttrs().getMTime() > b.getAttrs().getMTime()) a else b)
-      if(afterDate.isEmpty || (afterDate.get.getTime()/1000)<item.getAttrs().getMTime())
-        Some(dir + File.separator+item.getFilename)
+    if(!list.isEmpty){
+      val item=list.reduceLeft((a,b) => if(a.getAttrs().getMTime() > b.getAttrs().getMTime()) a else b)
+      if(afterDate.isEmpty || (afterDate.get.getTime()/1000) < item.getAttrs().getMTime())
+        Some(dir + File.separator + item.getFilename)
       else
         None
     } else {
@@ -111,15 +114,13 @@ object SFTPTools {
       //command to get the last modified date in number of seconds since epoch
       val outputStream = new java.io.ByteArrayOutputStream()
       val command = new SshCommand("date -r " + remoteFile + " +%s", outputStream)
-      val date = {
-        try {
-          ssh.executeTask(command)
-          val stringvalue = outputStream.toString()
-          //logger.info("The string value of the modified date :$" + stringvalue+"$")
-          new Date(stringvalue.trim.toLong *1000)
-        } catch {
-          case e:Exception => e.printStackTrace();new Date()
-        }
+      val date = try {
+        ssh.executeTask(command)
+        val stringvalue = outputStream.toString()
+        //logger.info("The string value of the modified date :$" + stringvalue+"$")
+        new Date(stringvalue.trim.toLong *1000)
+      } catch {
+        case e:Exception => e.printStackTrace();new Date()
       }
 
       ssh.executeTask(new ScpDownload(scpFile))
