@@ -41,53 +41,47 @@ object SensitiveAreaDAO {
    */
   private def init = {
 
-
     //SDS layer loading
-    if(Config.sdsEnabled){
-      logger.info("Loading Layer information from ....." + Config.layersServiceUrl)
-      val layersJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/layers")
-      val fieldsJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/fields")
+    logger.info("Loading Layer information from ....." + Config.layersServiceUrl)
+    val layersJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/layers")
+    val fieldsJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/fields")
 
-      //layers
-      val layers = JSON.parseFull(layersJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
-      logger.info("Number of layers loaded ....." + layers.size)
-      layers.foreach(layer => {
-        idNameLookup.put(layer.getOrElse("id", -1).asInstanceOf[Double].toInt.toString(), layer.getOrElse("name", ""))
-      })
+    //layers
+    val layers = JSON.parseFull(layersJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
+    logger.info("Number of layers loaded ....." + layers.size)
+    layers.foreach(layer => {
+      idNameLookup.put(layer.getOrElse("id", -1).asInstanceOf[Double].toInt.toString(), layer.getOrElse("name", ""))
+    })
 
-      //fields
-      val fields = JSON.parseFull(fieldsJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
-      logger.info("Number of fields loaded ....." + fields.size)
-      fields.foreach(field => {
-        nameFieldLookup.put(field.getOrElse("spid", "-1"), field.getOrElse("sname", ""))
-      })
+    //fields
+    val fields = JSON.parseFull(fieldsJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
+    logger.info("Number of fields loaded ....." + fields.size)
+    fields.foreach(field => {
+      nameFieldLookup.put(field.getOrElse("spid", "-1"), field.getOrElse("sname", ""))
+    })
 
-      logger.info("Loaded layers required by SDS.....")
-      //load SDS layer metadata
-      au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(layerID => {
-        //check each layer is available on the local filesystem
-        loadLayer(layerID, true)
-      })
+    logger.info("Loaded layers required by SDS.....")
+    //load SDS layer metadata
+    au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(layerID => {
+      //check each layer is available on the local filesystem
+      loadLayer(layerID, true)
+    })
 
-      //Load additional layers
-      if(StringUtils.isNotBlank(Config.stateProvinceLayerID)){
-        loadLayer(Config.stateProvinceLayerID, false)
-      }
-      if(StringUtils.isNotBlank(Config.terrestrialLayerID)){
-        loadLayer(Config.terrestrialLayerID, false)
-      }
-      if(StringUtils.isNotBlank(Config.marineLayerID)){
-        loadLayer(Config.marineLayerID, false)
-      }
-      if(StringUtils.isNotBlank(Config.countriesLayerID)){
-        loadLayer(Config.countriesLayerID, false)
-      }
-      if(StringUtils.isNotBlank(Config.localGovLayerID)){
-        loadLayer(Config.localGovLayerID, false)
-      }
-
-    } else {
-      logger.info("SDS is currently disabled")
+    //Load additional layers
+    if(StringUtils.isNotBlank(Config.stateProvinceLayerID)){
+      loadLayer(Config.stateProvinceLayerID, false)
+    }
+    if(StringUtils.isNotBlank(Config.terrestrialLayerID)){
+      loadLayer(Config.terrestrialLayerID, false)
+    }
+    if(StringUtils.isNotBlank(Config.marineLayerID)){
+      loadLayer(Config.marineLayerID, false)
+    }
+    if(StringUtils.isNotBlank(Config.countriesLayerID)){
+      loadLayer(Config.countriesLayerID, false)
+    }
+    if(StringUtils.isNotBlank(Config.localGovLayerID)){
+      loadLayer(Config.localGovLayerID, false)
     }
   }
 
