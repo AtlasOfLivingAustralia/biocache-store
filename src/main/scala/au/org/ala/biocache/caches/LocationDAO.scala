@@ -1,16 +1,9 @@
 package au.org.ala.biocache.caches
 
-import java.util
-
-import au.com.bytecode.opencsv.CSVReader
-import au.org.ala.biocache.util.LayersStore
-import org.ala.layers.client.Client
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import scala.collection.mutable.HashMap
 import au.org.ala.biocache.model.Location
-import au.org.ala.biocache.vocab.StateProvinces
-import scala.collection.JavaConverters._
 
 /**
  * DAO for location lookups (lat, long -> locality).
@@ -126,34 +119,6 @@ object LocationDAO {
             location.decimalLatitude = latitude
             location.decimalLongitude = longitude
 
-            //map this to sensible values we are used to
-            val stateProvinceValue = map.getOrElse(Config.stateProvinceLayerID, null)
-            if (stateProvinceValue != null & stateProvinceValue != ""){
-              StateProvinces.matchTerm(stateProvinceValue) match {
-                case Some(term) => location.stateProvince = term.canonical
-                case None => {
-                  /*do nothing for now */
-                  logger.warn("Unrecognised state province value retrieved from layer " + Config.stateProvinceLayerID + " : " + stateProvinceValue)
-                }
-              }
-            }
-
-            location.isTerrestrial = {
-              !map.get(Config.terrestrialLayerID).isEmpty
-            }
-
-            location.isMarine = {
-              !map.get(Config.marineLayerID).isEmpty
-            }
-
-            location.country = map.getOrElse(Config.countriesLayerID, null)
-            location.lga = map.getOrElse(Config.localGovLayerID, null)
-
-            //if the country is null but the stateProvince has a value we can assume that it is an Australian point
-            if(location.country == null && location.stateProvince != null) {
-              location.country = Config.defaultCountry
-            }
-
             val el = map.filter(x => x._1.startsWith("el"))
             val cl = map.filter(x => x._1.startsWith("cl"))
 
@@ -171,65 +136,6 @@ object LocationDAO {
             None
           }
         }
-    }
-  }
-
-  private def doLayerIntersectForPoint(latitude:String, longitude:String) : Option[(Location, Map[String,String], Map[String,String])] = {
-
-    //do a layers-store lookup
-    val points = Array(Array[Double](longitude.toDouble, latitude.toDouble))
-
-    var samples: java.util.ArrayList[String] = new util.ArrayList[String]()
-
-    //allow local and remote sampling
-    if (Config.layersServiceSampling) {
-      val layersStore = new LayersStore(Config.layersServiceUrl)
-      val samplesReader:CSVReader = new CSVReader(layersStore.sample(Config.fieldsToSample, points))
-      val samplesRemote:util.List[Array[String]] = samplesReader.readAll()
-
-      //exclude header and longitude,latitude in the first 2 columns
-      if (samplesRemote.size() == 2) {
-        samples = new util.ArrayList[String](samplesRemote.get(1).length - 2)
-        samplesRemote.get(1).slice(2, samplesRemote.get(1).length).foreach(samples.add(_))
-      }
-    } else {
-      val layerIntersectDAO = Client.getLayerIntersectDao()
-      samples = layerIntersectDAO.sampling(Config.fieldsToSample, points)
-    }
-
-    if(!samples.isEmpty){
-      val values:Array[String] = samples.toArray(Array[String]())
-      //create a map to store in loc
-      val mapBuffer = new HashMap[String, String]
-      mapBuffer += (latitudeCol -> latitude)
-      mapBuffer += (longitudeCol -> longitude)
-      mapBuffer ++= (Config.fieldsToSample zip values).filter(x => x._2.trim.length != 0 && x._2 != "n/a")
-      val propertyMap = mapBuffer.toMap
-      val guid = getLatLongKey(latitude, longitude)
-      persistenceManager.put(guid, columnFamily, propertyMap)
-      //now map fields to elements of the model object "Location" and return this
-      val location = new Location
-      location.decimalLatitude = latitude
-      location.decimalLongitude = longitude
-      val stateProvinceValue = propertyMap.getOrElse(Config.stateProvinceLayerID, null)
-      //now do the state vocab substitution
-      if (stateProvinceValue != null & stateProvinceValue != ""){
-        StateProvinces.matchTerm(stateProvinceValue) match {
-          case Some(term) => location.stateProvince = term.canonical
-          case None => {
-            /*do nothing for now */
-            logger.warn("Unrecognised state province value retrieved from layer cl927: " + stateProvinceValue)
-          }
-        }
-      }
-      location.country = propertyMap.getOrElse(Config.countriesLayerID, null)
-
-      val el = propertyMap.filter(x => x._1.startsWith("el"))
-      val cl = propertyMap.filter(x => x._1.startsWith("cl"))
-
-      Some((location, el, cl))
-    } else {
-      None
     }
   }
 }

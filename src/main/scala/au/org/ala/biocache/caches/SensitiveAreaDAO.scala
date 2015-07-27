@@ -94,13 +94,21 @@ object SensitiveAreaDAO {
       ", field name: " + nameFieldLookup.getOrElse(id, "xxxxx")
     )
     if(f.exists()){
-      loadedShapeFiles.put(layerID, new SimpleShapeFile(Config.layersDirectory  + idNameLookup.getOrElse(id, "xxxxx"), nameFieldLookup.getOrElse(id, "xxxxx")))
+      val ssf = new SimpleShapeFile(Config.layersDirectory + idNameLookup.getOrElse(id, "xxxxx"), nameFieldLookup.getOrElse(id, "xxxxx"))
+      loadedShapeFiles.put(layerID, ssf)
     } else if(errorIfNotAvailable) {
       throw new RuntimeException(s"Layer $layerID unavailable on local filesystem. " +
         "To disable SDS checking set sds.enabled=false in your external config file." )
     }
   }
 
+  /**
+   * Intersect the supplied coordinates with loaded layers.
+   *
+   * @param decimalLongitude
+   * @param decimalLatitude
+   * @return
+   */
   def intersect(decimalLongitude:String, decimalLatitude:String) : Map[String, String] = {
     val optLong = decimalLongitude.toDoubleWithOption
     val optLat = decimalLatitude.toDoubleWithOption
@@ -127,7 +135,7 @@ object SensitiveAreaDAO {
     val guid = getLatLongKey(decimalLongitude, decimalLatitude)
 
     //retrieve from cache
-    val lookup = lru.get(guid)
+    val lookup = lock.synchronized { lru.get(guid) }
 
     if(lookup != null){
       lookup.asInstanceOf[Map[String,String]]
@@ -145,7 +153,7 @@ object SensitiveAreaDAO {
     }
   }
 
-  def add(decimalLongitude:Double, decimalLatitude:Double, intersectValues:Map[String,String]): Unit ={
+  def add(decimalLongitude:Double, decimalLatitude:Double, intersectValues:Map[String,String]): Unit = {
     lock.synchronized { lru.put(getLatLongKey(decimalLongitude, decimalLatitude), intersectValues) }
   }
 
