@@ -277,8 +277,10 @@ object RemoteMediaStore extends MediaStore {
     val (stored, fileName, imageId) = alreadyStored(uuid, resourceUID, urlToMedia)
 
     //if already store, just update metadata
-    if(stored && !media.isEmpty){
-      updateMetadata(imageId, media.get)
+    if(stored){
+      if(media.isDefined){
+        updateMetadata(imageId, media.get)
+      }
       Some((fileName, imageId))
     } else {
       //download to temp file and upload image
