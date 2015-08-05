@@ -1,9 +1,9 @@
 package au.org.ala.biocache.load
 
-import java.net.{URLEncoder}
+import java.net.{URL, URLEncoder}
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.model.{Multimedia, FullRecord}
 import au.org.ala.biocache.util.OptionParser
 import org.slf4j.LoggerFactory
 
@@ -39,7 +39,7 @@ class EolLoader extends DataLoader {
 
   override val logger = LoggerFactory.getLogger("EolLoader")
 
-  def load(dataResouceUid:String, url:String) {
+  def load(dataResourceUid:String, url:String) {
     //val url = "http://130.56.248.115/solr/bie/select?wt=csv&q=rank:Species&fl=scientificName&rows=100"
     val names = Source.fromURL(url).getLines()
 
@@ -55,7 +55,11 @@ class EolLoader extends DataLoader {
             val result = results.get.head
             val pageId = result.getOrElse("id", -1).asInstanceOf[Double].toInt
             logger.info(s"For $name pageId: $pageId")
-            loadPage(dataResouceUid, pageId.toString)
+            try {
+              loadPage(dataResourceUid, pageId.toString)
+            } catch {
+              case e:Exception => logger.error(s"Problem loading page id: $pageId " + e.getMessage)
+            }
           }
         }
         case None => Nil
@@ -81,6 +85,8 @@ class EolLoader extends DataLoader {
             val title = dataObject.getOrElse("title", "no title").asInstanceOf[String]
             val mimeType = dataObject.getOrElse("mimeType", "no mimeType").asInstanceOf[String]
             val license = dataObject.getOrElse("license", "no license").asInstanceOf[String]
+            val source = dataObject.getOrElse("source", "").asInstanceOf[String]
+            val vettedStatus = dataObject.getOrElse("vettedStatus", "").asInstanceOf[String]
             val identifier = dataObject.getOrElse("identifier", "no license").asInstanceOf[String]
             val agents = dataObject.getOrElse("agents", List()).asInstanceOf[List[Map[String,String]]]
             var photographer = ""
@@ -96,9 +102,17 @@ class EolLoader extends DataLoader {
             if(dataType == "http://purl.org/dc/dcmitype/StillImage") {
               val fullRecord = new FullRecord()
               fullRecord.classification.scientificName = scientificName
-              fullRecord.occurrence.photographer = photographer
-              fullRecord.occurrence.associatedMedia = mediaURL
-              load(dataResourceUID, fullRecord, List(identifier), false, true)
+              load(dataResourceUID, fullRecord, List(identifier), List(new Multimedia(new URL(mediaURL), mimeType,
+                Map(
+                  "license" ->  license,
+                  "rightsHolder" -> rightsHolder,
+                  "title" -> title,
+                  "description" -> description,
+                  "creator" -> photographer,
+                  "source" -> source,
+                  "vettedStatus" -> vettedStatus
+                )
+              )))
               logger.info(s"URL $mediaURL Type: $dataType")
             }
           }
