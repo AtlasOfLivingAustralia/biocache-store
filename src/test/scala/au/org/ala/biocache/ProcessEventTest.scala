@@ -23,20 +23,20 @@ import au.org.ala.biocache.util.DateUtil
 class ProcessEventTest extends ConfigFunSuite {
 
   test("00 month test"){
-    var raw = new FullRecord("1234","1234")
+    val raw = new FullRecord("1234","1234")
     raw.event.day ="0"
     raw.event.month = "0"
     raw.event.year = "0"
-    var processed = raw.clone
+    val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
 //    println(processed.event)
   }
   
   test("yyyy-dd-mm correctly sets year, month, day values in process object") {
 
-    var raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
     raw.event.eventDate = "1978-12-31"
-    var processed = raw.clone
+    val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
 
     expectResult("1978-12-31"){ processed.event.eventDate }
@@ -47,9 +47,9 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("yyyy-dd-mm verbatim date correctly sets year, month, day values in process object") {
 
-    var raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
     raw.event.verbatimEventDate = "1978-12-31/1978-12-31"
-    var processed = raw.clone
+    val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
 
     expectResult("1978-12-31"){ processed.event.eventDate }
@@ -60,11 +60,11 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("if year, day, month supplied, eventDate is correctly set") {
 
-    var raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
     raw.event.year = "1978"
     raw.event.month = "12"
     raw.event.day = "31"
-    var processed = raw.clone
+    val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
 
     expectResult("1978-12-31"){ processed.event.eventDate }
@@ -75,11 +75,11 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("if year supplied in 'yy' format, eventDate is correctly set") {
 
-    var raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
     raw.event.year = "78"
     raw.event.month = "12"
     raw.event.day = "31"
-    var processed = raw.clone
+    val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
 
     expectResult("1978-12-31"){ processed.event.eventDate }
@@ -90,11 +90,11 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("day month transposed") {
 
-    var raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
     raw.event.year = "78"
     raw.event.month = "16"
     raw.event.day = "6"
-    var processed = raw.clone
+    val processed = raw.clone
     val assertions = (new EventProcessor).process("1234", raw, processed)
 
     expectResult("1978-06-16"){ processed.event.eventDate }
@@ -107,8 +107,8 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("invalid month test") {
 
-    var raw = new FullRecord("1234", "1234")
-    var processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
+    val processed = new FullRecord("1234", "1234")
     raw.event.year = "78"
     raw.event.month = "16"
     raw.event.day = "16"
@@ -126,8 +126,8 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("invalid month test > 12") {
 
-    var raw = new FullRecord("1234", "1234")
-    var processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
+    val processed = new FullRecord("1234", "1234")
     raw.event.year = "1978"
     raw.event.month = "40"
     raw.event.day = "16"
@@ -145,8 +145,8 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("year = 11, month = 02, day = 01") {
 
-    var raw = new FullRecord("1234", "1234")
-    var processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
+    val processed = new FullRecord("1234", "1234")
     raw.event.year = "11"
     raw.event.month = "02"
     raw.event.day = "01"
@@ -164,8 +164,8 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("1973-10-14") {
 
-    var raw = new FullRecord("1234", "1234")
-    var processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
+    val processed = new FullRecord("1234", "1234")
     raw.event.eventDate = "1973-10-14"
 
     val assertions = (new EventProcessor).process("1234", raw, processed)
@@ -180,8 +180,8 @@ class ProcessEventTest extends ConfigFunSuite {
   }
 
   test("today"){
-    var raw = new FullRecord("1234", "1234")
-    var processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
+    val processed = new FullRecord("1234", "1234")
     val sf = new SimpleDateFormat("yyyy-MM-dd")
     raw.event.eventDate = sf.format(new Date())
     val assertions = (new EventProcessor).process("1234", raw, processed)
@@ -191,8 +191,8 @@ class ProcessEventTest extends ConfigFunSuite {
   }
 
   test("tomorrow"){
-    var raw = new FullRecord("1234", "1234")
-    var processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
+    val processed = new FullRecord("1234", "1234")
     val sf = new SimpleDateFormat("yyyy-MM-dd")
     raw.event.eventDate = sf.format(DateUtils.addDays(new Date(),1))
     val assertions = (new EventProcessor).process("1234", raw, processed)
@@ -202,8 +202,8 @@ class ProcessEventTest extends ConfigFunSuite {
   }
 
   test("a digit year which gives a future date") {
-    var raw = new FullRecord("1234", "1234")
-    var processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234", "1234")
+    val processed = new FullRecord("1234", "1234")
     val futureDate = DateUtils.addDays(new Date(),2)
 
     val twoDigitYear =(new SimpleDateFormat("yy")).format(futureDate)
@@ -346,7 +346,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
     //valid but incomlete event year
     var raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.event.year="2014"
     var qas = (new EventProcessor).process("test",raw,processed)
     expectResult(0){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INCOMPLETE_COLLECTION_DATE.code).get.getQaStatus}
@@ -394,7 +394,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("First Fleet Tests"){
     var raw = new FullRecord
-    var processed = new FullRecord
+    val processed = new FullRecord
     raw.event.year="1788"
     raw.event.month="01"
     raw.event.day="26"
@@ -408,8 +408,8 @@ class ProcessEventTest extends ConfigFunSuite {
   }
 
   test("00 month and day"){
-    var raw = new FullRecord
-    var processed = new FullRecord
+    val raw = new FullRecord
+    val processed = new FullRecord
     raw.event.eventDate="2014-00-00"
     //should be an invalid date
   }

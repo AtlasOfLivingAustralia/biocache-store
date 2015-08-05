@@ -126,16 +126,10 @@ class LayersStore ( layersStoreUrl: String) {
    * value = display name
    */
   def getFieldIdsAndDisplayNames() : util.HashMap[String, String] = {
-    val httpClient = new DefaultHttpClient()
-    val httpGet = new HttpGet(layersStoreUrl + "/fieldsdb")
-    val response = httpClient.execute(httpGet)
-    val result = response.getStatusLine()
 
-    logger.debug("Response code: " + result.getStatusCode)
-
-    val content = Source.fromInputStream(response.getEntity().getContent())
-    val responseBody = if(content.size > 1){
-      content.mkString
+    val response = Source.fromURL(layersStoreUrl + "/fieldsdb", "UTF-8")
+    val responseBody = if(!response.isEmpty){
+      response.mkString
     } else {
       "[]"
     }
