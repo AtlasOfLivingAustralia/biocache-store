@@ -341,7 +341,8 @@ class DwCALoader extends DataLoader {
     val records = star.extension(rowType).asScala
     val multimedia = new ListBuffer[Multimedia]
     records.foreach { row =>
-      val metadata = (row.terms.map { term => term -> row.value(term) }).toMap[Term, String]
+      val terms = row.terms.filter { term => Option(row.value(term)).isDefined}
+      val metadata = terms.map { term => term -> row.value(term) }.toMap[Term, String]
       locateMultimedia(row, imageBase) match {
         case Some(location) => multimedia.add(Multimedia.create(location, metadata))
         case None => logger.debug("No location found for row")

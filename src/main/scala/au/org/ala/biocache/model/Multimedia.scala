@@ -14,7 +14,7 @@ object Multimedia {
 
   val IDENTIFIER_TERM =  DcTerm.identifier
   val FORMAT_TERM =  DcTerm.format
-  val EXTENSION_PATTERN = raw"\.[\d\w\-_]+".r
+  val EXTENSION_PATTERN = raw"(\.[\d\w\-_]+)(\?.*)?$$".r
   val EXTENSION_MAP = Map(
     ".jpg" -> "image/jpeg",
     ".gif" -> "image/gif",
@@ -39,7 +39,7 @@ object Multimedia {
         metadata get IDENTIFIER_TERM match {
           case Some(id: String) => {
             EXTENSION_PATTERN findFirstMatchIn id match {
-              case Some(m: Regex.Match) => EXTENSION_MAP.getOrElse(m.matched.toLowerCase, "image/*")
+              case Some(m: Regex.Match) => EXTENSION_MAP.getOrElse(m.group(1).toLowerCase, "image/*")
               case None => "image/*"
             }
           }
