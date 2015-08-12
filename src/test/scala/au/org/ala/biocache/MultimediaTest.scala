@@ -65,6 +65,13 @@ class MultimediaTest extends ConfigFunSuite {
     }
   }
 
+  test("Test find mime type identifier 5"){
+    val metadata: Map[Term, String] = Map(DcTerm.identifier -> "fred.nurke.PNg")
+    expectResult("image/png") {
+      Multimedia.findMimeType(metadata)
+    }
+  }
+
   test("Test find mime type empty 1"){
     val metadata: Map[Term, String] = Map()
     expectResult("image/*") {
