@@ -56,10 +56,13 @@ object AssertionCodes {
   val DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED = ErrorCode("decimalLatLongCalculationFromVerbatimFailed", 48, true, "Failed to calculate decimal latitude and longitude from verbatimLatitude, verbatimLongitude and verbatimSRS", Error)
   val DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING = ErrorCode("decimalLatLongCalculatedFromEastingNorthing", 49, false, "Decimal latitude and longitude were calculated using easting, nothing and zone", Warning)
   val DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED = ErrorCode("decimalLatLongCalculationFromEastingNorthingFailed", 50, true, "Failed to calculate decimal latitude and longitude using easting, northing and zone", Error)
+
   val GEODETIC_DATUM_ASSUMED_WGS84 = ErrorCode("geodeticDatumAssumedWgs84", 51, false, "Geodetic datum assumed to be WGS84 (EPSG:4326)", Warning)
   val UNRECOGNIZED_GEODETIC_DATUM = ErrorCode("unrecognizedGeodeticDatum", 52, false, "Geodetic datum not recognized", Error)
   val ZERO_LATITUDE_COORDINATES = ErrorCode("zeroLatitude",53,true,"Supplied latitude is zero", Warning)
   val ZERO_LONGITUDE_COORDINATES = ErrorCode("zeroLongitude",54,true,"Supplied longitude are zero", Warning)
+
+  val DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF = ErrorCode("decimalLatLongCalculatedFromGridReference", 55, false, "Decimal latitude and longitude were calculated using grid reference", Warning)
 
   //taxonomy issues
   val TAXONOMIC_ISSUE = ErrorCode("taxonomicIssue",10000,false,"Taxonomic issue", Error)  // general purpose option

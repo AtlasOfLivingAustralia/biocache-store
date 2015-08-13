@@ -58,9 +58,9 @@ class Location extends Cloneable with POSO {
   @BeanProperty var verbatimLongitude:String = _
   @BeanProperty var verbatimSRS:String = _
   @BeanProperty var waterBody:String = _
-  //custom additional fields not in darwin core
+  // custom additional fields not in darwin core
   @BeanProperty var lga:String = _
-  //AVH additions
+  // AVH additions
   @BeanProperty var generalisedLocality: String =_ ///http://wiki.tdwg.org/twiki/bin/view/ABCD/AbcdConcept0977
   @BeanProperty var nearNamedPlaceRelationTo: String = _ //http://wiki.tdwg.org/twiki/bin/view/ABCD/AbcdConcept0980
   @BeanProperty var australianHerbariumRegion: String = _ //http://www.chah.org.au/hispid/terms/australianHerbariumRegion
@@ -69,6 +69,7 @@ class Location extends Cloneable with POSO {
   @BeanProperty var easting: String =_
   @BeanProperty var northing: String =_
   @BeanProperty var zone: String =_
+  @BeanProperty var gridReference: String =_
 
   //fields that need be hidden from all public API
   //These fields can NOT be @BeanProperty because we need the getter method to have a @JsonIgnore annotation

@@ -177,6 +177,7 @@ class Sampling {
       map.getOrElse("easting", null),
       map.getOrElse("northing", null),
       map.getOrElse("zone", null),
+      map.getOrElse("gridReference", null),
       new ArrayBuffer[QualityAssertion]
     )
     latLongWithOption match {

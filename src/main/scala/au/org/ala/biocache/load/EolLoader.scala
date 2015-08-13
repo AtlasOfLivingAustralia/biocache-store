@@ -78,21 +78,21 @@ class EolLoader extends DataLoader {
         val dataObjects = payload.asInstanceOf[Map[String, List[Map[String, Any]]]].get("dataObjects")
         if(!dataObjects.isEmpty && dataObjects.get.size > 0){
           dataObjects.get.foreach { dataObject =>
-            val dataType = dataObject.getOrElse("dataType", "unknown").asInstanceOf[String]
-            val mediaURL = dataObject.getOrElse("mediaURL", "no media URL").asInstanceOf[String]
-            val description = dataObject.getOrElse("description", "no description").asInstanceOf[String]
-            val rightsHolder = dataObject.getOrElse("rightsHolder", "no rights holder").asInstanceOf[String]
-            val title = dataObject.getOrElse("title", "no title").asInstanceOf[String]
-            val mimeType = dataObject.getOrElse("mimeType", "no mimeType").asInstanceOf[String]
-            val license = dataObject.getOrElse("license", "no license").asInstanceOf[String]
+            val dataType = dataObject.getOrElse("dataType", "").asInstanceOf[String]
+            val mediaURL = dataObject.getOrElse("mediaURL", "").asInstanceOf[String]
+            val description = dataObject.getOrElse("description", "").asInstanceOf[String]
+            val rightsHolder = dataObject.getOrElse("rightsHolder", "").asInstanceOf[String]
+            val title = dataObject.getOrElse("title", "").asInstanceOf[String]
+            val mimeType = dataObject.getOrElse("mimeType", "").asInstanceOf[String]
+            val license = dataObject.getOrElse("license", "").asInstanceOf[String]
             val source = dataObject.getOrElse("source", "").asInstanceOf[String]
             val vettedStatus = dataObject.getOrElse("vettedStatus", "").asInstanceOf[String]
-            val identifier = dataObject.getOrElse("identifier", "no license").asInstanceOf[String]
+            val identifier = dataObject.getOrElse("identifier", "").asInstanceOf[String]
             val agents = dataObject.getOrElse("agents", List()).asInstanceOf[List[Map[String,String]]]
             var photographer = ""
             agents.foreach { agent =>
-              val fullName = agent.getOrElse("full_name", "no name for agent")
-              val role = agent.getOrElse("role", "no name for agent")
+              val fullName = agent.getOrElse("full_name", "")
+              val role = agent.getOrElse("role", "")
               logger.info(s"agent $fullName" )
               if("photographer" == role){
                 photographer = fullName

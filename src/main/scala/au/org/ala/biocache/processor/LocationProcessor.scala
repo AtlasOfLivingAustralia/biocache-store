@@ -7,7 +7,7 @@ import scala.collection.JavaConversions
 import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.StringUtils
 import org.geotools.referencing.crs.DefaultGeographicCRS
-import org.geotools.referencing.CRS
+import org.geotools.referencing.{ReferencingFactoryFinder, CRS}
 import org.geotools.referencing.operation.DefaultCoordinateOperationFactory
 import org.geotools.geometry.GeneralDirectPosition
 import org.apache.commons.math3.util.Precision
@@ -64,7 +64,7 @@ class LocationProcessor extends Processor {
     logger.debug("Processing location for guid: " + guid)
 
     //retrieve the point
-    var assertions = new ArrayBuffer[QualityAssertion]
+    val assertions = new ArrayBuffer[QualityAssertion]
 
     //handle the situation where the coordinates have already been sensitised
     setProcessedCoordinates(raw, processed, assertions)
@@ -91,7 +91,7 @@ class LocationProcessor extends Processor {
     //more checks
     if (processed.location.decimalLatitude != null && processed.location.decimalLongitude != null) {
 
-      //intersect values
+      //intersect values with sensitive areas
       val intersectValues = SensitiveAreaDAO.intersect(processed.location.decimalLongitude, processed.location.decimalLatitude)
 
       //add state province, country, LGA
@@ -126,9 +126,34 @@ class LocationProcessor extends Processor {
       processed.cl = contextualLayers
     }
 
+    //create flag if no location info was supplied for this record
+    checkLocationSupplied(raw, processed, assertions)
+
+    //run validation tests against the processed coordinates
+    validateCoordinates(raw, processed, assertions)
+
+    //process state/country values if coordinates not determined
+    processStateCountryValues(raw, processed, assertions)
+
+    //validate the geo-reference values
+    validateGeoreferenceValues(raw, processed, assertions)
+
+    //return the assertions created by this processor
+    assertions.toArray
+  }
+
+  /**
+   * Create flag if no location info was supplied for this record
+   *
+   * @param raw
+   * @param processed
+   * @param assertions
+   * @return
+   */
+  def checkLocationSupplied(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): ArrayBuffer[QualityAssertion] = {
     if (processed.location.decimalLatitude == null || processed.location.decimalLongitude == null) {
       //check to see if we have any location information at all for the record
-      if (raw.location.footprintWKT == null && raw.location.locality == null && raw.location.locationID == null){
+      if (raw.location.footprintWKT == null && raw.location.locality == null && raw.location.locationID == null) {
         assertions += QualityAssertion(LOCATION_NOT_SUPPLIED)
       } else {
         assertions += QualityAssertion(LOCATION_NOT_SUPPLIED, PASSED)
@@ -136,19 +161,16 @@ class LocationProcessor extends Processor {
     } else {
       assertions += QualityAssertion(LOCATION_NOT_SUPPLIED, PASSED)
     }
-
-    validateCoordinates(raw, processed, assertions)
-
-    processLocations(raw, processed, assertions)
-
-    //validate the geo-reference values
-    validateGeoreferenceValues(raw, processed, assertions)
-
-    assertions.toArray
   }
 
-
-  private def processLocations(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
+  /**
+   * If no coordinates have been supplied, parse raw state and country values to vocabularies.
+   *
+   * @param raw
+   * @param processed
+   * @param assertions
+   */
+  private def processStateCountryValues(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
 
     //Only process the raw state value if no latitude and longitude is provided
     if (processed.location.stateProvince == null && raw.location.decimalLatitude == null && raw.location.decimalLongitude == null) {
@@ -181,8 +203,108 @@ class LocationProcessor extends Processor {
       }
     }
   }
+//
+//  def processNorthingEastingWithoutZone(easting:Int, northing:Int): Option[(Double, Double)] = {
+//
+//    try {
+//      val crsFac = ReferencingFactoryFinder.getCRSAuthorityFactory("EPSG", null)
+//
+//      val wgs84crs = crsFac.createCoordinateReferenceSystem("4326")
+//      val sourceCrs = crsFac.createCoordinateReferenceSystem(Config.defaultSourceCrs)
+//
+//      val op = new DefaultCoordinateOperationFactory().createOperation(sourceCrs, wgs84crs)
+//
+//      val eastNorth = new GeneralDirectPosition(easting, northing)
+//      val latLng = op.getMathTransform().transform(eastNorth, eastNorth)
+//
+//      val latitude = latLng.getOrdinate(0)
+//      val longitude = latLng.getOrdinate(1)
+//
+//      Some((latitude, longitude))
+//    } catch {
+//      case e:Exception => {
+//        logger.warn("Problem converting easting northing to decimal lat/long: " + easting + ", " + northing +
+//          " with default CRS " + Config.defaultSourceCrs)
+//        None
+//      }
+//    }
+//  }
 
-  def validateCoordinates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
+  /**
+   * Convert an ordnance survey grid reference to northing and easting.
+   * This is a port of this javascript code.
+   *
+   * http://www.movable-type.co.uk/scripts/latlong-gridref.html
+   *
+   * @param gridRef
+   */
+  def osGridReferenceToEastingNorthing(gridRef:String): Option[(Int, Int)] ={
+
+    val gridRefRegex = """[A-Z]{2}\s*[0-9]+\s*[0-9]+$""".r
+
+    // validate format
+    if (gridRefRegex.findAllMatchIn(gridRef).isEmpty)
+      return None
+
+    // get numeric values of letter references, mapping A->0, B->1, C->2, etc:
+    val l1 = {
+      val value = Character.codePointAt(gridRef, 0) - Character.codePointAt("A", 0)
+      if(value > 7){
+        value - 1
+      } else {
+        value
+      }
+    }
+    val l2 = {
+      val value = Character.codePointAt(gridRef, 1) - Character.codePointAt("A", 0)
+      if(value > 7){
+        value - 1
+      } else {
+        value
+      }
+    }
+
+    // convert grid letters into 100km-square indexes from false origin (grid square SV):
+    val e100km = (((l1-2) % 5) * 5 + (l2 % 5)).toInt
+    val n100km = ((19 - Math.floor(l1 / 5) * 5) - Math.floor(l2 / 5)).toInt
+
+    // skip grid letters to get numeric (easting/northing) part of ref
+    var en:Array[String] = gridRef.trim().substring(2).split("""\s+""")
+
+    // if e/n not whitespace separated, split half way
+    if (en.length == 1) {
+      en = Array(en(0).substring(0, en(0).length / 2), en(0).substring(en(0).length / 2))
+    }
+
+    // validation
+    if (e100km<0 || e100km>6 || n100km<0 || n100km>12) {
+      return None
+    }
+    if (en.length != 2){
+      return None
+    }
+    if (en(0).length() != en(1).length()){
+      return None
+    }
+
+    // standardise to 10-digit refs (metres)
+    en(0) = (en(0) + "00000").substring(0, 5)
+    en(1) = (en(1) + "00000").substring(0, 5)
+
+    val e = (e100km.toString + en(0)).toInt
+    val n = (n100km.toString + en(1)).toInt
+
+    Some((e, n))
+  }
+
+  /**
+   * Validation checks
+   *
+   * @param raw
+   * @param processed
+   * @param assertions
+   */
+  private def validateCoordinates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
     if (raw.location.country == null && processed.location.country != null) {
       assertions += QualityAssertion(COUNTRY_INFERRED_FROM_COORDINATES, FAILED)
     } else {
@@ -324,61 +446,38 @@ class LocationProcessor extends Processor {
         raw.location.easting,
         raw.location.northing,
         raw.location.zone,
+        raw.location.gridReference,
         assertions).getOrElse((null, null, null))
 
       processed.location.decimalLatitude = y
       processed.location.decimalLongitude = x
       processed.location.geodeticDatum = geodeticDatum
-
     }
   }
 
+  /**
+   * Process the latitude, longitude converting raw coordinates to decimal latitude, longitude.
+   * Handles reprojections where required.
+   *
+   * @param rawLatitude
+   * @param rawLongitude
+   * @param rawGeodeticDatum
+   * @param verbatimLatitude
+   * @param verbatimLongitude
+   * @param verbatimSRS
+   * @param easting
+   * @param northing
+   * @param zone
+   * @param assertions
+   * @return
+   */
   def processLatLong(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String, verbatimLatitude: String,
                      verbatimLongitude: String, verbatimSRS: String, easting: String, northing: String, zone: String,
-                     assertions: ArrayBuffer[QualityAssertion]): Option[(String, String, String)] = {
+                     gridReference:String, assertions: ArrayBuffer[QualityAssertion]): Option[(String, String, String)] = {
 
     //check to see if we have coordinates specified
     if (rawLatitude != null && rawLongitude != null && !rawLatitude.toFloatWithOption.isEmpty && !rawLongitude.toFloatWithOption.isEmpty) {
-      //coordinates were supplied so the test passed
-      assertions += QualityAssertion(DECIMAL_COORDINATES_NOT_SUPPLIED, PASSED)
-      // if decimal lat/long is provided in a CRS other than WGS84, then we need to reproject
-
-      if (rawGeodeticDatum != null) {
-        //no assumptions about the datum is being made:
-        assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, PASSED)
-        val sourceEpsgCode = lookupEpsgCode(rawGeodeticDatum)
-        if (!sourceEpsgCode.isEmpty) {
-          //datum is recognised so pass the test:
-          assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM,PASSED)
-          if (sourceEpsgCode.get == WGS84_EPSG_Code) {
-            //already in WGS84, no need to reproject
-            Some((rawLatitude, rawLongitude, WGS84_EPSG_Code))
-          } else {
-            // Reproject decimal lat/long to WGS84
-            val desiredNoDecimalPlaces = math.min(getNumberOfDecimalPlacesInDouble(rawLatitude), getNumberOfDecimalPlacesInDouble(rawLongitude))
-
-            val reprojectedCoords = reprojectCoordinatesToWGS84(rawLatitude.toDouble, rawLongitude.toDouble, sourceEpsgCode.get, desiredNoDecimalPlaces)
-            if (reprojectedCoords.isEmpty) {
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, "Transformation of decimal latiude and longitude to WGS84 failed")
-              None
-            } else {
-              //transformation of coordinates did not fail:
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, PASSED)
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERTED, "Decimal latitude and longitude were converted to WGS84 (EPSG:4326)")
-              val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
-              Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
-            }
-          }
-        } else {
-          assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, s"Geodetic datum $rawGeodeticDatum not recognized.")
-          Some((rawLatitude, rawLongitude, rawGeodeticDatum))
-        }
-      } else {
-        //assume coordinates already in WGS84
-        assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, "Geodetic datum assumed to be WGS84 (EPSG:4326)")
-        Some((rawLatitude, rawLongitude, WGS84_EPSG_Code))
-      }
-
+      processDecimalCoordinates(rawLatitude, rawLongitude, rawGeodeticDatum, assertions)
       // Attempt to infer the decimal latitude and longitude from the verbatim latitude and longitude
     } else {
       //no decimal latitude/longitude was provided
@@ -394,95 +493,14 @@ class LocationProcessor extends Processor {
         }
 
         if (!decimalVerbatimLat.isEmpty && !decimalVerbatimLong.isEmpty) {
-          if (decimalVerbatimLat.get.toString.isLatitude && decimalVerbatimLong.get.toString.isLongitude) {
-
-            // If a verbatim SRS is supplied, reproject coordinates to WGS 84
-            if (verbatimSRS != null) {
-              val sourceEpsgCode = lookupEpsgCode(verbatimSRS)
-              if (!sourceEpsgCode.isEmpty) {
-                //calculation from verbatim did NOT fail:
-                assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
-                if (sourceEpsgCode.get == WGS84_EPSG_Code) {
-                  //already in WGS84, no need to reproject
-                  assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
-                  Some((decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code))
-                } else {
-                  val desiredNoDecimalPlaces = math.min(getNumberOfDecimalPlacesInDouble(decimalVerbatimLat.get.toString), getNumberOfDecimalPlacesInDouble(decimalVerbatimLong.get.toString))
-
-                  val reprojectedCoords = reprojectCoordinatesToWGS84(decimalVerbatimLat.get, decimalVerbatimLong.get, sourceEpsgCode.get, desiredNoDecimalPlaces)
-                  if (reprojectedCoords.isEmpty) {
-                    assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Transformation of verbatim latiude and longitude to WGS84 failed")
-                    None
-                  } else {
-                    //reprojection did NOT fail:
-                    assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
-                    assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
-                    val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
-                    Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
-                  }
-                }
-              } else {
-                assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Unrecognized verbatimSRS " + verbatimSRS)
-                None
-              }
-              // Otherwise, assume latitude and longitude are already in WGS 84
-            } else if (decimalVerbatimLat.get.toString.isLatitude && decimalVerbatimLong.get.toString.isLongitude) {
-              //conversion dod NOT fail
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED,PASSED)
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM, "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
-              Some((decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code))
-            } else {
-              // Invalid latitude, longitude
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Could not parse verbatim latitude and longitude")
-              None
-            }
-          } else {
-            None
-          }
+          processVerbatimCoordinates(verbatimSRS, assertions, decimalVerbatimLat, decimalVerbatimLong)
         } else {
           None
         }
       } else if (easting != null && northing != null && zone != null) {
-        // Need a datum and a zone to get an epsg code for transforming easting/northing values
-        val epsgCodeKey = {
-          if (verbatimSRS != null) {
-            verbatimSRS.toUpperCase + "|" + zone
-          } else {
-            // Assume GDA94 / MGA zone
-            "GDA94|" + zone
-          }
-        }
-
-        if (zoneEpsgCodesMap.contains(epsgCodeKey)) {
-          val crsEpsgCode = zoneEpsgCodesMap(epsgCodeKey)
-          val eastingAsDouble = easting.toDoubleWithOption
-          val northingAsDouble = northing.toDoubleWithOption
-
-          if (!eastingAsDouble.isEmpty && !northingAsDouble.isEmpty) {
-            // Always round to 5 decimal places as easting/northing values are in metres and 0.00001 degree is approximately equal to 1m.
-            val reprojectedCoords = reprojectCoordinatesToWGS84(eastingAsDouble.get, northingAsDouble.get, crsEpsgCode, 5)
-            if (reprojectedCoords.isEmpty) {
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Transformation of verbatim easting and northing to WGS84 failed")
-              None
-            } else {
-              //lat and long from easting and northing did NOT fail:
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, PASSED)
-              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING,
-                "Decimal latitude and longitude were calculated using easting, northing and zone.")
-              val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
-              Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
-            }
-          } else {
-            None
-          }
-        } else {
-          if (verbatimSRS == null) {
-            assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Unrecognized zone GDA94 / MGA zone " + zone)
-          } else {
-            assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, "Unrecognized zone " + verbatimSRS + " / zone " + zone)
-          }
-          None
-        }
+        processNorthingEastingZone(verbatimSRS, easting, northing, zone, assertions)
+      } else if ( gridReference != null) {
+        processGridReference(gridReference, assertions)
       } else {
         None
       }
@@ -490,14 +508,226 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Reprojects coordinates into WGS 84
-   * @param coordinate1 first coordinate. If source value is easting/northing, then this should be the easting value. Otherwise it should be the latitude
-   * @param coordinate2 first coordinate. If source value is easting/northing, then this should be the northing value. Otherwise it should be the longitude
+   * Process supplied grid references. This currently only recognises UK OS grid references but could be
+   * extended to support other systems.
+   *
+   * @param gridReference
+   * @param assertions
+   */
+  def processGridReference(gridReference:String, assertions:ArrayBuffer[QualityAssertion]): Option[(String, String, String)] = {
+
+    osGridReferenceToEastingNorthing(gridReference) match {
+      case Some((easting, northing)) => {
+        val coords = reprojectCoordinatesToWGS84(easting, northing, Config.defaultSourceCrs, 5)
+        if(!coords.isEmpty){
+          val (latitude, longitude) = coords.get
+          assertions.add(QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF))
+          Some((latitude, longitude, WGS84_EPSG_Code))
+        } else {
+          None
+        }
+      }
+      case None => None
+    }
+  }
+
+  /**
+   * Process the raw string values supplied as decimal latitude and longitude.
+   *
+   * @param rawLatitude
+   * @param rawLongitude
+   * @param rawGeodeticDatum
+   * @param assertions
+   * @return
+   */
+  private def processDecimalCoordinates(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String,
+                                        assertions: ArrayBuffer[QualityAssertion]): Option[(String, String, String)] = {
+
+    //coordinates were supplied so the test passed
+    assertions += QualityAssertion(DECIMAL_COORDINATES_NOT_SUPPLIED, PASSED)
+    // if decimal lat/long is provided in a CRS other than WGS84, then we need to reproject
+
+    if (rawGeodeticDatum != null) {
+      //no assumptions about the datum is being made:
+      assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, PASSED)
+      val sourceEpsgCode = lookupEpsgCode(rawGeodeticDatum)
+      if (!sourceEpsgCode.isEmpty) {
+        //datum is recognised so pass the test:
+        assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, PASSED)
+        if (sourceEpsgCode.get == WGS84_EPSG_Code) {
+          //already in WGS84, no need to reproject
+          Some((rawLatitude, rawLongitude, WGS84_EPSG_Code))
+        } else {
+          // Reproject decimal lat/long to WGS84
+          val desiredNoDecimalPlaces = math.min(getNumberOfDecimalPlacesInDouble(rawLatitude), getNumberOfDecimalPlacesInDouble(rawLongitude))
+
+          val reprojectedCoords = reprojectCoordinatesToWGS84(
+            rawLatitude.toDouble,
+            rawLongitude.toDouble,
+            sourceEpsgCode.get,
+            desiredNoDecimalPlaces
+          )
+
+          if (reprojectedCoords.isEmpty) {
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, "Transformation of decimal latiude and longitude to WGS84 failed")
+            None
+          } else {
+            //transformation of coordinates did not fail:
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, PASSED)
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERTED, "Decimal latitude and longitude were converted to WGS84 (EPSG:4326)")
+            val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
+            Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
+          }
+        }
+      } else {
+        assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, s"Geodetic datum $rawGeodeticDatum not recognized.")
+        Some((rawLatitude, rawLongitude, rawGeodeticDatum))
+      }
+    } else {
+      //assume coordinates already in WGS84
+      assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, "Geodetic datum assumed to be WGS84 (EPSG:4326)")
+      Some((rawLatitude, rawLongitude, WGS84_EPSG_Code))
+    }
+  }
+
+  /**
+   * Process verbatim coordinate values.
+   *
+   * @param verbatimSRS
+   * @param assertions
+   * @param decimalVerbatimLat
+   * @param decimalVerbatimLong
+   * @return
+   */
+  private def processVerbatimCoordinates(verbatimSRS: String, assertions: ArrayBuffer[QualityAssertion],
+                                 decimalVerbatimLat: Option[Float], decimalVerbatimLong: Option[Float]): Option[(String, String, String)] = {
+    if (decimalVerbatimLat.get.toString.isLatitude && decimalVerbatimLong.get.toString.isLongitude) {
+
+      // If a verbatim SRS is supplied, reproject coordinates to WGS 84
+      if (verbatimSRS != null) {
+        val sourceEpsgCode = lookupEpsgCode(verbatimSRS)
+        if (!sourceEpsgCode.isEmpty) {
+          //calculation from verbatim did NOT fail:
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
+          if (sourceEpsgCode.get == WGS84_EPSG_Code) {
+            //already in WGS84, no need to reproject
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM,
+              "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
+            Some((decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code))
+          } else {
+
+            val desiredNoDecimalPlaces = math.min(
+              getNumberOfDecimalPlacesInDouble(decimalVerbatimLat.get.toString),
+              getNumberOfDecimalPlacesInDouble(decimalVerbatimLong.get.toString)
+            )
+
+            val reprojectedCoords = reprojectCoordinatesToWGS84(decimalVerbatimLat.get, decimalVerbatimLong.get, sourceEpsgCode.get, desiredNoDecimalPlaces)
+            if (reprojectedCoords.isEmpty) {
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED,
+                "Transformation of verbatim latiude and longitude to WGS84 failed")
+              None
+            } else {
+              //reprojection did NOT fail:
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
+              assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM,
+                "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
+              val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
+              Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
+            }
+          }
+        } else {
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Unrecognized verbatimSRS " + verbatimSRS)
+          None
+        }
+        // Otherwise, assume latitude and longitude are already in WGS 84
+      } else if (decimalVerbatimLat.get.toString.isLatitude && decimalVerbatimLong.get.toString.isLongitude) {
+        //conversion dod NOT fail
+        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
+        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM,
+          "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
+        Some((decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code))
+      } else {
+        // Invalid latitude, longitude
+        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Could not parse verbatim latitude and longitude")
+        None
+      }
+    } else {
+      None
+    }
+  }
+
+  /**
+   * Converts a easting northing to a decimal latitude/longitude.
+   *
+   * @param verbatimSRS
+   * @param easting
+   * @param northing
+   * @param zone
+   * @param assertions
+   *
+   * @return 3-tuple reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code
+   */
+  private def processNorthingEastingZone(verbatimSRS: String, easting: String, northing: String, zone: String,
+                                     assertions: ArrayBuffer[QualityAssertion]): Option[(String, String, String)] = {
+
+    // Need a datum and a zone to get an epsg code for transforming easting/northing values
+    val epsgCodeKey = {
+      if (verbatimSRS != null) {
+        verbatimSRS.toUpperCase + "|" + zone
+      } else {
+        // Assume GDA94 / MGA zone
+        "GDA94|" + zone
+      }
+    }
+
+    if (zoneEpsgCodesMap.contains(epsgCodeKey)) {
+      val crsEpsgCode = zoneEpsgCodesMap(epsgCodeKey)
+      val eastingAsDouble = easting.toDoubleWithOption
+      val northingAsDouble = northing.toDoubleWithOption
+
+      if (!eastingAsDouble.isEmpty && !northingAsDouble.isEmpty) {
+        // Always round to 5 decimal places as easting/northing values are in metres and 0.00001 degree is approximately equal to 1m.
+        val reprojectedCoords = reprojectCoordinatesToWGS84(eastingAsDouble.get, northingAsDouble.get, crsEpsgCode, 5)
+        if (reprojectedCoords.isEmpty) {
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
+            "Transformation of verbatim easting and northing to WGS84 failed")
+          None
+        } else {
+          //lat and long from easting and northing did NOT fail:
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, PASSED)
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING,
+            "Decimal latitude and longitude were calculated using easting, northing and zone.")
+          val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
+          Some(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code)
+        }
+      } else {
+        None
+      }
+    } else {
+      if (verbatimSRS == null) {
+        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
+          "Unrecognized zone GDA94 / MGA zone " + zone)
+      } else {
+        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
+          "Unrecognized zone " + verbatimSRS + " / zone " + zone)
+      }
+      None
+    }
+  }
+
+  /**
+   * Re-projects coordinates into WGS 84
+   *
+   * @param coordinate1 first coordinate. If source value is easting/northing, then this should be the easting value.
+   *                    Otherwise it should be the latitude
+   * @param coordinate2 first coordinate. If source value is easting/northing, then this should be the northing value.
+   *                    Otherwise it should be the longitude
    * @param sourceCrsEpsgCode epsg code for the source CRS, e.g. EPSG:4202 for AGD66
    * @param decimalPlacesToRoundTo number of decimal places to round the reprojected coordinates to
    * @return Reprojected coordinates (latitude, longitude), or None if the operation failed.
    */
-  private def reprojectCoordinatesToWGS84(coordinate1: Double, coordinate2: Double, sourceCrsEpsgCode: String, decimalPlacesToRoundTo: Int): Option[(String, String)] = {
+  private def reprojectCoordinatesToWGS84(coordinate1: Double, coordinate2: Double, sourceCrsEpsgCode: String,
+                                          decimalPlacesToRoundTo: Int): Option[(String, String)] = {
     try {
       val wgs84CRS = DefaultGeographicCRS.WGS84
       val sourceCRS = CRS.decode(sourceCrsEpsgCode)
@@ -505,7 +735,8 @@ class LocationProcessor extends Processor {
       val directPosition = new GeneralDirectPosition(coordinate1, coordinate2)
       val wgs84LatLong = transformOp.getMathTransform().transform(directPosition, null)
 
-      //NOTE - returned coordinates are longitude, latitude, despite the fact that if converting latitude and longitude values, they must be supplied as latitude, longitude.
+      //NOTE - returned coordinates are longitude, latitude, despite the fact that if
+      //converting latitude and longitude values, they must be supplied as latitude, longitude.
       //No idea why this is the case.
       val longitude = wgs84LatLong.getOrdinate(0)
       val latitude = wgs84LatLong.getOrdinate(1)
@@ -524,8 +755,7 @@ class LocationProcessor extends Processor {
    * @param decimalAsString
    * @return
    */
-  def getNumberOfDecimalPlacesInDouble(decimalAsString: String): Int = {
-
+   def getNumberOfDecimalPlacesInDouble(decimalAsString: String): Int = {
     val tokens = decimalAsString.split('.')
     if (tokens.length == 2) {
       tokens(1).length
@@ -537,7 +767,8 @@ class LocationProcessor extends Processor {
   /**
    * Get the EPSG code associated with a coordinate reference system string e.g. "WGS84" or "AGD66".
    * @param crs The coordinate reference system string.
-   * @return The EPSG code associated with the CRS, or None if no matching code could be found. If the supplied string is already a valid EPSG code, it will simply be returned.
+   * @return The EPSG code associated with the CRS, or None if no matching code could be found.
+   *         If the supplied string is already a valid EPSG code, it will simply be returned.
    */
   private def lookupEpsgCode(crs: String): Option[String] = {
     if (StringUtils.startsWithIgnoreCase(crs, "EPSG:")) {
@@ -634,14 +865,12 @@ class LocationProcessor extends Processor {
 
   /**
    * Check the habitats for the taxon profile against the habitat associated with the point.
-   * Retrieve the genus profile if
-   *
    *
    * @param raw
    * @param processed
    * @param assertions
    */
-  def checkForHabitatMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
+  private def checkForHabitatMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
     if(processed.location.habitat == null){
       assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 2)
@@ -686,7 +915,13 @@ class LocationProcessor extends Processor {
     }
   }
 
-  def addConservationStatus(raw: FullRecord, processed: FullRecord) {
+  /**
+   * Add the correct conservation status to the record.
+   *
+   * @param raw
+   * @param processed
+   */
+  private def addConservationStatus(raw: FullRecord, processed: FullRecord) {
     //retrieve the species profile
     val taxonProfileWithOption = TaxonProfileDAO.getByGuid(processed.classification.taxonConceptID)
     if(!taxonProfileWithOption.isEmpty){
@@ -703,7 +938,14 @@ class LocationProcessor extends Processor {
     }
   }
 
-  def checkForStateMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
+  /**
+   * Check the supplied state value aligns with the supplied coordinates.
+   *
+   * @param raw
+   * @param processed
+   * @param assertions
+   */
+  private def checkForStateMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //check matched stateProvince
     if (processed.location.stateProvince != null && raw.location.stateProvince != null) {
       //quality systemAssertions
@@ -723,6 +965,14 @@ class LocationProcessor extends Processor {
     }
   }
 
+  /**
+   * Check other geospatial details have been supplied.
+   *
+   * @param raw
+   * @param processed
+   * @param assertions
+   * @return
+   */
   def validateGeoreferenceValues(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) = {
     //check for missing geodeticDatum
     if (raw.location.geodeticDatum == null && processed.location.geodeticDatum == null)
@@ -862,10 +1112,12 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * New version to process the sensitivity.  It allows for Pest sensitivity to be reported in the "informationWithheld" field.
+   * Run sensitive data checks and modify the data appropriately.
+   *
+   * It allows for Pest sensitivity to be reported in the "informationWithheld" field.
    * Rework will be necessary when we work out the best way to handle these.
    */
-  def processSensitivity(raw: FullRecord, processed: FullRecord) : Unit = {
+  private def processSensitivity(raw: FullRecord, processed: FullRecord) : Unit = {
 
     //needs to be performed for all records whether or not they are in Australia
     //get a map representation of the raw record...
@@ -1000,7 +1252,7 @@ class LocationProcessor extends Processor {
     }
   }
 
-  def getExactSciName(raw: FullRecord): String = {
+  private def getExactSciName(raw: FullRecord): String = {
     if (raw.classification.scientificName != null)
       raw.classification.scientificName
     else if (raw.classification.subspecies != null)

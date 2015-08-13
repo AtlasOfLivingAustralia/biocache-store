@@ -62,10 +62,15 @@ object SensitiveAreaDAO {
 
     logger.info("Loaded layers required by SDS.....")
     //load SDS layer metadata
-    au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(layerID => {
-      //check each layer is available on the local filesystem
-      loadLayer(layerID, true)
-    })
+    if(Config.sdsEnabled){
+      au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(layerID => {
+        //check each layer is available on the local filesystem
+        logger.info("Loading SDS layer....." + layerID)
+        loadLayer(layerID, true)
+      })
+    } else {
+      logger.info("SDS disabled - skipping layer loading.....")
+    }
 
     //Load additional layers
     if(StringUtils.isNotBlank(Config.stateProvinceLayerID)){
