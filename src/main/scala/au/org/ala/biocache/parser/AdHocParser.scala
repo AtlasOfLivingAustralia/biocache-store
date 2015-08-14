@@ -17,7 +17,7 @@ import au.org.ala.biocache.parser.EventDate
 import scala.Some
 import au.org.ala.biocache.parser.ProcessedValue
 import au.org.ala.biocache.parser.ParsedRecord
-import au.org.ala.biocache.processor.RecordProcessor
+import au.org.ala.biocache.processor.{LocationProcessor, RecordProcessor}
 
 /**
  * Parser for CSV style data which attempts to guess the data types in use.
@@ -265,6 +265,7 @@ object AdHocParser {
       case BasisOfRecordExtractor(value) => "basisOfRecord"
       case TypeStatusExtractor(value) => "typeStatus"
       case DateExtractor(value) => "eventDate"
+      case GridReferenceExtractor(value) => "gridReference"
       case DecimalLatitudeExtractor(value) => "decimalLatitude"
       case DecimalLongitudeExtractor(value) => "decimalLongitude"
       case VerbatimLatitudeExtractor(value) => "verbatimLatitude"
@@ -384,6 +385,17 @@ object DateExtractor {
     parsed match {
       case it if !it.isEmpty && DateParser.isValid(it.get) => parsed
       case _ => None
+    }
+  }
+}
+
+object GridReferenceExtractor {
+  def unapply(str: String): Option[(Int, Int)] = {
+    try {
+      val l = new LocationProcessor
+      l.osGridReferenceToEastingNorthing(str)
+    } catch {
+      case e: Exception => None
     }
   }
 }
