@@ -203,32 +203,6 @@ class LocationProcessor extends Processor {
       }
     }
   }
-//
-//  def processNorthingEastingWithoutZone(easting:Int, northing:Int): Option[(Double, Double)] = {
-//
-//    try {
-//      val crsFac = ReferencingFactoryFinder.getCRSAuthorityFactory("EPSG", null)
-//
-//      val wgs84crs = crsFac.createCoordinateReferenceSystem("4326")
-//      val sourceCrs = crsFac.createCoordinateReferenceSystem(Config.defaultSourceCrs)
-//
-//      val op = new DefaultCoordinateOperationFactory().createOperation(sourceCrs, wgs84crs)
-//
-//      val eastNorth = new GeneralDirectPosition(easting, northing)
-//      val latLng = op.getMathTransform().transform(eastNorth, eastNorth)
-//
-//      val latitude = latLng.getOrdinate(0)
-//      val longitude = latLng.getOrdinate(1)
-//
-//      Some((latitude, longitude))
-//    } catch {
-//      case e:Exception => {
-//        logger.warn("Problem converting easting northing to decimal lat/long: " + easting + ", " + northing +
-//          " with default CRS " + Config.defaultSourceCrs)
-//        None
-//      }
-//    }
-//  }
 
   /**
    * Convert an ordnance survey grid reference to northing and easting.
@@ -383,7 +357,7 @@ class LocationProcessor extends Processor {
         val (velevation, sourceUnit) = parseElevationResult.get
         processed.location.verbatimElevation = velevation.toString
         if (velevation > 10000 || velevation < -100) {
-          assertions += QualityAssertion(ALTITUDE_OUT_OF_RANGE, "Elevation " + velevation + " is greater than 10,000 metres or less than -100 metres.")
+          assertions += QualityAssertion(ALTITUDE_OUT_OF_RANGE, s"Elevation $velevation is greater than 10,000 metres or less than -100 metres.")
         } else {
           assertions += QualityAssertion(ALTITUDE_OUT_OF_RANGE, PASSED)
         }
@@ -407,7 +381,7 @@ class LocationProcessor extends Processor {
         val (vdepth, sourceUnit) = parseDepthResult.get
         processed.location.verbatimDepth = vdepth.toString
         if (vdepth > 10000)
-          assertions += QualityAssertion(DEPTH_OUT_OF_RANGE, "Depth " + vdepth + " is greater than 10,000 metres")
+          assertions += QualityAssertion(DEPTH_OUT_OF_RANGE, s"Depth $vdepth is greater than 10,000 metres")
         else
           assertions += QualityAssertion(DEPTH_OUT_OF_RANGE,  PASSED)
         assertions += QualityAssertion(DEPTH_NON_NUMERIC,  PASSED)
