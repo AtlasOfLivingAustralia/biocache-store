@@ -23,8 +23,9 @@ class GridReferenceTest extends FunSuite {
     val assertions = new ArrayBuffer[QualityAssertion]
     val result = l.processGridReference("NM39", assertions)
     expectResult(false) { result.isEmpty }
-    expectResult("56.92234") { result.get._1.toString }
-    expectResult("-6.43865") { result.get._2.toString }
-    expectResult("EPSG:4326") { result.get._3.toString }
+    expectResult("56.92234") { result.get.latitude.toString }
+    expectResult("-6.43865") { result.get.longitude.toString }
+    expectResult("EPSG:4326") { result.get.datum.toString }
+    expectResult("1000") { result.get.coordinateUncertaintyInMeters.toString }
   }
 }

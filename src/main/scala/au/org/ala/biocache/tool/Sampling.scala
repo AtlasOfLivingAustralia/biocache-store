@@ -182,8 +182,8 @@ class Sampling {
     )
     latLongWithOption match {
       case Some(latLong) => {
-        coordinates += (latLong._2 + "," + latLong._1) // write long lat (x,y)
-        coordinates += (latLong._2.toFloat.toString.trim+ ","+latLong._1.toFloat.toString.trim)
+        coordinates += (latLong.longitude + "," + latLong.latitude) // write long lat (x,y)
+        coordinates += (latLong.longitude.toFloat.toString.trim+ ","+latLong.latitude.toFloat.toString.trim)
       }
       case None => {}
     }
