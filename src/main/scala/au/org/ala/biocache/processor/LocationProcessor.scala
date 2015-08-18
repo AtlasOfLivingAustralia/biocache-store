@@ -204,6 +204,25 @@ class LocationProcessor extends Processor {
     }
   }
 
+
+  def getCoordinateUncertaintyFromGridRef(noOfNumericalDigits:Int, noOfSecondaryAlphaChars:Int) : Option[Int] = {
+
+    val accuracy = noOfNumericalDigits match {
+      case 8 => 10
+      case 6 => 100
+      case 4 => 1000
+      case 2 => 10000
+      case 0 => 100000
+      case _ => return None
+    }
+
+    noOfSecondaryAlphaChars match {
+      case 2 => Some(accuracy / 2)
+      case 1 => Some(accuracy / 5)
+      case _ => Some(accuracy)
+    }
+  }
+
   /**
    * Convert an ordnance survey grid reference to northing and easting.
    * This is a port of this javascript code:
@@ -213,24 +232,34 @@ class LocationProcessor extends Processor {
    * with additional extensions to handle 2km grid references e.g. NM39A
    *
    * @param gridRef
+   * @return easting, northing, coordinate uncertainty in meters
+   *
    */
-  def osGridReferenceToEastingNorthing(gridRef:String): Option[(Int, Int)] ={
+  def osGridReferenceToEastingNorthing(gridRef:String): Option[(Int, Int, Option[Int])] ={
 
     //deal with the 2k OS grid ref separately
     val gridRefRegex1Number = """([A-Z]{2})\s*([0-9]+)$""".r
-    val gridRef2kRegex = """([A-Z]{2})\s*([0-9]{1})\s*([0-9]{1})\s*([A-Z]{1})""".r
+    val gridRef2kRegex = """([A-Z]{2})\s*([0-9]+)\s*([0-9]+)\s*([A-Z]{1})""".r
     val gridRefRegex = """([A-Z]{2})\s*([0-9]+)\s*([0-9]+)$""".r
+    val gridRefWithQuadRegex = """([A-Z]{2})\s*([0-9]+)\s*([0-9]+)\s*([NW|NE|SW|SE]{2})$""".r
 
-    // validate format
-    val (gridletters:String, easting:String, northing:String, tetrad:String) = gridRef.trim() match {
+    // validate & parse format
+    val (gridletters:String, easting:String, northing:String, twoKRef:String, quadRef:String, coordinateUncertainty:Option[Int]) = gridRef.trim() match {
       case gridRefRegex1Number(gridletters, oneNumber) => {
         val gridDigits = oneNumber.toString
-
         val en = Array(gridDigits.substring(0, gridDigits.length / 2), gridDigits.substring(gridDigits.length / 2))
-        (gridletters, en(0), en(1), "")
+        val coordUncertainty = getCoordinateUncertaintyFromGridRef(gridDigits.length, 0)
+        (gridletters, en(0), en(1), "", "", coordUncertainty)
       }
-      case gridRefRegex(gridletters, easting, northing) => (gridletters, easting, northing, "")
-      case gridRef2kRegex(gridletters, easting, northing, tetrad) => (gridletters, easting, northing, tetrad)
+      case gridRefRegex(gridletters, easting, northing) => {
+        (gridletters, easting, northing, "", "", getCoordinateUncertaintyFromGridRef(easting.length * 2, 0))
+      }
+      case gridRef2kRegex(gridletters, easting, northing, twoKRef) => {
+        (gridletters, easting, northing, twoKRef, "", getCoordinateUncertaintyFromGridRef(easting.length * 2, 1))
+      }
+      case gridRefWithQuadRegex(gridletters, easting, northing, quadRef) => {
+        (gridletters, easting, northing, "", quadRef, getCoordinateUncertaintyFromGridRef(easting.length * 2, 2))
+      }
       case _ => return None
     }
 
@@ -274,23 +303,63 @@ class LocationProcessor extends Processor {
     var e = (e100km.toString + easting10digit).toInt
     var n = (n100km.toString + northing10digit).toInt
 
-    //Dealing with 5 character grid references = 2km grids
-    //http://www.kmbrc.org.uk/recording/help/gridrefhelp.php?page=6
-    if(tetrad != ""){
-      tetrad match {
-        case it if (Character.codePointAt(tetrad, 0) <= 'N') => {
-          e = e + (((Character.codePointAt(tetrad, 0) - 65) / 5) * 2000) + 1000
-          n = n + (((Character.codePointAt(tetrad, 0) - 65) % 5) * 2000)+ 1000
+    //handle the non standard grid parts
+    if(twoKRef != ""){
+
+      val cellSize = {
+        if (easting.length == 1) 2000
+        else if (easting.length == 2) 200
+        else if (easting.length == 3) 20
+        else if (easting.length == 4) 2
+        else 0
+      }
+
+      //Dealing with 5 character grid references = 2km grids
+      //http://www.kmbrc.org.uk/recording/help/gridrefhelp.php?page=6
+      twoKRef match {
+        case it if (Character.codePointAt(twoKRef, 0) <= 'N') => {
+          e = e + (((Character.codePointAt(twoKRef, 0) - 65) / 5) * cellSize) + (cellSize/2)
+          n = n + (((Character.codePointAt(twoKRef, 0) - 65) % 5) * cellSize)+ (cellSize/2)
         }
-        case it if (Character.codePointAt(tetrad, 0) >= 'P') => {
-          e = e + (((Character.codePointAt(tetrad, 0) - 66) / 5) * 2000) + 1000
-          n = n + (((Character.codePointAt(tetrad, 0) - 66) % 5) * 2000) + 1000
+        case it if (Character.codePointAt(twoKRef, 0) >= 'P') => {
+          e = e + (((Character.codePointAt(twoKRef, 0) - 66) / 5) * cellSize) + (cellSize/2)
+          n = n + (((Character.codePointAt(twoKRef, 0) - 66) % 5) * cellSize) + (cellSize/2)
         }
         case _ => return None
       }
+    } else if(quadRef != ""){
+
+      val cellSize = {
+        if (easting.length == 1) 5000
+        else if (easting.length == 2) 500
+        else if (easting.length == 3) 50
+        else if (easting.length == 4) 5
+        else 0
+      }
+      if(cellSize > 0) {
+        twoKRef match {
+          case "NW" => {
+            e = e + (cellSize / 2)
+            n = n + (cellSize + cellSize / 2)
+          }
+          case "NE" => {
+            e = e + (cellSize + cellSize / 2)
+            n = n + (cellSize + cellSize / 2)
+          }
+          case "SW" => {
+            e = e + (cellSize / 2)
+            n = n + (cellSize / 2)
+          }
+          case "SE" => {
+            e = e + (cellSize + cellSize / 2)
+            n = n + (cellSize / 2)
+          }
+          case _ => return None
+        }
+      }
     }
 
-    Some((e, n))
+    Some((e, n, coordinateUncertainty))
   }
 
   /**
@@ -516,20 +585,17 @@ class LocationProcessor extends Processor {
   def processGridReference(gridReference:String, assertions:ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
 
     osGridReferenceToEastingNorthing(gridReference) match {
-      case Some((easting, northing)) => {
+      case Some((easting, northing, coordUncertaintyOption)) => {
         val coords = reprojectCoordinatesToWGS84(easting, northing, Config.defaultSourceCrs, 5)
         if(!coords.isEmpty){
           val (latitude, longitude) = coords.get
           assertions.add(QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF))
-          val coordinateUncertainy = gridReference.trim() match {
-            case it if (it.length() == 8) => "100"
-            case it if (it.length() == 6) => "1000"
-            case it if (it.length() == 5) => "2000"
-            case it if (it.length() == 4) => "10000"
-            case it if (it.length() == 2) => "100000"
-            case _ => null
+          val uncertaintyToUse = if(!coordUncertaintyOption.isEmpty){
+            coordUncertaintyOption.get.toString
+          } else {
+            null
           }
-          Some(GISPoint(latitude, longitude, WGS84_EPSG_Code, coordinateUncertainy))
+          Some(GISPoint(latitude, longitude, WGS84_EPSG_Code, uncertaintyToUse))
         } else {
           None
         }
