@@ -206,23 +206,37 @@ class LocationProcessor extends Processor {
 
   /**
    * Convert an ordnance survey grid reference to northing and easting.
-   * This is a port of this javascript code.
+   * This is a port of this javascript code:
    *
    * http://www.movable-type.co.uk/scripts/latlong-gridref.html
+   *
+   * with additional extensions to handle 2km grid references e.g. NM39A
    *
    * @param gridRef
    */
   def osGridReferenceToEastingNorthing(gridRef:String): Option[(Int, Int)] ={
 
-    val gridRefRegex = """[A-Z]{2}\s*[0-9]+\s*[0-9]+$""".r
+    //deal with the 2k OS grid ref separately
+    val gridRefRegex1Number = """([A-Z]{2})\s*([0-9]+)$""".r
+    val gridRef2kRegex = """([A-Z]{2})\s*([0-9]{1})\s*([0-9]{1})\s*([A-Z]{1})""".r
+    val gridRefRegex = """([A-Z]{2})\s*([0-9]+)\s*([0-9]+)$""".r
 
     // validate format
-    if (gridRefRegex.findAllMatchIn(gridRef).isEmpty)
-      return None
+    val (gridletters:String, easting:String, northing:String, tetrad:String) = gridRef.trim() match {
+      case gridRefRegex1Number(gridletters, oneNumber) => {
+        val gridDigits = oneNumber.toString
+
+        val en = Array(gridDigits.substring(0, gridDigits.length / 2), gridDigits.substring(gridDigits.length / 2))
+        (gridletters, en(0), en(1), "")
+      }
+      case gridRefRegex(gridletters, easting, northing) => (gridletters, easting, northing, "")
+      case gridRef2kRegex(gridletters, easting, northing, tetrad) => (gridletters, easting, northing, tetrad)
+      case _ => return None
+    }
 
     // get numeric values of letter references, mapping A->0, B->1, C->2, etc:
     val l1 = {
-      val value = Character.codePointAt(gridRef, 0) - Character.codePointAt("A", 0)
+      val value = Character.codePointAt(gridletters, 0) - Character.codePointAt("A", 0)
       if(value > 7){
         value - 1
       } else {
@@ -230,7 +244,7 @@ class LocationProcessor extends Processor {
       }
     }
     val l2 = {
-      val value = Character.codePointAt(gridRef, 1) - Character.codePointAt("A", 0)
+      val value = Character.codePointAt(gridletters, 1) - Character.codePointAt("A", 0)
       if(value > 7){
         value - 1
       } else {
@@ -242,31 +256,39 @@ class LocationProcessor extends Processor {
     val e100km = (((l1-2) % 5) * 5 + (l2 % 5)).toInt
     val n100km = ((19 - Math.floor(l1 / 5) * 5) - Math.floor(l2 / 5)).toInt
 
-    // skip grid letters to get numeric (easting/northing) part of ref
-    var en:Array[String] = gridRef.trim().substring(2).split("""\s+""")
-
-    // if e/n not whitespace separated, split half way
-    if (en.length == 1) {
-      en = Array(en(0).substring(0, en(0).length / 2), en(0).substring(en(0).length / 2))
-    }
-
     // validation
     if (e100km<0 || e100km>6 || n100km<0 || n100km>12) {
       return None
     }
-    if (en.length != 2){
+    if (easting == null || northing == null){
       return None
     }
-    if (en(0).length() != en(1).length()){
+    if (easting.length() != northing.length()){
       return None
     }
 
     // standardise to 10-digit refs (metres)
-    en(0) = (en(0) + "00000").substring(0, 5)
-    en(1) = (en(1) + "00000").substring(0, 5)
+    val easting10digit = (easting + "00000").substring(0, 5)
+    val northing10digit = (northing + "00000").substring(0, 5)
 
-    val e = (e100km.toString + en(0)).toInt
-    val n = (n100km.toString + en(1)).toInt
+    var e = (e100km.toString + easting10digit).toInt
+    var n = (n100km.toString + northing10digit).toInt
+
+    //Dealing with 5 character grid references = 2km grids
+    //http://www.kmbrc.org.uk/recording/help/gridrefhelp.php?page=6
+    if(tetrad != ""){
+      tetrad match {
+        case it if (Character.codePointAt(tetrad, 0) <= 'N') => {
+          e = e + (((Character.codePointAt(tetrad, 0) - 65) / 5) * 2000) + 1000
+          n = n + (((Character.codePointAt(tetrad, 0) - 65) % 5) * 2000)+ 1000
+        }
+        case it if (Character.codePointAt(tetrad, 0) >= 'P') => {
+          e = e + (((Character.codePointAt(tetrad, 0) - 66) / 5) * 2000) + 1000
+          n = n + (((Character.codePointAt(tetrad, 0) - 66) % 5) * 2000) + 1000
+        }
+        case _ => return None
+      }
+    }
 
     Some((e, n))
   }
@@ -499,7 +521,6 @@ class LocationProcessor extends Processor {
         if(!coords.isEmpty){
           val (latitude, longitude) = coords.get
           assertions.add(QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF))
-
           val coordinateUncertainy = gridReference.trim() match {
             case it if (it.length() == 8) => "100"
             case it if (it.length() == 6) => "1000"

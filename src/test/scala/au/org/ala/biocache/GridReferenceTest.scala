@@ -12,9 +12,46 @@ import scala.collection.mutable.ArrayBuffer
 class GridReferenceTest extends FunSuite {
 
   test("Convert OS grid reference to Northing / Easting") {
+
     val l = new LocationProcessor
     expectResult(Some((130000, 790000))) {
       l.osGridReferenceToEastingNorthing("NM39")
+    }
+
+    expectResult(Some((140000,799000))) {
+      l.osGridReferenceToEastingNorthing("NM4099")
+    }
+
+    expectResult(Some((131600,800500))) {
+      l.osGridReferenceToEastingNorthing("NG316005")
+    }
+
+    expectResult(Some((131000,791000))) {
+      l.osGridReferenceToEastingNorthing("NM39A")
+    }
+
+    expectResult(Some((131000,799000))) {
+      l.osGridReferenceToEastingNorthing("NM39E")
+    }
+
+    expectResult(Some((133000,793000))) {
+      l.osGridReferenceToEastingNorthing("NM39G")
+    }
+
+    expectResult(Some((137000,795000))) {
+      l.osGridReferenceToEastingNorthing("NM39S")
+    }
+
+    expectResult(Some((135000,797000))) {
+      l.osGridReferenceToEastingNorthing("NM39N")
+    }
+
+    expectResult(Some((135000,799000))) {
+      l.osGridReferenceToEastingNorthing("NM39P")
+    }
+
+    expectResult(Some((139000,799000))) {
+      l.osGridReferenceToEastingNorthing("NM39Z")
     }
   }
 
@@ -26,6 +63,6 @@ class GridReferenceTest extends FunSuite {
     expectResult("56.92234") { result.get.latitude.toString }
     expectResult("-6.43865") { result.get.longitude.toString }
     expectResult("EPSG:4326") { result.get.datum.toString }
-    expectResult("1000") { result.get.coordinateUncertaintyInMeters.toString }
+    expectResult("10000") { result.get.coordinateUncertaintyInMeters.toString }
   }
 }
