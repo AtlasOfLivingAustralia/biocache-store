@@ -204,9 +204,14 @@ class LocationProcessor extends Processor {
     }
   }
 
-
+  /**
+   * Derive a value from the grid reference accuracy for coordinateUncertaintyInMeters.
+   *
+   * @param noOfNumericalDigits
+   * @param noOfSecondaryAlphaChars
+   * @return
+   */
   def getCoordinateUncertaintyFromGridRef(noOfNumericalDigits:Int, noOfSecondaryAlphaChars:Int) : Option[Int] = {
-
     val accuracy = noOfNumericalDigits match {
       case 8 => 10
       case 6 => 100
@@ -215,7 +220,6 @@ class LocationProcessor extends Processor {
       case 0 => 100000
       case _ => return None
     }
-
     noOfSecondaryAlphaChars match {
       case 2 => Some(accuracy / 2)
       case 1 => Some(accuracy / 5)
