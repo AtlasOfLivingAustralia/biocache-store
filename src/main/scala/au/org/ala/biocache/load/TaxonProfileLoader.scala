@@ -148,24 +148,24 @@ object ConservationListLoader extends Tool {
         logger.info(s"$counter species load")
       }
       //get the values from the cache
-      val (lists, props) = TaxonSpeciesListDAO.getCachedListsForTaxon(guid)
+//      val (lists, props) = TaxonSpeciesListDAO.getCachedListsForTaxon(guid)
       //now add the values to the DB
       val buff = new ListBuffer[ConservationStatus]
-
-      listUids.foreach { case (listUid, region) => {
-        if(props.getOrElse(listUid + "_status", "") != ""){
-          val status = props.getOrElse(listUid + "_status", "")
-          val rawStatus = props.getOrElse(listUid + "_sourceStatus", "")
-          val conservationStatus = new ConservationStatus(
-            region,
-            "",
-            status,
-            rawStatus
-          )
-          println(guid + ": " + conservationStatus)
-          buff += conservationStatus
-        }
-      }}
+//
+//      listUids.foreach { case (listUid, region) => {
+//        if(props.getOrElse(listUid + "_status", "") != ""){
+//          val status = props.getOrElse(listUid + "_status", "")
+//          val rawStatus = props.getOrElse(listUid + "_sourceStatus", "")
+//          val conservationStatus = new ConservationStatus(
+//            region,
+//            "",
+//            status,
+//            rawStatus
+//          )
+//          println(guid + ": " + conservationStatus)
+//          buff += conservationStatus
+//        }
+//      }}
 
       if(!buff.isEmpty) {
         val csAsJson = Json.toJSON(buff.toList)

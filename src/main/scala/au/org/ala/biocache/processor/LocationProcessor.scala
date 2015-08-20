@@ -228,7 +228,7 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Convert an ordnance survey grid reference to northing and easting.
+   * Convert an ordnance survey grid reference to northing, easting and coordinateUncertaintyInMeters.
    * This is a port of this javascript code:
    *
    * http://www.movable-type.co.uk/scripts/latlong-gridref.html

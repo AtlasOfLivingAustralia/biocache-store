@@ -496,15 +496,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.addField("system_assertions", sa)
 
         //load the species lists that are configured for the matched guid.
-        val (speciesLists, extraValues) = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p",""))
-        speciesLists.foreach(v => {
+        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p",""))
+        speciesLists.foreach { v =>
           doc.addField("species_list_uid", v)
-        })
-        extraValues.foreach {case (key, value) => {
-          if(StringUtils.isNotBlank(key)) {
-            doc.addField(key, value)
-          }
-        }}
+        }
 
         // user if userQA = true
         val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false")

@@ -168,7 +168,7 @@ object Config {
 
   val speciesSubgroupsUrl = configModule.properties.getProperty("species.subgroups.url","http://bie.ala.org.au/subgroups.json")
 
-  val listToolUrl = configModule.properties.getProperty("list.tool.url","http://lists.ala.org.au/ws")
+  val listToolUrl = configModule.properties.getProperty("list.tool.url","http://lists.ala.org.au")
 
   val volunteerUrl = configModule.properties.getProperty("volunteer.url","http://volunteer.ala.org.au")
 
