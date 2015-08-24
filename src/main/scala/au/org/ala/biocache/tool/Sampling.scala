@@ -326,7 +326,7 @@ class Sampling {
     val fields = if (singleLayerName != "") {
       Array(singleLayerName)
     } else {
-      Config.fieldsToSample
+      Config.fieldsToSample()
     }
     val writer = new CSVWriter(new FileWriter(outputFilePath))
     //write the header

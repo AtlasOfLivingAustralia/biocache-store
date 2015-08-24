@@ -130,7 +130,7 @@ object LocationDAO {
           }
           case None => {
             //do a layer lookup???
-            if(!Config.fieldsToSample.isEmpty) {
+            if(!Config.fieldsToSample(false).isEmpty) {
               logger.warn("Location lookup failed for [" + latitude + "," + longitude + "] - Sampling may need to be re-ran")
             }
             None
