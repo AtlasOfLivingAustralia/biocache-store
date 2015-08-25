@@ -1,36 +1,27 @@
 package au.org.ala.biocache.load
 
-import java.net.{URI, URL}
+import java.net.{HttpURLConnection, URI, URL}
 import java.security.MessageDigest
 
 import org.apache.commons.codec.digest.DigestUtils
 import org.apache.http.NameValuePair
 import org.apache.http.client.utils.URLEncodedUtils
-import org.restlet.engine.adapter.Call
 import org.slf4j.LoggerFactory
 import org.apache.commons.io.{FilenameUtils, FileUtils}
 import java.io._
-import javax.imageio.ImageIO
-import javax.media.jai.JAI
-import com.sun.media.jai.codec.FileSeekableStream
-import java.awt.Image
-import java.awt.image.BufferedImage
 import au.org.ala.biocache.model.{Multimedia, FullRecord}
-import au.org.ala.biocache.util.{ HttpUtil, Json, OptionParser}
-import au.org.ala.biocache.{Store, Config}
-import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.util.{ HttpUtil, Json}
+import au.org.ala.biocache.Config
 import org.apache.http.impl.client.DefaultHttpClient
-import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntity}
+import org.apache.http.entity.mime.{MultipartEntityBuilder, HttpMultipartMode, MultipartEntity}
 import org.apache.http.entity.mime.content.{StringBody, FileBody}
 import org.apache.http.client.methods.HttpPost
 import scala.collection.mutable
 import scala.io.Source
 import org.apache.commons.lang3.StringUtils
-import scala.util.parsing.json.JSON
 import com.jayway.jsonpath.JsonPath
 import net.minidev.json.JSONArray
 import java.util
-import javax.activation.MimeType
 
 /**
  * Trait for Media stores to implement.
@@ -304,20 +295,27 @@ object RemoteMediaStore extends MediaStore {
 
   private def downloadToTmpFile(resourceUID: String, uuid: String, urlToMedia: String): Option[File] = try {
     val tmpFile = new File(Config.tmpWorkDir + File.separator + constructFileID(resourceUID, uuid, urlToMedia))
-    val url = new java.net.URL(urlToMedia.replaceAll(" ", "%20"))
-    val in = url.openStream
-    val out = new FileOutputStream(tmpFile)
-    val buffer: Array[Byte] = new Array[Byte](1024)
-    var numRead = 0
-    while ( {
-      numRead = in.read(buffer);
-      numRead != -1
-    }) {
-      out.write(buffer, 0, numRead)
-      out.flush
+    val urlStr = urlToMedia.replaceAll(" ", "%20")
+    var out: OutputStream = null
+    var in: InputStream = null
+
+    try {
+      val url = new URL(urlStr)
+      val connection = url.openConnection().asInstanceOf[HttpURLConnection]
+      connection.setRequestMethod("GET")
+      in = connection.getInputStream
+      out = new BufferedOutputStream(new FileOutputStream(tmpFile))
+      val byteArray = Stream.continually(in.read).takeWhile(-1 !=).map(_.toByte).toArray
+      out.write(byteArray)
+    } catch {
+      case e: Exception => logger.error(s"Unable to download file to temp location. URL: $urlStr - " + e.getMessage)
+    } finally {
+      out.close
+      in.close
     }
-    in.close()
-    out.close()
+
+    logger.debug("Temp file created: " + tmpFile.getAbsolutePath + ", file size: " + tmpFile.getTotalSpace)
+
     Some(tmpFile)
   } catch {
     case e:Exception => {
@@ -362,15 +360,19 @@ object RemoteMediaStore extends MediaStore {
   private def uploadImage(uuid:String, resourceUID:String, urlToMedia:String, fileToUpload:File,
                           media: Option[Multimedia]) : Option[String] = {
     //upload an image
-    val httpClient = new DefaultHttpClient()
-    val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
-    if(!fileToUpload.exists()){
+    val client = new DefaultHttpClient()
+    val builder = MultipartEntityBuilder.create()
+    builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+
+    if(!fileToUpload.exists()) {
       logger.error("File to upload does not exist or can not be read. " + fileToUpload.getAbsolutePath)
+      return None
+    } else if(fileToUpload.length() == 0) {
+      logger.error("File to upload is empty. " + fileToUpload.getAbsolutePath)
       return None
     } else {
       logger.debug("File to upload: " + fileToUpload.getAbsolutePath + ", size:"  + fileToUpload.length())
     }
-    val fileBody = new FileBody(fileToUpload, "image/jpeg")
     val metadata = mutable.Map(
       "occurrenceId" -> uuid,
       "dataResourceUid" -> resourceUID,
@@ -382,18 +384,20 @@ object RemoteMediaStore extends MediaStore {
       metadata ++= media.get.metadata
     }
 
-    entity.addPart("image", fileBody)
-    entity.addPart("metadata",
-      new StringBody(
+    builder.addPart("image", new FileBody(fileToUpload, media.get.mediaType))
+    builder.addPart("metadata",
+      new org.apache.http.entity.mime.content.StringBody(
         Json.toJSON(
           metadata
         )
       )
     )
 
+    val entity = builder.build()
+
     val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/uploadImage")
     httpPost.setEntity(entity)
-    val response = httpClient.execute(httpPost)
+    val response = client.execute(httpPost)
     val result = response.getStatusLine()
     val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
     logger.debug("Image service response code: " + result.getStatusCode)

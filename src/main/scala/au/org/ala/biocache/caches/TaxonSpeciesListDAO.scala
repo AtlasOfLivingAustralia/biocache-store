@@ -23,6 +23,21 @@ object TaxonSpeciesListDAO {
 
   private var speciesListMap:Map[String, Seq[String]] = _
 
+
+  def main(args:Array[String]): Unit = {
+
+    val map = TaxonSpeciesListDAO.buildTaxonListMap
+
+    println("Number of species in lists: " + map.keys.size)
+
+    val counts = new mutable.HashMap[String, Int]
+
+    map.keys.foreach { key =>
+      val specieslistIds = map.get(key).get
+      println(key + " - " + specieslistIds)
+    }
+  }
+
   /**
    * Get the list details for the supplied guid
    * @param conceptLsid
@@ -59,7 +74,7 @@ object TaxonSpeciesListDAO {
    *
    * @return
    */
-  private def buildTaxonListMap : Map[String, Seq[String]] = {
+  def buildTaxonListMap : Map[String, Seq[String]] = {
 
     //build up a map of taxonID -> list of species lists...
     val guidMap = new mutable.HashMap[String, Seq[String]]()
