@@ -116,39 +116,43 @@ object Config {
     }
   }
 
-  def fieldsToSample() = {
+  private var fieldsToSampleCached = Array[String]()
+  
+  def fieldsToSample(refresh:Boolean = true) = {
+    if (refresh || fieldsToSampleCached.isEmpty) {
+      val str = configModule.properties.getProperty("sample.fields")
 
-    val str = configModule.properties.getProperty("sample.fields")
+      val defaultFields = configModule.properties.getProperty("default.sample.fields", "")
 
-    val defaultFields = configModule.properties.getProperty("default.sample.fields", "")
-
-    if (str == null || str.trim == "" ){
-      val dbfields = try {
-        new LayersStore(Config.layersServiceUrl).getFieldIds()
-      } catch {
-        case e:Exception => new java.util.ArrayList()
-      }
-
-      val fields: Array[String] = if(!dbfields.isEmpty){
-        Array.ofDim(dbfields.size())
-      } else {
-        defaultFields.split(",").map(x => x.trim).toArray
-      }
-
-      if(!dbfields.isEmpty){
-        for (a <- 0 until dbfields.size()) {
-          fields(a) = dbfields.get(a)
+      if (str == null || str.trim == "") {
+        val dbfields = try {
+          new LayersStore(Config.layersServiceUrl).getFieldIds()
+        } catch {
+          case e: Exception => new java.util.ArrayList()
         }
+
+        val fields: Array[String] = if (!dbfields.isEmpty) {
+          Array.ofDim(dbfields.size())
+        } else {
+          defaultFields.split(",").map(x => x.trim).toArray
+        }
+
+        if (!dbfields.isEmpty) {
+          for (a <- 0 until dbfields.size()) {
+            fields(a) = dbfields.get(a)
+          }
+        }
+        logger.info("Fields to sample: " + fields.mkString(","))
+        fieldsToSampleCached = fields
+      } else if (str == "none") {
+        fieldsToSampleCached = Array[String]()
+      } else {
+        val fields = str.split(",").map(x => x.trim).toArray
+        logger.info("Fields to sample: " + fields.mkString(","))
+        fieldsToSampleCached = fields
       }
-      logger.info("Fields to sample: " + fields.mkString(","))
-      fields   //fields.dropWhile(x => List("el898","cl909","cl900").contains(x))
-    } else if (str == "none"){
-      Array[String]()
-    } else {
-      val fields = str.split(",").map(x => x.trim).toArray
-      logger.info("Fields to sample: " + fields.mkString(","))
-      fields
     }
+    fieldsToSampleCached
   }
 
   val blacklistedMediaUrls = {
