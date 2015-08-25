@@ -24,7 +24,7 @@ object ProcessAll extends Tool {
       intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
     }
     if(parser.parse(args)){
-      ProcessRecords.processRecords(4, None, None)
+      ProcessRecords.processRecords(threads, None, None)
     }
   }
 }
