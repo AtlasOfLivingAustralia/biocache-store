@@ -76,39 +76,49 @@ object TaxonSpeciesListDAO {
    */
   def buildTaxonListMap : Map[String, Seq[String]] = {
 
-    //build up a map of taxonID -> list of species lists...
-    val guidMap = new mutable.HashMap[String, Seq[String]]()
+    try {
+      //build up a map of taxonID -> list of species lists...
+      val guidMap = new mutable.HashMap[String, Seq[String]]()
 
-    getListUids.foreach { drUid =>
+      getListUids.foreach { drUid =>
 
-      logger.info(s"Loading data from $drUid")
+        logger.info(s"Loading data from $drUid")
 
-      //csv download
-      val downloadUrl = Config.listToolUrl + s"/speciesListItem/downloadList/$drUid?fetch=%7BkvpValues%3Dselect%7D"
-      val data = scala.io.Source.fromURL(downloadUrl).mkString
+        //csv download
+        val downloadUrl = Config.listToolUrl + s"/speciesListItem/downloadList/$drUid?fetch=%7BkvpValues%3Dselect%7D"
 
-      //csv reader
-      val csvReader = new CSVReader(new StringReader(data))
-      val columnHdrs = csvReader.readNext()
+        logger.info(s"Downloading list data from $downloadUrl")
 
-      val guidIdx = columnHdrs.indexOf("guid")
-      var currentLine = csvReader.readNext()
+        val data = scala.io.Source.fromURL(downloadUrl, "UTF-8").mkString
 
-      //build up the map
-      while(currentLine != null){
-        val guid = currentLine(guidIdx)
-        val specieslists = guidMap.getOrElse(guid, List[String]())
-        if(specieslists.isEmpty){
-          guidMap.put(guid, List(drUid))
-        } else {
-          guidMap.put(guid, specieslists :+ drUid)
+        //csv reader
+        val csvReader = new CSVReader(new StringReader(data))
+        val columnHdrs = csvReader.readNext()
+
+        val guidIdx = columnHdrs.indexOf("guid")
+        var currentLine = csvReader.readNext()
+
+        //build up the map
+        while (currentLine != null) {
+          val guid = currentLine(guidIdx)
+          val specieslists = guidMap.getOrElse(guid, List[String]())
+          if (specieslists.isEmpty) {
+            guidMap.put(guid, List(drUid))
+          } else {
+            guidMap.put(guid, specieslists :+ drUid)
+          }
+
+          currentLine = csvReader.readNext()
         }
+      }
 
-        currentLine = csvReader.readNext()
+      guidMap.toMap
+    } catch {
+      case e:Exception => {
+        logger.error("Problem loading lists to intersect with." + e.getMessage, e)
+        Map()
       }
     }
-
-    guidMap.toMap
   }
 
   /**

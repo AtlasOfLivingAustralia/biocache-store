@@ -6,6 +6,7 @@ import java.security.MessageDigest
 import org.apache.commons.codec.digest.DigestUtils
 import org.apache.http.NameValuePair
 import org.apache.http.client.utils.URLEncodedUtils
+import org.apache.http.entity.ContentType
 import org.slf4j.LoggerFactory
 import org.apache.commons.io.{FilenameUtils, FileUtils}
 import java.io._
@@ -296,27 +297,27 @@ object RemoteMediaStore extends MediaStore {
   private def downloadToTmpFile(resourceUID: String, uuid: String, urlToMedia: String): Option[File] = try {
     val tmpFile = new File(Config.tmpWorkDir + File.separator + constructFileID(resourceUID, uuid, urlToMedia))
     val urlStr = urlToMedia.replaceAll(" ", "%20")
-    var out: OutputStream = null
-    var in: InputStream = null
-
-    try {
-      val url = new URL(urlStr)
-      val connection = url.openConnection().asInstanceOf[HttpURLConnection]
-      connection.setRequestMethod("GET")
-      in = connection.getInputStream
-      out = new BufferedOutputStream(new FileOutputStream(tmpFile))
-      val byteArray = Stream.continually(in.read).takeWhile(-1 !=).map(_.toByte).toArray
-      out.write(byteArray)
-    } catch {
-      case e: Exception => logger.error(s"Unable to download file to temp location. URL: $urlStr - " + e.getMessage)
-    } finally {
-      out.close
-      in.close
+    val url = new java.net.URL(urlStr)
+    val in = url.openStream
+    val out = new FileOutputStream(tmpFile)
+    val buffer: Array[Byte] = new Array[Byte](1024)
+    var numRead = 0
+    while ( {
+      numRead = in.read(buffer);
+      numRead != -1
+    }) {
+      out.write(buffer, 0, numRead)
+      out.flush
     }
-
-    logger.debug("Temp file created: " + tmpFile.getAbsolutePath + ", file size: " + tmpFile.getTotalSpace)
-
-    Some(tmpFile)
+    in.close()
+    out.close()
+    if(tmpFile.getTotalSpace > 0){
+      logger.debug("Temp file created: " + tmpFile.getAbsolutePath + ", file size: " + tmpFile.getTotalSpace)
+      Some(tmpFile)
+    } else {
+      logger.debug(s"Failure to download image from  $urlStr")
+      None
+    }
   } catch {
     case e:Exception => {
       logger.error("Problem downloading media. URL:" + urlToMedia)
@@ -384,7 +385,7 @@ object RemoteMediaStore extends MediaStore {
       metadata ++= media.get.metadata
     }
 
-    builder.addPart("image", new FileBody(fileToUpload, media.get.mediaType))
+    builder.addPart("image", new FileBody(fileToUpload, ContentType.create("image/jpeg"), fileToUpload.getName))
     builder.addPart("metadata",
       new org.apache.http.entity.mime.content.StringBody(
         Json.toJSON(
