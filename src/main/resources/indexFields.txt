@@ -122,24 +122,24 @@ raw_longitude	string	decimalLongitude	F	F		F
 raw_locality	string	locality	F	F		F
 raw_sex	string	sex	F	F		F
 raw_datum	string	geodeticDatum	F	F		F
-collector_text  string  recordedBy	F	F		F
-collectors  string  recordedBy.p	F	F		F
-duplicate_record    string  associatedOccurrences.p T   T       F
-duplicate_status    string  duplicationStatus.p T   T       F
-duplicate_type  string  duplicationType.p   T   T       F
-event_id    string  eventID F	F		F
-location_id string  locationId F	F		F
-occurrence_details  string  occurrenceDetails F	F		F
-photographer_s  string  photographer F	F		F
-record_type string  basisOfRecord.p F	F		F
-rights  string  rights F	F		F
-alau_user_id    string  userId  F   F   F
+collector_text	string	recordedBy	F	F		F
+collectors	string	recordedBy.p	F	F		F
+duplicate_record	string	associatedOccurrences.p	T	T		F
+duplicate_status	string	duplicationStatus.p	T	T		F
+duplicate_type	string	duplicationType.p	T	T		F
+event_id	string	eventID	F	F		F
+location_id	string	locationId	F	F		F
+occurrence_details	string	occurrenceDetails	F	F		F
+photographer_s	string	photographer	F	F		F
+record_type	string	basisOfRecord.p	F	F		F
+rights	string	rights	F	F		F
+alau_user_id	string	userId	F	F		F
 all_image_url	string	images.p	T	T		F
 # assertions_missing - assertions missing
 # assertions_passed - assertions passed
 # assertions_unchecked - assertions unchecked
-dataset_name    string  datasetName F   F   F
-distance_outside_expert_range   double  distanceOutsideExpertRange.p   F   F   F
+dataset_name	string	datasetName	F	F		F
+distance_outside_expert_range	double	distanceOutsideExpertRange.p	F	F		F
 # query_assertion_type_s - queryAssertions.p keys list
 # query_assertion_uuid - queryAssertions.p values list
 # species_list_uid - species lists from the list defined in .properties matching taxonConceptID.p
