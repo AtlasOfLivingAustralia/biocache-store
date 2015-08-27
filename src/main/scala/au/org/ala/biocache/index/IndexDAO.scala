@@ -604,13 +604,6 @@ object IndexFields {
   }
 
   def loadFromFile() = {
-    //log row length errors
-    scala.io.Source.fromURL(getClass.getResource("/indexFields.txt"), "utf-8").getLines.toList.foreach { row =>
-      if (!row.startsWith("#") && row.split("\t").length != 7) {
-        logger.error ("indexFields.txt row length != 7 for row: " + row.toString)
-      }
-    }
-
     scala.io.Source.fromURL(getClass.getResource("/indexFields.txt"), "utf-8").getLines.toList.collect {
       case row if !row.startsWith("#") && row.split("\t").length == 7 => {
         val values = row.split("\t")
