@@ -214,7 +214,7 @@ class SingleDate {
   def baseFormats = Array("yyyy-MM-dd","yyyy/MM/dd")
 
 //  2001-03-14T00:00:00+11:00
-  def formats = baseFormats.map(f => Array(f, f + "'Z'", f + "'T'hh:mm'Z'",f + "'T'HH:mm'Z'", f + "'T'hh:mm:ss",f + "'T'HH:mm:ss", f + "'T'hh:mm:ssZ", f + "'T'HH:mm:ssZ",f + " hh:mm:ss",f + " HH:mm:ss")).flatten
+  def formats = baseFormats.map(f => Array(f, f + "'Z'", f + "'T'hh:mm'Z'",f + "'T'HH:mm'Z'", f + "'T'hh:mm:ss",f + "'T'HH:mm:ss", f + "'T'hh:mm:ss'Z'", f + "'T'HH:mm:ss'Z'",f + " hh:mm:ss",f + " HH:mm:ss")).flatten
 
   /**
    * Extraction method
