@@ -51,6 +51,10 @@ object ShowVersion extends NoArgsTool {
   def cmd = "version"
   def desc = "Show build version information"
   def main(args:Array[String]) = {
+    proceed(args, () => run())
+  }
+
+  def run() {
     import JavaConversions._
     val propertyNames = Config.versionProperties.stringPropertyNames().toList
     if(propertyNames.nonEmpty) {
