@@ -12,9 +12,9 @@ import au.org.ala.biocache.util.DateUtil
 /**
  * Tests for event date parsing. To run these tests create a new scala application
  * run configuration in your IDE.
- * 
+ *
  * See http://www.scalatest.org/getting_started_with_fun_suite
- * 
+ *
  * scala -cp scalatest-1.0.jar org.scalatest.tools.Runner -p . -o -s ay.au.biocache.ProcessEventTests
  *
  * @author Dave Martin (David.Martin@csiro.au)
@@ -31,7 +31,7 @@ class ProcessEventTest extends ConfigFunSuite {
     (new EventProcessor).process("1234", raw, processed)
 //    println(processed.event)
   }
-  
+
   test("yyyy-dd-mm correctly sets year, month, day values in process object") {
 
     val raw = new FullRecord("1234", "1234")
@@ -43,6 +43,7 @@ class ProcessEventTest extends ConfigFunSuite {
     expectResult("31"){ processed.event.day }
     expectResult("12"){ processed.event.month }
     expectResult("1978"){ processed.event.year }
+    expectResult(null){ processed.event.eventDateEnd }
   }
 
   test("yyyy-dd-mm verbatim date correctly sets year, month, day values in process object") {
@@ -56,6 +57,9 @@ class ProcessEventTest extends ConfigFunSuite {
     expectResult("31"){ processed.event.day }
     expectResult("12"){ processed.event.month }
     expectResult("1978"){ processed.event.year }
+
+    //identical start and end dates cause eventDateEnd not set 
+    expectResult(null){ processed.event.eventDateEnd }
   }
 
   test("if year, day, month supplied, eventDate is correctly set") {
@@ -412,5 +416,61 @@ class ProcessEventTest extends ConfigFunSuite {
     val processed = new FullRecord
     raw.event.eventDate="2014-00-00"
     //should be an invalid date
+  }
+
+  test("if year, day, month, eventDate supplied, eventDate is used for eventDateEnd") {
+
+    val raw = new FullRecord("1234", "1234")
+    raw.event.year = "1978"
+    raw.event.month = "12"
+    raw.event.day = "31"
+    raw.event.eventDate = "1978-12-31/1979-01-02"
+    val processed = raw.clone
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("1978-12-31"){ processed.event.eventDate }
+    expectResult("31"){ processed.event.day }
+    expectResult("12"){ processed.event.month }
+    expectResult("1978"){ processed.event.year }
+    expectResult("1979-01-02"){ processed.event.eventDateEnd }
+  }
+
+  test("if year, day, month, verbatimEventDate supplied, verbatimEventDate is used for eventDateEnd") {
+
+    val raw = new FullRecord("1234", "1234")
+    raw.event.year = "1978"
+    raw.event.month = "12"
+    raw.event.day = "31"
+    raw.event.verbatimEventDate = "1978-12-31/1979-01-02"
+    val processed = raw.clone
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("1978-12-31"){ processed.event.eventDate }
+    expectResult("31"){ processed.event.day }
+    expectResult("12"){ processed.event.month }
+    expectResult("1978"){ processed.event.year }
+    expectResult("1979-01-02"){ processed.event.eventDateEnd }
+  }
+
+  test("if eventDate supplied, eventDate is used for eventDateEnd") {
+
+    val raw = new FullRecord("1234", "1234")
+    raw.event.eventDate = "1978-12-31/1979-01-02"
+    val processed = raw.clone
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("1978-12-31"){ processed.event.eventDate }
+    expectResult("1979-01-02"){ processed.event.eventDateEnd }
+  }
+
+  test("if verbatimEventDate supplied, verbatimEventDate is used for eventDateEnd") {
+
+    val raw = new FullRecord("1234", "1234")
+    raw.event.verbatimEventDate = "1978-12-31/1979-01-02"
+    val processed = raw.clone
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("1978-12-31"){ processed.event.eventDate }
+    expectResult("1979-01-02"){ processed.event.eventDateEnd }
   }
 }
