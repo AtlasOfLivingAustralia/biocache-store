@@ -70,12 +70,13 @@ class VocabTest extends ConfigFunSuite {
 //    expectResult(false) {TypeStatus.matchTerm("Holotype: Scrobs pyramidatus Hedley, 1903 : Rissoidae : : Gastropoda : Mollusca").isEmpty}
 //  }
 
-  test("Paratypes - case insensitive for types"){
+  test("Paratype - case insensitive for types"){
     expectResult(false){ TypeStatus.matchTerm("Paratype").isEmpty}
   }
-  
-  test("Paratypes - plurals for types"){
-    expectResult(false){ TypeStatus.matchTerm("Paratypes").isEmpty}
+
+  test("Paratype - not plurals for types"){
+    expectResult(false){ TypeStatus.matchTerm("Paratype").isEmpty}
+    expectResult("paratype"){TypeStatus.matchTerm("Paratypes").get.canonical}
   }
   
   test("Observations - plurals for BOR"){

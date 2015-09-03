@@ -23,7 +23,7 @@ lectotype
 neotype	neo type
 paralectotype
 paraneotype
-paratypes
+paratype
 plastoholotype
 plastoisotype
 plastolectotype
