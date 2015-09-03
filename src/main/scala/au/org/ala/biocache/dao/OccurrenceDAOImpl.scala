@@ -427,6 +427,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         }
       )
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")
+      fr.occurrence.images = associatedMediaBuffer.toArray.toArray
       true
     } else {
       false
