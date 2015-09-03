@@ -31,6 +31,7 @@ class Location extends Cloneable with POSO {
   @BeanProperty var georeferenceSources:String = _
   @BeanProperty var georeferenceVerificationStatus:String = _
   @BeanProperty var habitat:String = _
+  @BeanProperty var biome:String = _
   @BeanProperty var higherGeography:String = _
   @BeanProperty var higherGeographyID:String = _
   @BeanProperty var island:String = _

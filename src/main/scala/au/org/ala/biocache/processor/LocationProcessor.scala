@@ -98,9 +98,15 @@ class LocationProcessor extends Processor {
       processed.location.stateProvince = intersectValues.getOrElse(Config.stateProvinceLayerID, null)
       processed.location.lga  = intersectValues.getOrElse(Config.localGovLayerID, null)
       processed.location.country = intersectValues.getOrElse(Config.countriesLayerID, null)
+      if (processed.location.country == null && processed.location.stateProvince != null) {
+        processed.location.country = Config.defaultCountry
+      }
+
+      //habitat, no standard vocab available
+      processed.location.habitat = raw.location.habitat
 
       //add the layers that are associated with the point
-      processed.location.habitat = {
+      processed.location.biome = {
         if (intersectValues.getOrElse(Config.terrestrialLayerID, null) != null) "Terrestrial"
         else if (intersectValues.getOrElse(Config.marineLayerID, null) != null) "Marine"
         else null
@@ -941,7 +947,7 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Check the habitats for the taxon profile against the habitat associated with the point.
+   * Check the habitats for the taxon profile against the biome associated with the point.
    *
    * @param raw
    * @param processed
@@ -949,7 +955,7 @@ class LocationProcessor extends Processor {
    */
   private def checkForHabitatMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
-    if(processed.location.habitat == null){
+    if (processed.location.biome == null) {
       assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 2)
       return
     }
@@ -969,14 +975,14 @@ class LocationProcessor extends Processor {
 
     if (!habitats.isEmpty) {
       val habitatsAsString = habitats.mkString(",")
-      val habitatFromPoint = processed.location.habitat
+      val habitatFromPoint = processed.location.biome
       val habitatsForSpecies = habitats
       //is "terrestrial" the same as "non-marine" ??
       val validHabitat = HabitatMap.areTermsCompatible(habitatFromPoint, habitatsForSpecies)
       if (!validHabitat.isEmpty) {
         if (!validHabitat.get) {
           logger.debug("[QualityAssertion] ******** Habitats incompatible for ROWKEY: " + raw.rowKey + ", processed:"
-            + processed.location.habitat + ", retrieved:" + habitatsAsString
+            + processed.location.biome + ", retrieved:" + habitatsAsString
             + ", http://maps.google.com/?ll=" + processed.location.decimalLatitude + ","
             + processed.location.decimalLongitude)
           val comment = "Recognised habitats for species: " + habitatsAsString +
@@ -1295,6 +1301,7 @@ class LocationProcessor extends Processor {
         raw.event.day = ""
         processed.event.day = ""
         processed.event.eventDate = ""
+        if (processed.event.eventDateEnd != null) processed.event.eventDateEnd = ""
 
         //update the raw record with whatever is left in the stringMap - change to use DAO method...
         if(StringUtils.isNotBlank(raw.rowKey)){
