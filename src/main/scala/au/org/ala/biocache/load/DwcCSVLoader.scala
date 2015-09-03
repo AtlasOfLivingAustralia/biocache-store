@@ -174,6 +174,11 @@ class DwcCSVLoader extends DataLoader {
 
     var currentLine = reader.readNext
 
+    if (currentLine == null) {
+      logger.warn("No content in file.")
+      return
+    }
+
     if(uniqueTerms.isEmpty){
       logger.warn("No unique terms provided for this data resource !")
     } else {
