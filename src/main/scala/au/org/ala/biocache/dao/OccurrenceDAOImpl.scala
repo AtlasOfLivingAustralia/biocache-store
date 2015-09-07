@@ -506,6 +506,68 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
   }
 
+  /**
+   * Update the occurrence with the supplied record, setting the correct version
+   */
+  def updateOccurrenceBatch(batches: List[Map[String, Object]]) {
+    //make list
+    val all = scala.collection.mutable.Map[String, Map[String, String]]()
+
+    batches.foreach { case (values) =>
+      val rowKey = values.get("rowKey").get.asInstanceOf[String]
+      val oldRecord = values.get("oldRecord").get.asInstanceOf[FullRecord]
+      val version = values.get("version").get.asInstanceOf[Version]
+      val newRecord = values.get("newRecord").get.asInstanceOf[FullRecord]
+      val assertions = values.get("assertions").get.asInstanceOf[Option[Map[String, Array[QualityAssertion]]]]
+
+      //construct a map of properties to write
+      val oldproperties = FullRecordMapper.fullRecord2Map(oldRecord, version)
+      val properties = FullRecordMapper.fullRecord2Map(newRecord, version)
+
+      //only write changes.........
+      var propertiesToPersist = properties.filter({
+        case (key, value) => {
+          if (oldproperties.contains(key)) {
+            val oldValue = oldproperties.get(key).get
+            oldValue != value
+          } else {
+            true
+          }
+        }
+      })
+
+      //check for deleted properties
+      val deletedProperties = oldproperties.filter({
+        case (key, value) => !properties.contains(key)
+      })
+
+      propertiesToPersist ++= deletedProperties.map({
+        case (key, value) => key -> ""
+      })
+
+      val timeCol = FullRecordMapper.markNameBasedOnVersion(FullRecordMapper.alaModifiedColumn, version)
+
+      if (!assertions.isEmpty) {
+        initAssertions(newRecord, assertions.get)
+        //only add  the assertions if they are different OR the properties to persist contain more than the last modified time stamp
+        if ((oldRecord.assertions.toSet != newRecord.assertions.toSet) || !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")) {
+          //only add the assertions if they have changed since the last time or the number of records to persist >1
+          propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get, newRecord.userVerified)
+          updateSystemAssertions(rowKey, assertions.get)
+        }
+      }
+
+      //commit to cassandra if changes exist - changes exist if the properties to persist contain more info than the lastModifedTime
+      if (!propertiesToPersist.isEmpty && !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")) {
+        all.put(rowKey, propertiesToPersist.toMap)
+      }
+    }
+
+    if (!all.isEmpty) {
+      persistenceManager.putBatch(entityName, all.toMap)
+    }
+  }
+
   private def initAssertions(processed:FullRecord, assertions:Map[String, Array[QualityAssertion]]){
     assertions.values.foreach(array => {
       val failedQas = array.filter(_.qaStatus==0).map(_.getName)

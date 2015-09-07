@@ -68,8 +68,10 @@ object LocationDAO {
 
   /**
    * Add a region mapping for this point.
+   *
+   * For return values when batch == true commit with writeLocBatch
    */
-  def addLayerIntersects (latitude:String, longitude:String, contextual:Map[String,String], environmental:Map[String,Float]) {
+  def addLayerIntersects (latitude:String, longitude:String, contextual:Map[String,String], environmental:Map[String,Float], batch:Boolean = false) : (String, Map[String, String]) = {
     if (latitude!=null && latitude.trim.length>0 && longitude!=null && longitude.trim.length>0){
       val guid = getLatLongKey(latitude, longitude)
 
@@ -79,7 +81,36 @@ object LocationDAO {
       mapBuffer ++= contextual
       mapBuffer ++= environmental.map(x => x._1 -> x._2.toString)
 
-      persistenceManager.put(guid, columnFamily, mapBuffer.toMap)
+      if (batch) {
+        (guid -> mapBuffer.toMap)
+      } else {
+        persistenceManager.put(guid, columnFamily, mapBuffer.toMap)
+        null
+      }
+    } else {
+      null
+    }
+  }
+
+  /**
+   * write a list of maps produced by addLayerIntersects with batch == true
+   *
+   * @param batch
+   */
+  def writeLocBatch(batch: Map[String, Map[String, String]]) {
+    var retries = 0
+    var processedOK = false
+    while (!processedOK && retries < 6) {
+      try {
+        persistenceManager.putBatch(columnFamily, batch)
+        processedOK = true
+      } catch {
+        case e: Exception => {
+          logger.error("Error processing record batch with length: '" + batch.size + "',  sleeping for 20 secs before retries", e)
+          Thread.sleep(20000)
+          retries += 1
+        }
+      }
     }
   }
 

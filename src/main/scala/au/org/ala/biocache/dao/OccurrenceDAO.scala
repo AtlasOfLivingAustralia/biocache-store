@@ -62,6 +62,8 @@ trait OccurrenceDAO extends DAO {
 
   def updateOccurrence(rowKey: String, oldRecord: FullRecord, updatedRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]], version: Version)
 
+  def updateOccurrenceBatch(batches: List[Map[String, Object]])
+
   def updateOccurrence(rowKey: String, anObject: AnyRef, version: Version): Unit
 
   def addSystemAssertion(rowKey: String, qualityAssertion: QualityAssertion, replaceExistCode:Boolean=false, checkExisting:Boolean=true): Unit

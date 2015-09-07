@@ -1,10 +1,13 @@
 package au.org.ala.biocache.tool
 
 import java.io._
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, ConcurrentLinkedQueue}
+import au.org.ala.biocache.index.BulkProcessor._
 import org.ala.layers.dto.IntersectionFile
 import org.apache.commons.lang.StringUtils
 import au.org.ala.biocache._
 import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
+import org.eclipse.jetty.util.ConcurrentHashSet
 import scala.collection.mutable.{ArrayBuffer, HashSet}
 import org.slf4j.LoggerFactory
 import org.ala.layers.dao.IntersectCallback
@@ -37,6 +40,7 @@ object Sampling extends Tool with IncrementalTool {
     var batchSize = 100000
     var checkRowKeyFile = false
     var abortIfNotRowKeyFile = false
+    var numThreads = 8
 
     val parser = new OptionParser(help) {
       opt("dr", "data-resource-uid", "the data resource to sample", {
@@ -65,6 +69,9 @@ object Sampling extends Tool with IncrementalTool {
       })
       opt("crk", "check for row key file", { checkRowKeyFile = true })
       opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
+      intOpt("t", "threads", "The number of threads for the unique coordinate extract. The default is " + numThreads, {
+        v: Int => numThreads = v
+      })
     }
 
     if (parser.parse(args)) {
@@ -92,7 +99,7 @@ object Sampling extends Tool with IncrementalTool {
         if (locFilePath == "") {
           locFilePath = workingDir + "/loc-" + fileSuffix + ".txt"
           if (rowKeyFile == "" && singleRowKey == "") {
-            s.getDistinctCoordinatesForResource(locFilePath, dataResourceUid)
+            s.getDistinctCoordinatesForResourceThreaded(numThreads, locFilePath, dataResourceUid)
           } else if (singleRowKey != "") {
             s.getDistinctCoordinatesForRowKey(singleRowKey)
             sys.exit
@@ -103,14 +110,15 @@ object Sampling extends Tool with IncrementalTool {
 
         val samplingFilePath = workingDir + "/sampling-" + fileSuffix + ".txt"
         //generate sampling
-        s.sampling(locFilePath, samplingFilePath, singleLayerName=singleLayerName, batchSize=batchSize)
+        s.sampling(locFilePath, samplingFilePath, singleLayerName=singleLayerName, batchSize=batchSize, concurrentLoading=true, keepFiles=keepFiles)
         //load the loc table
-        s.loadSampling(samplingFilePath)
+        //do this concurrently in sampling
+        // s.loadSampling(samplingFilePath)
         //clean up the file
         if(!keepFiles){
           logger.info("Removing temporary file: " + samplingFilePath)
           (new File(samplingFilePath)).delete()
-          (new File(locFilePath)).delete()
+          if (new File(locFilePath).exists()) (new File(locFilePath)).delete()
         }
       }
     }
@@ -119,7 +127,7 @@ object Sampling extends Tool with IncrementalTool {
   def sampleDataResource(dataResourceUid: String, callback:IntersectCallback = null, singleLayerName: String = "") {
     val locFilePath = Config.tmpWorkDir + "/loc-" + dataResourceUid + ".txt"
     val s = new Sampling
-    s.getDistinctCoordinatesForResource(locFilePath, dataResourceUid)
+    s.getDistinctCoordinatesForResourceThreaded(4, locFilePath, dataResourceUid)
     val samplingFilePath = Config.tmpWorkDir + "/sampling-" + dataResourceUid + ".txt"
     //generate sampling
     s.sampling(locFilePath, samplingFilePath, callback, singleLayerName)
@@ -272,9 +280,8 @@ class Sampling {
    * Get the distinct coordinates for this resource
    * and write them to file.
    */
-  def getDistinctCoordinatesForResource(locFilePath: String, dataResourceUid: String = "") {
+  def getDistinctCoordinatesForResourceThreaded(numThreads: Int, locFilePath: String, dataResourceUid: String = "") {
     logger.info("Creating distinct list of coordinates....")
-    var counter = 0
     var passed = 0
 
     val startUuid: String = {
@@ -286,21 +293,37 @@ class Sampling {
       else dataResourceUid + "|~"
     }
 
-    val lp = new LocationProcessor
-    val coordinates = new HashSet[String]
+    val (query, start, end) = if (dataResourceUid != "") {
+      ("data_resource_uid:" + dataResourceUid, dataResourceUid + "|", dataResourceUid + "|~")
+    } else {
+      ("*:*", "", "")
+    }
 
-    Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
-      handleRecordMap(map, coordinates,lp)
+    val ranges = calculateRanges(numThreads, query, start, end)
 
-      if (counter % 10000 == 0 && counter > 0){
-        logger.debug("Distinct coordinates counter: " + counter + ", current count:" + coordinates.size)
-      }
+    var counter = 0
+    val threads = new ArrayBuffer[LocColumnExporter]
+    val solrDirs = new ArrayBuffer[String]
+    ranges.foreach({ case (startKey, endKey) => {
+      logger.info("start: " + startKey + ", end key: " + endKey)
+
+      val t = new LocColumnExporter(counter, startKey, endKey, handleRecordMap)
+
+      t.start
+      threads += t
       counter += 1
-      passed += 1
-      Integer.MAX_VALUE > counter
-    }, startUuid, endUuid, 1000, "decimalLatitude", "decimalLongitude","decimalLatitude.p", "decimalLongitude.p",
-      "verbatimLatitude", "verbatimLongitude","originalDecimalLatitude", "originalDecimalLongitude",
-      "originalSensitiveValues")
+    }
+    })
+
+    //wait for threads to complete and merge all indexes
+    threads.foreach(thread => thread.join)
+
+    var coordinates: Set[String] = Set()
+    threads.foreach(t => {
+      coordinates ++= t.coordinates
+      t.coordinates.clear()
+    })
+    logger.info("All unique coordinates size: " + coordinates.size)
 
     try {
       val fw = new FileWriter(locFilePath)
@@ -318,7 +341,7 @@ class Sampling {
   /**
    * Run the sampling with a file
    */
-  def sampling(filePath: String, outputFilePath: String, callback:IntersectCallback = null,singleLayerName: String = "",batchSize:Int= 100000) {
+  def sampling(filePath: String, outputFilePath: String, callback:IntersectCallback = null,singleLayerName: String = "",batchSize:Int= 100000, concurrentLoading: Boolean=false, keepFiles: Boolean=true) {
 
     logger.info("********* START - TEST BATCH SAMPLING FROM FILE ***************")
     //load the CSV of points into memory
@@ -328,7 +351,12 @@ class Sampling {
     } else {
       Config.fieldsToSample()
     }
-    val writer = new CSVWriter(new FileWriter(outputFilePath))
+    var filename = outputFilePath
+    var writer = new CSVWriter(new FileWriter(filename))
+    val batch = new LinkedBlockingQueue[String]
+    var batchCount = 0
+    val sampleLoading = new LoadSamplingConsumer(batch)
+    if (concurrentLoading) sampleLoading.start()
     //write the header
     writer.writeNext(Array("longitude", "latitude") ++ fields)
     var totalProcessed = 0
@@ -345,6 +373,18 @@ class Sampling {
       logger.info("Total points sampled so far : " + totalProcessed)
       //read next batch
       points = pointsReader.loadPoints(batchSize)
+      
+      if (concurrentLoading) {
+        batchCount += 1
+        batch.put(filename)
+        
+        //close current and open new file for loading
+        writer.flush()
+        writer.close()
+
+        filename = outputFilePath + totalProcessed
+        writer = new CSVWriter(new FileWriter(filename))
+      }
     }
     pointsReader.close
     writer.flush()
@@ -352,6 +392,23 @@ class Sampling {
 
     logger.info("Total points sampled : " + totalProcessed + ", output file: " + outputFilePath + " point file: " + filePath)
     logger.info("********* END - TEST BATCH SAMPLING FROM FILE ***************")
+    
+    if (concurrentLoading) {
+      //wait for loading to finish
+      while (sampleLoading.doneList.size() < batchCount) {
+        Thread.sleep(50)
+      }
+      //terminate thread
+      try {
+        sampleLoading.interrupt()
+      }
+      //delete files
+      if (!keepFiles) {
+        sampleLoading.doneList.toArray.foreach(f => {
+          new File(f.toString).delete()
+        })
+      }
+    }
   }
 
 
@@ -448,14 +505,20 @@ class Sampling {
       var counter = 0
       var line = csvReader.readNext
 
+      val batches = new scala.collection.mutable.HashMap[String, Map[String, String]]
+      val batchSize = 500
       while (line != null) {
         try {
           val map = (header zip line).filter(x => !StringUtils.isEmpty(x._2.trim) && x._1 != "latitude" && x._1 != "longitude").toMap
           val el = map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
-              y._1 -> y._2.toFloat
+            y._1 -> y._2.toFloat
           }).toMap
           val cl = map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap
-          LocationDAO.addLayerIntersects(line(1), line(0), cl, el)
+          if (batches.size == batchSize) {
+            LocationDAO.writeLocBatch(batches.toMap)
+            batches.clear()
+          }
+          batches += LocationDAO.addLayerIntersects(line(1), line(0), cl, el, true)
           if (counter % 200 == 0 && callback != null) {
             callback.setCurrentLayer(new IntersectionFile("","","","finished. Processing loaded samples " + counter, "","","","",null))
             callback.progressMessage("Loading sampling.")
@@ -474,7 +537,122 @@ class Sampling {
         line = csvReader.readNext
       }
       csvReader.close
+      if (batches.size > 0) {
+        LocationDAO.writeLocBatch(batches.toMap)
+      }
+    } catch {
+      case e: Exception => {
+        logger.error("Problem loading sampling. " + e.getMessage, e)
+      }
     }
     logger.info("Finished loading: " + inputFileName + " in " + (System.currentTimeMillis - startTime) + "ms")
+  }
+}
+
+/**
+ * A location coordinates set builder that can be used in a threaded manner 
+ *
+ * @param threadId
+ * @param startKey
+ * @param endKey
+ */
+class LocColumnExporter(threadId: Int, startKey: String, endKey: String, handleRecordMap: (Map[String, String], HashSet[String], LocationProcessor) => Unit) extends Thread {
+
+  val logger = LoggerFactory.getLogger("LocColumnExporter")
+
+  val coordinates = new HashSet[String]
+
+  override def run {
+    try {
+
+      logger.info("unique coordinates start thread: " + threadId)
+
+      val start = System.currentTimeMillis
+      var startTime = System.currentTimeMillis
+      var finishTime = System.currentTimeMillis
+      var counter = 0
+      val lp = new LocationProcessor
+      Config.persistenceManager.pageOverSelect("occ", (key, map) => {
+        handleRecordMap(map, coordinates, lp)
+
+        if (counter % 100000 == 0 && counter > 0) {
+          logger.info("records counter: " + counter + ", thread: " + threadId + ", unique count:" + coordinates.size)
+        }
+        counter += 1
+        Integer.MAX_VALUE > counter
+      }, startKey, endKey, 1000, "decimalLatitude", "decimalLongitude", "decimalLatitude.p", "decimalLongitude.p",
+        "verbatimLatitude", "verbatimLongitude", "originalDecimalLatitude", "originalDecimalLongitude",
+        "originalSensitiveValues")
+
+      val fin = System.currentTimeMillis
+      logger.info("[Unique Coordinate Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+    } catch {
+      case e: Exception => logger.error("Error reading points for thread: " + threadId)
+    }
+  }
+}
+
+class LoadSamplingConsumer(batches: LinkedBlockingQueue[String]) extends Thread {
+  val doneList = new ConcurrentHashSet[String]
+
+  /**
+   * Load the sampling into the loc table
+   */
+  override def run() {
+
+    while (true) {
+      var inputFileName = batches.take()
+
+      logger.info("Loading the sampling into the database: " + inputFileName)
+
+      val startTime = System.currentTimeMillis
+      var nextTime = System.currentTimeMillis
+      try {
+        val csvReader = new CSVReader(new InputStreamReader(new FileInputStream(inputFileName), "UTF-8"))
+        val header = csvReader.readNext
+        var counter = 0
+        var line = csvReader.readNext
+
+        val batches = new scala.collection.mutable.HashMap[String, Map[String, String]]
+        val batchSize = 500
+        while (line != null) {
+          try {
+            val map = (header zip line).filter(x => !StringUtils.isEmpty(x._2.trim) && x._1 != "latitude" && x._1 != "longitude").toMap
+            val el = map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
+              y._1 -> y._2.toFloat
+            }).toMap
+            val cl = map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap
+            if (batches.size == batchSize) {
+              LocationDAO.writeLocBatch(batches.toMap)
+              batches.clear()
+            }
+            batches += LocationDAO.addLayerIntersects(line(1), line(0), cl, el, true)
+
+            if (counter % 1000 == 0 && counter > 0) {
+              logger.info("writing to loc:" + counter + ": records per sec: " + 1000f / (((System.currentTimeMillis - nextTime).toFloat) / 1000f))
+              nextTime = System.currentTimeMillis
+            }
+            counter += 1
+          } catch {
+            case e: Exception => {
+              logger.error(e.getMessage, e)
+              logger.error("Problem writing line: " + counter + ", line length: " + line.length + ", header length: " + header.length)
+            }
+          }
+          line = csvReader.readNext
+        }
+        csvReader.close
+        if (batches.size > 0) {
+          LocationDAO.writeLocBatch(batches.toMap)
+        }
+      } catch {
+        case e: Exception => {
+          logger.error("Problem loading sampling. " + e.getMessage, e)
+        }
+      }
+      logger.info("Finished loading: " + inputFileName + " in " + (System.currentTimeMillis - startTime) + "ms")
+
+      doneList.add(inputFileName)
+    }
   }
 }
