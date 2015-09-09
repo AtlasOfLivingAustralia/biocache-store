@@ -140,6 +140,7 @@ class EventProcessor extends Processor {
         if (!parsedDate.isEmpty) {
           //set processed values
           processed.event.eventDate = parsedDate.get.startDate
+          if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) processed.event.eventDateEnd = parsedDate.get.endDate
           processed.event.day = parsedDate.get.startDay
           processed.event.month = parsedDate.get.startMonth
           processed.event.year = parsedDate.get.startYear
@@ -161,6 +162,13 @@ class EventProcessor extends Processor {
             addPassedInvalidCollectionDate = false
           }
         }
+      } else if (raw.event.eventDate != null && !raw.event.eventDate.isEmpty) {
+        //look for an end date
+        val parsedDate = DateParser.parseDate(raw.event.eventDate)
+        if (!parsedDate.isEmpty) {
+          //what happens if d m y make the eventDate and eventDateEnd is parsed?
+          if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) processed.event.eventDateEnd = parsedDate.get.endDate
+        }
       }
 
       //deal with verbatim date
@@ -169,6 +177,7 @@ class EventProcessor extends Processor {
         if (!parsedDate.isEmpty) {
           //set processed values
           processed.event.eventDate = parsedDate.get.startDate
+          if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) processed.event.eventDateEnd = parsedDate.get.endDate
           processed.event.day = parsedDate.get.startDay
           processed.event.month = parsedDate.get.startMonth
           processed.event.year = parsedDate.get.startYear
@@ -190,6 +199,14 @@ class EventProcessor extends Processor {
             assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
             addPassedInvalidCollectionDate = false
           }
+        }
+      } else if ((processed.event.eventDateEnd == null || processed.event.eventDateEnd.isEmpty()) &&
+        raw.event.verbatimEventDate != null && !raw.event.verbatimEventDate.isEmpty) {
+        //look for an end date
+        val parsedDate = DateParser.parseDate(raw.event.verbatimEventDate)
+        if (!parsedDate.isEmpty && !parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
+          //what happens if d m y make the eventDate and eventDateEnd is parsed?
+          if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) processed.event.eventDateEnd = parsedDate.get.endDate
         }
       }
 

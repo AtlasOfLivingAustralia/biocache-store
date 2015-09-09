@@ -6,7 +6,7 @@ import java.util.Date
 
 import au.org.ala.biocache._
 import java.io.{BufferedOutputStream, FileOutputStream, File}
-import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.cmd.NoArgsTool
 import au.org.ala.biocache.util.Json
 import org.gbif.dwc.terms.{DwcTerm, GbifTerm}
 import org.gbif.dwc.text.{Archive, ArchiveFactory}
@@ -25,14 +25,17 @@ import sys.process._
  * Download DwC archive from:
  * http://www.cmar.csiro.au/datacentre/downloads/IRMNG_DWC.zip
  */
-object HabitatLoader extends Tool {
+object HabitatLoader extends NoArgsTool {
 
   val logger = LoggerFactory.getLogger("HabitatLoader")
   def cmd = "update-habitat-data"
   def desc = "Load habitat data from sources (e.g. IRMNG)"
 
   def main(args: Array[String]): Unit = {
+    proceed(args, () => run())
+  }
 
+  def run() {
     import scala.collection.JavaConverters._
 
     var counter = 0
@@ -94,9 +97,9 @@ object HabitatLoader extends Tool {
 }
 
 /**
-* Loads the taxon profile information from the species list tool.
-*/
-object ConservationListLoader extends Tool {
+ * Loads the taxon profile information from the species list tool.
+ */
+object ConservationListLoader extends NoArgsTool {
 
   val logger = LoggerFactory.getLogger("ConservationListLoader")
   def cmd = "update-conservation-data"
@@ -122,7 +125,11 @@ object ConservationListLoader extends Tool {
     ids
   }
 
-  def main(args:Array[String]){
+  def main(args: Array[String]) {
+    proceed(args, () => run())
+  }
+
+  def run() {
 
     val listUids = getListsForQuery("isThreatened=eq:true")
 

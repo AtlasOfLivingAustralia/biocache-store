@@ -88,7 +88,14 @@ object Thumbnailer extends Tool {
    */
   def generateThumbnail(source: File, imageSize: ImageSize, force:Boolean = false) {
     val extension = FilenameUtils.getExtension(source.getAbsolutePath)
-    val targetFilePath = source.getAbsolutePath.replace("." + extension, imageSize.suffix + "." + extension)
+    val targetFilePath = {
+      //source may not have an extension
+      if (extension.length() != 3) {
+        source.getAbsolutePath + imageSize.suffix
+      } else {
+        source.getAbsolutePath.replace("." + extension, imageSize.suffix + "." + extension)
+      }
+    }
     val target = new File(targetFilePath)
     if(!target.exists() || force) {
       generateThumbnailToSize(source, target, imageSize.size)

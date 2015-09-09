@@ -18,6 +18,7 @@ catalogue_number	string	catalogNumber	F	F		F
 taxon_concept_lsid	string	taxonConceptID.p	F	F		F
 occurrence_date	date	eventDate.p	F	F		F
 # occurrence_year - need to ensure length of 4 and append "-01-01T00:00:00Z"	F
+# occurrence_decade_i - truncate occurrence_year to end with 0
 taxon_name	string	scientificName.p	F	F		F
 raw_taxon_name	string	scientificName	F	F		F
 common_name	string	vernacularName.p	F	F		F
@@ -145,3 +146,4 @@ distance_outside_expert_range	double	distanceOutsideExpertRange.p	F	F		F
 # species_list_uid - species lists from the list defined in .properties matching taxonConceptID.p
 # species_subgroup - list of species subgroups between left.p and right.p
 # suitable_modelling - true when not-suitable for modelling assertions are not set
+reproductive_condition_s	string	reproductiveCondition	T	T		F

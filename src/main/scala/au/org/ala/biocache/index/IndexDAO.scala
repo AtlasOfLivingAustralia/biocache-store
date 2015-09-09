@@ -133,7 +133,7 @@ trait IndexDAO {
   lazy val header = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
     "data_resource", "institution_uid", "institution_code", "institution_name",
     "collection_uid", "collection_code", "collection_name", "catalogue_number",
-    "taxon_concept_lsid", "occurrence_date", "occurrence_year", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
+    "taxon_concept_lsid", "occurrence_date", "occurrence_year", "occurrence_decade_i", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
     "rank", "rank_id", "raw_taxon_name", "raw_common_name", "multimedia", "image_url", "all_image_url",
     "species_group", "country_code", "country", "lft", "rgt", "kingdom", "phylum", "class", "order",
     "family", "genus", "genus_guid", "species", "species_guid", "state", "places", "latitude", "longitude",
@@ -149,7 +149,7 @@ trait IndexDAO {
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
     "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
-    "sensitive_locality", "event_id", "location_id", "dataset_name") ::: Config.additionalFieldsToIndex
+    "sensitive_locality", "event_id", "location_id", "dataset_name", "reproductive_condition_s") ::: Config.additionalFieldsToIndex
 
   /**
    * sensitive csv header columns
@@ -196,7 +196,7 @@ trait IndexDAO {
       if (!deleted.equals("true") && map.size > 1) {
         var slat = getValue("decimalLatitude.p", map)
         var slon = getValue("decimalLongitude.p", map)
-        var latlon = ""        
+        var latlon = ""
         val sciName = getValue("scientificName.p", map)
         val taxonConceptId = getValue("taxonConceptID.p", map)
         val vernacularName = getValue("vernacularName.p", map).trim
@@ -251,9 +251,11 @@ trait IndexDAO {
 
         var eventDate = getValue("eventDate.p", map)
         var occurrenceYear = getValue("year.p", map)
-        if (occurrenceYear.length == 4)
+        var occurrenceDecade = ""
+        if (occurrenceYear.length == 4) {
           occurrenceYear += "-01-01T00:00:00Z"
-        else
+          occurrenceDecade = occurrenceYear.substring(0,3) + "0"
+        } else
           occurrenceYear = ""
         //only want to include eventDates that are in the correct format
         try {
@@ -366,9 +368,9 @@ trait IndexDAO {
         val loanReturnDate = DateParser.parseStringToDate(map.getOrElse("loanReturnDate", ""))
 
         val dateIdentified = DateParser.parseStringToDate(map.getOrElse("dateIdentified.p", ""))
-        
+
         val modifiedDate = DateParser.parseStringToDate(map.getOrElse("modified.p", ""))
-        
+
         var taxonIssue = map.getOrElse("taxonomicIssue.p", "[]")
         if(!taxonIssue.startsWith("[")){
           logger.warn("WARNING " + map.getOrElse("rowKey","") +" does not have an updated taxonIssue: " + guid)
@@ -399,6 +401,7 @@ trait IndexDAO {
           taxonConceptId,
           if (eventDate != "") eventDate + "T00:00:00Z" else "",
           occurrenceYear,
+          occurrenceDecade,
           sciName,
           vernacularName,
           sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family,
@@ -429,7 +432,7 @@ trait IndexDAO {
           getValue("lga.p", map),
           slat,
           slon,
-          latlon,          
+          latlon,
           getLatLongString(lat, lon, "#"),
           getLatLongString(lat, lon, "#.#"),
           getLatLongString(lat, lon, "#.##"),
@@ -514,7 +517,8 @@ trait IndexDAO {
           sensitiveMap.getOrElse("locality", ""),
           map.getOrElse("eventID",""),
           map.getOrElse("locationID",""),
-          map.getOrElse("datasetName","")
+          map.getOrElse("datasetName",""),
+          map.getOrElse("reproductiveCondition", "")
         ) ::: Config.additionalFieldsToIndex.map(field => map.getOrElse(field, ""))
       } else {
         return List()

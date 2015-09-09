@@ -242,7 +242,19 @@ class AutoDwcCSVLoader extends DataLoader {
       }
     }
 
+    val listbuf = new ArrayBuffer[String]()
+
+    if (dwcTermHeaders == null) {
+      logger.warn("No content in file.")
+      return listbuf.toList
+    }
+
     var currentLine = reader.readNext
+
+    if (dwcTermHeaders == null) {
+      logger.warn("No content in file.")
+      return listbuf.toList
+    }
 
     logger.info("Unique terms: " + uniqueTerms)
     logger.info("Column headers: " + dwcTermHeaders)
@@ -252,7 +264,6 @@ class AutoDwcCSVLoader extends DataLoader {
       throw new RuntimeException("Bad configuration for file: " + file.getName + " for resource: " +
         dataResourceUid + ". CSV file is missing unique terms.")
     }
-    val listbuf = new ArrayBuffer[String]()
     while (currentLine != null) {
 
       val columns = currentLine.toList

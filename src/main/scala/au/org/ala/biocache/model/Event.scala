@@ -13,6 +13,7 @@ class Event extends Cloneable with POSO {
   @BeanProperty var endDayOfYear:String = _
   @BeanProperty var eventAttributes:String = _
   @BeanProperty var eventDate:String = _
+  @BeanProperty var eventDateEnd:String = _
   @BeanProperty var eventID:String = _
   @BeanProperty var eventRemarks:String = _
   @BeanProperty var eventTime:String = _
