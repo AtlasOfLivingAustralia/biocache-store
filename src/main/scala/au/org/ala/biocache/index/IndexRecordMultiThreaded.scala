@@ -67,15 +67,17 @@ trait RangeCalculator {
           .getOrElse("facetResults", List[Map[String, Object]]())
           .asInstanceOf[List[Map[String, Object]]]
 
-        val rowKey = facetResults.head.get("fieldResult").get.asInstanceOf[List[Map[String, String]]].head.getOrElse("label", "")
-        logger.info("Retrieved row key: " + rowKey)
+        if (facetResults.size > 0) {
+          val rowKey = facetResults.head.get("fieldResult").get.asInstanceOf[List[Map[String, String]]].head.getOrElse("label", "")
+          logger.info("Retrieved row key: " + rowKey)
 
-        if (i > 0) {
-          buff(i - 1) = (lastKey, rowKey)
+          if (i > 0) {
+            buff(i - 1) = (lastKey, rowKey)
+          }
+          //we want the first key to be ""
+          if (i != 0)
+            lastKey = rowKey
         }
-        //we want the first key to be ""
-        if (i != 0)
-          lastKey = rowKey
       }
 
       buff(buff.length - 1) = (lastKey, end)

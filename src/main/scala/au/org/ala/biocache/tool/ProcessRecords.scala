@@ -5,7 +5,7 @@ import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache._
 import java.io.File
 import org.slf4j.LoggerFactory
-import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.model.{Processed, FullRecord}
 import au.org.ala.biocache.util.{StringConsumer, OptionParser, FileHelper}
 import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
 import au.org.ala.biocache.index.IndexRecords
@@ -64,7 +64,7 @@ object ProcessRecords extends Tool with IncrementalTool {
       opt("crk", "check for row key file",{ checkRowKeyFile = true })
       opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
     }
-    
+
     if(parser.parse(args)){
 
       if(!dataResourceUid.isEmpty && checkRowKeyFile){
@@ -87,7 +87,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     //shutdown the persistence
     persistenceManager.shutdown
   }
-  
+
   def getProcessedTotal(pool:Array[Actor]):Int = {
     var size = 0
     for(i<-0 to pool.length-1){
@@ -201,10 +201,10 @@ object ProcessRecords extends Tool with IncrementalTool {
       Thread.sleep(50)
     }
   }
-  
+
   def performPaging(proc: (Option[(FullRecord, FullRecord)] => Boolean), startKey:String="", endKey:String="", pageSize: Int = 1000){
     occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
-        proc(rawAndProcessed)
+      proc(rawAndProcessed)
     }, startKey, endKey)
   }
 
@@ -224,8 +224,9 @@ object ProcessRecords extends Tool with IncrementalTool {
 	    }
     }
     var ids = 0
-    val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids); ids +=1; p.start }
-    
+    // it is loading a record for the first time when callback exists
+    val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids,callback != null); ids +=1; p.start }
+
     logger.info("Starting with " + startUuid +" ending with " + endUuid)
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
@@ -279,7 +280,7 @@ object ProcessRecords extends Tool with IncrementalTool {
       }
       true //indicate to continue
     }, startUuid, endUuid)
-    
+
     logger.info("Last row key processed: " + guid)
     //add the remaining records from the buff
     if(buff.nonEmpty){
@@ -300,7 +301,7 @@ object ProcessRecords extends Tool with IncrementalTool {
 /**
  * A consumer actor asks for new work.
  */
-class Consumer (master:Actor,val id:Int)  extends Actor  {
+class Consumer (master:Actor,val id:Int, val firstLoad:Boolean=false)  extends Actor  {
 
   val logger = LoggerFactory.getLogger("Consumer")
 
@@ -324,22 +325,21 @@ class Consumer (master:Actor,val id:Int)  extends Actor  {
         case batch:Array[(FullRecord,FullRecord)] => {
           received += 1
           //for((raw,processed) <- batch) { processor.processRecord(raw, processed) }
+          val batches = new scala.collection.mutable.ListBuffer[Map[String, Object]]
+          val batchSize = 500
+          var count = 0
           batch.foreach({ case (raw, processed) =>
-            var retries = 0
-            var processedOK = false
-            while(!processedOK && retries<6){
-              try {
-                processor.processRecord(raw, processed)
-                processedOK = true
-              } catch {
-                case e:Exception => {
-                  logger.error("Error processing record: '"+raw.rowKey+"',  sleeping for 20 secs before retries", e)
-                  Thread.sleep(20000)
-                  retries += 1
-                }
-              }
+            if (batches.length == batchSize) {
+              processor.writeProcessBatch(batches.toList)
+              batches.clear()
             }
+            count += 1
+            batches += processor.processRecord(raw, processed, true, firstLoad)
           })
+          if (batches.length > 0) {
+            processor.writeProcessBatch(batches.toList)
+          }
+
           processedRecords += 1
         }
         case keys:Array[String]=>{

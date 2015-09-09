@@ -79,8 +79,12 @@ class RecordProcessor {
   /**
    * Process a record, adding metadata and records quality systemAssertions.
    * This version passes the original to optimise updates.
+   *
+   * When it is a batch, the record to be updated is returned for batch commits with writeProcessBatch.
+   *
+   * When it is a firstLoad, there will be no offline assertions 
    */
-  def processRecord(raw:FullRecord, currentProcessed:FullRecord){
+  def processRecord(raw:FullRecord, currentProcessed:FullRecord, batch:Boolean = false, firstLoad: Boolean = false) : Map[String, Object] = {
 
     val guid = raw.rowKey
     val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
@@ -91,13 +95,47 @@ class RecordProcessor {
 
     //run each processor in the specified order
     Processors.foreach(processor => {
-      assertions += ( processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+      // when processing a new record (firstLoad==true), there is no need to include offline processing
+      if (!processor.getName.equals("offline") || !firstLoad) {
+        assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+      }
     })
     //mark the processed time
     processed.lastModifiedTime = processTime
     //store the occurrence
     val systemAssertions = Some(assertions.toMap)
-    occurrenceDAO.updateOccurrence(guid, currentProcessed, processed, systemAssertions, Processed)
+
+    if (batch) {
+      Map("rowKey" -> guid, "oldRecord" -> currentProcessed, "newRecord" -> processed,
+        "assertions" -> systemAssertions, "version" -> Processed)
+    } else {
+      occurrenceDAO.updateOccurrence(guid, currentProcessed, processed, systemAssertions, Processed)
+      null
+    }
+  }
+
+  /**
+   * commits batched records returned by processRecord
+   *
+   * @param batch
+   */
+  def writeProcessBatch(batch: List[Map[String, Object]]) = {
+    val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
+
+    var retries = 0
+    var processedOK = false
+    while (!processedOK && retries < 6) {
+      try {
+        occurrenceDAO.updateOccurrenceBatch(batch)
+        processedOK = true
+      } catch {
+        case e: Exception => {
+          logger.error("Error processing record batch with length: '" + batch.length + "',  sleeping for 20 secs before retries", e)
+          Thread.sleep(20000)
+          retries += 1
+        }
+      }
+    }
   }
 
   /**
@@ -115,11 +153,11 @@ class RecordProcessor {
       }
       assertions += (processor.getName -> processor.process(raw.rowKey, raw, processed))
     })
-  
+
     //store the occurrence
     (processed, assertions.toMap)
   }
-  
+
   /**
    * Process a record, adding metadata and records quality systemAssertions
    */
