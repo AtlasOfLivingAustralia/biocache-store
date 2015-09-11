@@ -225,20 +225,19 @@ class ClassificationProcessor extends Processor {
             processed.classification.nameMatchMetric = "defaultHigherMatch"
           }
 
+          //add a common name
+          processed.classification.vernacularName = CommonNameDAO.getByGuid(nsr.getLsid).getOrElse(null)
+
           //try to apply the vernacular name, species habitats
           val taxonProfile = TaxonProfileDAO.getByGuid(nsr.getLsid)
           if (!taxonProfile.isEmpty) {
             if (taxonProfile.get.habitats != null) {
               processed.classification.speciesHabitats = taxonProfile.get.habitats
             }
-            if (taxonProfile.get.commonName != null){
+            //second attempt to add common name
+            if (taxonProfile.get.commonName != null && processed.classification.vernacularName == null){
               processed.classification.vernacularName = taxonProfile.get.commonName
             }
-          }
-
-          //second attempt to add a common name
-          if(processed.classification.vernacularName == null){
-            processed.classification.vernacularName = CommonNameDAO.getByGuid(nsr.getLsid).getOrElse(null)
           }
 
           //add the taxonomic rating for the raw name

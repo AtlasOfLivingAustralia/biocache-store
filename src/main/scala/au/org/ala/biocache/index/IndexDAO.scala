@@ -133,7 +133,7 @@ trait IndexDAO {
   lazy val header = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
     "data_resource", "institution_uid", "institution_code", "institution_name",
     "collection_uid", "collection_code", "collection_name", "catalogue_number",
-    "taxon_concept_lsid", "occurrence_date", "occurrence_year", "occurrence_decade_i", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
+    "taxon_concept_lsid", "occurrence_date", "occurrence_date_end_dt", "occurrence_year", "occurrence_decade_i", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
     "rank", "rank_id", "raw_taxon_name", "raw_common_name", "multimedia", "image_url", "all_image_url",
     "species_group", "country_code", "country", "lft", "rgt", "kingdom", "phylum", "class", "order",
     "family", "genus", "genus_guid", "species", "species_guid", "state", "places", "latitude", "longitude",
@@ -147,7 +147,8 @@ trait IndexDAO {
     "life_stage", "outlier_layer", "outlier_layer_count", "taxonomic_issue", "raw_identification_qualifier", "species_habitats",
     "identified_by", "identified_date", "sensitive_longitude", "sensitive_latitude", "pest_flag_s", "collectors", "duplicate_status", "duplicate_record",
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
-    "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
+    "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details",
+    "photographer_s", "rights", "rightsholder_s", "licence_s",
     "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
     "sensitive_locality", "event_id", "location_id", "dataset_name", "reproductive_condition_s") ::: Config.additionalFieldsToIndex
 
@@ -250,6 +251,7 @@ trait IndexDAO {
         }
 
         var eventDate = getValue("eventDate.p", map)
+        var eventDateEnd = getValue("eventDateEnd.p", map)
         var occurrenceYear = getValue("year.p", map)
         var occurrenceDecade = ""
         if (occurrenceYear.length == 4) {
@@ -262,6 +264,12 @@ trait IndexDAO {
           DateUtils.parseDate(eventDate, Array("yyyy-MM-dd"))
         } catch {
           case e: Exception => eventDate = ""
+        }
+        //only want to include eventDateEnds that are in the correct format
+        try {
+          DateUtils.parseDate(eventDateEnd, Array("yyyy-MM-dd"))
+        } catch {
+          case e: Exception => eventDateEnd = ""
         }
         var lat = java.lang.Double.NaN
         var lon = java.lang.Double.NaN
@@ -400,6 +408,7 @@ trait IndexDAO {
           getValue("catalogNumber", map),
           taxonConceptId,
           if (eventDate != "") eventDate + "T00:00:00Z" else "",
+          if (eventDateEnd != "") eventDateEnd + "T00:00:00Z" else "",
           occurrenceYear,
           occurrenceDecade,
           sciName,
@@ -507,6 +516,8 @@ trait IndexDAO {
           map.getOrElse("occurrenceDetails",""),
           map.getOrElse("photographer",""),
           map.getOrElse("rights",""),
+          map.getOrElse("rightsholder",""),
+          map.getOrElse("licence",""),
           map.getOrElse("georeferenceVerificationStatus",""),
           map.getOrElse("occurrenceStatus", ""),
           map.getOrElse("locality",""),
