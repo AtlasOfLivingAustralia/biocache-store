@@ -387,6 +387,14 @@ trait IndexDAO {
         val taxonIssueArray = Json.toStringArray(taxonIssue)
         val infoWith = map.getOrElse("informationWithheld.p", "")
         val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""//startsWith("PEST")) "PEST" else ""
+        
+        var distanceOutsideExpertRange = map.getOrElse("distanceOutsideExpertRange.p", "");
+        //only want valid numbers
+        try {
+          distanceOutsideExpertRange.toDouble
+        } catch {
+          case e: Exception => distanceOutsideExpertRange = ""
+        }
 
         //the returned list needs to match up with the CSV header
         return List(
@@ -504,7 +512,7 @@ trait IndexDAO {
           map.getOrElse("associatedOccurrences.p", ""),
           dupTypes.mkString("|"),
           sensitiveMap.getOrElse("coordinateUncertaintyInMeters.p", ""),
-          map.getOrElse("distanceOutsideExpertRange.p", ""),
+          distanceOutsideExpertRange,
           map.getOrElse("verbatimElevation.p", ""),
           map.getOrElse("minimumElevationInMeters.p", ""),
           map.getOrElse("maximumElevationInMeters.p", ""),
