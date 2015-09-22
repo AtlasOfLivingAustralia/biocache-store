@@ -18,27 +18,27 @@ import au.org.ala.biocache.util.{FileHelper, StringConsumer}
  * <li> Classification matching
  * 	- include a flag to indicate record hasnt been matched to NSLs
  * </li>
- * 
+ *
  * <li> Parse locality information
  * 	- "Vic" -> Victoria
  * </li>
- * 
+ *
  * <li> Point matching
  * 	- parse latitude/longitude
  * 	- retrieve associated point mapping
  * 	- check state supplied to state point lies in
  * 	- marine/non-marine/limnetic (need a webservice from BIE)
  * </li>
- * 
+ *
  * <li> Type status normalization
  * 	- use GBIF's vocabulary
  * </li>
- * 
+ *
  * <li> Date parsing
  * 	- date validation
  * 	- support for date ranges
  * </li>
- * 
+ *
  * <li> Collectory lookups for attribution chain </li>
  *
  * </ol>
@@ -84,33 +84,39 @@ class RecordProcessor {
    *
    * When it is a firstLoad, there will be no offline assertions 
    */
-  def processRecord(raw:FullRecord, currentProcessed:FullRecord, batch:Boolean = false, firstLoad: Boolean = false) : Map[String, Object] = {
+  def processRecord(raw: FullRecord, currentProcessed: FullRecord, batch: Boolean = false, firstLoad: Boolean = false): Map[String, Object] = {
+    try {
+      val guid = raw.rowKey
+      val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
+      //NC: Changed so that a processed record only contains values that have been processed.
+      val processed = raw.createNewProcessedRecord
+      //var assertions = new ArrayBuffer[QualityAssertion]
+      var assertions = new scala.collection.mutable.HashMap[String, Array[QualityAssertion]]
 
-    val guid = raw.rowKey
-    val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
-    //NC: Changed so that a processed record only contains values that have been processed.
-    val processed = raw.createNewProcessedRecord
-    //var assertions = new ArrayBuffer[QualityAssertion]
-    var assertions = new scala.collection.mutable.HashMap[String, Array[QualityAssertion]]
+      //run each processor in the specified order
+      Processors.foreach(processor => {
+        // when processing a new record (firstLoad==true), there is no need to include offline processing
+        if (!processor.getName.equals("offline") || !firstLoad) {
+          assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+        }
+      })
+      //mark the processed time
+      processed.lastModifiedTime = processTime
+      //store the occurrence
+      val systemAssertions = Some(assertions.toMap)
 
-    //run each processor in the specified order
-    Processors.foreach(processor => {
-      // when processing a new record (firstLoad==true), there is no need to include offline processing
-      if (!processor.getName.equals("offline") || !firstLoad) {
-        assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+      if (batch) {
+        Map("rowKey" -> guid, "oldRecord" -> currentProcessed, "newRecord" -> processed,
+          "assertions" -> systemAssertions, "version" -> Processed)
+      } else {
+        occurrenceDAO.updateOccurrence(guid, currentProcessed, processed, systemAssertions, Processed)
+        null
       }
-    })
-    //mark the processed time
-    processed.lastModifiedTime = processTime
-    //store the occurrence
-    val systemAssertions = Some(assertions.toMap)
-
-    if (batch) {
-      Map("rowKey" -> guid, "oldRecord" -> currentProcessed, "newRecord" -> processed,
-        "assertions" -> systemAssertions, "version" -> Processed)
-    } else {
-      occurrenceDAO.updateOccurrence(guid, currentProcessed, processed, systemAssertions, Processed)
-      null
+    } catch {
+      case e: Exception => {
+        logger.error("Error processing record: " + raw.rowKey + ", " + e.getMessage())
+        null
+      }
     }
   }
 

@@ -133,7 +133,7 @@ trait IndexDAO {
   lazy val header = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
     "data_resource", "institution_uid", "institution_code", "institution_name",
     "collection_uid", "collection_code", "collection_name", "catalogue_number",
-    "taxon_concept_lsid", "occurrence_date", "occurrence_year", "occurrence_decade_i", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
+    "taxon_concept_lsid", "occurrence_date", "occurrence_date_end_dt", "occurrence_year", "occurrence_decade_i", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
     "rank", "rank_id", "raw_taxon_name", "raw_common_name", "multimedia", "image_url", "all_image_url",
     "species_group", "country_code", "country", "lft", "rgt", "kingdom", "phylum", "class", "order",
     "family", "genus", "genus_guid", "species", "species_guid", "state", "places", "latitude", "longitude",
@@ -250,6 +250,7 @@ trait IndexDAO {
         }
 
         var eventDate = getValue("eventDate.p", map)
+        var eventDateEnd = getValue("eventDateEnd.p", map)
         var occurrenceYear = getValue("year.p", map)
         var occurrenceDecade = ""
         if (occurrenceYear.length == 4) {
@@ -262,6 +263,12 @@ trait IndexDAO {
           DateUtils.parseDate(eventDate, Array("yyyy-MM-dd"))
         } catch {
           case e: Exception => eventDate = ""
+        }
+        //only want to include eventDateEnds that are in the correct format
+        try {
+          DateUtils.parseDate(eventDateEnd, Array("yyyy-MM-dd"))
+        } catch {
+          case e: Exception => eventDateEnd = ""
         }
         var lat = java.lang.Double.NaN
         var lon = java.lang.Double.NaN
@@ -379,6 +386,14 @@ trait IndexDAO {
         val taxonIssueArray = Json.toStringArray(taxonIssue)
         val infoWith = map.getOrElse("informationWithheld.p", "")
         val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""//startsWith("PEST")) "PEST" else ""
+        
+        var distanceOutsideExpertRange = map.getOrElse("distanceOutsideExpertRange.p", "");
+        //only want valid numbers
+        try {
+          distanceOutsideExpertRange.toDouble
+        } catch {
+          case e: Exception => distanceOutsideExpertRange = ""
+        }
 
         //the returned list needs to match up with the CSV header
         return List(
@@ -400,6 +415,7 @@ trait IndexDAO {
           getValue("catalogNumber", map),
           taxonConceptId,
           if (eventDate != "") eventDate + "T00:00:00Z" else "",
+          if (eventDateEnd != "") eventDateEnd + "T00:00:00Z" else "",
           occurrenceYear,
           occurrenceDecade,
           sciName,
@@ -495,7 +511,7 @@ trait IndexDAO {
           map.getOrElse("associatedOccurrences.p", ""),
           dupTypes.mkString("|"),
           sensitiveMap.getOrElse("coordinateUncertaintyInMeters.p", ""),
-          map.getOrElse("distanceOutsideExpertRange.p", ""),
+          distanceOutsideExpertRange,
           map.getOrElse("verbatimElevation.p", ""),
           map.getOrElse("minimumElevationInMeters.p", ""),
           map.getOrElse("maximumElevationInMeters.p", ""),

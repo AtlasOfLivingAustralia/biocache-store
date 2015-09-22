@@ -384,10 +384,17 @@ class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Str
     var finishTime = System.currentTimeMillis
     //var buff = new ArrayBuffer[(FullRecord,FullRecord)]
     println("Starting thread " + threadId + " from " + startKey + " to " + endKey)
+    val batches = new scala.collection.mutable.ListBuffer[Map[String, Object]]
+    val batchSize = 200
     Config.occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
       counter += 1
-      if (!rawAndProcessed.get._1.deleted)
-        processor.processRecord(rawAndProcessed.get._1, rawAndProcessed.get._2)
+      if (!rawAndProcessed.get._1.deleted) {
+        if (batches.length == batchSize) {
+          processor.writeProcessBatch(batches.toList)
+          batches.clear()
+        }
+        batches += processor.processRecord(rawAndProcessed.get._1, rawAndProcessed.get._2, true)
+      }
       if (counter % pageSize == 0 && counter > 0) {
         centralCounter.addToCounter(pageSize)
         finishTime = System.currentTimeMillis
@@ -396,6 +403,9 @@ class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Str
       }
       true
     }, startKey, endKey, 1000)
+    if (batches.length > 0) {
+      processor.writeProcessBatch(batches.toList)
+    }
     val fin = System.currentTimeMillis
     logger.info("[Processor Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
     logger.info("Finished.")

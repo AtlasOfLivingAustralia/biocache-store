@@ -514,7 +514,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     //make list
     val all = scala.collection.mutable.Map[String, Map[String, String]]()
 
-    batches.foreach { case (values) =>
+    batches.filter(_ != null).foreach { case (values) if values != null =>
       val rowKey = values.get("rowKey").get.asInstanceOf[String]
       val oldRecord = values.get("oldRecord").get.asInstanceOf[FullRecord]
       val version = values.get("version").get.asInstanceOf[Version]
