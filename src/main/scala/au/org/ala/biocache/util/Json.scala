@@ -95,10 +95,10 @@ object Json {
    * Convert the supplied list from JSON
    */
   def toList(jsonString:String, theClass:java.lang.Class[AnyRef]) : List[AnyRef] = {
-      var mapper = new ObjectMapper
+      val mapper = new ObjectMapper
       mapper.getDeserializationConfig().set(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false)
       val valueType = TypeFactory.collectionType(classOf[ArrayList[AnyRef]], theClass)
-      var listOfObject = mapper.readValue[ArrayList[AnyRef]](jsonString, valueType)
+      val listOfObject = mapper.readValue[ArrayList[AnyRef]](jsonString, valueType)
       listOfObject.asScala.toList
   }
 
@@ -106,10 +106,10 @@ object Json {
    * Convert the supplied list from JSON
    */
   def toListWithGeneric[A](jsonString:String,theClass:java.lang.Class[_]) : List[A] = {
-    var mapper = new ObjectMapper
+    val mapper = new ObjectMapper
     mapper.getDeserializationConfig().set(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     val valueType = TypeFactory.collectionType(classOf[ArrayList[_]], theClass)
-    var listOfObject = mapper.readValue[ArrayList[_]](jsonString, valueType)
+    val listOfObject = mapper.readValue[ArrayList[_]](jsonString, valueType)
     listOfObject.asScala.toList.asInstanceOf[List[A]]
   }
 

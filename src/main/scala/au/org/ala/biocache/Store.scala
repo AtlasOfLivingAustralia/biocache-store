@@ -2,6 +2,7 @@ package au.org.ala.biocache
 
 import java.io.OutputStream
 import java.net.URL
+import java.util
 import au.org.ala.biocache.caches.AttributionDAO
 
 import collection.JavaConversions
@@ -655,16 +656,54 @@ object Store {
    */
   def getDeletedRecords(date:java.util.Date):Array[String] = deletedRecordDAO.getUuidsForDeletedRecords(org.apache.commons.lang.time.DateFormatUtils.format(date, "yyyy-MM-dd"))
 
+  /**
+   * Persist custom index fields.
+   *
+   * @param tempUid
+   * @param customIndexFields
+   */
   def storeCustomIndexFields(tempUid:String, customIndexFields:Array[String]){
     Config.persistenceManager.put(tempUid, "upload", "customIndexFields", Json.toJSON(customIndexFields.map(v=> if(v.endsWith("_i") || v.endsWith("_d")) v else v + "_s")))
   }
 
+  /**
+   * Retrieve custom index fields.
+   *
+   * @param tempUid
+   * @return
+   */
   def retrieveCustomIndexFields(tempUid:String) : Array[String] = {
     try {
       val s = Config.persistenceManager.get(tempUid, "upload", "customIndexFields")
       Json.toStringArray(s.getOrElse("[]"))
     } catch {
       case _:Exception => Array()
+    }
+  }
+
+  /**
+   * Persist custom index fields.
+   *
+   * @param tempUid
+   * @param customChartOptions
+   */
+  def storeCustomChartOptions(tempUid:String, customChartOptions:String) : Unit = {
+    Config.persistenceManager.put(tempUid, "upload", "customChartOptions", customChartOptions)
+  }
+
+  /**
+   * Retrieve custom index fields.
+   *
+   * @param tempUid
+   * @return
+   */
+  def retrieveCustomChartOptions(tempUid:String) : String = {
+    try {
+      val s = Config.persistenceManager.get(tempUid, "upload", "customChartOptions")
+      val json = s.getOrElse("[]")
+      json
+    } catch {
+      case _:Exception => "[]"
     }
   }
 }
