@@ -706,6 +706,32 @@ object Store {
       case _:Exception => "[]"
     }
   }
+
+  /**
+   * Persist custom index fields.
+   *
+   * @param tempUid
+   * @param customChartOptions
+   */
+  def storeLayerOptions(tempUid:String, customChartOptions:String) : Unit = {
+    Config.persistenceManager.put(tempUid, "upload", "layerOptions", customChartOptions)
+  }
+
+  /**
+   * Retrieve custom index fields.
+   *
+   * @param tempUid
+   * @return
+   */
+  def retrieveLayerOptions(tempUid:String) : String = {
+    try {
+      val s = Config.persistenceManager.get(tempUid, "upload", "layerOptions")
+      val json = s.getOrElse("[]")
+      json
+    } catch {
+      case _:Exception => "[]"
+    }
+  }
 }
 
 /**

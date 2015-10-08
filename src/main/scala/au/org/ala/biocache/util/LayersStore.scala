@@ -100,16 +100,16 @@ class LayersStore ( layersStoreUrl: String) {
     }
   }
 
-  /*
-  returns list of valid fieldIds for sampling
+  /**
+   * returns list of valid fieldIds for sampling
    */
   def getFieldIds() : util.ArrayList[String] = {
-    val httpClient = new DefaultHttpClient()
-    val httpGet = new HttpGet(layersStoreUrl + "/fieldsdb")
-    val response = httpClient.execute(httpGet)
-    val result = response.getStatusLine()
-    val responseBody: String = Source.fromInputStream(response.getEntity().getContent()).mkString
-    logger.debug("Response code: " + result.getStatusCode)
+    val response = Source.fromURL(layersStoreUrl + "/fieldsdb", "UTF-8")
+    val responseBody = if(!response.isEmpty){
+      response.mkString
+    } else {
+      "[]"
+    }
 
     val fields: util.ArrayList[String] = new util.ArrayList[String]()
     val ja: JSONArray = JSONArray.fromObject(responseBody)

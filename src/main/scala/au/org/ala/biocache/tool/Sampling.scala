@@ -82,7 +82,7 @@ object Sampling extends Tool with IncrementalTool {
         rowKeyFile = retrievedRowKeyFile.getOrElse("")
       }
 
-      if(abortIfNotRowKeyFile && (rowKeyFile=="" || !(new File(rowKeyFile).exists()))) {
+      if(abortIfNotRowKeyFile && (rowKeyFile == "" || !(new File(rowKeyFile).exists()))) {
         logger.warn("No rowkey file was found for this sampling. Aborting.")
       } else {
         //for this data resource
@@ -304,7 +304,7 @@ class Sampling {
     var counter = 0
     val threads = new ArrayBuffer[LocColumnExporter]
     val solrDirs = new ArrayBuffer[String]
-    ranges.foreach({ case (startKey, endKey) => {
+    ranges.foreach { case (startKey, endKey) =>
       logger.info("start: " + startKey + ", end key: " + endKey)
 
       val t = new LocColumnExporter(counter, startKey, endKey, handleRecordMap)
@@ -313,7 +313,6 @@ class Sampling {
       threads += t
       counter += 1
     }
-    })
 
     //wait for threads to complete and merge all indexes
     threads.foreach(thread => thread.join)

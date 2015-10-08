@@ -50,7 +50,8 @@ trait RangeCalculator {
 
     val firstRequest = Config.biocacheServiceUrl + "/occurrences/search?q=" + query + "&pageSize=1&facet=off&sort=row_key&dir=asc"
     val json = JSON.parseFull(Source.fromURL(new URL(firstRequest)).mkString)
-    if (!json.isEmpty) {
+    if (!json.isEmpty && json.get.asInstanceOf[Map[String, Object]].getOrElse("totalRecords", 0).asInstanceOf[Double].toInt > 0) {
+
       val totalRecords = json.get.asInstanceOf[Map[String, Object]].getOrElse("totalRecords", 0).asInstanceOf[Double].toInt
       logger.info("Total records: " + totalRecords)
 
@@ -84,7 +85,7 @@ trait RangeCalculator {
 
       buff
     } else {
-      Array()
+      Array.fill(1)((start, end))
     }
   }
 

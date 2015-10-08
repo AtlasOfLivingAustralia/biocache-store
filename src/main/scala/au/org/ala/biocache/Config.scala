@@ -128,8 +128,13 @@ object Config {
         val dbfields = try {
           new LayersStore(Config.layersServiceUrl).getFieldIds()
         } catch {
-          case e: Exception => new java.util.ArrayList()
+          case e: Exception => {
+            logger.error("Problem loading layers to intersect: " + e.getMessage, e)
+            new java.util.ArrayList()
+          }
         }
+
+        logger.info("Number of fields to sample: " + dbfields.size())
 
         val fields: Array[String] = if (!dbfields.isEmpty) {
           Array.ofDim(dbfields.size())
