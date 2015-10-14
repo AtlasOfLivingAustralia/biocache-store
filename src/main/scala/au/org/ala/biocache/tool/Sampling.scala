@@ -1,6 +1,7 @@
 package au.org.ala.biocache.tool
 
 import java.io._
+import java.lang.InterruptedException
 import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, ConcurrentLinkedQueue}
 import au.org.ala.biocache.index.BulkProcessor._
 import org.ala.layers.dto.IntersectionFile
@@ -598,60 +599,67 @@ class LoadSamplingConsumer(batches: LinkedBlockingQueue[String]) extends Thread 
    * Load the sampling into the loc table
    */
   override def run() {
+    
+    try {
 
-    while (true) {
-      var inputFileName = batches.take()
+      while (true) {
+        var inputFileName = batches.take()
 
-      logger.info("Loading the sampling into the database: " + inputFileName)
+        logger.info("Loading the sampling into the database: " + inputFileName)
 
-      val startTime = System.currentTimeMillis
-      var nextTime = System.currentTimeMillis
-      try {
-        val csvReader = new CSVReader(new InputStreamReader(new FileInputStream(inputFileName), "UTF-8"))
-        val header = csvReader.readNext
-        var counter = 0
-        var line = csvReader.readNext
+        val startTime = System.currentTimeMillis
+        var nextTime = System.currentTimeMillis
+        try {
+          val csvReader = new CSVReader(new InputStreamReader(new FileInputStream(inputFileName), "UTF-8"))
+          val header = csvReader.readNext
+          var counter = 0
+          var line = csvReader.readNext
 
-        val batches = new scala.collection.mutable.HashMap[String, Map[String, String]]
-        val batchSize = 500
-        while (line != null) {
-          try {
-            val map = (header zip line).filter(x => !StringUtils.isEmpty(x._2.trim) && x._1 != "latitude" && x._1 != "longitude").toMap
-            val el = map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
-              y._1 -> y._2.toFloat
-            }).toMap
-            val cl = map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap
-            if (batches.size == batchSize) {
-              LocationDAO.writeLocBatch(batches.toMap)
-              batches.clear()
+          val batches = new scala.collection.mutable.HashMap[String, Map[String, String]]
+          val batchSize = 500
+          while (line != null) {
+            try {
+              val map = (header zip line).filter(x => !StringUtils.isEmpty(x._2.trim) && x._1 != "latitude" && x._1 != "longitude").toMap
+              val el = map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
+                y._1 -> y._2.toFloat
+              }).toMap
+              val cl = map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap
+              if (batches.size == batchSize) {
+                LocationDAO.writeLocBatch(batches.toMap)
+                batches.clear()
+              }
+              batches += LocationDAO.addLayerIntersects(line(1), line(0), cl, el, true)
+
+              if (counter % 1000 == 0 && counter > 0) {
+                logger.info("writing to loc:" + counter + ": records per sec: " + 1000f / (((System.currentTimeMillis - nextTime).toFloat) / 1000f))
+                nextTime = System.currentTimeMillis
+              }
+              counter += 1
+            } catch {
+              case e: Exception => {
+                logger.error(e.getMessage, e)
+                logger.error("Problem writing line: " + counter + ", line length: " + line.length + ", header length: " + header.length)
+              }
             }
-            batches += LocationDAO.addLayerIntersects(line(1), line(0), cl, el, true)
-
-            if (counter % 1000 == 0 && counter > 0) {
-              logger.info("writing to loc:" + counter + ": records per sec: " + 1000f / (((System.currentTimeMillis - nextTime).toFloat) / 1000f))
-              nextTime = System.currentTimeMillis
-            }
-            counter += 1
-          } catch {
-            case e: Exception => {
-              logger.error(e.getMessage, e)
-              logger.error("Problem writing line: " + counter + ", line length: " + line.length + ", header length: " + header.length)
-            }
+            line = csvReader.readNext
           }
-          line = csvReader.readNext
+          csvReader.close
+          if (batches.size > 0) {
+            LocationDAO.writeLocBatch(batches.toMap)
+          }
+        } catch {
+          case e: Exception => {
+            logger.error("Problem loading sampling. " + e.getMessage, e)
+          }
         }
-        csvReader.close
-        if (batches.size > 0) {
-          LocationDAO.writeLocBatch(batches.toMap)
-        }
-      } catch {
-        case e: Exception => {
-          logger.error("Problem loading sampling. " + e.getMessage, e)
-        }
-      }
-      logger.info("Finished loading: " + inputFileName + " in " + (System.currentTimeMillis - startTime) + "ms")
+        logger.info("Finished loading: " + inputFileName + " in " + (System.currentTimeMillis - startTime) + "ms")
 
-      doneList.add(inputFileName)
+        doneList.add(inputFileName)
+      }
+    } catch {
+      case e : InterruptedException => {
+        //InterruptedException is expected when the thread is terminated with an interruption.
+      }
     }
   }
 }

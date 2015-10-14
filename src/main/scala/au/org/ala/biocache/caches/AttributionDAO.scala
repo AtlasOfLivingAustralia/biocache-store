@@ -51,13 +51,13 @@ object AttributionDAO {
    */
   def getDataResourceByUid(uid:String) : Option[Attribution] = {
 
-    val cachedObject = lru.get(uid)
+    val cachedObject = lock.synchronized { lru.get(uid) }
     if(cachedObject!=null){
       cachedObject.asInstanceOf[Option[Attribution]]
     } else {
       val att = getDataResourceFromWS(uid)
       //cache the data resource info
-      lru.put(uid, att)
+      lock.synchronized { lru.put(uid, att) }
       att
     }
   }
@@ -161,7 +161,7 @@ object AttributionDAO {
 
     if(institutionCode!=null && collectionCode!=null){
       val uuid = institutionCode.toUpperCase+"|"+collectionCode.toUpperCase
-      val cachedObject = lru.get(uuid)
+      val cachedObject = lock.synchronized { lru.get(uuid) }
 
       if(cachedObject != null){
         cachedObject.asInstanceOf[Option[Attribution]]
