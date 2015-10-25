@@ -57,8 +57,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   val doublePattern = (fieldSuffix + """_d""").r
   val intPattern = (fieldSuffix + """_i""").r
   
-  val BATCH_SIZE = 1000
-  val HARD_COMMIT_SIZE = 10000
+  lazy val BATCH_SIZE = Config.solrBatchSize
+  lazy val HARD_COMMIT_SIZE = Config.solrHardCommitSize
   val INDEX_READ_PAGE_SIZE = 5000
   val FACET_PAGE_SIZE = 1000
 

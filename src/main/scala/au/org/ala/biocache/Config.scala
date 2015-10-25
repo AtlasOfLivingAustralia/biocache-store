@@ -195,6 +195,10 @@ object Config {
 
   lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
 
+  lazy val solrBatchSize = configModule.properties.getProperty("solr.batch.size", "1000").toInt
+  
+  lazy val solrHardCommitSize = configModule.properties.getProperty("solr.hardcommit.size", "10000").toInt
+
   val stateProvincePrefixFields = configModule.properties.getProperty("species.list.prefix","stateProvince").split(",").toSet
 
   val speciesListIndexValues = configModule.properties.getProperty("species.list.index.keys", "category,status,sourceStatus").split(",").toSet

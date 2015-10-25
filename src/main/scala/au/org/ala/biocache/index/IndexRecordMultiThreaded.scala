@@ -21,6 +21,8 @@ import au.org.ala.biocache.caches.LocationDAO
 
 trait Counter {
 
+  val logger = LoggerFactory.getLogger("Counter")
+
   var counter = 0
 
   def addToCounter(amount: Int) = counter += amount
@@ -30,7 +32,7 @@ trait Counter {
 
   def printOutStatus(threadId: Int, lastKey: String, runnerType: String) = {
     finishTime = System.currentTimeMillis
-    println("[" + runnerType + " Thread " + threadId + "] " + counter + " >> Last key : " + lastKey + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
+    logger.info("[" + runnerType + " Thread " + threadId + "] " + counter + " >> Last key : " + lastKey + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
     startTime = System.currentTimeMillis
   }
 }
