@@ -132,7 +132,8 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
 
     val outWriter = new FileWriter(new File( Config.tmpWorkDir + "/fullexport" + threadId + ".txt"))
     val writer = new CSVWriter(outWriter, separator, '"', '\\')
-    writer.writeNext(Array("rowKey") ++ columns.toArray[String])
+    if (includeRowkey) writer.writeNext(Array("rowKey") ++ columns.toArray[String])
+    else writer.writeNext(columns.toArray[String])
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
