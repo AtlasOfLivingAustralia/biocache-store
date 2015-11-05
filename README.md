@@ -13,11 +13,10 @@ https://github.com/AtlasOfLivingAustralia/ala-install
 This library is built with maven. By default a `mvn install` will try to run a test suite which will fail without a local installation of a name index.
 The name index can be downloaded [here](http://biocache.ala.org.au/archives/nameindexes/20140610/namematching.tgz) and needs to be extracted to the
 directory `/data/lucene/namematching`
-
-To skip this step, run a build with ```mvn install -DskipTests=true```.
-
 or wherever the ```name.dir``` is configured to point to in your ``` /data/biocache/config/biocache-config.properties ``` file.
+
+To skip the tests during the build, run ```mvn install -DskipTests=true```.
 
 ## Releases
 
-Latest release is 1.5.3. For more information [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
+Latest release is 1.6.3. For more information [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
