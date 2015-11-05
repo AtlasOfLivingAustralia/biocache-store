@@ -5,7 +5,6 @@ import au.org.ala.biocache._
 import org.slf4j.LoggerFactory
 import scala.io.Source
 import scala.util.parsing.json.JSON
-import scala.Some
 import java.net.URLEncoder
 import au.org.ala.biocache.model.Attribution
 import au.org.ala.biocache.load.FullRecordMapper
@@ -21,17 +20,18 @@ object AttributionDAO {
   import JavaConversions._
   val logger = LoggerFactory.getLogger("AttributionDAO")
   private val columnFamily = "attr"
-  //can't use a scala hashmap because missing keys return None not null...
+  //can't use a scala hash map because missing keys return None not null...
   private val lru = new org.apache.commons.collections.map.LRUMap(10000)//new HashMap[String, Option[Attribution]]
   private val persistenceManager = Config.getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
 
   //A mapping of the ws json properties to attribution properties
-  private val wsPropertyMap = Map(
-    "name" -> "collectionName",
-    "uid" -> "collectionUid",
-    "taxonomyCoverageHints" -> "taxonomicHints",
+  private val wsPropertyMap = Map (
+    "collectionUid" -> "collectionUid",
     "institutionUid" -> "institutionUid",
-    "institution" -> "institutionName")
+    "collectionName" -> "collectionName",
+    "institutionName" -> "institutionName",
+    "taxonomyCoverageHints" -> "taxonomicHints"
+  )
 
   private val lock : AnyRef = new Object()
 
@@ -62,21 +62,21 @@ object AttributionDAO {
     }
   }
 
-   def getDataProviderAsMap(value:String):Map[String,String]={
-     val url = Config.registryUrl + "/dataProvider/" + value
-     logger.debug(url)
-     val json = Source.fromURL(url).getLines.mkString
-     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
-   }
+  def getDataProviderAsMap(value:String):Map[String,String]={
+    val url = Config.registryUrl + "/dataProvider/" + value
+    logger.debug(url)
+    val json = Source.fromURL(url).getLines.mkString
+    JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
+  }
 
-   def getDataResourceAsMap(value:String):Map[String,String]={
-     val url = Config.registryUrl + "/dataResource/" + value
-     logger.debug(url)
-     val json = Source.fromURL(url).getLines.mkString
-     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
-   }
+  def getDataResourceAsMap(value:String):Map[String,String]={
+    val url = Config.registryUrl + "/dataResource/" + value
+    logger.debug(url)
+    val json = Source.fromURL(url).getLines.mkString
+    JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
+  }
 
-   def getDataResourceFromWS(value:String):Option[Attribution]={
+  def getDataResourceFromWS(value:String):Option[Attribution]={
     try {
       if(value == null) return None
 
@@ -186,7 +186,7 @@ object AttributionDAO {
           }
 
           //update the properties
-          FullRecordMapper.mapmapPropertiesToObject(attribution, wsmap - "taxonomyCoverageHints", wsPropertyMap)
+          FullRecordMapper.mapmapPropertiesToObject(attribution, wsmap, wsPropertyMap)
           val result = Some(attribution)
           //add it to the caches
           lock.synchronized { lru.put(uuid,result) }
@@ -206,7 +206,6 @@ object AttributionDAO {
           }
           lock.synchronized { lru.put(uuid,result) }
 
-          //lru.put(uuid,result)
           result
         }
       }

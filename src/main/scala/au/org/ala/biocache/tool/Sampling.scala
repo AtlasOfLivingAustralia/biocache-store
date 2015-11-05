@@ -593,6 +593,7 @@ class LocColumnExporter(threadId: Int, startKey: String, endKey: String, handleR
 }
 
 class LoadSamplingConsumer(batches: LinkedBlockingQueue[String]) extends Thread {
+
   val doneList = new ConcurrentHashSet[String]
 
   /**
@@ -603,7 +604,7 @@ class LoadSamplingConsumer(batches: LinkedBlockingQueue[String]) extends Thread 
     try {
 
       while (true) {
-        var inputFileName = batches.take()
+        val inputFileName = batches.take()
 
         logger.info("Loading the sampling into the database: " + inputFileName)
 
