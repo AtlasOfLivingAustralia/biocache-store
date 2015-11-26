@@ -54,9 +54,7 @@ object BiocaseLoader extends Tool {
         }
       } catch {
         case e: Exception => e.printStackTrace()
-      } finally {
       }
-
     }
   }
 }
@@ -65,17 +63,27 @@ class BiocaseLoader extends DataLoader {
   val LOG = LoggerFactory.getLogger(getClass)
 
   def load(dataResourceUid: String, test: Boolean) {
+
+    /*
+    TODO
+    retrieveConnectionParameters(dataResourceUid) match {
+      case None => throw new Exception("Unable to retrieve connection params for " + dataResourceUid)
+      case Some(config) => {
+        // TODO: get values from the collectory
+      }
+    }
+    */
     // TODO: hardcoded values for now
     var contentNamespace = "http://www.tdwg.org/schemas/abcd/2.06";
-    val endpoint = new URI("http://ww3.bgbm.org/biocase/pywrapper.cgi?dsa=Herbar");
-    val datasetTitle = "Herbarium Berolinense";
+    val endpoint = new URI("http://ww3.bgbm.org/biocase/pywrapper.cgi?dsa=BoBO");
+    val datasetTitle = "BoBO - Botanic Garden and Botanical Museum Berlin-Dahlem Observations";
 
 
     val gbifID = UUID.randomUUID() // not used but required
     val attempt = 1 // not used but required
     val config = new BiocaseCrawlConfiguration(gbifID, attempt, endpoint, contentNamespace, datasetTitle);
     val context = new ScientificNameRangeCrawlContext()
-    val strategy = new ScientificNameRangeStrategy(context)
+    val strategy = new ScientificNameRangeStrategy(context,  ScientificNameRangeStrategy.Mode.ABC);
 
     val retryPolicy = new LimitedRetryPolicy(5, 2, 5, 2)
     val requestHandler = new BiocaseScientificNameRangeRequestHandler(config)
@@ -84,17 +92,81 @@ class BiocaseLoader extends DataLoader {
 
     val emit = (record: Map[String, String]) => {
       val fr = FullRecordMapper.createFullRecord("", record, Versions.RAW)
-      if (!test) {
-        // TODO: load into Cassandra
+
+      if (test) {
+        // log something sensible to give confidence that records are interpreted properly
+        LOG.info("Record: occurrenceID[{}], scientificName[{}], decimalLatitude[{}], decimalLongitude[{}]",
+          fr.getOccurrence.getOccurrenceID, fr.getClassification.getScientificName,
+          fr.getLocation.getDecimalLatitude, fr.getLocation.getDecimalLongitude);
+      } else {
+        if (load(dataResourceUid, fr, List(fr.getOccurrence.getOccurrenceID))) {
+          LOG.debug("Successfully inserted: {}", fr.getOccurrence.getOccurrenceID);
+        } else {
+          LOG.error("Error inserting record");
+        };
       }
     }
 
+    // add the logging listener to aid diagnostics during operation
     crawler.addListener(new LoggingCrawlListener(config, null, null, 0, null).asInstanceOf[org.gbif.crawler.CrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]]])
+
+    // add the listener which is responsible for emitting data into the biocache itself (i.e. the cassandra loading)
+    crawler.addListener(new AlaBiocacheListener(emit).asInstanceOf[org.gbif.crawler.CrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]]])
+
     crawler.crawl()
 
     LOG.info("Finished crawling")
   }
+
+
+
 }
+
+
+
+
+/**
+  * A listener that can be connected to the crawl stream.
+  * For each page of results found, it will extract each record and call the emitter once with each record.
+  * @param emit The emitter to use for each record
+  */
+class AlaBiocacheListener(emit: (Map[String, String]) => Unit) extends AbstractCrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]] {
+
+  val LOG = LoggerFactory.getLogger(getClass)
+
+  override def response(
+    response: java.util.List[java.lang.Byte],
+    retry: Int,
+    duration: Long,
+    recordCount: Optional[java.lang.Integer],
+    endOfRecords: Optional[java.lang.Boolean]): Unit = {
+
+    LOG.info(f"recordCount: $recordCount, endOfRecords: $endOfRecords")
+
+    // only waste time parsing if there are actually records
+    if (0 < recordCount.get()) {
+      val xmlResponseAsString = new String(Bytes.toArray(response))
+      val xmlResponse = XML.loadString(xmlResponseAsString)
+      //LOG.info("" + xmlResponseAsString);
+
+      val units = xmlResponse \ "content" \ "DataSets" \\ "DataSet" \\ "Units"
+      (units \\ "Unit").foreach { unit =>
+
+        // Here we simply extract a few fields.  If this work is to be used in anger, we should discuss with
+        // Jörg Holetshek and Tim Robertson a shared library to use between GBIF and the ALA.
+        var recordAsDwC = Map(
+          "occurrenceID" ->  (unit \ "UnitGUID").text,
+          "decimalLatitude" -> (unit \\ "LatitudeDecimal").text,
+          "decimalLongitude" -> (unit \\ "LongitudeDecimal").text,
+          "scientificName" -> (unit \\ "FullScientificNameString").text
+        ).asInstanceOf[Map[String,String]];
+
+        emit(recordAsDwC);
+      }
+    }
+  }
+}
+
 
 /**
   * A simple listener that can be used to subscribe to the crawl stream and simply logs information about the status
