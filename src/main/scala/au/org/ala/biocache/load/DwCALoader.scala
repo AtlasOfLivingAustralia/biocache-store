@@ -39,6 +39,7 @@ object DwCALoader {
 
   val IMAGE_TYPE = GbifTerm.Image
   val MULTIMEDIA_TYPE = GbifTerm.Multimedia
+//  val IDENTIFICATION_TYPE = GbifTerm.
 
   def main(args: Array[String]): Unit = {
 
@@ -176,7 +177,7 @@ class DwCALoader extends DataLoader {
       if(fieldIdx != null) {
         DwC.matchTerm(term.simpleName) match {
           case Some(matchedTerm) => fieldShortNameToIdxMap.put(fieldIdx, matchedTerm.canonical)
-          case None => //do nothing for now....
+          case None => fieldShortNameToIdxMap.put(fieldIdx, term.simpleName)
         }
       }
     })
