@@ -148,11 +148,6 @@ class Loader extends DataLoader {
       }
 
       config.get.protocol.toLowerCase match {
-        case "biocase" => {
-          logger.info("Loading Biocase provider")
-          val l = new BiocaseLoader
-          l.load(dataResourceUid, test)
-        }
         case "dwc" => {
           logger.info("Darwin core headed CSV loading")
           val l = new DwcCSVLoader

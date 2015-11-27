@@ -117,7 +117,7 @@ object Config {
   }
 
   private var fieldsToSampleCached = Array[String]()
-
+  
   def fieldsToSample(refresh:Boolean = true) = {
     if (refresh || fieldsToSampleCached.isEmpty) {
       val str = configModule.properties.getProperty("sample.fields")
@@ -196,7 +196,7 @@ object Config {
   lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
 
   lazy val solrBatchSize = configModule.properties.getProperty("solr.batch.size", "1000").toInt
-
+  
   lazy val solrHardCommitSize = configModule.properties.getProperty("solr.hardcommit.size", "10000").toInt
 
   val stateProvincePrefixFields = configModule.properties.getProperty("species.list.prefix","stateProvince").split(",").toSet
@@ -286,7 +286,7 @@ private class ConfigModule extends AbstractModule {
     }
 
     if(stream == null){
-      throw new RuntimeException("Configuration file not found. Please add to classpath or /data/biocache/config/biocache-config.properties")
+      throw new RuntimeException("Configuration file not found. Please add to classpath or /data/biocache/config/biocache-test-config.properties")
     }
 
     logger.debug("Loading configuration from " + filename)
