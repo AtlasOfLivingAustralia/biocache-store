@@ -64,20 +64,14 @@ class BiocaseLoader extends DataLoader {
 
   def load(dataResourceUid: String, test: Boolean) {
 
-    /*
-    TODO
-    retrieveConnectionParameters(dataResourceUid) match {
+    val (endpoint, contentNamespace, datasetTitle) = retrieveConnectionParameters(dataResourceUid) match {
       case None => throw new Exception("Unable to retrieve connection params for " + dataResourceUid)
-      case Some(config) => {
-        // TODO: get values from the collectory
-      }
+      case Some(config) => (
+        new URI(config.urls.head),
+        config.connectionParams.getOrElse("contentNamespace", ""),
+        config.connectionParams.getOrElse("datasetTitle", "")
+      )
     }
-    */
-    // TODO: hardcoded values for now
-    var contentNamespace = "http://www.tdwg.org/schemas/abcd/2.06";
-    val endpoint = new URI("http://ww3.bgbm.org/biocase/pywrapper.cgi?dsa=BoBO");
-    val datasetTitle = "BoBO - Botanic Garden and Botanical Museum Berlin-Dahlem Observations";
-
 
     val gbifID = UUID.randomUUID() // not used but required
     val attempt = 1 // not used but required
