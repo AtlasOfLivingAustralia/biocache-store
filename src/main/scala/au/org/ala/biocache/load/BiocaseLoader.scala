@@ -1,11 +1,11 @@
 package au.org.ala.biocache.load
 
-import java.net.URI
+import java.net.{URL, URI}
 import java.util.{Date, UUID}
 import java.util.concurrent.TimeUnit
 
 import au.org.ala.biocache.cmd.Tool
-import au.org.ala.biocache.model.Versions
+import au.org.ala.biocache.model.{Raw, Multimedia, Versions}
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import com.google.common.base.Optional
@@ -21,9 +21,11 @@ import org.gbif.crawler.client.HttpCrawlClient
 import org.gbif.crawler.protocol.biocase.{BiocaseCrawlConfiguration, BiocaseResponseHandler, BiocaseScientificNameRangeRequestHandler}
 import org.gbif.crawler.retry.LimitedRetryPolicy
 import org.gbif.crawler.strategy.{ScientificNameRangeCrawlContext, ScientificNameRangeStrategy}
+import org.gbif.dwc.terms.{DcTerm, Term}
 import org.gbif.wrangler.lock.NoLockFactory
 import org.slf4j.{LoggerFactory, MDC}
 
+import scala.collection.mutable.ListBuffer
 import scala.xml._
 
 object BiocaseLoader extends Tool {
@@ -84,16 +86,23 @@ class BiocaseLoader extends DataLoader {
     val client = HttpCrawlClientProvider.newHttpCrawlClient(endpoint.getPort)
     val crawler = Crawler.newInstance(strategy, requestHandler, new BiocaseResponseHandler(), client, retryPolicy, NoLockFactory.getLock)
 
-    val emit = (record: Map[String, String]) => {
+    val emit = (record: Map[String, String], multimedia: Seq[Multimedia]) => {
       val fr = FullRecordMapper.createFullRecord("", record, Versions.RAW)
-
       if (test) {
         // log something sensible to give confidence that records are interpreted properly
         LOG.info("Record: occurrenceID[{}], scientificName[{}], decimalLatitude[{}], decimalLongitude[{}]",
           fr.getOccurrence.getOccurrenceID, fr.getClassification.getScientificName,
           fr.getLocation.getDecimalLatitude, fr.getLocation.getDecimalLongitude);
+
+        multimedia.foreach { media =>
+          LOG.info("MediaItem: location[{}], created[{}], description[{}]",
+            media.location,
+            media.metadata.get(DcTerm.created.simpleName()),
+            media.metadata.get(DcTerm.description.simpleName())
+          )
+        }
       } else {
-        if (load(dataResourceUid, fr, List(fr.getOccurrence.getOccurrenceID))) {
+        if (load(dataResourceUid, fr, List(fr.getOccurrence.getOccurrenceID), multimedia)) {
           LOG.debug("Successfully inserted: {}", fr.getOccurrence.getOccurrenceID);
         } else {
           LOG.error("Error inserting record");
@@ -111,9 +120,6 @@ class BiocaseLoader extends DataLoader {
 
     LOG.info("Finished crawling")
   }
-
-
-
 }
 
 
@@ -124,7 +130,7 @@ class BiocaseLoader extends DataLoader {
   * For each page of results found, it will extract each record and call the emitter once with each record.
   * @param emit The emitter to use for each record
   */
-class AlaBiocacheListener(emit: (Map[String, String]) => Unit) extends AbstractCrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]] {
+class AlaBiocacheListener(emit: (Map[String, String], ListBuffer[Multimedia]) => Unit) extends AbstractCrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]] {
 
   val LOG = LoggerFactory.getLogger(getClass)
 
@@ -152,10 +158,34 @@ class AlaBiocacheListener(emit: (Map[String, String]) => Unit) extends AbstractC
           "occurrenceID" ->  (unit \ "UnitGUID").text,
           "decimalLatitude" -> (unit \\ "LatitudeDecimal").text,
           "decimalLongitude" -> (unit \\ "LongitudeDecimal").text,
-          "scientificName" -> (unit \\ "FullScientificNameString").text
+          "scientificName" -> (unit \\ "FullScientificNameString").text,
+          "institutionCode" -> (unit \\ "SourceInstitutionID").text,
+          "collectionCode" -> (unit \\ "SourceID").text,
+          "basisOfRecord" -> (unit \\ "RecordBasis").text,
+          "eventDate" -> (unit \ "Gathering" \ "DateTime").text,
+          "recordedBy" -> (unit \ "Gathering" \ "Agents" \ "GatheringAgent" \ "Person" \ "FullName").text,
+          "locality" -> (unit \ "Gathering" \\ "LocalityText").text,
+          "country" -> (unit \ "Gathering" \\ "Country" \\ "Name").text
         ).asInstanceOf[Map[String,String]];
 
-        emit(recordAsDwC);
+
+
+        // multimedia items are handled in a special way
+        val multimedia = new ListBuffer[Multimedia]
+        var multimediaItems = unit \ "MultiMediaObjects";
+        (multimediaItems \\ "MultiMediaObject").foreach { item =>
+          val url = (item \ "FileURI").text;
+          val metadata = Map(
+            DcTerm.created -> (item \ "Creator").text,
+            DcTerm.description -> (item \ "Context").text
+          ).asInstanceOf[Map[Term, String]];
+          multimedia += Multimedia.create(new URL(url), metadata)
+        }
+
+
+        //LOG.info("recordAsDwC: {}", recordAsDwC);
+
+        emit(recordAsDwC, multimedia);
       }
     }
   }
