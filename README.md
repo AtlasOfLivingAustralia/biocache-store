@@ -19,4 +19,5 @@ To skip the tests during the build, run ```mvn install -DskipTests=true```.
 
 ## Releases
 
-Latest release is 1.6.3. For more information [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
+For a list of release [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
+For a list of built releases, see [here](http://nexus.ala.org.au/#nexus-search;quick~biocache-store)
