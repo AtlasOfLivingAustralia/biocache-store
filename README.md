@@ -19,5 +19,5 @@ To skip the tests during the build, run ```mvn install -DskipTests=true```.
 
 ## Releases
 
-For a list of release [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
+For a list of releases [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
 For a list of built releases, see [here](http://nexus.ala.org.au/#nexus-search;quick~biocache-store)
