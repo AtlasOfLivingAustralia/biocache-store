@@ -384,6 +384,9 @@ class Sampling {
 
         filename = outputFilePath + totalProcessed
         writer = new CSVWriter(new FileWriter(filename))
+        
+        //write the header
+        writer.writeNext(Array("longitude", "latitude") ++ fields)
       }
     }
     pointsReader.close
