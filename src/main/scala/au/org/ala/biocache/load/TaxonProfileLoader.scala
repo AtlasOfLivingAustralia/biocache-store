@@ -105,11 +105,11 @@ object ConservationListLoader extends NoArgsTool {
   def cmd = "update-conservation-data"
   def desc = "Load conservation data from sources (e.g. list tool)"
 
-  val guidUrl = Config.listToolUrl + "/speciesList/{0}/taxa"
+  val guidUrl = Config.listToolUrl + "/ws/speciesList/{0}/taxa"
   val guidsArray = new ArrayBuffer[String]()
 
   def getListsForQuery(listToolQuery:String) : Seq[(String, String)] = {
-    val speciesLists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/speciesList?" + listToolQuery))
+    val speciesLists = Json.toJavaMap(WebServiceLoader.getWSStringContent(Config.listToolUrl + "/ws/speciesList?" + listToolQuery))
     val ids = ListBuffer[(String, String)]()
     if (speciesLists.containsKey("lists")) {
       val authLists = speciesLists.get("lists").asInstanceOf[util.List[util.Map[String, Object]]]
@@ -131,7 +131,20 @@ object ConservationListLoader extends NoArgsTool {
 
   def run() {
 
-    val listUids = getListsForQuery("isThreatened=eq:true")
+    var taxonCounter = 0
+    Config.persistenceManager.pageOverAll("taxon", (guid, map) => {
+      taxonCounter += 1
+
+      Config.persistenceManager.deleteColumns(guid, "taxon", "conservation")
+
+      if (taxonCounter % 1000 == 0) {
+        println(taxonCounter + " >> Last key : " + guid )
+      }
+
+      true
+    }, "", "~")
+
+    val listUids = getListsForQuery("isThreatened=eq:true&isAuthoritative=eq:true&max=1000")
 
     // grab a list of distinct guids that form the list
     listUids.foreach { case (listUid, region) => {
@@ -145,6 +158,8 @@ object ConservationListLoader extends NoArgsTool {
     }}
     val guids = guidsArray.toSet
 
+    logger.info("The number of species with conservation status reset " + taxonCounter)
+
     //now load all the details for each  taxon guids
     logger.info("The number of distinct species " + guids.size)
     var counter = 0
@@ -155,24 +170,23 @@ object ConservationListLoader extends NoArgsTool {
         logger.info(s"$counter species load")
       }
       //get the values from the cache
-//      val (lists, props) = TaxonSpeciesListDAO.getCachedListsForTaxon(guid)
+      val props = TaxonSpeciesListDAO.getCachedColumnsForTaxon(guid)
       //now add the values to the DB
       val buff = new ListBuffer[ConservationStatus]
-//
-//      listUids.foreach { case (listUid, region) => {
-//        if(props.getOrElse(listUid + "_status", "") != ""){
-//          val status = props.getOrElse(listUid + "_status", "")
-//          val rawStatus = props.getOrElse(listUid + "_sourceStatus", "")
-//          val conservationStatus = new ConservationStatus(
-//            region,
-//            "",
-//            status,
-//            rawStatus
-//          )
-//          println(guid + ": " + conservationStatus)
-//          buff += conservationStatus
-//        }
-//      }}
+
+      listUids.foreach { case (listUid, region) => {
+        if(props.getOrElse(listUid + "_status", "") != ""){
+          val status = props.getOrElse(listUid + "_status", "")
+          val rawStatus = props.getOrElse(listUid + "_sourceStatus", "")
+          val conservationStatus = new ConservationStatus(
+            region,
+            "",
+            status,
+            rawStatus
+          )
+          buff += conservationStatus
+        }
+      }}
 
       if(!buff.isEmpty) {
         val csAsJson = Json.toJSON(buff.toList)

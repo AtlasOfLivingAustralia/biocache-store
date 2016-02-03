@@ -23,6 +23,8 @@ object TaxonSpeciesListDAO {
 
   private var speciesListMap:Map[String, Seq[String]] = _
 
+  private var speciesListColumnsMap:Map[String, Map[String, String]] = _
+
 
   def main(args:Array[String]): Unit = {
 
@@ -67,6 +69,37 @@ object TaxonSpeciesListDAO {
 
     //now return the the values
     speciesListMap.getOrElse(conceptLsid, List())
+  }
+
+  /**
+    * Get the list details for the supplied guid
+    * @param conceptLsid
+    * @return
+    */
+  def getCachedColumnsForTaxon(conceptLsid:String) : Map[String, String] = {
+
+    if( StringUtils.isEmpty(Config.listToolUrl) ){
+      return (Map.empty)
+    }
+
+    //check to see if the species list map has been initialised
+    if(speciesListColumnsMap == null){
+      lock.synchronized {
+        //only le the first thread actually perform the init by rechecking the null
+        if(speciesListColumnsMap == null){
+          if(StringUtils.isNotEmpty(Config.listToolUrl)){
+            logger.info("Loading list information...")
+            speciesListColumnsMap = buildTaxonListColumnsMap
+            logger.info("Loading list information...completed.")
+          } else {
+            logger.info("List tool URL is not configured. Skipping list loading...")
+          }
+        }
+      }
+    }
+
+    //now return the the values
+    speciesListColumnsMap.getOrElse(conceptLsid, Map[String, String]())
   }
 
   /**
@@ -121,6 +154,70 @@ object TaxonSpeciesListDAO {
     }
   }
 
+
+  /**
+    * Build a map of taxonID -> (list UID + header -> value).
+    *
+    * @return
+    */
+  def buildTaxonListColumnsMap : Map[String, Map[String, String]] = {
+
+    try {
+      //build up a map of taxonID -> list of species lists...
+      val guidMap = new mutable.HashMap[String, Map[String, String]]()
+
+      getListUids.foreach { drUid =>
+
+        try {
+          logger.info(s"Loading data from $drUid")
+
+          //csv download
+          val downloadUrl = Config.listToolUrl + s"/speciesListItem/downloadList/$drUid?fetch=%7BkvpValues%3Dselect%7D"
+
+          logger.info(s"Downloading list data from $downloadUrl")
+
+          val data = scala.io.Source.fromURL(downloadUrl, "UTF-8").mkString
+
+          //csv reader
+          val csvReader = new CSVReader(new StringReader(data))
+          val columnHdrs = csvReader.readNext()
+
+          val guidIdx = columnHdrs.indexOf("guid")
+          var currentLine = csvReader.readNext()
+
+          //build up the map
+          while (currentLine != null) {
+            val guid = currentLine(guidIdx)
+            val item = new mutable.HashMap[String, String]()
+            for (i <- 0 until columnHdrs.length) {
+              item.put(drUid + "_" + columnHdrs(i), currentLine(i))
+            }
+
+            val items = guidMap.getOrElse(guid, mutable.HashMap[String, String]())
+            if (items.isEmpty) {
+              guidMap.put(guid, item.toMap[String, String])
+            } else {
+              guidMap.put(guid, (items ++ item).toMap[String, String])
+            }
+
+            currentLine = csvReader.readNext()
+          }
+        } catch {
+          case e:Exception => {
+            logger.error("failed to get a list $drUid", e)
+          }
+        }
+      }
+
+      guidMap.toMap
+    } catch {
+      case e:Exception => {
+        logger.error("Problem loading lists to intersect with." + e.getMessage, e)
+        Map()
+      }
+    }
+  }
+
   /**
    * Retrieve a list of species lists UIDs.
    *
@@ -128,7 +225,7 @@ object TaxonSpeciesListDAO {
    */
   private def getListUids : Seq[String] = {
 
-    val listsUrl = Config.listToolUrl + "/ws/speciesList?isAuthoritative=eq:true"
+    val listsUrl = Config.listToolUrl + "/ws/speciesList?isAuthoritative=eq:true&max=1000"
     val jsonString = Source.fromURL(listsUrl, "UTF-8").mkString
     JSON.parseFull(jsonString) match {
       case Some(json) => {
