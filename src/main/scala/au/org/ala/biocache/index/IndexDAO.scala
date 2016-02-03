@@ -140,7 +140,7 @@ trait IndexDAO {
     "lat_long", "point-1", "point-0.1", "point-0.01", "point-0.02", "point-0.001", "point-0.0001",
     "year", "month", "basis_of_record", "raw_basis_of_record", "type_status",
     "raw_type_status", "taxonomic_kosher", "geospatial_kosher",  "location_remarks",
-    "occurrence_remarks", "user_assertions", "collector", "state_conservation", "raw_state_conservation",
+    "occurrence_remarks", "user_assertions", "collector", "state_conservation", "raw_state_conservation", "country_conservation", "raw_country_conservation",
     "sensitive", "coordinate_uncertainty", "user_id", "alau_user_id", "provenance", "subspecies_guid", "subspecies_name", "interaction", "last_assertion_date",
     "last_load_date", "last_processed_date", "modified_date", "establishment_means", "loan_number", "loan_identifier", "loan_destination",
     "loan_botanist", "loan_date", "loan_return_date", "original_name_usage", "duplicate_inst", "record_number", "first_loaded_date", "name_match_metric",
@@ -308,6 +308,12 @@ trait IndexDAO {
 
         if (stateCons == "null") stateCons = rawStateCons
 
+        val cconservation = getValue("countryConservation.p", map)
+        var countryCons = if (cconservation != "") cconservation.split(",")(0) else ""
+        val rawCountryCons = if (cconservation != "") cconservation.split(",")(1) else ""
+
+        if (countryCons == "null") countryCons = rawCountryCons
+
         val sensitive: String = {
           val dataGen = map.getOrElse("dataGeneralizations.p", "")
           if (dataGen.contains("already generalised"))
@@ -471,6 +477,8 @@ trait IndexDAO {
           getValue("recordedBy", map),
           stateCons, //stat
           rawStateCons,
+          countryCons,
+          rawCountryCons,
           sensitive,
           getValue("coordinateUncertaintyInMeters.p", map),
           map.getOrElse("userId", ""),
