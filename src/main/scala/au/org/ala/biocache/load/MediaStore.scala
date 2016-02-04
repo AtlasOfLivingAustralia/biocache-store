@@ -268,9 +268,11 @@ object RemoteMediaStore extends MediaStore {
     //already stored?
     val (stored, fileName, imageId) = alreadyStored(uuid, resourceUID, urlToMedia)
 
-    //if already store, just update metadata
+    //if already stored, just update metadata
     if(stored){
+      logger.info("Media file " + urlToMedia + " already stored at " + imageId)
       if(media.isDefined){
+        logger.info("Updating metadata for image " + imageId)
         updateMetadata(imageId, media.get)
       }
       Some((fileName, imageId))
@@ -280,6 +282,7 @@ object RemoteMediaStore extends MediaStore {
         case Some(tmpFile) => {
           try {
             val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile, media)
+            logger.info("Media file " + urlToMedia + " stored to " + imageId)
             if(imageId.isDefined){
               Some((extractFileName(urlToMedia), imageId.getOrElse("")))
             } else {
@@ -499,54 +502,56 @@ object LocalMediaStore extends MediaStore {
     val (stored, name, path) = alreadyStored(uuid, resourceUID, urlToMedia)
     if(stored){
       logger.info("Media already stored to: " + path)
-    }
+      Some(name, path)
+    } else {
 
-    //handle the situation where the urlToMedia does not exits -
-    var in: java.io.InputStream = null
-    var out: java.io.FileOutputStream = null
+      //handle the situation where the urlToMedia does not exits -
+      var in: java.io.InputStream = null
+      var out: java.io.FileOutputStream = null
 
-    try {
-      val fullPath = createFilePath(uuid, resourceUID, urlToMedia)
-      val file = new File(fullPath)
-      if (!file.exists() || file.length() == 0) {
-        val url = new java.net.URL(urlToMedia.replaceAll(" ", "%20"))
-        in = url.openStream
-        out = new FileOutputStream(file)
-        val buffer: Array[Byte] = new Array[Byte](1024)
-        var numRead = 0
-        while ( {
-          numRead = in.read(buffer)
-          numRead != -1
+      try {
+        val fullPath = createFilePath(uuid, resourceUID, urlToMedia)
+        val file = new File(fullPath)
+        if (!file.exists() || file.length() == 0) {
+          val url = new java.net.URL(urlToMedia.replaceAll(" ", "%20"))
+          in = url.openStream
+          out = new FileOutputStream(file)
+          val buffer: Array[Byte] = new Array[Byte](1024)
+          var numRead = 0
+          while ( {
+            numRead = in.read(buffer)
+            numRead != -1
           }) {
-          out.write(buffer, 0, numRead)
-          out.flush
-        }
-        logger.info("File saved to: " + fullPath)
-        //is this file an image???
-        if (isValidImageURL(urlToMedia)) {
-          Thumbnailer.generateAllSizes(new File(fullPath))
+            out.write(buffer, 0, numRead)
+            out.flush
+          }
+          logger.info("File saved to: " + fullPath)
+          //is this file an image???
+          if (isValidImageURL(urlToMedia)) {
+            Thumbnailer.generateAllSizes(new File(fullPath))
+          } else {
+            logger.warn("Invalid media file. Not generating derivatives for: " + fullPath)
+          }
         } else {
-          logger.warn("Invalid media file. Not generating derivatives for: " + fullPath)
+          logger.info("File previously saved to: " + fullPath)
+          if (isValidImageURL(urlToMedia)) {
+            Thumbnailer.generateAllSizes(new File(fullPath))
+          } else {
+            logger.warn("Invalid media file. Not generating derivatives for: " + fullPath)
+          }
         }
-      } else {
-        logger.info("File previously saved to: " + fullPath)
-        if (isValidImageURL(urlToMedia)) {
-          Thumbnailer.generateAllSizes(new File(fullPath))
-        } else {
-          logger.warn("Invalid media file. Not generating derivatives for: " + fullPath)
+        //store the media
+        Some((extractFileName(urlToMedia), fullPath))
+      } catch {
+        case e: Exception => logger.warn("Unable to load media " + urlToMedia + ". " + e.getMessage); None
+      } finally {
+        if (in != null) {
+          in.close()
         }
-      }
-      //store the media
-      Some((extractFileName(urlToMedia), fullPath))
-    } catch {
-      case e: Exception => logger.warn("Unable to load media " + urlToMedia + ". " + e.getMessage); None
-    } finally {
-      if (in != null) {
-        in.close()
-      }
 
-      if (out != null) {
-        out.close()
+        if (out != null) {
+          out.close()
+        }
       }
     }
   }

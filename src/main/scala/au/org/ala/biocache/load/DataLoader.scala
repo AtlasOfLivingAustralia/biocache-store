@@ -308,27 +308,20 @@ trait DataLoader {
         }
       }
 
-      val (exists, filename, filePathOrId) = Config.mediaStore.alreadyStored(fr.uuid, dataResourceUid, fileToStore)
-
-      if (exists) {
-        logger.info("Media file already stored: " + filePathOrId)
-        fileNameToID.put(filename, filePathOrId)
-      } else {
-        val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, media)
-        savedTo match {
-          case Some((savedFilename, savedFilePathOrId)) => {
-            logger.info("Media file stored to: " + savedFilePathOrId)
-            if (Config.mediaStore.isValidSound(fileToStore)) {
-              soundsBuffer += savedFilePathOrId
-            } else if (Config.mediaStore.isValidVideo(fileToStore)) {
-              videosBuffer += savedFilePathOrId
-            } else {
-              imagesBuffer += savedFilePathOrId
-            }
-            associatedMediaBuffer += filename
+      // save() checks to see if the media has already been stored
+      val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, media)
+      savedTo match {
+        case Some((savedFilename, savedFilePathOrId)) => {
+          if (Config.mediaStore.isValidSound(fileToStore)) {
+            soundsBuffer += savedFilePathOrId
+          } else if (Config.mediaStore.isValidVideo(fileToStore)) {
+            videosBuffer += savedFilePathOrId
+          } else {
+            imagesBuffer += savedFilePathOrId
           }
-          case None => logger.warn("Unable to save file: " + fileToStore)
+          associatedMediaBuffer += savedFilename
         }
+        case None => logger.warn("Unable to save file: " + fileToStore)
       }
 
       //add the references

@@ -27,9 +27,37 @@ class MapDataLoaderTest extends ConfigFunSuite {
     val jmap = new util.HashMap[String,String]()
     map.foreach{case(k,v)=> jmap.put(k,v)}
     loader.load("drnq",List(jmap),List("occurrenceId"))
-    println(Config.persistenceManager.get("drnq|myid","occ"))
+    //println(Config.persistenceManager.get("drnq|myid","occ"))
     val rights= Config.persistenceManager.get("drnq|myid","occ","rights")
     expectResult(Some("CC")){rights}
     expectResult(Some("Red Kangaroo")){Config.persistenceManager.get("drnq|myid","occ","vernacularName")}
   }
+
+  test("map load empty values"){
+    val loader = new MapDataLoader
+    val map = Map("occurrenceId"->"myid2","scientificName"->"Macropus rufus","eventDate"->"","imageLicence"->"CC", "commonName"->"Red Kangaroo")
+    val jmap = new util.HashMap[String,String]()
+    map.foreach{case(k,v)=> jmap.put(k,v)}
+    loader.load("drnq",List(jmap),List("occurrenceId"))
+    //println(Config.persistenceManager.get("drnq|myid2","occ"))
+    expectResult(None){Config.persistenceManager.get("drnq|myid2","occ","eventDate")}
+  }
+
+  test("map update empty values"){
+    val loader = new MapDataLoader
+    val map = Map("occurrenceId"->"myid3","scientificName"->"Macropus rufus","eventDate"->"2016-02-03","imageLicence"->"CC", "commonName"->"")
+    val jmap = new util.HashMap[String,String]()
+    map.foreach{case(k,v)=> jmap.put(k,v)}
+    loader.load("drnq",List(jmap),List("occurrenceId"))
+    //println(Config.persistenceManager.get("drnq|myid2","occ"))
+    expectResult(Some("2016-02-03")){Config.persistenceManager.get("drnq|myid3","occ","eventDate")}
+    expectResult(None){Config.persistenceManager.get("drnq|myid3","occ","vernacularName")}
+    val map2 = Map("occurrenceId"->"myid3", "eventDate"->"", "commonName"->"Red Kangaroo")
+    val jmap2 = new util.HashMap[String,String]()
+    map2.foreach{case(k,v)=> jmap2.put(k,v)}
+    loader.load("drnq",List(jmap2),List("occurrenceId"))
+    expectResult(Some("2016-02-03")){Config.persistenceManager.get("drnq|myid3","occ","eventDate")}
+    expectResult(Some("Red Kangaroo")){Config.persistenceManager.get("drnq|myid3","occ","vernacularName")}
+  }
+
 }
