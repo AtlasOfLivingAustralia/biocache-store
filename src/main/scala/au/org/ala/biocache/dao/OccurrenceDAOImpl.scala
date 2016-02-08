@@ -4,7 +4,7 @@ import java.util.Date
 
 import org.apache.commons.lang.StringUtils
 
-import scala.collection.JavaConversions
+import scala.collection.{JavaConversions}
 import org.slf4j.LoggerFactory
 import com.google.inject.Inject
 import au.org.ala.biocache._
@@ -168,7 +168,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    * Writes the supplied field values to the writer.  The Writer specifies the format in which the record is
    * written.
    */
-  def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false){
+  def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false, includeMisc:Boolean=false, miscFields:Array[String] = null) : Array[String] = {
     //get the codes for the qa fields that need to be included in the download
     //TODO fix this in case the value can't be found
     val mfields = fields.toBuffer
@@ -176,32 +176,60 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     val firstEL = fields.find(value => {elpattern.findFirstIn(value).nonEmpty})
     val firstCL = fields.find(value => {clpattern.findFirstIn(value).nonEmpty})
     val firstMisc = fields.find(value =>{IndexFields.storeMiscFields.contains(value)})
+    //user_assertions is boolean in SOLR, FullRecordMapper.userQualityAssertionColumn in Cassandra.
+    //because this is a full list it is more useful to have the assertion contents in this requested field.
+    val userAssertions = fields.find(value =>{"user_assertions".equals(value)})
+
     if(firstEL.isDefined)
       mfields += "el.p"
     if(firstCL.isDefined)
       mfields += "cl.p"
     if(includeSensitive)
       mfields += "originalSensitiveValues"
-    if(firstMisc.isDefined)
+    if(firstMisc.isDefined || includeMisc)
       mfields += FullRecordMapper.miscPropertiesColumn
     mfields ++=  FullRecordMapper.qaFields
+
+    //user assertions requires additional columns that may or may not already be requested
+    var addedUserQAColumn = false
+    var addedRowKey = false
+    if (userAssertions.isDefined) {
+      if (!mfields.contains(FullRecordMapper.userQualityAssertionColumn)) {
+        mfields += FullRecordMapper.userQualityAssertionColumn
+        addedUserQAColumn = true
+      }
+      if (!mfields.contains("rowKey")) {
+        mfields += "rowKey"
+        addedRowKey = true
+      }
+    }
+
+    val newMiscFields:ListBuffer[String] = ListBuffer[String]()
+    if (miscFields != null) miscFields.foreach( field => newMiscFields += field)
 
     persistenceManager.selectRows(rowKeys, entityName, mfields , { fieldMap =>
       val array = scala.collection.mutable.ArrayBuffer[String]()
       val sensitiveMap:scala.collection.Map[String,String] = if(includeSensitive) Json.toStringMap(fieldMap.getOrElse("originalSensitiveValues", "{}")) else Map()
       val elMap = if(firstEL.isDefined) Json.toStringMap(fieldMap.getOrElse("el.p", "{}")) else Map[String,String]()
       val clMap = if(firstCL.isDefined) Json.toStringMap(fieldMap.getOrElse("cl.p", "{}")) else Map[String,String]()
-      val miscMap = if(firstMisc.isDefined)Json.toStringMap(fieldMap.getOrElse(FullRecordMapper.miscPropertiesColumn, "{}")) else Map[String,String]()
+      val miscMap = if(firstMisc.isDefined || includeMisc)Json.toStringMap(fieldMap.getOrElse(FullRecordMapper.miscPropertiesColumn, "{}")) else Map[String,String]()
       fields.foreach(field => {
         val fieldValue = field match{
           case a if elpattern.findFirstIn(a).nonEmpty => elMap.getOrElse(a, "")
           case a if clpattern.findFirstIn(a).nonEmpty => clMap.getOrElse(a, "")
           case a if firstMisc.isDefined && IndexFields.storeMiscFields.contains(a) => miscMap.getOrElse(a, "")
+          case a if userAssertions.isDefined && "user_assertions".equals(a) => if ("true".equals(fieldMap.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false"))) getUserAssertionsString(fieldMap.getOrElse("rowKey","")) else ""
           case _ => if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap)) else getHackValue(field,fieldMap)
         }
-        // if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap))else getHackValue(field,fieldMap)
-        //Create a MS Excel compliant CSV file thus field with delimiters are quoted and embedded quotes are escaped
-        array += fieldValue
+
+        //do not add columns not requested
+        if (!(addedRowKey && "rowKey".equals(field)) &&
+          !(addedUserQAColumn && FullRecordMapper.userQualityAssertionColumn.equals(field))) {
+          // if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap))else getHackValue(field,fieldMap)
+          //Create a MS Excel compliant CSV file thus field with delimiters are quoted and embedded quotes are escaped
+          array += fieldValue
+        }
+
       })
       //now handle the QA fields
       val failedCodes = getErrorCodes(fieldMap);
@@ -209,8 +237,24 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       codes.foreach(code => {
           array += (failedCodes.contains(code)).toString
       })
+      //include all misc fields
+      if (includeMisc) {
+        //match miscFields order
+        newMiscFields.foreach( field => {
+          array += miscMap.getOrElse(field, "")
+        })
+        //unmatched
+        miscMap.foreach( m => {
+          if (!newMiscFields.contains(m._1)) {
+            newMiscFields += m._1
+            array += m._2
+          }
+        })
+      }
       writer.write(array.toArray)
     })
+
+    newMiscFields.toArray
   }
 
   /**
@@ -281,6 +325,34 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
     else
       map.getOrElse(field,"")
+  }
+
+  def getUserAssertionsString(rowKey:String):String ={
+    val assertions:List[QualityAssertion] = getUserAssertions(rowKey)
+    val string:StringBuilder = new StringBuilder()
+    assertions.foreach( assertion => {
+      if (assertion != null) {
+        if (!string.isEmpty) string.append('|')
+        //format as ~ delimited created~name~comment~user
+        val comment = {
+          if (assertion.comment != null) {
+            assertion.comment
+          } else {
+            ""
+          }
+        }
+        val userDisplayName = {
+          if (assertion.userDisplayName != null) {
+            assertion.userDisplayName
+          } else {
+            ""
+          }
+        }
+        val formatted = assertion.created + "~" + assertion.name + "~" + comment.replace('~', '-').replace('\n', ' ') + "~" + userDisplayName.replace('~', '-')
+        string.append(formatted.replace('|', '/'))
+      }
+    })
+    string.toString()
   }
 
   def getErrorCodes(map:Map[String, String]):Array[Integer]={

@@ -516,11 +516,15 @@ object Store {
   }
   
   def writeToWriter(writer:RecordWriter,keys: Array[String], fields: Array[java.lang.String], qaFields: Array[java.lang.String], includeSensitive:Boolean){
-    occurrenceDAO.writeToRecordWriter(writer, keys, fields, qaFields, includeSensitive)
+    occurrenceDAO.writeToRecordWriter(writer, keys, fields, qaFields, includeSensitive, false, null)
   }
 
   def writeToWriter(writer:RecordWriter,keys: Array[String], fields: Array[java.lang.String], qaFields: Array[java.lang.String]){
-    writeToWriter(writer, keys, fields, qaFields, false)
+    writeToWriter(writer, keys, fields, qaFields, false, false, null)
+  }
+
+  def writeToWriter(writer:RecordWriter,keys: Array[String], fields: Array[java.lang.String], qaFields: Array[java.lang.String], includeSensitive:Boolean, includeMisc:Boolean, miscFields: Array[java.lang.String]) : Array[java.lang.String] = {
+    occurrenceDAO.writeToRecordWriter(writer, keys, fields, qaFields, includeSensitive, includeMisc, miscFields)
   }
   
   /**
@@ -766,3 +770,4 @@ trait RecordWriter {
   /** Performs all the finishing tasks in writing the download file. */
   def finalise
 }
+
