@@ -157,15 +157,14 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	associatedReferences	T	T	F	F
 	string	associatedSequences	T	T	F	F
 	string	associatedTaxa	T	T	F	F
-	string	attr_qa	T	T	F	F
+	string	attr.qa	T	T	F	F
 	string	austConservation.p	F	F	F	F
 	string	australianHerbariumRegion	F	F	F	F
 	string	behavior	F	F	F	F
 	string	bibliographicCitation	F	F	F	F
-	string	bor_qa	T	T	F	F
+	string	bor.qa	T	T	F	F
 	string	citation	F	F	F	F
-	string	cl.p	T	T	F	F
-	string	class_qa	T	T	F	F
+	string	class.qa	T	T	F	F
 	string	classID.p	F	F	F	F
 	string	classs	F	F	F	F
 	string	collectionCode.p	F	F	F	F
@@ -188,20 +187,19 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	day	F	F	F	F
 	string	day.p	F	F	F	F
 	string	decimalLatitudelatitude	F	F	F	F
-	string	default_qa	T	T	F	F
+	string	default.qa	T	T	F	F
 	string	defaultValuesUsed	F	F	F	F
 	string	deleted	F	F	F	F
 	string	disposition	F	F	F	F
 	string	distanceOutsideExpertRange	F	F	F	F
-	string	duplicates_qa	F	F	F	F
+	string	duplicates.qa	F	F	F	F
 	string	duplicatesOriginalInstitutionID	F	F	F	F
 	string	duplicatesOriginalUnitID	F	F	F	F
 	string	dynamicProperties	F	F	F	F
 	string	easting	F	F	F	F
-	string	el.p	T	T	F	F
 	string	endDayOfYear	F	F	F	F
 	string	establishmentMeans	F	F	F	F
-	string	event_qa	T	T	F	F
+	string	event.qa	T	T	F	F
 	string	eventDate	F	F	F	F
 	string	eventRemarks	F	F	F	F
 	string	eventTime	F	F	F	F
@@ -245,7 +243,7 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	identifiedBy.p	F	F	F	F
 	string	identifierBy	F	F	F	F
 	string	identifierRole	F	F	F	F
-	string	image_qa	T	T	F	F
+	string	image.qa	T	T	F	F
 	string	images	T	T	F	F
 	string	imcra.p	F	F	F	F
 	string	individualCount	F	F	F	F
@@ -262,7 +260,7 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	kingdomID.p	F	F	F	F
 	string	language	F	F	F	F
 	string	lifeStage	F	F	F	F
-	string	loc_qa	T	T	F	F
+	string	loc.qa	T	T	F	F
 	string	locality.p	F	F	F	F
 	string	locationAccordingTo	F	F	F	F
 	string	locationDetermined	F	F	F	F
@@ -276,7 +274,6 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	minimumDepthInMeters	F	F	F	F
 	string	minimumDistanceAboveSurfaceInMeters	F	F	F	F
 	string	minimumElevationInMeters	F	F	F	F
-	string	miscProperties	F	F	F	F
 	string	modified	F	F	F	F
 	string	month	F	F	F	F
 	string	municipality	F	F	F	F
@@ -296,7 +293,7 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	occurrenceRemarks	F	F	F	F
 	string	occurrenceStatus	F	F	F	F
 	string	occurrenceStatus.p	F	F	F	F
-	string	offline_qa	T	T	F	F
+	string	offline.qa	T	T	F	F
 	string	order	F	F	F	F
 	string	orderID.p	F	F	F	F
 	string	originalNameUsageID	F	F	F	F
@@ -312,7 +309,6 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	preferredFlag	F	F	F	F
 	string	preparations	F	F	F	F
 	string	previousIdentifications	F	F	F	F
-	string	qualityAssertion	T	T	F	F
 	string	queryAssertions.p	T	T	F	F
 	string	rightsholder	F	F	F	F
 	string	samplingEffort	F	F	F	F
@@ -343,7 +339,7 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	taxonRank	F	F	F	F
 	string	taxonRemarks	F	F	F	F
 	string	type	F	F	F	F
-	string	type_qa	T	T	F	F
+	string	type.qa	T	T	F	F
 	string	typeStatusQualifier	F	F	F	F
 	string	typifiedName	F	F	F	F
 	string	userId.p	F	F	F	F
