@@ -107,7 +107,7 @@ object IndexRecords extends Tool with IncrementalTool {
         }
         //shut down pelops and index to allow normal exit
         indexer.shutdown
-        persistenceManager.shutdown
+//        persistenceManager.shutdown
       }
     }
   }

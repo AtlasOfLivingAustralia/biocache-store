@@ -10,9 +10,13 @@ import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
  */
 trait Processor {
 
-  /** Process the raw version of the record, updating the processed and returning an array of assertions */
-  def process(uuid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion]
+  /**
+   * Process the raw version of the record, updating the processed and returning an array of assertions
+   */
+  def process(uuid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion]
 
-  /** Return the name of this processor (largely for logging purposes) */
+  /**
+   * Return the name of this processor (largely for logging purposes)
+   */
   def getName: String
 }

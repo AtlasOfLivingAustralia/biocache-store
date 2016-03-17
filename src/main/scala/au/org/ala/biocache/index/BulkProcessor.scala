@@ -161,7 +161,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
           if (action == "index") {
             IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
-            Config.persistenceManager.shutdown
+//            Config.persistenceManager.shutdown
             logger.info("Waiting to see if shutdown")
             System.exit(0)
           } else if (action == "col") {

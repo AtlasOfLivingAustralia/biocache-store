@@ -280,7 +280,7 @@ class ResampleRecords {
       current = pointsReader.readNext
     }
     pointsReader.close
-    Config.persistenceManager.shutdown //close DB connections
+//    Config.persistenceManager.shutdown //close DB connections
     println("Finished the re-sampling.")
   }
 }

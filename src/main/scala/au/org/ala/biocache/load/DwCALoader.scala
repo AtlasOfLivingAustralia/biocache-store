@@ -74,7 +74,7 @@ object DwCALoader {
     }
 
     //shut down the persistence manager after all the files have been loaded.
-    Config.persistenceManager.shutdown
+//    Config.persistenceManager.shutdown
   }
 }
 

@@ -193,7 +193,7 @@ class CassandraPersistenceManager @Inject() (
   /**
    * Store the supplied batch of maps of properties as separate columns in cassandra.
    */
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]]) = {
+  def putBatch(entityName: String, batch: collection.Map[String, collection.Map[String, String]]) = {
     val mutator = Pelops.createMutator(poolName)
     batch.foreach(uuidMap => {
       val uuid = uuidMap._1

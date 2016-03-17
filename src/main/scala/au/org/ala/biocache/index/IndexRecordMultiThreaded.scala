@@ -331,6 +331,7 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
  * @param endKey
  */
 class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
+
   val logger = LoggerFactory.getLogger("LoadSamplingRunner")
   var ids = 0
   val threads = 2

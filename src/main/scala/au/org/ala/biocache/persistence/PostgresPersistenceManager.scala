@@ -137,7 +137,7 @@ class PostgresPersistenceManager() extends PersistenceManager {
    /**
     * Add a batch of properties.
     */
-   def putBatch(entityName: String, batch: Map[String, Map[String, String]]): Unit = {
+   def putBatch(entityName: String, batch: collection.Map[String, collection.Map[String, String]]): Unit = {
      logger.warn("loading batch....WARNING not implemented......")
    }
 
