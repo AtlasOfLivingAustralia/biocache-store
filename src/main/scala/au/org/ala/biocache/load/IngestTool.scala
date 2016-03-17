@@ -54,8 +54,8 @@ object IngestTool extends Tool {
             IngestTool.ingestResource(
               uid,
               skipLoading = skipLoading,
-              skipSampling = skipSampling,
               skipProcessing = skipProcessing,
+              skipSampling = skipSampling,
               skipIndexing = skipIndexing
             )
           }
@@ -69,8 +69,8 @@ object IngestTool extends Tool {
             IngestTool.ingestResource(
               uid,
               skipLoading = skipLoading,
-              skipSampling = skipSampling,
               skipProcessing = skipProcessing,
+              skipSampling = skipSampling,
               skipIndexing = skipIndexing
             )
           }
@@ -102,17 +102,17 @@ object IngestTool extends Tool {
     } else {
       logger.info("Skipping loading: " + uid)
     }
-    if(!skipSampling){
-      logger.info("Sampling: " + uid)
-      Sampling.main(Array("-dr", uid))
-    } else {
-      logger.info("Skipping sampling: " + uid)
-    }
     if(!skipProcessing){
       logger.info("Processing: " + uid)
       ProcessRecords.processRecords(4, None, Some(uid))
     } else {
       logger.info("Skipping processing: " + uid)
+    }
+    if(!skipSampling){
+      logger.info("Sampling: " + uid)
+      Sampling.main(Array("-dr", uid))
+    } else {
+      logger.info("Skipping sampling: " + uid)
     }
     if(!skipIndexing){
       logger.info("Indexing: " + uid)

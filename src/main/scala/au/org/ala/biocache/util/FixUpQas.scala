@@ -59,6 +59,6 @@ object FixUpQas {
 
       true
     })
-    Config.persistenceManager.shutdown
+//    Config.persistenceManager.shutdown
   }
 }

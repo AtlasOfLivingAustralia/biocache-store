@@ -8,7 +8,7 @@ import au.org.ala.biocache.caches.AttributionDAO
 import collection.JavaConversions
 import java.util.Date
 import au.org.ala.biocache.qa.ValidationRuleRunner
-import org.ala.layers.dao.IntersectCallback
+import au.org.ala.layers.dao.IntersectCallback
 import collection.mutable.ArrayBuffer
 import au.org.ala.biocache.util._
 import au.org.ala.biocache.dao.{OutlierStatsDAO, OccurrenceDAO}

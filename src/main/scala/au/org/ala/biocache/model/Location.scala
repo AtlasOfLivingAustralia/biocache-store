@@ -1,5 +1,7 @@
 package au.org.ala.biocache.model
 
+import au.org.ala.biocache.util.StringHelper
+
 import scala.beans.BeanProperty
 import org.apache.commons.lang.builder.ToStringBuilder
 import org.codehaus.jackson.annotate.JsonIgnore
@@ -9,6 +11,9 @@ import au.org.ala.biocache.poso.POSO
  * POSO for holding location information for an occurrence.
  */
 class Location extends Cloneable with POSO {
+
+  import StringHelper._
+
   override def clone : Location = super.clone.asInstanceOf[Location]
   @BeanProperty var uuid:String = _
   //dwc terms
@@ -108,4 +113,9 @@ class Location extends Cloneable with POSO {
   @JsonIgnore
   def getOriginalLocationRemarks:String = originalLocationRemarks
   def setOriginalLocationRemarks(remarks:String) = this.originalLocationRemarks = remarks
+
+  @JsonIgnore
+  def hasCoordinates: Boolean = {
+    !decimalLongitude.toDoubleWithOption.isEmpty && !decimalLatitude.toDoubleWithOption.isEmpty
+  }
 }

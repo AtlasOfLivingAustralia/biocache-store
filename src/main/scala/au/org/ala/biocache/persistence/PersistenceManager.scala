@@ -66,7 +66,7 @@ trait PersistenceManager {
   /**
    * Add a batch of properties.
    */
-  def putBatch(entityName:String, batch:Map[String, Map[String,String]])
+  def putBatch(entityName:String, batch:collection.Map[String, collection.Map[String,String]])
 
   /**
    * Store a list of the supplied object

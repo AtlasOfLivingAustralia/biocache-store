@@ -9,7 +9,7 @@
 
     <groupId>au.org.ala</groupId>
     <artifactId>biocache-store</artifactId>
-    <version>1.7.1-SNAPSHOT</version>
+    <version>1.8-SNAPSHOT</version>
     <url>http://biocache.ala.org.au</url>
     <issueManagement>
         <system>GitHub</system>
@@ -57,9 +57,9 @@
         </dependency>
         <!-- layers store -->
         <dependency>
-            <groupId>org.ala.layers</groupId>
+            <groupId>au.org.ala</groupId>
             <artifactId>layers-store</artifactId>
-            <version>1.0</version>
+            <version>1.2</version>
             <exclusions>
                 <exclusion>
                     <artifactId>xercesImpl</artifactId>
@@ -143,7 +143,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>sds</artifactId>
-            <version>1.2</version>
+            <version>2.0-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-lang</groupId>

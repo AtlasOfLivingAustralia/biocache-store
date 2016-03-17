@@ -69,10 +69,10 @@ class QualityAssertion (
   @BeanProperty var name:String,
   @BeanProperty var code:Int,
   @Deprecated var problemAsserted:java.lang.Boolean,
-  @BeanProperty var qaStatus:Int,//either 0-failed, 1-passed, 2-not tested
+  @BeanProperty var qaStatus:Int,   //either 0-failed, 1-passed, 2-not tested
   @BeanProperty var comment:String,
   @BeanProperty var value:String,
-  @BeanProperty var userId:String, //null for system assertions
+  @BeanProperty var userId:String,  //null for system assertions
   @BeanProperty var userEmail:String,  //null for system assertions
   @BeanProperty var userDisplayName:String,  //null for system assertions
   @BeanProperty var userRole:String,  //null for system assertions, example - collection manager

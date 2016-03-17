@@ -2,9 +2,10 @@ package au.org.ala.biocache.util
 
 import java.util
 
+import au.org.ala.biocache.Config
 import net.sf.json.JSONArray
-import org.ala.layers.dao.IntersectCallback
-import org.ala.layers.dto.IntersectionFile
+import au.org.ala.layers.dao.IntersectCallback
+import au.org.ala.layers.dto.IntersectionFile
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.client.methods.HttpGet
 import scala.io.Source
@@ -65,7 +66,7 @@ class LayersStore ( layersStoreUrl: String) {
           callback.progressMessage("Loading sampling.")
         } else if (json.get("status").get == "started") {
           try {
-            var pos: Integer = Integer.parseInt(String.valueOf(json.get("progress").get))
+            val pos = Integer.parseInt(String.valueOf(json.get("progress").get))
             callback.setCurrentLayerIdx(pos)
             callback.setCurrentLayer(new IntersectionFile("","","","layer " + (pos + 1), "","","","",null))
           } catch {
@@ -158,13 +159,19 @@ class LayersStore ( layersStoreUrl: String) {
     logger.debug("Response code: " + result.getStatusCode)
     val json = Json.toMap(responseBody)
 
-    val status  = json.get("status").get
-    if (status.equals("error") || status.equals("cancelled")) {
-      (result.getStatusCode, responseBody, false)
-    } else if (status.equals("finished")) {
-      (result.getStatusCode, responseBody, false)
-    } else {
-      (result.getStatusCode, responseBody, true)
+    json.get("status") match {
+      case Some(status) => {
+        if (status.equals("error") || status.equals("cancelled")) {
+          (result.getStatusCode, responseBody, false)
+        } else if (status.equals("finished")) {
+          (result.getStatusCode, responseBody, false)
+        } else {
+          (result.getStatusCode, responseBody, true)
+        }
+      }
+      case None => logger.error("There was a problem retrieving sampling status from the server. " +
+        "Check " + Config.layersServiceUrl + " is available. Status code: " + result.getStatusCode)
+        (result.getStatusCode, "", true)
     }
   }
 }

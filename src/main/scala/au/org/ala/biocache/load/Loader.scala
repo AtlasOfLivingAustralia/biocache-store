@@ -65,7 +65,7 @@ object Loader extends Tool {
         logger.info("Completed loading resource: " + dataResourceUid)
       }
 
-      biocache.Config.persistenceManager.shutdown
+//      biocache.Config.persistenceManager.shutdown
     }
   }
 }

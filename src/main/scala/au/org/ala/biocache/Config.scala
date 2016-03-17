@@ -1,5 +1,6 @@
 package au.org.ala.biocache
 
+import au.org.ala.biocache.caches.SpatialLayerDAO
 import au.org.ala.biocache.util.LayersStore
 import java.util.jar.Attributes
 
@@ -7,7 +8,7 @@ import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
 import au.org.ala.names.search.ALANameSearcher
-import au.org.ala.sds.SensitiveSpeciesFinderFactory
+import au.org.ala.sds.{SensitiveSpeciesFinder, SensitiveSpeciesFinderFactory}
 import java.util.Properties
 import java.io.{File, FileInputStream}
 import com.google.inject.name.Names
@@ -58,16 +59,7 @@ object Config {
   //name index
   val nameIndex = getInstance(classOf[ALANameSearcher]).asInstanceOf[ALANameSearcher]
 
-  //load sensitive data service
-  lazy val sdsFinder = {
-    logger.info("Initialising SDS lookups")
-    val sdsUrl = configModule.properties.getProperty("sds.url", "http://sds.ala.org.au/sensitive-species-data.xml")
-    SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl, nameIndex)
-  }
-
   val defaultSourceCrs = configModule.properties.getProperty("default.source.crs", "EPSG:27700")
-
-  val sdsEnabled = configModule.properties.getProperty("sds.enabled", "true").toBoolean
 
   val hashImageFileNames = configModule.properties.getProperty("hash.image.filenames", "false").toBoolean
 
@@ -104,17 +96,6 @@ object Config {
 
   /** a regex pattern for identifying guids associated with the national checklists */
   val nationalChecklistIdentifierPattern = configModule.properties.getProperty("national.checklist.guid.pattern", """(:afd.|:apni.)""")
-
-  //fields that should be hidden in certain views
-  val sensitiveFields = {
-    val configProps = configModule.properties.getProperty("sensitive.field", "")
-    if(configProps == ""){
-      Set("originalSensitiveValues","originalDecimalLatitude","originalDecimalLongitude", "originalLocationRemarks",
-        "originalVerbatimLatitude", "originalVerbatimLongitude")
-    } else {
-      configProps.split(",").map(x => x.trim).toSet[String]
-    }
-  }
 
   private var fieldsToSampleCached = Array[String]()
 
@@ -255,6 +236,33 @@ object Config {
     list
   }
 
+  // SDS URL
+  val sdsUrl = configModule.properties.getProperty("sds.url", "http://sds.ala.org.au")
+
+  val sdsEnabled = configModule.properties.getProperty("sds.enabled", "true").toBoolean
+
+  //load sensitive data service
+  val sdsFinder:SensitiveSpeciesFinder =  synchronized {
+    if(sdsEnabled) {
+      logger.info("Initialising SDS lookups using  " + sdsUrl + "/sensitive-species-data.xml")
+      SpatialLayerDAO
+      SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl + "/sensitive-species-data.xml", nameIndex)
+    } else {
+      null
+    }
+  }
+
+  //fields that should be hidden in certain views
+  val sensitiveFields = {
+    val configProps = configModule.properties.getProperty("sensitive.field", "")
+    if(configProps == ""){
+      Set("originalSensitiveValues","originalDecimalLatitude","originalDecimalLongitude", "originalLocationRemarks",
+        "originalVerbatimLatitude", "originalVerbatimLongitude")
+    } else {
+      configProps.split(",").map(x => x.trim).toSet[String]
+    }
+  }
+
   val exportIndexAsCsvPath = configModule.properties.getProperty("export.index.as.csv.path", "")
   val exportIndexAsCsvPathSensitive = configModule.properties.getProperty("export.index.as.csv.path.sensitive", "")
 }
@@ -291,6 +299,9 @@ private class ConfigModule extends AbstractModule {
 
     logger.debug("Loading configuration from " + filename)
     properties.load(stream)
+
+    //this allows the SDS to access the same config file
+    System.setProperty("app.config.file", filename)
 
     properties
   }
