@@ -134,6 +134,11 @@ object SpatialLayerDAO {
     * @return
     */
   def intersect(fr:FullRecord) : collection.Map[String, String] = {
+
+    if(fr.location.decimalLongitude == null || fr.location.decimalLatitude == null){
+      return Map[String,String]()
+    }
+
     intersect(fr.location.decimalLongitude.toDouble,
       fr.location.decimalLatitude.toDouble)
   }
