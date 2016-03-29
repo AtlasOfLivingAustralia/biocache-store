@@ -3,3 +3,6 @@ target/*
 .idea/*
 target
 *.tgz
+.settings/
+.project
+.classpath
