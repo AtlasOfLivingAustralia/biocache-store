@@ -15,7 +15,7 @@ import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab._
-import au.org.ala.biocache.util.{Json, StringHelper}
+import au.org.ala.biocache.util.{StringHelper}
 
 /**
  * Processor of location information.

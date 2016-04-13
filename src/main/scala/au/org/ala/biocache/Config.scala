@@ -242,7 +242,7 @@ object Config {
   val sdsEnabled = configModule.properties.getProperty("sds.enabled", "true").toBoolean
 
   //load sensitive data service
-  val sdsFinder:SensitiveSpeciesFinder =  synchronized {
+  val sdsFinder:SensitiveSpeciesFinder = synchronized {
     if(sdsEnabled) {
       logger.info("Initialising SDS lookups using  " + sdsUrl + "/sensitive-species-data.xml")
       SpatialLayerDAO

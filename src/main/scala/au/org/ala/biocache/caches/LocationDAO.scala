@@ -90,7 +90,7 @@ object LocationDAO {
   /**
    * Get location information for point.
    */
-  def getByLatLon(latitude:String, longitude:String) : Option[(Location, collection.Map[String,String], collection.Map[String,String])] = {
+  def getSamplesForLatLon(latitude:String, longitude:String) : Option[(Location, collection.Map[String,String], collection.Map[String,String])] = {
 
     if (latitude == null || longitude == null || latitude.trim.length == 0 || longitude.trim.length == 0){
       return None
@@ -106,16 +106,29 @@ object LocationDAO {
 
     } else {
 
-      val intersectValues:collection.Map[String, String] = SpatialLayerDAO.intersect(latitude, longitude)
-      val location = new Location
-      location.decimalLatitude = latitude
-      location.decimalLongitude = longitude
+      val map = Config.persistenceManager.get(uuid, columnFamily)
+      map match {
+        case Some(map) => {
+          val location = new Location
+          location.decimalLatitude = latitude
+          location.decimalLongitude = longitude
 
-      val returnValue = Some((location, Map[String,String](), intersectValues))
-      lock.synchronized {
-        lru.put(uuid, returnValue)
+          val el = map.filter(x => x._1.startsWith("el"))
+          val cl = map.filter(x => x._1.startsWith("cl"))
+
+          val returnValue = Some((location, el, cl))
+
+          lock.synchronized { lru.put(uuid, returnValue) }
+
+          returnValue
+        }
+        case None => {
+          if(!Config.fieldsToSample(false).isEmpty) {
+            logger.warn("Location lookup failed for [" + latitude + "," + longitude + "] - Sampling may need to be re-ran")
+          }
+          None
+        }
       }
-      returnValue
     }
   }
 }

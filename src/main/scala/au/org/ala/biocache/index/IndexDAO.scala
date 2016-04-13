@@ -130,14 +130,14 @@ trait IndexDAO {
   /**
    * The header values for the CSV file.
    */
-  lazy val header = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
+  lazy val header:List[String] = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
     "data_resource", "institution_uid", "institution_code", "institution_name",
     "collection_uid", "collection_code", "collection_name", "catalogue_number",
     "taxon_concept_lsid", "occurrence_date", "occurrence_date_end_dt", "occurrence_year", "occurrence_decade_i", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
     "rank", "rank_id", "raw_taxon_name", "raw_common_name", "multimedia", "image_url", "all_image_url",
     "species_group", "country_code", "country", "lft", "rgt", "kingdom", "phylum", "class", "order",
     "family", "genus", "genus_guid", "species", "species_guid", "state", "places", "latitude", "longitude",
-    "lat_long", "point-1", "point-0.1", "point-0.01", "point-0.02", "point-0.001", "point-0.0001",
+    "lat_long", "point_1", "point_0_1", "point_0_01", "point_0_02", "point_0_001", "point_0_0001",
     "year", "month", "basis_of_record", "raw_basis_of_record", "type_status",
     "raw_type_status", "taxonomic_kosher", "geospatial_kosher",  "location_remarks",
     "occurrence_remarks", "user_assertions", "collector", "state_conservation", "raw_state_conservation", "country_conservation", "raw_country_conservation",
@@ -391,7 +391,7 @@ trait IndexDAO {
         }
         val taxonIssueArray = Json.toStringArray(taxonIssue)
         val infoWith = map.getOrElse("informationWithheld.p", "")
-        val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""//startsWith("PEST")) "PEST" else ""
+        val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""
         
         var distanceOutsideExpertRange = map.getOrElse("distanceOutsideExpertRange.p", "");
         //only want valid numbers
