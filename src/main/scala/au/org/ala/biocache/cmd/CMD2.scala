@@ -234,8 +234,6 @@ object CMD2 {
     ProcessSingleRecord,
     ProcessRecords,
     ReprocessIndexSelect,
-    ResampleRecordsByQuery,
-    ReloadSampling,
     ResourceCleanupTask,
     Sampling,
     ShowConfig,

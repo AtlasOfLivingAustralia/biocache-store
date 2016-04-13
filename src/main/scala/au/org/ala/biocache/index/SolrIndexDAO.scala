@@ -19,8 +19,10 @@ import au.org.ala.biocache.caches.TaxonSpeciesListDAO
 import org.apache.commons.lang.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
 import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.vocab.{AssertionCodes, SpeciesGroups, ErrorCodeCategory}
+import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes, SpeciesGroups, ErrorCodeCategory}
 import au.org.ala.biocache.util.Json
+
+import scala.collection
 
 /**
  * DAO for indexing to SOLR
@@ -38,7 +40,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   val codeRegex = """(?:code":)([0-9]*)""".r
   val qaStatusRegex = """(?:qaStatus":)([0-9]*)""".r
 
-  val arrDefaultMiscFields = if (defaultMiscFields == null) {
+  val arrDefaultMiscFields = if (StringUtils.isBlank(defaultMiscFields)) {
     Array[String]()
   } else {
     defaultMiscFields.split(",")
@@ -57,12 +59,44 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   val doublePattern = (fieldSuffix + """_d""").r
   val intPattern = (fieldSuffix + """_i""").r
   
-  lazy val BATCH_SIZE = Config.solrBatchSize
-  lazy val HARD_COMMIT_SIZE = Config.solrHardCommitSize
+  val BATCH_SIZE = Config.solrBatchSize
+  val HARD_COMMIT_SIZE = Config.solrHardCommitSize
   val INDEX_READ_PAGE_SIZE = 5000
   val FACET_PAGE_SIZE = 1000
 
-  lazy val drToExcludeSensitive = excludeSensitiveValuesFor.split(",")
+  val drToExcludeSensitive = excludeSensitiveValuesFor.split(",")
+
+  val multiValueFields = Array(
+    "data_hub",
+    "data_hub_uid",
+    "assertions_passed",
+    "assertions_missing",
+    "assertions",
+    "assertions_unchecked",
+    "system_assertions",
+    "species_list_uid",
+    "assertion_user_id",
+    "query_assertion_uuid",
+    "query_assertion_type_s",
+    "suitable_modelling",
+    "species_subgroup",
+    "species_group",
+    "multimedia",
+    "all_image_url",
+    "taxonomic_issue",
+    "geospatial_issue",
+    "temporal_issue",
+    "interaction",
+    "outlier_layer",
+    "establishment_means",
+    "duplicate_inst",
+    "duplicate_record",
+    "species_habitats",
+    "duplicate_record",
+    "duplicate_type",
+    "collectors")
+
+  val typeNotSuitableForModelling = Array("invalid", "historic", "vagrant", "irruptive")
 
   override def init() {
 
@@ -321,11 +355,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     true
   }
 
-  val multifields = Array("duplicate_inst", "establishment_means", "species_group", "assertions", "data_hub_uid", "interactions", "outlier_layer",
-    "species_habitats", "multimedia", "all_image_url", "collectors", "duplicate_record", "duplicate_type","taxonomic_issue")
-
-  val typeNotSuitableForModelling = Array("invalid", "historic", "vagrant", "irruptive")
-
   def extractPassAndFailed(json:String):(List[Int], List[(String,String)])={
     val codes = codeRegex.findAllMatchIn(json).map(_.group(1).toInt).toList
     val names = nameRegex.findAllMatchIn(json).map(_.group(1)).toList
@@ -357,293 +386,303 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     //val header = getHeaderValues()
     if (shouldIndex(map, startDate)) {
-      
-      val values = getOccIndexModel(guid, map)
-      
-      if (values.length > 0 && values.length != header.length) {
-        logger.error("Values don't matcher header: " + values.length + ":" + header.length + ", values:header")
-        logger.error("Headers: " + header.toString())
-        logger.error("Values: " + values.toString())
-        logger.error("This will be caused by changes in the list of headers not matching the number of submitted field values.")
-        sys.exit(1)
-      }
-      
-      if (!values.isEmpty) {
 
-        val doc = new SolrInputDocument()
-        for (i <- 0 to values.length - 1) {
-          if (values(i) != "" && header(i) != "") {
-            if (multifields.contains(header(i))) {
-              //multiple values in this field
-              for (value <- values(i).split('|')) {
-                if (value != "") {
-                  doc.addField(header(i), value)
-                }
-              }
-            } else {
-              doc.addField(header(i), values(i))
-            }
-          }
-        }
+      val doc = generateSolrDocument(guid, map, miscIndexProperties, batchID)
 
-        //add the misc properties here....
-        //NC 2013-04-23: Change this code to support data types in misc fields.
-        if (!miscIndexProperties.isEmpty) {
-          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
-          if (unparsedJson != "") {
-            val map = Json.toMap(unparsedJson)
-            miscIndexProperties.foreach(prop => {
-              prop match {
-                case it if it.endsWith("_i") || it.endsWith("_d") || it.endsWith("_s") => {
-                  val v = map.get(it.take(it.length-2))
-                  if(v.isDefined && StringUtils.isNotBlank(it)){
-                    doc.addField(it, v.get.toString())
-                  }
-                }
-                case _ => {
-                  val v = map.get(prop)
-                  if(v.isDefined){
-                    doc.addField(prop + "_s", v.get.toString())
-                  }
-                }
-              }
-            })
-          }
-        }
+      if (!test) {
 
-        //add additional fields to index
-        if (!Config.additionalFieldsToIndex.isEmpty) {
-          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
-          if (unparsedJson != "") {
-            val map = Json.toMap(unparsedJson)
-            Config.additionalFieldsToIndex.foreach(prop => {
-              val v = map.get(prop)
-              if (v.isDefined) {
-                doc.addField(prop, v.get.toString())
-              }
-            })
-          }
-        }
+        if (!batch) {
 
-        if (!arrDefaultMiscFields.isEmpty) {
-          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
-          if (unparsedJson != "") {
-            val map = Json.toMap(unparsedJson)
-            arrDefaultMiscFields.foreach(value => {
-              value match {
-                case doublePattern(field) => {
-                  //ensure that the value represents a double value before adding to the index.
-                  val fvalue = map.getOrElse(field, "").toString()
-                  if (fvalue.size > 0) {
-                    try {
-                      java.lang.Double.parseDouble(fvalue)
-                      doc.addField(value, fvalue)
-                    }
-                    catch {
-                      case e:Exception => logger.error("Unable to convert value to double " + fvalue + " for " + guid, e)
-                    }
-                  }
-                }
-                case intPattern(field) => {
-                  val fvalue = map.getOrElse(field, "").toString()
-                  if (fvalue.size > 0) {
-                    try {
-                      java.lang.Integer.parseInt(fvalue)
-                      doc.addField(value, fvalue)
-                    }
-                    catch {
-                      case e:Exception => logger.error("Unable to convert value to int " + fvalue + " for " + guid, e)
-                    }
-                  }
-                }
-                case _ => {
-                  //remove the suffix
-                  val item = if (value.contains("_")) value.substring(0, value.lastIndexOf("_")) else value
-                  val fvalue = map.getOrElse(value, map.getOrElse(item, "")).toString()
-                  if (fvalue.size > 0 && StringUtils.isNotBlank(value)) {
-                    doc.addField(value, fvalue)
-                  }
-                }
-              }
-            })
-          }
-        }
+          //if not a batch, add the doc and do a hard commit
+          solrServer.add(doc)
+          solrServer.commit(false, false, true)
 
-        //now index the System QA assertions
-        //NC 2013-08-01: It is very inefficient to make a JSONArray of QualityAssertions We will parse the raw string instead.
-        val qaJson  = map.getOrElse(FullRecordMapper.qualityAssertionColumn, "[]")
-        val(qa, status) = extractPassAndFailed(qaJson)
-        var sa = false
-        status.foreach { case (test, status) =>
-          if (status.equals("1")) {
-            doc.addField("assertions_passed", test)
-          } else if (status.equals("0")) {
-            sa = true
-            //get the error code to see if it is "missing"
-            val assertionCode = AssertionCodes.getByName(test)
-            def indexField = if (!assertionCode.isEmpty && assertionCode.get.category == ErrorCodeCategory.Missing) {
-              "assertions_missing"
-            } else {
-              "assertions"
-            }
-            doc.addField(indexField, test)
-          }
-        }
-
-        val unchecked = AssertionCodes.getMissingByCode(qa)
-        unchecked.foreach(ec => doc.addField("assertions_unchecked", ec.name))
-
-        doc.addField("system_assertions", sa)
-
-        //load the species lists that are configured for the matched guid.
-        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p",""))
-        speciesLists.foreach { v =>
-          doc.addField("species_list_uid", v)
-        }
-
-        /**
-         * Additional indexing for grid references.
-         * TODO refactor so that additional indexing is pluggable without core changes.
-         */
-        if(Config.gridRefIndexingEnabled){
-          val bboxString = map.getOrElse("bbox.p", "")
-          if(bboxString != ""){
-            val bbox = bboxString.split(",")
-            doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
-            doc.addField("min_longitude", java.lang.Float.parseFloat(bbox(1)))
-            doc.addField("max_latitude", java.lang.Float.parseFloat(bbox(2)))
-            doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
+          if (csvFileWriter != null) {
+            writeDocToCsv(doc, csvFileWriter)
           }
 
-          val easting = map.getOrElse("easting.p", "")
-          if(easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting))
-          val northing = map.getOrElse("northing.p", "")
-          if(northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing))
-          val gridRef = map.getOrElse("gridReference", "")
-          if(gridRef != "") {
-            doc.addField("grid_ref", gridRef)
+          if (csvFileWriterSensitive != null) {
+            writeDocToCsv(doc, csvFileWriterSensitive)
+          }
 
-            if(gridRef.length() > 2) {
+        } else {
 
-              val gridChars = gridRef.substring(0,2)
-              val eastNorthing = gridRef.substring(2)
-              val es = eastNorthing.splitAt((eastNorthing.length() / 2) )
+          currentBatch.synchronized {
 
-              //add grid references for 10km, and 1km
-              if (gridRef.length() >= 4) {
-                doc.addField("grid_ref_10000", gridChars + es._1.substring(0,1)+ es._2.substring(0,1))
+            if (!StringUtils.isEmpty(doc.getFieldValue("uuid").toString)) {
+              currentBatch.add(doc)
+
+              if (csvFileWriter != null) {
+                writeDocToCsv(doc, csvFileWriter)
               }
-              if (gridRef.length() == 5) {
-                doc.addField("grid_ref_2000", gridRef)
-              }
-              if (gridRef.length() >= 6) {
-                doc.addField("grid_ref_1000", gridChars + es._1.substring(0,2)+ es._2.substring(0,2))
-              }
-              if (gridRef.length() >= 8) {
-                doc.addField("grid_ref_100", gridChars + es._1.substring(0,3)+ es._2.substring(0,3))
+
+              if (csvFileWriterSensitive != null) {
+                writeDocToCsv(doc, csvFileWriterSensitive)
               }
             }
-          }
-        }
-        /** UK NBN **/
 
-        // user if userQA = true
-        val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false")
-        if ("true".equals(hasUserAssertions)) {
-          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(guid)
-          assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
-        }
+            if (currentBatch.size == BATCH_SIZE || (commit && !currentBatch.isEmpty)) {
 
-        val queryAssertions = Json.toStringMap(map.getOrElse(FullRecordMapper.queryAssertionColumn, "{}"))
-        var suitableForModelling = true
-        queryAssertions.foreach {
-          case (key, value) => {
-            doc.addField("query_assertion_uuid", key)
-            doc.addField("query_assertion_type_s", value)
-            if (suitableForModelling && typeNotSuitableForModelling.contains(value))
-              suitableForModelling = false
-          }
-        }
-        //this will not exist for all records until a complete reindex is performed...
-        doc.addField("suitable_modelling", suitableForModelling.toString)
-
-        //index the available el and cl's - more efficient to use the supplied map than using the old way
-        val els = Json.toStringMap(map.getOrElse("el.p", "{}"))
-        els.foreach {
-          case (key, value) => doc.addField(key, value)
-        }
-        val cls = Json.toStringMap(map.getOrElse("cl.p", "{}"))
-        cls.foreach {
-          case (key, value) => doc.addField(key, value)
-        }
-
-        //index the additional species information - ie species groups
-        val lft = map.get("left.p")
-        val rgt = map.get("right.p")
-        if(lft.isDefined && rgt.isDefined){
-
-          // add the species groups
-          val sgs = SpeciesGroups.getSpeciesGroups(lft.get, rgt.get)
-          if(sgs.isDefined){
-            sgs.get.foreach{v:String => doc.addField("species_group", v)}
-          }
-
-          // add the species subgroups
-          val ssgs = SpeciesGroups.getSpeciesSubGroups(lft.get, rgt.get)
-          if(ssgs.isDefined){
-            ssgs.get.foreach{v:String => doc.addField("species_subgroup", v)}
-          }
-        }
-
-        if(batchID != ""){
-          doc.addField("batch_id_s", batchID)
-        }
-
-        if(!test){
-          if (!batch) {
-
-            //if not a batch, add the doc and do a hard commit
-            solrServer.add(doc)
-            solrServer.commit(false, false, true)
-
-            if (csvFileWriter != null) {
-              writeDocToCsv(doc, csvFileWriter)
-            }
-
-            if (csvFileWriterSensitive != null) {
-              writeDocToCsv(doc, csvFileWriterSensitive)
-            }
-
-          } else {
-            
-            currentBatch.synchronized {
-
-              if (!StringUtils.isEmpty(values(0))){
-                currentBatch.add(doc)
-
-                if (csvFileWriter != null) {
-                  writeDocToCsv(doc, csvFileWriter)
-                }
-
-                if (csvFileWriterSensitive != null) {
-                  writeDocToCsv(doc, csvFileWriterSensitive)
-                }
+              solrServer.add(currentBatch)
+              if (commit || currentBatch.size >= HARD_COMMIT_SIZE) {
+                solrServer.commit(false, false, true)
               }
-
-              if (currentBatch.size == BATCH_SIZE || (commit && !currentBatch.isEmpty)) {
-
-                solrServer.add(currentBatch)
-                if (commit || currentBatch.size >= HARD_COMMIT_SIZE){
-                  solrServer.commit(false, false, true)
-                }
-                currentBatch.clear
-              }
+              currentBatch.clear
             }
           }
         }
       }
+
     }
   }
+
+  /**
+    * Generate a SOLR document for indexing.
+    *
+    * @param guid
+    * @param map
+    * @param miscIndexProperties
+    * @param batchID
+    * @return
+    */
+  def generateSolrDocument(guid: String,
+                           map: collection.Map[String, String],
+                           miscIndexProperties: Seq[String],
+                           batchID: String) : SolrInputDocument = {
+
+    val values = getOccIndexModel(guid, map)
+
+    if (values.length > 0 && values.length != header.length) {
+      logger.error("Values don't matcher header: " + values.length + ":" + header.length + ", values:header")
+      logger.error("Headers: " + header.toString())
+      logger.error("Values: "  + values.toString())
+      logger.error("This will be caused by changes in the list of headers not matching the number of submitted field values.")
+      sys.exit(1)
+    }
+
+    if (!values.isEmpty) {
+
+      val doc = new SolrInputDocument()
+      for (i <- 0 to values.length - 1) {
+        if (values(i) != "" && header(i) != "") {
+          if (multiValueFields.contains(header(i))) {
+            //multiple values in this field
+            for (value <- values(i).split('|')) {
+              if (value != "") {
+                doc.addField(header(i), value)
+              }
+            }
+          } else {
+            doc.addField(header(i), values(i))
+          }
+        }
+      }
+
+      //add the misc properties here....
+      //NC 2013-04-23: Change this code to support data types in misc fields.
+      if (!miscIndexProperties.isEmpty) {
+        val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+        if (unparsedJson != "") {
+          val map = Json.toMap(unparsedJson)
+          miscIndexProperties.foreach(prop => {
+            prop match {
+              case it if it.endsWith("_i") || it.endsWith("_d") || it.endsWith("_s") => {
+                val v = map.get(it.take(it.length - 2))
+                if (v.isDefined && StringUtils.isNotBlank(it)) {
+                  doc.addField(it, v.get.toString())
+                }
+              }
+              case _ => {
+                val v = map.get(prop)
+                if (v.isDefined) {
+                  doc.addField(prop + "_s", v.get.toString())
+                }
+              }
+            }
+          })
+        }
+      }
+
+      //add additional fields to index
+      if (!Config.additionalFieldsToIndex.isEmpty) {
+        val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+        if (unparsedJson != "") {
+          val map = Json.toMap(unparsedJson)
+          Config.additionalFieldsToIndex.foreach(prop => {
+            val v = map.get(prop)
+            if (v.isDefined) {
+              doc.addField(prop, v.get.toString())
+            }
+          })
+        }
+      }
+
+      if (!arrDefaultMiscFields.isEmpty) {
+        val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+        if (unparsedJson != "") {
+
+          //FIXME this JSON deserialisation is VERY SLOW
+          val map = Json.toMap(unparsedJson)
+          arrDefaultMiscFields.foreach(value => {
+            value match {
+              case doublePattern(field) => {
+                //ensure that the value represents a double value before adding to the index.
+                val fvalue = map.getOrElse(field, "").toString()
+                if (fvalue.size > 0) {
+                  try {
+                    java.lang.Double.parseDouble(fvalue)
+                    doc.addField(value, fvalue)
+                  }
+                  catch {
+                    case e: Exception => logger.error("Unable to convert value to double " + fvalue + " for " + guid, e)
+                  }
+                }
+              }
+              case intPattern(field) => {
+                val fvalue = map.getOrElse(field, "").toString()
+                if (fvalue.size > 0) {
+                  try {
+                    java.lang.Integer.parseInt(fvalue)
+                    doc.addField(value, fvalue)
+                  }
+                  catch {
+                    case e: Exception => logger.error("Unable to convert value to int " + fvalue + " for " + guid, e)
+                  }
+                }
+              }
+              case _ => {
+                //remove the suffix
+                val item = if (value.contains("_")) value.substring(0, value.lastIndexOf("_")) else value
+                val fvalue = map.getOrElse(value, map.getOrElse(item, "")).toString()
+                if (fvalue.size > 0 && StringUtils.isNotBlank(value)) {
+                  doc.addField(value, fvalue)
+                }
+              }
+            }
+          })
+        }
+      }
+
+      //now index the System QA assertions
+      //NC 2013-08-01: It is very inefficient to make a JSONArray of QualityAssertions We will parse the raw string instead.
+      val qaJson = map.getOrElse(FullRecordMapper.qualityAssertionColumn, "[]")
+      val (qa, status) = extractPassAndFailed(qaJson)
+      var sa = false
+      status.foreach { case (test, status) =>
+        if (status.equals(AssertionStatus.PASSED.toString)) {
+          doc.addField("assertions_passed", test)
+        } else if (status.equals(AssertionStatus.FAILED.toString)) {
+          sa = true
+          //get the error code to see if it is "missing"
+          val assertionCode = AssertionCodes.getByName(test)
+          def indexField = if (!assertionCode.isEmpty && assertionCode.get.category == ErrorCodeCategory.Missing) {
+            "assertions_missing"
+          } else {
+            "assertions"
+          }
+          doc.addField(indexField, test)
+        }
+      }
+
+      val unchecked = AssertionCodes.getMissingByCode(qa)
+      unchecked.foreach(ec => doc.addField("assertions_unchecked", ec.name))
+
+      doc.addField("system_assertions", sa)
+
+      //load the species lists that are configured for the matched guid.
+      val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p", ""))
+      speciesLists.foreach { doc.addField("species_list_uid", _) }
+
+      // user if userQA = true
+      val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false")
+      if ("true".equals(hasUserAssertions)) {
+        val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(guid)
+        assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
+      }
+
+      //FIXME this JSON deserialisation is VERY SLOW - temporarily removed
+//      val queryAssertions = Json.toStringMap(map.getOrElse(FullRecordMapper.queryAssertionColumn, "{}"))
+      var suitableForModelling = true
+//      queryAssertions.foreach {
+//        case (key, value) => {
+//          doc.addField("query_assertion_uuid", key)
+//          doc.addField("query_assertion_type_s", value)
+//          if (suitableForModelling && typeNotSuitableForModelling.contains(value))
+//            suitableForModelling = false
+//        }
+//      }
+
+      //this will not exist for all records until a complete reindex is performed...
+      doc.addField("suitable_modelling", suitableForModelling.toString)
+
+      //FIXME this JSON deserialisation is VERY SLOW
+//      val els = Json.toStringMap(map.getOrElse("el.p", "{}"))
+      val els = parseELWithStringSplits(map.getOrElse("el.p", "{}"))
+      els.foreach {
+        case (key, value) => doc.addField(key, value)
+      }
+
+      //FIXME this JSON deserialisation is VERY SLOW
+//      val cls = Json.toStringMap(map.getOrElse("cl.p", "{}"))
+      val cls = parseELWithStringSplits(map.getOrElse("cl.p", "{}"))
+      cls.foreach {
+        case (key, value) => doc.addField(key, value)
+      }
+
+      //index the additional species information - ie species groups
+      val lft = map.get("left.p")
+      val rgt = map.get("right.p")
+      if (lft.isDefined && rgt.isDefined) {
+
+        // add the species groups
+        val sgs = SpeciesGroups.getSpeciesGroups(lft.get, rgt.get)
+        if (sgs.isDefined) {
+          sgs.get.foreach { v: String => doc.addField("species_group", v) }
+        }
+
+        // add the species subgroups
+        val ssgs = SpeciesGroups.getSpeciesSubGroups(lft.get, rgt.get)
+        if (ssgs.isDefined) {
+          ssgs.get.foreach { v: String => doc.addField("species_subgroup", v) }
+        }
+      }
+
+      if (batchID != "") {
+        doc.addField("batch_id_s", batchID)
+      }
+
+      doc
+    } else {
+      null
+    }
+  }
+
+  def parseELWithStringSplits(el:String): scala.collection.Map[String, String] = {
+    if(el.length < 3) return Map()
+
+    val map = new scala.collection.mutable.HashMap[String, String]
+    val kv = el.substring(1, el.length -2).split("\",\"")
+    kv.foreach { kv =>
+      val pairs = kv.split(":")
+      map.put(removeTrailingQuotes(pairs(0)), removeTrailingQuotes(pairs(1)))
+    }
+    map
+  }
+
+  val QUOTE = "\""
+
+  def removeTrailingQuotes(str:String): String ={
+
+    var cleaned = str
+    if(cleaned.startsWith(QUOTE)){
+      cleaned = cleaned.substring(1)
+    }
+    if(cleaned.endsWith(QUOTE)){
+      cleaned = cleaned.substring(0, cleaned.length - 1)
+    }
+    cleaned
+  }
+
 
   //ignores "index-custom" additionalFields
   lazy val csvHeader =
@@ -676,7 +715,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       fw.write(csvHeader.mkString("\t"))
     }
     fw.write("\n")
-
     fw
   }
 
@@ -688,14 +726,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     for (i <- 0 to header.length - 1) {
       val values = doc.getFieldValues(header.get(i))
       if (values != null && values.size() > 0) {
-        var it = values.iterator();
+        val it = values.iterator()
         fileWriter.write(it.next().toString)
         while (it.hasNext) {
           fileWriter.write("|")
           fileWriter.write(it.next().toString)
         }
       }
-      fileWriter.write("\t");
+      fileWriter.write("\t")
     }
   }
 
@@ -886,8 +924,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   /**
    * Streaming callback for use with SOLR's streaming API.
-    *
-    * @param proc
+ *
+   * @param proc
    * @param multivaluedFields
    */
  class SolrCallback (proc: java.util.Map[String,AnyRef] => Boolean, multivaluedFields:Option[Array[String]]) extends StreamingResponseCallback {

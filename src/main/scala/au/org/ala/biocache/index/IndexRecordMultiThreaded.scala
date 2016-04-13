@@ -1,6 +1,9 @@
 package au.org.ala.biocache.index
 
+import java.util
+
 import au.org.ala.biocache._
+import org.apache.avro.generic.GenericData
 import org.apache.commons.io.FileUtils
 import java.io.File
 import scala.io.Source
@@ -14,7 +17,7 @@ import org.apache.commons.lang3.StringUtils
 import au.org.ala.biocache.processor.{RecordProcessor, Processors, LocationProcessor}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.{ErrorCode, AssertionCodes}
-import au.org.ala.biocache.util.{Json, OptionParser}
+import au.org.ala.biocache.util.{AvroUtil, Json, OptionParser}
 import au.org.ala.biocache.model.QualityAssertion
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.caches.LocationDAO
@@ -204,7 +207,8 @@ class ColumnReporterRunner(centralCounter: Counter, threadId: Int, startKey: Str
 
 /**
  * A one off class used to repair duplication status properties.
- * @param centralCounter
+  *
+  * @param centralCounter
  * @param threadId
  * @param startKey
  * @param endKey
@@ -272,7 +276,8 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
 
 /**
  * A one off class used to repair datum properties.
- * @param centralCounter
+  *
+  * @param centralCounter
  * @param threadId
  * @param startKey
  * @param endKey
@@ -291,7 +296,7 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    //var buff = new ArrayBuffer[(FullRecord,FullRecord)]
+
     logger.info("Starting thread " + threadId + " from " + startKey + " to " + endKey)
     def locProcess = new LocationProcessor
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
@@ -314,13 +319,92 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
         centralCounter.printOutStatus(threadId, guid, "Datum")
         startTime = System.currentTimeMillis
       }
-      true;
+      true
     }, startKey, endKey, 1000, "decimalLatitude", "decimalLongitude", "rowKey", "uuid", "geodeticDatum", "loc.qa")
     val fin = System.currentTimeMillis
     logger.info("[Datum Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
     logger.info("Finished.")
   }
 }
+
+/**
+  * A class that can be used to reload sampling values for all records.
+  *
+  * @param centralCounter
+  * @param threadId
+  * @param startKey
+  * @param endKey
+  */
+class AvroExportRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
+
+  val logger = LoggerFactory.getLogger("AvroExportRunner")
+
+  val outputDirPath = "/data/avro-export/shard-" + threadId
+
+  val outputDir = new File(outputDirPath)
+
+  FileUtils.forceMkdir(outputDir)
+
+  val schema = AvroUtil.getAvroSchemaForIndex
+  val writer = AvroUtil.getAvroWriter(outputDirPath + "/records.avro")
+  val indexDAO = new SolrIndexDAO("","","")
+
+  def run {
+
+    var counter = 0
+
+    val start = System.currentTimeMillis
+    logger.info(s"Starting thread $threadId from $startKey to  $endKey")
+    Config.persistenceManager.pageOverAll("occ", (guid, map) => {
+      try {
+        val doc = indexDAO.generateSolrDocument(guid, map, List(), threadId.toString)
+        if(doc != null){
+          val record = new GenericData.Record(schema)
+          AvroUtil.csvHeader.foreach { field =>
+
+            if (indexDAO.multiValueFields.contains(field)) {
+              //add a multi valued field
+              val fieldValues = doc.getFieldValues(field)
+              if(fieldValues != null && !fieldValues.isEmpty){
+                val list = new util.ArrayList[String]
+                val iter = fieldValues.iterator()
+                while (iter.hasNext){
+                  list.add(iter.next().toString)
+                }
+                record.put(field, list)
+              }
+            } else {
+              val fieldValue = doc.getFieldValue(field)
+              if(fieldValue != null && StringUtils.isNotBlank(fieldValue.toString)){
+                record.put(field, fieldValue.toString)
+              }
+            }
+          }
+          if(record.get("id") != null){
+            writer.append(record)
+          }
+        }
+      } catch {
+        case e:Exception => logger.error(s"Problem indexing record: $guid" +" - error message: " + e.getMessage)
+      }
+
+      counter += 1
+      if(counter % 10000 == 0){
+        writer.flush()
+        logger.info(s"[AvroExportRunner Thread $threadId] Export of data $counter, last key $guid")
+      }
+      true
+    }, startKey, endKey, 1000)
+
+    writer.flush()
+    writer.close()
+    val fin = System.currentTimeMillis
+    val timeTakenInSecs = ((fin - start).toFloat) / 1000f
+    logger.info(s"[AvroExportRunner Thread $threadId] $counter took $timeTakenInSecs seconds")
+  }
+}
+
+
 
 /**
  * A class that can be used to reload sampling values for all records.
@@ -345,7 +429,7 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
       val lat = map.getOrElse("decimalLatitude.p","")
       val lon = map.getOrElse("decimalLongitude.p","")
       if(lat != null && lon != null){
-        val point = LocationDAO.getByLatLon(lat, lon)
+        val point = LocationDAO.getSamplesForLatLon(lat, lon)
         if(!point.isEmpty){
           val (location, environmentalLayers, contextualLayers) = point.get
           Config.persistenceManager.put(guid, "occ", Map(

@@ -125,10 +125,9 @@ object Sampling extends Tool with IncrementalTool {
         }
         logger.info("Completed loading sampling into occ table")
 
-
         //clean up the file
         if(!keepFiles){
-          logger.info("Removing temporary file: " + samplingFilePath)
+          logger.info(s"Removing temporary file: $samplingFilePath")
           (new File(samplingFilePath)).delete()
           if (new File(locFilePath).exists()) (new File(locFilePath)).delete()
         }
@@ -137,15 +136,18 @@ object Sampling extends Tool with IncrementalTool {
   }
 
   /**
-   * Loads the sampling into the occ table
+   * Loads the sampling into the occ table.
+   * This single threaded and slow.
    */
-  def loadSamplingIntoOccurrences(dataResourceUid:String): Unit ={
-    logger.info("Starting loading from " + dataResourceUid + " to " + dataResourceUid + "|~")
+  def loadSamplingIntoOccurrences(dataResourceUid:String): Unit = {
+    val startKey = dataResourceUid + "|"
+    val endKey = dataResourceUid + "|~"
+    logger.info(s"Starting loading from $startKey to $endKey")
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
-      val lat = map.getOrElse("decimalLatitude.p","")
-      val lon = map.getOrElse("decimalLongitude.p","")
+      val lat = map.getOrElse("decimalLatitude.p", "")
+      val lon = map.getOrElse("decimalLongitude.p", "")
       if(lat != null && lon != null){
-        val point = LocationDAO.getByLatLon(lat, lon)
+        val point = LocationDAO.getSamplesForLatLon(lat, lon)
         if(!point.isEmpty){
           val (location, environmentalLayers, contextualLayers) = point.get
           Config.persistenceManager.put(guid, "occ", Map(
@@ -155,13 +157,12 @@ object Sampling extends Tool with IncrementalTool {
         }
         counter += 1
         if(counter % 1000 == 0){
-          logger.info("[Loading sampling] Import of sample data " + counter + " Last key " + guid)
+          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
         }
       }
       true
-    }, dataResourceUid + "|", dataResourceUid + "|~", 1000, "decimalLatitude.p", "decimalLongitude.p" )
+    }, startKey, endKey, 1000, "decimalLatitude.p", "decimalLongitude.p" )
   }
-
 
   def sampleDataResource(dataResourceUid: String, callback:IntersectCallback = null, singleLayerName: String = "") {
     val locFilePath = Config.tmpWorkDir + "/loc-" + dataResourceUid + ".txt"
@@ -266,11 +267,12 @@ class Sampling {
     }
   }
 
-  val properties = Array("decimalLatitude", "decimalLongitude",
+  val properties = Array(
+    "decimalLatitude", "decimalLongitude",
     "decimalLatitude.p", "decimalLongitude.p",
     "verbatimLatitude", "verbatimLongitude",
-    "originalDecimalLatitude", "originalDecimalLongitude",
-    "originalSensitiveValues", "geodeticDatum", "verbatimSRS", "easting", "northing", "zone")
+    "originalDecimalLatitude", "originalDecimalLongitude", "originalSensitiveValues",
+    "geodeticDatum", "verbatimSRS", "easting", "northing", "zone")
 
   def getDistinctCoordinatesForRowKey(rowKey:String){
     val values = Config.persistenceManager.getSelected(rowKey, "occ", properties)
@@ -282,36 +284,36 @@ class Sampling {
   }
 
   def getDistinctCoordinatesForFile(locFilePath: String, rowKeyFile: String) {
-    logger.info("Creating distinct list of coordinates for row keys in " + rowKeyFile)
+    logger.info(s"Creating distinct list of coordinates for row keys in $rowKeyFile")
     var counter = 0
     var passed = 0
     val rowKeys = new File(rowKeyFile)
     val coordinates = new HashSet[String]
     val lp = new LocationProcessor
-    rowKeys.foreachLine(line => {
+    rowKeys.foreachLine { line =>
       val values = Config.persistenceManager.getSelected(line, "occ", properties)
       if (values.isDefined) {
         def map = values.get
         handleRecordMap(map, coordinates, lp)
 
         if (counter % 10000 == 0 && counter > 0) {
-          logger.debug("Distinct coordinates counter: " + counter + ", current count:" + coordinates.size)
+          logger.debug(s"Distinct coordinates counter: $counter , current count: $coordinates.size")
         }
         counter += 1
         passed += 1
       }
-    })
+    }
 
     try {
       val fw = new FileWriter(locFilePath)
-      coordinates.foreach(c => {
+      coordinates.foreach { c =>
         fw.write(c)
         fw.write("\n")
-      })
+      }
       fw.flush
       fw.close
     } catch {
-      case e:Exception =>  logger.error("failed to write - " + e.getMessage, e)
+      case e:Exception =>  logger.error("Failed to write - " + e.getMessage, e)
     }
   }
 

@@ -1009,8 +1009,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     if(map.isEmpty){
       logger.debug("Unable to reindex : " + rowKey)
     } else {
-      var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexDAO.getCsvWriter() } else { null }
-      var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexDAO.getCsvWriter(true) } else { null }
+      val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexDAO.getCsvWriter() } else { null }
+      val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexDAO.getCsvWriter(true) } else { null }
       indexDAO.indexFromMap(rowKey, map.get, batch=false, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
       if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
