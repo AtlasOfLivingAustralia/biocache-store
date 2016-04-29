@@ -195,7 +195,7 @@ class LocationProcessor extends Processor {
    * with additional extensions to handle 2km grid references e.g. NM39A
    *
    * @param gridRef
-   * @return easting, northing, coordinate uncertainty in meters, minEasting, minNorthing, maxEasting, maxNorthing
+   * @return easting, northing, coordinate uncertainty in meters
    */
   def osGridReferenceToEastingNorthing(gridRef:String): Option[(Int, Int, Option[Int], Int, Int, Int, Int)] = {
 
@@ -826,7 +826,8 @@ class LocationProcessor extends Processor {
 
   /**
    * Get the number of decimal places in a double value in string form
-   * @param decimalAsString
+    *
+    * @param decimalAsString
    * @return
    */
    def getNumberOfDecimalPlacesInDouble(decimalAsString: String): Int = {
