@@ -3,7 +3,7 @@ package au.org.ala.biocache
 import au.org.ala.biocache.util.LayersStore
 import java.util.jar.Attributes
 
-import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.{BooleanUtils, StringUtils}
 import org.slf4j.LoggerFactory
 import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
 import au.org.ala.names.search.ALANameSearcher
@@ -221,6 +221,9 @@ object Config {
   val marineLayerID = configModule.properties.getProperty("layer.marine", "cl21")
   val countriesLayerID = configModule.properties.getProperty("layer.countries", "cl932")
   val localGovLayerID = configModule.properties.getProperty("layer.localgov", "cl959")
+
+  //grid reference indexing
+  val gridRefIndexingEnabled = BooleanUtils.toBoolean(configModule.properties.getProperty("gridref.indexing.enabled", "false"))
 
   //used by location processor for associating a country with an occurrence record where only stateProvince supplied
   val defaultCountry = configModule.properties.getProperty("default.country", "Australia")

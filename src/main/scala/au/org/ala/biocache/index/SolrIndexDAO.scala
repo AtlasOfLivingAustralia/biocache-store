@@ -501,6 +501,52 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           doc.addField("species_list_uid", v)
         }
 
+        /**
+         * Additional indexing for grid references.
+         * TODO refactor so that additional indexing is pluggable without core changes.
+         */
+        if(Config.gridRefIndexingEnabled){
+          val bboxString = map.getOrElse("bbox.p", "")
+          if(bboxString != ""){
+            val bbox = bboxString.split(",")
+            doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
+            doc.addField("min_longitude", java.lang.Float.parseFloat(bbox(1)))
+            doc.addField("max_latitude", java.lang.Float.parseFloat(bbox(2)))
+            doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
+          }
+
+          val easting = map.getOrElse("easting.p", "")
+          if(easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting))
+          val northing = map.getOrElse("northing.p", "")
+          if(northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing))
+          val gridRef = map.getOrElse("gridReference", "")
+          if(gridRef != "") {
+            doc.addField("grid_ref", gridRef)
+
+            if(gridRef.length() > 2) {
+
+              val gridChars = gridRef.substring(0,2)
+              val eastNorthing = gridRef.substring(2)
+              val es = eastNorthing.splitAt((eastNorthing.length() / 2) )
+
+              //add grid references for 10km, and 1km
+              if (gridRef.length() >= 4) {
+                doc.addField("grid_ref_10000", gridChars + es._1.substring(0,1)+ es._2.substring(0,1))
+              }
+              if (gridRef.length() == 5) {
+                doc.addField("grid_ref_2000", gridRef)
+              }
+              if (gridRef.length() >= 6) {
+                doc.addField("grid_ref_1000", gridChars + es._1.substring(0,2)+ es._2.substring(0,2))
+              }
+              if (gridRef.length() >= 8) {
+                doc.addField("grid_ref_100", gridChars + es._1.substring(0,3)+ es._2.substring(0,3))
+              }
+            }
+          }
+        }
+        /** UK NBN **/
+
         // user if userQA = true
         val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false")
         if ("true".equals(hasUserAssertions)) {
@@ -840,7 +886,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   /**
    * Streaming callback for use with SOLR's streaming API.
-   * @param proc
+    *
+    * @param proc
    * @param multivaluedFields
    */
  class SolrCallback (proc: java.util.Map[String,AnyRef] => Boolean, multivaluedFields:Option[Array[String]]) extends StreamingResponseCallback {

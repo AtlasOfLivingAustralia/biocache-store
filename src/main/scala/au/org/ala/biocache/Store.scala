@@ -18,7 +18,7 @@ import au.org.ala.biocache.index.{IndexRecords, IndexFields}
 import au.org.ala.biocache.vocab._
 import au.org.ala.biocache.tool._
 import org.slf4j.LoggerFactory
-import au.org.ala.biocache.processor.RecordProcessor
+import au.org.ala.biocache.processor.{LocationProcessor, RecordProcessor}
 import au.org.ala.biocache.outliers.JackKnifeStats
 import au.org.ala.biocache.vocab.SpeciesGroup
 import scala.Some
@@ -708,6 +708,24 @@ object Store {
       json
     } catch {
       case _:Exception => "[]"
+    }
+  }
+
+  /**
+    * Utility method for conversion of grid references.
+    * @param gridRef
+    * @return
+    */
+  def convertGridReference(gridRef:String): Array[Int] = {
+    new LocationProcessor().osGridReferenceToEastingNorthing(gridRef) match {
+      case Some((easting, northing, uncertainty, minE, minN, maxE, maxN)) => {
+        Array(
+          easting,
+          northing,
+          uncertainty.getOrElse(-1)
+        )
+      }
+      case None => Array()
     }
   }
 
