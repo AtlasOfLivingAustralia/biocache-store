@@ -486,7 +486,7 @@ class LocationProcessor extends Processor {
           processed.location.decimalLongitude = gisPoint.longitude
           processed.location.geodeticDatum = gisPoint.datum
           processed.location.coordinateUncertaintyInMeters = gisPoint.coordinateUncertaintyInMeters
-          processed.location.bbox = gisPoint.minLatitude + "," + gisPoint.minLongitude + "," + gisPoint.maxLatitude + "," + gisPoint.maxLongitude
+          processed.location.bbox = gisPoint.bboxString
           processed.location.northing = gisPoint.northing
           processed.location.easting = gisPoint.easting
         }
@@ -1211,4 +1211,13 @@ class LocationProcessor extends Processor {
 
 
 case class GISPoint(latitude:String, longitude:String, datum:String, coordinateUncertaintyInMeters:String,
-                    easting:String = null, northing:String  = null, minLatitude:String = null, minLongitude:String = null, maxLatitude:String = null, maxLongitude:String = null)
+                    easting:String = null, northing:String  = null, minLatitude:String = null, minLongitude:String = null, maxLatitude:String = null, maxLongitude:String = null){
+
+  def bboxString = {
+    if(minLatitude !=null && minLongitude !=null && maxLatitude !=null && maxLongitude !=null) {
+      minLatitude + "," + minLongitude + "," + maxLatitude + "," + maxLongitude
+    } else {
+      ""
+    }
+  }
+}

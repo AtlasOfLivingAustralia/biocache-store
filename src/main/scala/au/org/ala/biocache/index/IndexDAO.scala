@@ -137,7 +137,7 @@ trait IndexDAO {
     "rank", "rank_id", "raw_taxon_name", "raw_common_name", "multimedia", "image_url", "all_image_url",
     "species_group", "country_code", "country", "lft", "rgt", "kingdom", "phylum", "class", "order",
     "family", "genus", "genus_guid", "species", "species_guid", "state", "places", "latitude", "longitude",
-    "lat_long", "point_1", "point_0_1", "point_0_01", "point_0_02", "point_0_001", "point_0_0001",
+    "lat_long", "point-1", "point-0.1", "point-0.01", "point-0.02", "point-0.001", "point-0.0001",
     "year", "month", "basis_of_record", "raw_basis_of_record", "type_status",
     "raw_type_status", "taxonomic_kosher", "geospatial_kosher",  "location_remarks",
     "occurrence_remarks", "user_assertions", "collector", "state_conservation", "raw_state_conservation", "country_conservation", "raw_country_conservation",

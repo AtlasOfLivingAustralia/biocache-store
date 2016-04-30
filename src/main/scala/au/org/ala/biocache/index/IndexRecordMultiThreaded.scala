@@ -563,7 +563,12 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
           indexer.indexFromMap(guid, map, commit = commit, batchID = threadId.toString, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
         }
       } catch {
-        case e:Exception => logger.error("Problem indexing record: " + guid + ""  + e.getMessage())
+        case e:Exception => {
+          logger.error("Problem indexing record: " + guid + " "  + e.getMessage())
+          if(logger.isDebugEnabled){
+            logger.debug("Error during indexing: " + e.getMessage, e)
+          }
+        }
       }
 
       if (counter % pageSize == 0 && counter > 0) {

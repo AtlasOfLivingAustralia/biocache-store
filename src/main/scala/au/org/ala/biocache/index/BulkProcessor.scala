@@ -164,8 +164,9 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           threads.foreach { thread => thread.join }
 
           if (action == "index") {
+            logger.info("Starting the index merge....")
             IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
-            logger.info("Waiting to see if shutdown")
+            logger.info("Merge complete. Waiting to see if shutdown")
             System.exit(0)
           } else if (action == "col") {
             var allSet: Set[String] = Set()
