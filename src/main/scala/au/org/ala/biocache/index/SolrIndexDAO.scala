@@ -665,9 +665,21 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         }
 
         val easting = map.getOrElse("easting.p", "")
-        if(easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting))
+        if(easting != "") {
+          try {
+            doc.addField("easting", java.lang.Float.parseFloat(easting).toInt)
+          } catch {
+            case _ => //do nothing
+          }
+        }
         val northing = map.getOrElse("northing.p", "")
-        if(northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing))
+        if(northing != "") {
+          try {
+            doc.addField("northing", java.lang.Float.parseFloat(northing).toInt)
+          } catch {
+            case _ => //do nothing
+          }
+        }
         val gridRef = map.getOrElse("gridReference", "")
         if(gridRef != "") {
           doc.addField("grid_ref", gridRef)
