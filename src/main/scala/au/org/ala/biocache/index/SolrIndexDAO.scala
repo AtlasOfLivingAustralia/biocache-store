@@ -52,6 +52,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   @Inject
   var occurrenceDAO: OccurrenceDAO = _
   val currentBatch = new java.util.ArrayList[SolrInputDocument](1000)
+  var currentCommitSize = 0
   var ids = 0
   val fieldSuffix = """([A-Za-z_\-0.9]*)"""
   val doublePattern = (fieldSuffix + """_d""").r
@@ -265,15 +266,18 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   def finaliseIndex(optimise: Boolean = false, shutdown: Boolean = true) {
     init
-    if (!currentBatch.isEmpty) {
-      solrServer.add(currentBatch)
-      Thread.sleep(50)
+    currentBatch.synchronized {
+      if (!currentBatch.isEmpty) {
+        solrServer.add(currentBatch)
+        Thread.sleep(50)
+      }
+      logger.info("Performing index commit....")
+      solrServer.commit
+      currentCommitSize = 0
+      logger.info("Performing index commit....done")
+      logger.info(printNumDocumentsInIndex)
+      currentBatch.clear
     }
-    logger.info("Performing index commit....")
-    solrServer.commit
-    logger.info("Performing index commit....done")
-    logger.info(printNumDocumentsInIndex)
-    currentBatch.clear
     //clear the cache for the SpeciesLIst
     //now we should close the indexWriter
     logger.info(printNumDocumentsInIndex)
@@ -604,7 +608,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
             //if not a batch, add the doc and do a hard commit
             solrServer.add(doc)
-            solrServer.commit(false, false, true)
+            solrServer.commit(false, true, true)
 
             if (csvFileWriter != null) {
               writeDocToCsv(doc, csvFileWriter)
@@ -633,8 +637,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
               if (currentBatch.size == BATCH_SIZE || (commit && !currentBatch.isEmpty)) {
 
                 solrServer.add(currentBatch)
-                if (commit || currentBatch.size >= HARD_COMMIT_SIZE){
-                  solrServer.commit(false, false, true)
+                currentCommitSize += currentBatch.size()
+                if (commit || currentCommitSize >= HARD_COMMIT_SIZE){
+                  solrServer.commit(false, true, true)
+                  currentCommitSize = 0
                 }
                 currentBatch.clear
               }
@@ -865,7 +871,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
               solrServer.add(docs)
               //only the first thread should commit
               if (id == 0) {
-                solrServer.commit(false, false, true)
+                solrServer.commit(false, true, true)
               }
               docs = null
             } catch {
