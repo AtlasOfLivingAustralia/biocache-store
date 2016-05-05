@@ -154,6 +154,10 @@ class SensitivityProcessor extends Processor {
           }
           processed.location.decimalLatitude = stringMap.getOrElse("decimalLatitude", "")
           processed.location.decimalLongitude = stringMap.getOrElse("decimalLongitude", "")
+          processed.location.northing = ""
+          processed.location.easting = ""
+          processed.location.bbox = ""
+          processed.location.gridReference = ""
           stringMap -= "generalisationInMetres"
         }
 
@@ -195,7 +199,9 @@ class SensitivityProcessor extends Processor {
     } else {
       //Species is NOT sensitive
       //if the raw record has originalSensitive values we need to re-initialise the value
-      if (StringUtils.isNotBlank(raw.rowKey) && raw.occurrence.originalSensitiveValues != null && !raw.occurrence.originalSensitiveValues.isEmpty) {
+      if (StringUtils.isNotBlank(raw.rowKey) &&
+        raw.occurrence.originalSensitiveValues != null &&
+        !raw.occurrence.originalSensitiveValues.isEmpty) {
         Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""))
       }
     }
