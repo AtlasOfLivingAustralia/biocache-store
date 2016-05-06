@@ -96,16 +96,16 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
     if (parser.parse(args)) {
       if (validActions.contains(action)) {
-        val (query, start, end) = if (dr.isDefined){
+        val (query, startValue, endValue) = if (dr.isDefined){
           ("data_resource_uid:" + dr.get, dr.get + "|", dr.get + "|~")
         } else {
-          ("*:*", "", "")
+          ("*:*", start, end)
         }
 
         val ranges = if (keys.isEmpty){
-          calculateRanges(numThreads, query, start, end)
+          calculateRanges(numThreads, query, startValue, endValue)
         } else {
-          generateRanges(keys.get, start, end)
+          generateRanges(keys.get, startValue, endValue)
         }
 
         if (action == "range") {
