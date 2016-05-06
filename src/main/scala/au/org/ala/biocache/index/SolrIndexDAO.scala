@@ -52,6 +52,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   @Inject
   var occurrenceDAO: OccurrenceDAO = _
   val currentBatch = new java.util.ArrayList[SolrInputDocument](1000)
+  var currentCommitSize = 0
   var ids = 0
   val fieldSuffix = """([A-Za-z_\-0.9]*)"""
   val doublePattern = (fieldSuffix + """_d""").r
@@ -265,15 +266,18 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   def finaliseIndex(optimise: Boolean = false, shutdown: Boolean = true) {
     init
-    if (!currentBatch.isEmpty) {
-      solrServer.add(currentBatch)
-      Thread.sleep(50)
+    currentBatch.synchronized {
+      if (!currentBatch.isEmpty) {
+        solrServer.add(currentBatch)
+        Thread.sleep(50)
+      }
+      logger.info("Performing index commit....")
+      solrServer.commit
+      currentCommitSize = 0
+      logger.info("Performing index commit....done")
+      logger.info(printNumDocumentsInIndex)
+      currentBatch.clear
     }
-    logger.info("Performing index commit....")
-    solrServer.commit
-    logger.info("Performing index commit....done")
-    logger.info(printNumDocumentsInIndex)
-    currentBatch.clear
     //clear the cache for the SpeciesLIst
     //now we should close the indexWriter
     logger.info(printNumDocumentsInIndex)
@@ -501,6 +505,52 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           doc.addField("species_list_uid", v)
         }
 
+        /**
+         * Additional indexing for grid references.
+         * TODO refactor so that additional indexing is pluggable without core changes.
+         */
+        if(Config.gridRefIndexingEnabled){
+          val bboxString = map.getOrElse("bbox.p", "")
+          if(bboxString != ""){
+            val bbox = bboxString.split(",")
+            doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
+            doc.addField("min_longitude", java.lang.Float.parseFloat(bbox(1)))
+            doc.addField("max_latitude", java.lang.Float.parseFloat(bbox(2)))
+            doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
+          }
+
+          val easting = map.getOrElse("easting.p", "")
+          if(easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting))
+          val northing = map.getOrElse("northing.p", "")
+          if(northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing))
+          val gridRef = map.getOrElse("gridReference", "")
+          if(gridRef != "") {
+            doc.addField("grid_ref", gridRef)
+
+            if(gridRef.length() > 2) {
+
+              val gridChars = gridRef.substring(0,2)
+              val eastNorthing = gridRef.substring(2)
+              val es = eastNorthing.splitAt((eastNorthing.length() / 2) )
+
+              //add grid references for 10km, and 1km
+              if (gridRef.length() >= 4) {
+                doc.addField("grid_ref_10000", gridChars + es._1.substring(0,1)+ es._2.substring(0,1))
+              }
+              if (gridRef.length() == 5) {
+                doc.addField("grid_ref_2000", gridRef)
+              }
+              if (gridRef.length() >= 6) {
+                doc.addField("grid_ref_1000", gridChars + es._1.substring(0,2)+ es._2.substring(0,2))
+              }
+              if (gridRef.length() >= 8) {
+                doc.addField("grid_ref_100", gridChars + es._1.substring(0,3)+ es._2.substring(0,3))
+              }
+            }
+          }
+        }
+        /** UK NBN **/
+
         // user if userQA = true
         val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false")
         if ("true".equals(hasUserAssertions)) {
@@ -558,7 +608,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
             //if not a batch, add the doc and do a hard commit
             solrServer.add(doc)
-            solrServer.commit(false, false, true)
+            solrServer.commit(false, true, true)
 
             if (csvFileWriter != null) {
               writeDocToCsv(doc, csvFileWriter)
@@ -587,8 +637,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
               if (currentBatch.size == BATCH_SIZE || (commit && !currentBatch.isEmpty)) {
 
                 solrServer.add(currentBatch)
-                if (commit || currentBatch.size >= HARD_COMMIT_SIZE){
-                  solrServer.commit(false, false, true)
+                currentCommitSize += currentBatch.size()
+                if (commit || currentCommitSize >= HARD_COMMIT_SIZE){
+                  solrServer.commit(false, true, true)
+                  currentCommitSize = 0
                 }
                 currentBatch.clear
               }
@@ -819,7 +871,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
               solrServer.add(docs)
               //only the first thread should commit
               if (id == 0) {
-                solrServer.commit(false, false, true)
+                solrServer.commit(false, true, true)
               }
               docs = null
             } catch {
@@ -840,7 +892,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   /**
    * Streaming callback for use with SOLR's streaming API.
-   * @param proc
+    *
+    * @param proc
    * @param multivaluedFields
    */
  class SolrCallback (proc: java.util.Map[String,AnyRef] => Boolean, multivaluedFields:Option[Array[String]]) extends StreamingResponseCallback {
