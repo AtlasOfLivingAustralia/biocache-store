@@ -110,7 +110,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
         if (action == "range") {
           logger.info(ranges.mkString("\n"))
-        } else if (action != "range") {
+        } else {
           var counter = 0
           val threads = new ArrayBuffer[Thread]
           val columnRunners = new ArrayBuffer[ColumnReporterRunner]
@@ -160,10 +160,10 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           threads.foreach(thread => thread.join)
 
           if (action == "index") {
+            logger.info("Merging index segments")
             IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
+            logger.info("Shutting down persistence manager")
             Config.persistenceManager.shutdown
-            logger.info("Waiting to see if shutdown")
-            System.exit(0)
           } else if (action == "col") {
             var allSet: Set[String] = Set()
             columnRunners.foreach(c => allSet ++= c.myset)
