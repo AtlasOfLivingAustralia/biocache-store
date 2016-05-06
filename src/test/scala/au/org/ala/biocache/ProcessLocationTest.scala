@@ -178,7 +178,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     }
   }
 
-  test("Already Generalised - Crex crex - Western Australia") {
+  ignore("Already Generalised - Crex crex - Western Australia ! already generalised commented out of configuration") {
     val raw = new FullRecord
     val processed = new FullRecord
     raw.classification.setScientificName("Crex crex")
