@@ -38,7 +38,7 @@ class IdentificationQualifierProcessor extends Processor {
     val stringVal = rawIdentificationQualifier
 
     // default value
-    var translatedIdQ = "no value provided"
+    var translatedIdQ = "Not provided"
 
     logger.debug ("Processing raw.identification.identificationQualifier: " + stringVal)
 
