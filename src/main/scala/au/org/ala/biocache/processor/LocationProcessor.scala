@@ -242,10 +242,10 @@ class LocationProcessor extends Processor {
    * with additional extensions to handle 2km grid references e.g. NM39A
    *
    * @param gridRef
-   * @return easting, northing, coordinate uncertainty in meters
+   * @return easting, northing, coordinate uncertainty in meters, minEasting, minNorthing, maxEasting, maxNorthing
    *
    */
-  def osGridReferenceToEastingNorthing(gridRef:String): Option[(Int, Int, Option[Int])] ={
+  def osGridReferenceToEastingNorthing(gridRef:String): Option[(Int, Int, Option[Int], Int, Int, Int, Int)] = {
 
     //deal with the 2k OS grid ref separately
     val gridRefRegex1Number = """([A-Z]{2})\s*([0-9]+)$""".r
@@ -328,12 +328,12 @@ class LocationProcessor extends Processor {
       //http://www.kmbrc.org.uk/recording/help/gridrefhelp.php?page=6
       twoKRef match {
         case it if (Character.codePointAt(twoKRef, 0) <= 'N') => {
-          e = e + (((Character.codePointAt(twoKRef, 0) - 65) / 5) * cellSize) + (cellSize/2)
-          n = n + (((Character.codePointAt(twoKRef, 0) - 65) % 5) * cellSize)+ (cellSize/2)
+          e = e + (((Character.codePointAt(twoKRef, 0) - 65) / 5) * cellSize)
+          n = n + (((Character.codePointAt(twoKRef, 0) - 65) % 5) * cellSize)
         }
         case it if (Character.codePointAt(twoKRef, 0) >= 'P') => {
-          e = e + (((Character.codePointAt(twoKRef, 0) - 66) / 5) * cellSize) + (cellSize/2)
-          n = n + (((Character.codePointAt(twoKRef, 0) - 66) % 5) * cellSize) + (cellSize/2)
+          e = e + (((Character.codePointAt(twoKRef, 0) - 66) / 5) * cellSize)
+          n = n + (((Character.codePointAt(twoKRef, 0) - 66) % 5) * cellSize)
         }
         case _ => return None
       }
@@ -369,7 +369,9 @@ class LocationProcessor extends Processor {
       }
     }
 
-    Some((e, n, coordinateUncertainty))
+    val coordinateUncertaintyOrZero = if(coordinateUncertainty.isEmpty) 0 else coordinateUncertainty.get
+
+    Some((e, n, coordinateUncertainty, e, n, e + coordinateUncertaintyOrZero, n + coordinateUncertaintyOrZero))
   }
 
   /**
@@ -512,7 +514,8 @@ class LocationProcessor extends Processor {
 
     } else {
       //use raw values
-      val gisPointOption = processLatLong(raw.location.decimalLatitude,
+      val gisPointOption = processLatLong(
+        raw.location.decimalLatitude,
         raw.location.decimalLongitude,
         raw.location.geodeticDatum,
         raw.location.verbatimLatitude,
@@ -524,11 +527,17 @@ class LocationProcessor extends Processor {
         raw.location.gridReference,
         assertions)
 
-      if(!gisPointOption.isEmpty){
-        processed.location.decimalLatitude = gisPointOption.get.latitude
-        processed.location.decimalLongitude = gisPointOption.get.longitude
-        processed.location.geodeticDatum = gisPointOption.get.datum
-        processed.location.coordinateUncertaintyInMeters = gisPointOption.get.coordinateUncertaintyInMeters
+      gisPointOption match {
+        case Some(gisPoint) => {
+          processed.location.decimalLatitude = gisPoint.latitude
+          processed.location.decimalLongitude = gisPoint.longitude
+          processed.location.geodeticDatum = gisPoint.datum
+          processed.location.coordinateUncertaintyInMeters = gisPoint.coordinateUncertaintyInMeters
+          processed.location.bbox = gisPoint.minLatitude + "," + gisPoint.minLongitude + "," + gisPoint.maxLatitude + "," + gisPoint.maxLongitude
+          processed.location.northing = gisPoint.northing
+          processed.location.easting = gisPoint.easting
+        }
+        case None => //do nothing
       }
     }
   }
@@ -595,8 +604,23 @@ class LocationProcessor extends Processor {
   def processGridReference(gridReference:String, assertions:ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
 
     osGridReferenceToEastingNorthing(gridReference) match {
-      case Some((easting, northing, coordUncertaintyOption)) => {
-        val coords = reprojectCoordinatesToWGS84(easting, northing, Config.defaultSourceCrs, 5)
+      case Some((easting, northing, coordUncertaintyOption, minE, minN, maxE, maxN)) => {
+
+        //move coordinates to the centroid of the grid
+        val reposition = if(!coordUncertaintyOption.isEmpty && coordUncertaintyOption.get > 0){
+          coordUncertaintyOption.get / 2
+        } else {
+          0
+        }
+
+        val coords = reprojectCoordinatesToWGS84(easting + reposition, northing + reposition, Config.defaultSourceCrs, 5)
+
+        //reproject min/max lat/lng
+        val bbox = Array(
+          reprojectCoordinatesToWGS84(minE, minN, Config.defaultSourceCrs, 5),
+          reprojectCoordinatesToWGS84(maxE, maxN, Config.defaultSourceCrs, 5)
+        )
+
         if(!coords.isEmpty){
           val (latitude, longitude) = coords.get
           assertions.add(QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF))
@@ -605,7 +629,17 @@ class LocationProcessor extends Processor {
           } else {
             null
           }
-          Some(GISPoint(latitude, longitude, WGS84_EPSG_Code, uncertaintyToUse))
+          Some(GISPoint(latitude,
+            longitude,
+            WGS84_EPSG_Code,
+            uncertaintyToUse,
+            easting = easting.toString,
+            northing = northing.toString,
+            minLatitude = bbox(0).get._1,
+            minLongitude = bbox(0).get._2,
+            maxLatitude = bbox(1).get._1,
+            maxLongitude = bbox(1).get._2
+          ))
         } else {
           None
         }
@@ -747,8 +781,7 @@ class LocationProcessor extends Processor {
    * @param northing
    * @param zone
    * @param assertions
-   *
-   * @return 3-tuple reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code
+    * @return 3-tuple reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code
    */
   private def processNorthingEastingZone(verbatimSRS: String, easting: String, northing: String, zone: String,
                                      assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
@@ -835,7 +868,8 @@ class LocationProcessor extends Processor {
 
   /**
    * Get the number of decimal places in a double value in string form
-   * @param decimalAsString
+    *
+    * @param decimalAsString
    * @return
    */
    def getNumberOfDecimalPlacesInDouble(decimalAsString: String): Int = {
@@ -849,7 +883,8 @@ class LocationProcessor extends Processor {
 
   /**
    * Get the EPSG code associated with a coordinate reference system string e.g. "WGS84" or "AGD66".
-   * @param crs The coordinate reference system string.
+    *
+    * @param crs The coordinate reference system string.
    * @return The EPSG code associated with the CRS, or None if no matching code could be found.
    *         If the supplied string is already a valid EPSG code, it will simply be returned.
    */
@@ -1363,4 +1398,5 @@ class LocationProcessor extends Processor {
 }
 
 
-case class GISPoint(latitude:String, longitude:String, datum:String, coordinateUncertaintyInMeters:String)
+case class GISPoint(latitude:String, longitude:String, datum:String, coordinateUncertaintyInMeters:String,
+                    easting:String = null, northing:String  = null, minLatitude:String = null, minLongitude:String = null, maxLatitude:String = null, maxLongitude:String = null)

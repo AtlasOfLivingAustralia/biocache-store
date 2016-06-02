@@ -44,7 +44,7 @@ genus	string	genus.p	F	F		F
 genus_guid	string	genusID.p	F	F		F
 species	string	species.p	F	F		F
 species_guid	string	speciesID.p	F	F		F
-subspecies	string	subspecies.p	F	F		F
+subspecies_name	string	subspecies.p	F	F		F
 state	string	stateProvince.p	F	F		F
 imcra	string	imcra.p	F	F		F
 ibra	string	ibra.p	F	F		F
@@ -226,7 +226,7 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	georeferenceVerificationStatus	F	F	F	F
 	string	georeferenceVerificationStatus.p	F	F	F	F
 	string	geospatialIssue	F	F	F	F
-	string	geospatiallyKosher	F	F	F	F
+geospatial_kosher	string	geospatiallyKosher	F	F	F	F
 	string	habitat	F	F	F	F
 	string	habitat.p	F	F	F	F
 	string	higherClassification	F	F	F	F
@@ -330,7 +330,6 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	subfamily	F	F	F	F
 	string	subgenus	F	F	F	F
 	string	subspecies	F	F	F	F
-	string	subspecies.p	F	F	F	F
 	string	subspeciesID.p	F	F	F	F
 	string	superfamily	F	F	F	F
 	string	taxonConceptID	F	F	F	F
