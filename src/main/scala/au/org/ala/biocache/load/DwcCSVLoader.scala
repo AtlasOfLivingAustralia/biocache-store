@@ -219,7 +219,7 @@ class DwcCSVLoader extends DataLoader {
           case (key,value) => {
             if(value != null){
               val upperCased = value.trim.toUpperCase
-              upperCased != "NULL" && upperCased != "N/A" && upperCased != "\\N" && upperCased != "" && upperCased != "-"
+              upperCased != ""
             } else {
               false
             }
