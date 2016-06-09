@@ -232,6 +232,7 @@ object CMD2 {
     OptimiseIndex,
     ProcessAll,
     ProcessSingleRecord,
+    ProcessUuids,
     ProcessRecords,
     ReprocessIndexSelect,
     ResampleRecordsByQuery,

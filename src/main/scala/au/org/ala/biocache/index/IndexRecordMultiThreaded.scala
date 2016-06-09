@@ -255,7 +255,7 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
       }
     } ++ empty
     //revise the properties in the db
-    Config.persistenceManager.put(guid, "occ", map)
+    Config.persistenceManager.put(guid, "occ", map, false)
 
     //check to see if there is a tool QA and remove one
     val dupQA = list.filter(_.code == AssertionCodes.INFERRED_DUPLICATE_RECORD.code)
@@ -263,7 +263,7 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
     if (dupQA.size > 1) {
       val newList: List[QualityAssertion] = list.diff(dupQA) ++ List(dupQA(0))
       //println("Original size " + list.length + "  new size =" + newList.length)
-      Config.persistenceManager.putList(guid, "occ", FullRecordMapper.qualityAssertionColumn, newList, classOf[QualityAssertion], true)
+      Config.persistenceManager.putList(guid, "occ", FullRecordMapper.qualityAssertionColumn, newList, classOf[QualityAssertion], true, false)
     }
 
     (gk, tk)
@@ -348,9 +348,8 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
         if(!point.isEmpty){
           val (location, environmentalLayers, contextualLayers) = point.get
           Config.persistenceManager.put(guid, "occ", Map(
-            "el.p" -> Json.toJSON(environmentalLayers),
-            "cl.p" -> Json.toJSON(contextualLayers))
-          )
+                      "el.p" -> Json.toJSON(environmentalLayers),
+                      "cl.p" -> Json.toJSON(contextualLayers)), false)
         }
         counter += 1
         if(counter % 10000 == 0){

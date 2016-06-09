@@ -193,13 +193,13 @@ class CassandraPersistenceManager @Inject() (
   /**
    * Store the supplied batch of maps of properties as separate columns in cassandra.
    */
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]]) = {
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], removeNullFields: Boolean) = {
     val mutator = Pelops.createMutator(poolName)
     batch.foreach(uuidMap => {
       val uuid = uuidMap._1
       val keyValuePairs = uuidMap._2
       keyValuePairs.foreach( keyValue => {
-        mutator.writeColumn(entityName, uuid, mutator.newColumn(keyValue._1, keyValue._2))
+        mutator.writeColumn(entityName, Bytes.fromUTF8(uuid), mutator.newColumn(keyValue._1, keyValue._2), removeNullFields)
       })
     })
     mutator.execute(ConsistencyLevel.ONE)
@@ -208,20 +208,24 @@ class CassandraPersistenceManager @Inject() (
   /**
    * Store the supplied map of properties as separate columns in cassandra.
    */
-  def put(uuid:String, entityName:String, keyValuePairs:Map[String, String]) = {
+  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
 
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
 
     val mutator = Pelops.createMutator(poolName)
     keyValuePairs.foreach( keyValue => {
       //NC: only add the column if the value is not null
-      if(keyValue._2!=null){
-        mutator.writeColumn(entityName, recordId, mutator.newColumn(keyValue._1, keyValue._2))
+      if (removeNullFields) {
+        mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(keyValue._1, keyValue._2), removeNullFields)
+      } else {
+          if (keyValue._2 != null) {
+            mutator.writeColumn(entityName, recordId, mutator.newColumn(keyValue._1, keyValue._2))
+          }
       }
     })
     //add the recordId to the columns if it has been generated.  This makes uuid value reads faster that ByteBuffer key conversions
     if(uuid == null){
-      mutator.writeColumn(entityName, recordId, mutator.newColumn("uuid", recordId))
+      mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn("uuid", recordId), removeNullFields)
     }
     mutator.execute(ConsistencyLevel.ONE)
     recordId
@@ -230,7 +234,7 @@ class CassandraPersistenceManager @Inject() (
   /**
    * Store the supplied property value in the column
    */
-  def put(uuid:String, entityName:String, propertyName:String, propertyValue:String) = {
+  def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, removeNullFields: Boolean) = {
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
     val mutator = Pelops.createMutator(poolName)
     mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, propertyValue))
@@ -259,7 +263,7 @@ class CassandraPersistenceManager @Inject() (
    * Store arrays in a single column as JSON.
    */
   //def putList(uuid:String, entityName:String, propertyName:String, newList:List[AnyRef], overwrite:Boolean) = {
-  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_], overwrite: Boolean) = {
+  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, removeNullFields: Boolean) = {
 
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
     //initialise the serialiser
@@ -311,8 +315,7 @@ class CassandraPersistenceManager @Inject() (
    * We need to ignore empty rows if the SlicePredicate id for ALL columns.  This is configuration in Cassandra 0.8.8:
    * https://issues.apache.org/jira/browse/CASSANDRA-2855
    *
-   *
-   * @param startUuid, The uuid of the occurrence at which to start the paging
+    * @param startUuid, The uuid of the occurrence at which to start the paging
    */
   def pageOver(entityName:String,proc:((String, Map[String,String])=>Boolean), pageSize:Int,
                slicePredicate:SlicePredicate, checkEmpty:Boolean=false,startUuid:String="",endUuid:String="") = {
@@ -391,7 +394,8 @@ class CassandraPersistenceManager @Inject() (
 
   /**
    * Pages over all the records with the selected columns.
-   * @param columnName The names of the columns that need to be provided for processing by the proc
+    *
+    * @param columnName The names of the columns that need to be provided for processing by the proc
    */
   def pageOverSelect(entityName:String, proc:((String, Map[String,String]) => Boolean), startUuid:String, endUuid:String, pageSize:Int, columnName:String*){
     val slicePredicate = Selector.newColumnsPredicate(columnName:_*)

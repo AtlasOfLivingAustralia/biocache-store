@@ -108,7 +108,7 @@ object CopyDataNewColumn extends Tool {
   def copyData(guid: String,  map: Map[String, String], sourceColumnFamily: String, source: String, targetColumnFamily: String, target: String, delete: Boolean) {
     val sourceValue = map.get(source)
     if (sourceValue.isDefined) {
-      persistenceManager.put(guid, targetColumnFamily, target, sourceValue.get)
+      persistenceManager.put(guid, targetColumnFamily, target, sourceValue.get, false)
       if (delete) {
         persistenceManager.deleteColumns(guid, sourceColumnFamily, source)
       }

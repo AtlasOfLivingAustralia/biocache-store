@@ -76,8 +76,8 @@ object DownloadMedia extends Tool {
       }
     })
     //update the processed.occurrence.images
-    Config.persistenceManager.put(raw.rowKey, "occ", "associatedMedia", mediaStorePaths.toArray.mkString(";"))
-    Config.persistenceManager.put(raw.rowKey, "occ", "images.p", Json.toJSON(mediaStorePaths.toArray))
+    Config.persistenceManager.put(raw.rowKey, "occ", "associatedMedia", mediaStorePaths.toArray.mkString(";"), false)
+    Config.persistenceManager.put(raw.rowKey, "occ", "images.p", Json.toJSON(mediaStorePaths.toArray), false)
   }
 
   /**
