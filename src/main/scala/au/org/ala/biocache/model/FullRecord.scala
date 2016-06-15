@@ -36,7 +36,8 @@ class FullRecord (
   @BeanProperty var firstLoaded:String="",
   @BeanProperty var lastModifiedTime:String = "",
   @BeanProperty var dateDeleted:String = "",
-  @BeanProperty var lastUserAssertionDate:String = "")
+  @BeanProperty var lastUserAssertionDate:String = "",
+  var rawFields:scala.collection.Map[String, String] = Map())
   extends Cloneable with CompositePOSO {
 
   def objectArray:Array[POSO] = Array(occurrence,classification,location,event,attribution,identification,measurement)
@@ -87,5 +88,19 @@ class FullRecord (
       else true
     }
     case _ => false
+  }
+
+  def setRawFields(rf: scala.collection.Map[String, String])= {
+
+    rawFields = rf map { case (k,v) => (k.toLowerCase match{
+      case "class" | "clazz" | "classs" => "classs"
+      case _ => k
+    },v)}
+
+  }
+
+  def getRawFields(): scala.collection.Map[String, String]={
+    rawFields
+
   }
 }

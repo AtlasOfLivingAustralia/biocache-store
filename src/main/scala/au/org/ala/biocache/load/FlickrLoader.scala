@@ -221,7 +221,7 @@ class FlickrLoader extends DataLoader {
 
           //load it if its of interest and we havent loaded it
           if (isOfInterest(fr, tags, keywords)) {
-            load(dataResourceUid, fr, List(photoPageUrl), !alreadyLoaded, true)
+            load(dataResourceUid, fr, List(photoPageUrl), !alreadyLoaded, true, false)
           }
         } catch {
           case e: Exception => logger.error(e.getMessage, e)
@@ -289,7 +289,7 @@ class FlickrLoader extends DataLoader {
 
             //load it if its of interest and we havent loaded it
             if (isOfInterest(fr, tags, keywords)) {
-              load(dataResourceUid, fr, List(photoPageUrl), !alreadyLoaded, true)
+              load(dataResourceUid, fr, List(photoPageUrl), !alreadyLoaded, true, false)
             }
           } catch {
             case e: Exception => logger.error(e.getMessage, e)

@@ -75,7 +75,7 @@ class ValidationRuleRunner {
           val oldId = vr.get.getId
           val newId = oldId.substring(oldId.indexOf("|")+1, oldId.length)
           if(!test){
-            Config.persistenceManager.put(vr.get.getRowKey,"queryassert","id",newId)
+            Config.persistenceManager.put(vr.get.getRowKey, "queryassert", "id", newId, false)
           } else{
             logger.info("Changing id from " + oldId + " to " + newId)
           }
@@ -175,7 +175,7 @@ class ValidationRuleRunner {
       //need to create one
       assertion.uuid = Config.validationRuleDAO.createUuid
       if(!test) {
-        Config.persistenceManager.put(assertion.id, "queryassert", "uuid", assertion.uuid)
+        Config.persistenceManager.put(assertion.id, "queryassert", "uuid", assertion.uuid, false)
       } else {
         logger.info("New uuid for validation rule " + assertion.uuid)
       }
@@ -210,7 +210,7 @@ class ValidationRuleRunner {
         "records" -> Json.toJSON(newList.toArray[String].asInstanceOf[Array[AnyRef]])
       )
       if(!test){
-        Config.persistenceManager.put(assertion.id, "queryassert",props)
+        Config.persistenceManager.put(assertion.id, "queryassert", props, false)
       } else {
         logger.info("Updating last applied or force reapplied with " + props)
       }
@@ -233,7 +233,7 @@ class ValidationRuleRunner {
       modifyList(newList.toList, assertion, buffer, true, test)
       def set = (assertion.records.toList ++ newList).toSet[String]
       if (!test){
-        Config.persistenceManager.put(assertion.id, "queryassert", Map("lastApplied"->applicationDate,"records"->Json.toJSON(set.toArray[String].asInstanceOf[Array[AnyRef]])))
+        Config.persistenceManager.put(assertion.id, "queryassert", Map("lastApplied"->applicationDate,"records"->Json.toJSON(set.toArray[String].asInstanceOf[Array[AnyRef]])), false)
       } else{
         logger.info("Applying validation " +  Map("lastApplied"->applicationDate,"records"->Json.toJSON(set.toArray[String].asInstanceOf[Array[AnyRef]])))
       }
@@ -259,7 +259,7 @@ class ValidationRuleRunner {
         }
         //println(rowKey + " " + map)
         if (!test){
-          Config.persistenceManager.put(rowKey, "occ", FullRecordMapper.queryAssertionColumn,Json.toJSON(map))//.asScala[String,String].asInstanceOf[Map[String, Any]]))
+          Config.persistenceManager.put(rowKey, "occ", FullRecordMapper.queryAssertionColumn, Json.toJSON(map), false)//.asScala[String,String].asInstanceOf[Map[String, Any]]))
         } else {
           logger.info("Modifying the list to " + map)
         }

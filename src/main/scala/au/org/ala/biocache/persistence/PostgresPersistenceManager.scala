@@ -24,7 +24,7 @@ class PostgresPersistenceManager() extends PersistenceManager {
    /**
     * Put a single property.
     */
-   def put(uuid: String, entityName: String, propertyName: String, propertyValue: String): String = {
+   def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, deleteIfNullValue: Boolean): String = {
      Database.forURL("jdbc:postgresql://localhost/occ", driver = "org.postgresql.Driver", user = "postgres", password = "postgres") withSession {
        // Create the tables, including primary and foreign keys
        Q.updateNA(s"""INSERT INTO $entityName (uuid, doc) VALUES ('$uuid', '"$propertyName" => "$propertyValue"');""").execute
@@ -35,7 +35,7 @@ class PostgresPersistenceManager() extends PersistenceManager {
    /**
     * Put a single property.
     */
-   def put(uuid: String, entityName: String, properties:Map[String,String]): String = {
+   def put(uuid: String, entityName: String, properties: Map[String, String], deleteIfNullValue: Boolean): String = {
 
      try {
        Database.forURL("jdbc:postgresql://localhost/occ", driver = "org.postgresql.Driver", user = "postgres", password = "postgres") withSession {
@@ -137,14 +137,14 @@ class PostgresPersistenceManager() extends PersistenceManager {
    /**
     * Add a batch of properties.
     */
-   def putBatch(entityName: String, batch: Map[String, Map[String, String]]): Unit = {
+   def putBatch(entityName: String, batch: Map[String, Map[String, String]], deleteIfNullValue: Boolean): Unit = {
      logger.warn("loading batch....WARNING not implemented......")
    }
 
    /**
     * @param overwrite if true, current stored value will be replaced without a read.
     */
-   def putList[A](uuid: String, entityName: String, propertyName: String, objectList:Seq[A], theClass: Class[_], overwrite: Boolean): String = {
+   def putList[A](uuid: String, entityName: String, propertyName: String, objectList:Seq[A], theClass: Class[_], overwrite: Boolean, deleteIfNullValue: Boolean): String = {
      //throw new RuntimeException("Not implemented")
      logger.warn("putList....WARNING not implemented......")
      uuid
