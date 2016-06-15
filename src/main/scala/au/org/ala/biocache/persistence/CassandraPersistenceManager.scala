@@ -237,10 +237,10 @@ class CassandraPersistenceManager @Inject() (
   def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, removeNullFields: Boolean) = {
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
     val mutator = Pelops.createMutator(poolName)
-    mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, propertyValue))
+    mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, propertyValue), removeNullFields)
     //add the recordId to the columns if it has been generated.  This makes uuid value reads faster that ByteBuffer key conversions
     if(uuid == null){
-      mutator.writeColumn(entityName, recordId, mutator.newColumn("uuid", recordId))
+      mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn("uuid", recordId), removeNullFields)
     }
     mutator.execute(ConsistencyLevel.ONE)
     recordId
@@ -272,7 +272,7 @@ class CassandraPersistenceManager @Inject() (
     if (overwrite) {
       //val json = Json.toJSON(newList)
       val json:String = Json.toJSONWithGeneric(newList)
-      mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, json))
+      mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, json), removeNullFields)
     } else {
 
       //retrieve existing values
@@ -281,7 +281,7 @@ class CassandraPersistenceManager @Inject() (
       if (column.isEmpty) {
         //write new values
         val json:String = Json.toJSONWithGeneric(newList)
-        mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, json))
+        mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, json), removeNullFields)
       } else {
         //retrieve the existing objects
         val currentJson = new String(column.get.getValue)
@@ -301,7 +301,7 @@ class CassandraPersistenceManager @Inject() (
         // check equals
         //val newJson = Json.toJSON(buffer.toList)
         val newJson:String = Json.toJSONWithGeneric(buffer.toList)
-        mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, newJson))
+        mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, newJson), removeNullFields)
       }
     }
     mutator.execute(ConsistencyLevel.ONE)
