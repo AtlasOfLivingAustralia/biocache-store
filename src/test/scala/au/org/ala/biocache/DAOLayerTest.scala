@@ -114,7 +114,7 @@ class DAOLayerTest extends ConfigFunSuite {
     mapper.setSerializationInclusion(Include.NON_NULL)
     val t = new OutlierResult("Natasha",0)
     println(mapper.writeValueAsString(t))
-    val d = new DuplicateRecordDetails("drtest|dfghui|34", "sdf2-34-3", "urn:lsid:biodiversity.org.au:apni.taxon:373696", "1981","11","10","-27,152","-27.5,152.7","-27.52,152.74","-27.523,152.748","-27.5233,152.7483","-27.5233,152.7483","Erythrina numerosa A.R.Bean","[Bird, L.]","","")
+    val d = new DuplicateRecordDetails("drtest|dfghui|34", "sdf2-34-3", "urn:lsid:biodiversity.org.au:apni.taxon:373696", "1981","11","10","-27,152","-27.5,152.7","-27.52,152.74","-27.523,152.748","-27.5233,152.7483","-27.5233,152.7483","Erythrina numerosa A.R.Bean","[Bird, L.]","","","","")
     println(mapper.writeValueAsString(d))
     /*
     @BeanProperty var rowKey:String, @BeanProperty var uuid:String, @BeanProperty var taxonConceptLsid:String,
