@@ -935,7 +935,10 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       // Exclude the current verify record
       val verifiedAssertions = allVerifiedAssertions.filter(qa => !(qa.relatedUuid equals currentAssertion.relatedUuid))
 
-      val assertions = userAssertions.filter(qa => qa.code != AssertionCodes.VERIFIED.code)
+      val allAssertions = userAssertions.filter(qa => qa.code != AssertionCodes.VERIFIED.code)
+
+      // Exclude the related user assertion
+      val assertions = allAssertions.filter(qa => !(qa.uuid equals currentAssertion.relatedUuid))
 
       // Sort the verified list according to relatedUuid and descending date
       val sortedList = verifiedAssertions.sortWith(QualityAssertion.compareByCreatedDesc).sortBy(_.relatedUuid)
@@ -950,10 +953,17 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       assertions.foreach { qa: QualityAssertion => if (!latestVerifiedList.exists(p => p.relatedUuid equals (qa.uuid))) combinedList.append(qa) }
       combinedList = combinedList ++ latestVerifiedList
 
-      // loop thru the combined list to check if there are any open issue. If there are none open issue, the get the this verified qaStatus
-      val userAssertionStatus = if (combinedList.exists(qa => qa.qaStatus == AssertionCodes.QA_OPEN_ISSUE.code)) AssertionCodes.QA_OPEN_ISSUE.code else currentAssertion.qaStatus
+      var bOpenIssue = false
+      var userAssertionStatus = currentAssertion.qaStatus
+      combinedList.foreach{qa:QualityAssertion => if (qa.qaStatus == AssertionCodes.QA_OPEN_ISSUE.code) bOpenIssue = true}
+      if (bOpenIssue) {
+        userAssertionStatus = AssertionCodes.QA_OPEN_ISSUE.code
+      }
 
-      //logger.debug("Overall assertion Status: " + userAssertionStatus)
+      // loop thru the combined list to check if there are any open issue. If there are none open issue, the get the this verified qaStatus
+    //  val userAssertionStatus = if (combinedList.exists(qa => qa.qaStatus == AssertionCodes.QA_OPEN_ISSUE.code)) AssertionCodes.QA_OPEN_ISSUE.code else currentAssertion.qaStatus
+
+      logger.debug("Overall assertion Status: " + userAssertionStatus)
 
       return userAssertionStatus
     }
@@ -976,7 +986,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     val assertionName = assertion.name
     val assertions = userAssertions.filter { _.name equals assertionName }
-    val userVerified = userAssertions.filter( qa => qa.code == AssertionCodes.VERIFIED.code).size > 0
 
     //if the a user assertion has been set for the supplied QA we will set the status bases on user assertions
     if (!assertions.isEmpty) {
@@ -1015,12 +1024,12 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     var properties = scala.collection.mutable.Map[String, String]()
     //need to update the user assertion flag in the occurrence record
 
-    if (!userVerified) {
+    if (assertion.code != AssertionCodes.VERIFIED.code) {
       properties += (FullRecordMapper.userQualityAssertionColumn -> AssertionCodes.QA_OPEN_ISSUE.code.toString)
     }
 
   //  properties += (FullRecordMapper.userQualityAssertionColumn -> (userAssertions.size>0).toString)
-    if(userVerified){
+    if(assertion.code == AssertionCodes.VERIFIED.code){
       properties += (FullRecordMapper.geospatialDecisionColumn -> "true")
       properties += (FullRecordMapper.taxonomicDecisionColumn -> "true")
 
