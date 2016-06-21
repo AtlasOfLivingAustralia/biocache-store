@@ -776,11 +776,44 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     persistenceManager.getList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn, classOf[QualityAssertion])
   }
 
+  def extractQAKeyNum (referenceRowKey: String): Int = {
+    if (StringUtils.isNotBlank(referenceRowKey)) {
+      val value = referenceRowKey.split('|').last
+      return Integer.parseInt(value)
+    } else {
+      return 0
+    }
+  }
+
+  implicit object QualityAssertionRowKeyOrdering extends Ordering[QualityAssertion] {
+    override def compare(x: QualityAssertion, y: QualityAssertion): Int = extractQAKeyNum(x.referenceRowKey).compareTo(extractQAKeyNum(y.referenceRowKey))
+  }
+
+  def getNextVerifiedRecordNumber (userAssertions: List[QualityAssertion]): String = {
+    val verifiedAssertions = userAssertions.filter(qa => qa.code == AssertionCodes.VERIFIED.code)
+
+    if (verifiedAssertions.size > 0) {
+      return (extractQAKeyNum(verifiedAssertions.max.referenceRowKey) + 1).toString
+    } else {
+      return "1"
+    }
+  }
+
+
   /**
    * Add a user supplied assertion - updating the status on the record.
    */
   def addUserAssertion(rowKey: String, qualityAssertion: QualityAssertion) {
-    val qaRowKey = rowKey+ "|" +qualityAssertion.getUserId + "|" + qualityAssertion.getCode
+
+    var userAssertions = getUserAssertions(rowKey)
+
+    var qaRowKey = rowKey+ "|" +qualityAssertion.getUserId + "|" + qualityAssertion.getCode
+
+    if (qualityAssertion.code == AssertionCodes.VERIFIED.code) {
+      qaRowKey = qaRowKey + "|" + getNextVerifiedRecordNumber(userAssertions)
+    }
+
+    qualityAssertion.referenceRowKey = qaRowKey
 
     //TODO add the serialised record to the quality assertion for later stage processing
     val qualityAssertionProperties = FullRecordMapper.mapObjectToProperties(qualityAssertion)
@@ -791,8 +824,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val qaMap = qualityAssertionProperties ++ Map("snapshot" -> Json.toJSON(record.get))
       persistenceManager.put(qaRowKey, qaEntityName, qaMap)
       val systemAssertions = getSystemAssertions(rowKey)
-      val userAssertions = getUserAssertions(rowKey)
+
       updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions)
+
       //set the last user assertion date
       persistenceManager.put(rowKey, entityName, FullRecordMapper.lastUserAssertionDateColumn, qualityAssertion.created)
       //when the user assertion is verified need to add extra value
@@ -812,6 +846,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     //page over all the qa's that are for this record
     persistenceManager.pageOverAll(qaEntityName,(guid, map)=>{
       val qa = new QualityAssertion()
+      qa.referenceRowKey = guid
       FullRecordMapper.mapPropertiesToObject(qa, map)
       userAssertions += qa
       true
@@ -885,6 +920,45 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     persistenceManager.getList(rowKey, entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
   }
 
+  private def getCombinedUserStatus(currentAssertion:QualityAssertion, userAssertions: List[QualityAssertion]): Int = {
+
+    if (currentAssertion.code != AssertionCodes.VERIFIED.code) {
+      return AssertionCodes.QA_OPEN_ISSUE.code
+    } else if (currentAssertion.qaStatus == AssertionCodes.QA_OPEN_ISSUE.code) {
+      return AssertionCodes.QA_OPEN_ISSUE.code
+    } else if (userAssertions.size == 0) {
+      return currentAssertion.qaStatus
+    } else {
+
+      val allVerifiedAssertions = userAssertions.filter(qa => qa.code == AssertionCodes.VERIFIED.code)
+
+      // Exclude the current verify record
+      val verifiedAssertions = allVerifiedAssertions.filter(qa => !(qa.relatedUuid equals currentAssertion.relatedUuid))
+
+      val assertions = userAssertions.filter(qa => qa.code != AssertionCodes.VERIFIED.code)
+
+      // Sort the verified list according to relatedUuid and descending date
+      val sortedList = verifiedAssertions.sortWith(QualityAssertion.compareByCreatedDesc).sortBy(_.relatedUuid)
+
+      var latestVerifiedList = new ArrayBuffer[QualityAssertion]()
+
+      // Only extract latest verified assertion in latestVerifiedList
+      sortedList.foreach { qa: QualityAssertion => if (!latestVerifiedList.exists(p => p.relatedUuid equals (qa.relatedUuid))) latestVerifiedList.append(qa) }
+
+      // Combine assertions that have not been verified to the latest verified assertion list
+      var combinedList = new ArrayBuffer[QualityAssertion]()
+      assertions.foreach { qa: QualityAssertion => if (!latestVerifiedList.exists(p => p.relatedUuid equals (qa.uuid))) combinedList.append(qa) }
+      combinedList = combinedList ++ latestVerifiedList
+
+      // loop thru the combined list to check if there are any open issue. If there are none open issue, the get the this verified qaStatus
+      val userAssertionStatus = if (combinedList.exists(qa => qa.qaStatus == AssertionCodes.QA_OPEN_ISSUE.code)) AssertionCodes.QA_OPEN_ISSUE.code else currentAssertion.qaStatus
+
+      //logger.debug("Overall assertion Status: " + userAssertionStatus)
+
+      return userAssertionStatus
+    }
+  }
+
   /**
    * Update the assertion status using system and user systemAssertions.
    */
@@ -940,10 +1014,20 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     //set the overall decision if necessary
     var properties = scala.collection.mutable.Map[String, String]()
     //need to update the user assertion flag in the occurrence record
-    properties += (FullRecordMapper.userQualityAssertionColumn -> (userAssertions.size>0).toString)
+
+    if (!userVerified) {
+      properties += (FullRecordMapper.userQualityAssertionColumn -> AssertionCodes.QA_OPEN_ISSUE.code.toString)
+    }
+
+  //  properties += (FullRecordMapper.userQualityAssertionColumn -> (userAssertions.size>0).toString)
     if(userVerified){
       properties += (FullRecordMapper.geospatialDecisionColumn -> "true")
       properties += (FullRecordMapper.taxonomicDecisionColumn -> "true")
+
+      val userAssertionStatus = getCombinedUserStatus(assertion, userAssertions).toString()
+
+      properties += (FullRecordMapper.userQualityAssertionColumn -> userAssertionStatus)
+
     } else if(phase == FullRecordMapper.geospatialQa){
       properties += (FullRecordMapper.geospatialDecisionColumn -> AssertionCodes.isGeospatiallyKosher(listErrorCodes.toArray).toString)
     } else if(phase == FullRecordMapper.taxonomicalQa){

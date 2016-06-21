@@ -112,6 +112,11 @@ object AssertionCodes {
   //verified type - this is a special code
   val VERIFIED = ErrorCode("userVerified", 50000, true, "Record Verified by collection manager", Verified)
 
+  val QA_OPEN_ISSUE = ErrorCode("qaStatusOpen", 50001, true, "Open issue", Verified)
+  val QA_VERIFIED = ErrorCode("qaStatusVerified", 50002, true, "Verified", Verified)
+  val QA_CORRECTED = ErrorCode("qaStatusCorrected", 50003, true, "Corrected", Verified)
+
+
   //this is a code user can use to flag a issue with processing
   val PROCESSING_ERROR = ErrorCode("processingError", 60000, true, "The system has incorrectly processed a record", Error)
 
