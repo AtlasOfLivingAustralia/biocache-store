@@ -21,3 +21,11 @@ To skip the tests during the build, run ```mvn install -DskipTests=true```.
 
 For a list of releases [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
 For a list of built releases, see [here](http://nexus.ala.org.au/#nexus-search;quick~biocache-store)
+
+
+## Acknowledgements
+YourKit is kindly supporting open source projects with its full-featured Java Profiler. YourKit, LLC is the creator of innovative and intelligent tools for profiling Java and .NET applications.
+
+Take a look at YourKit's leading software products: <a href="http://www.yourkit.com/java/profiler/index.jsp">YourKit Java Profiler</a> and <a href="http://www.yourkit.com/.net/profiler/index.jsp">YourKit .NET Profiler</a>.
+
+JetBrains is also a big supporter of open source projects and has kindly provided licenses for their fantastic IDE IntelliJ to ALA. Learn more at <a href="http://www.jetbrains.com/idea/">the IntelliJ site</a>.
