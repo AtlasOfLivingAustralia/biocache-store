@@ -3,7 +3,7 @@ package au.org.ala.biocache.model
 import au.org.ala.biocache.poso.POSO
 import java.util.{Date, UUID}
 import scala.beans.BeanProperty
-import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode}
+import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode, AssertionStatus}
 import au.org.ala.biocache.util.BiocacheConversions
 
 /**
@@ -67,6 +67,10 @@ object QualityAssertion {
     dtf.parseDateTime(a.created).isAfter(dtf.parseDateTime(b.created))
   }
 
+  def compareByReferenceRowKeyDesc = (a:QualityAssertion, b:QualityAssertion) => {
+    a.referenceRowKey > b.referenceRowKey
+  }
+
 }
 
 /**
@@ -81,7 +85,7 @@ class QualityAssertion (
   @BeanProperty var code:Int,
   @Deprecated var problemAsserted:java.lang.Boolean,
   @BeanProperty var relatedUuid:String, // Uuid of the related assertion if this is verified assertion
-  @BeanProperty var qaStatus:Int,//either 0-failed, 1-passed, 2-not tested
+  @BeanProperty var qaStatus:Int,//either 0-failed, 1-passed, 2-not tested for System Assertions  and (50001 - 50005) for User Assertions records
   @BeanProperty var comment:String,
   @BeanProperty var value:String,
   @BeanProperty var userId:String, //null for system assertions
@@ -94,7 +98,7 @@ class QualityAssertion (
   extends Cloneable with Comparable[AnyRef] with POSO {
 
  // override def toString :String = s"name:$name, code:$code, value:$value, comment:$comment, qaStatus:$qaStatus, relatedUuid:$relatedUuid"
- override def toString :String = s"code:$code, qaStatus:$qaStatus, relatedUuid:$relatedUuid, created:$created \n"
+  override def toString :String = s"code:$code, qaStatus:$getQAStatusName, uuid:$uuid, relatedUuid:$relatedUuid, created:$created \n"
 
   def this() = this(null,null,null,-1,false,null,2,null,null,null,null,null,null,null,null,null)
   override def clone : QualityAssertion = super.clone.asInstanceOf[QualityAssertion]
@@ -103,6 +107,10 @@ class QualityAssertion (
       (other.code == code) && (other.problemAsserted == problemAsserted) && (other.userId == userId) && (other.qaStatus == qaStatus)
     }
     case _ => false
+  }
+
+  def getQAStatusName = {
+    AssertionStatus.getQAAssertionName(qaStatus.toString)
   }
 
   /**

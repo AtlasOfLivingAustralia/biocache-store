@@ -2,6 +2,8 @@ package au.org.ala.biocache.vocab
 
 import au.org.ala.biocache.model.QualityAssertion
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
  * Assertion codes for records. These codes are a reflection of http://bit.ly/evMJv5
  */
@@ -112,9 +114,9 @@ object AssertionCodes {
   //verified type - this is a special code
   val VERIFIED = ErrorCode("userVerified", 50000, true, "Record Verified by collection manager", Verified)
 
-  val QA_OPEN_ISSUE = ErrorCode("qaStatusOpen", 50001, true, "Open issue", Verified)
+ /* val QA_OPEN_ISSUE = ErrorCode("qaStatusOpen", 50001, true, "Open issue", Verified)
   val QA_VERIFIED = ErrorCode("qaStatusVerified", 50002, true, "Verified", Verified)
-  val QA_CORRECTED = ErrorCode("qaStatusCorrected", 50003, true, "Corrected", Verified)
+  val QA_CORRECTED = ErrorCode("qaStatusCorrected", 50003, true, "Corrected", Verified)*/
 
 
   //this is a code user can use to flag a issue with processing
@@ -168,6 +170,12 @@ object AssertionCodes {
   def isVerified(assertion:QualityAssertion) : Boolean = assertion.code == VERIFIED.code
 
   /** Is it geospatially kosher */
+  def isGeospatiallyKosher (assertions:Array[QualityAssertion]) : Boolean = {
+    var assCodes = new ArrayBuffer[Int]()
+    assertions.foreach(qa => assCodes.append(qa.code))
+    AssertionCodes.isGeospatiallyKosher(assCodes.toArray)
+  }
+/*
   def isGeospatiallyKosher (assertions:Array[QualityAssertion]) : Boolean = assertions.filter(ass => {
      val errorCode = AssertionCodes.all.find(errorCode => errorCode.code == ass.code )
      if(!errorCode.isEmpty){
@@ -178,15 +186,24 @@ object AssertionCodes {
         false
      }
   }).isEmpty
+*/
 
    /** Is it geospatially kosher based on a list of codes that have been asserted */
-  def isGeospatiallyKosher(assertions:Array[Int]) : Boolean = assertions.filter(qa => {
-    val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
-    !code.isEmpty && code.get.isFatal
-  }).isEmpty
+  def isGeospatiallyKosher(assertions:Array[Int]) : Boolean = assertions.filter(qa =>
+     AssertionCodes.geospatialCodes.exists(c => c.code == qa)
+    //val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
+   // !code.isEmpty && code.get.isFatal
+
+  ).size > 0
 
   /** Is it taxonomically kosher */
-  def isTaxonomicallyKosher (assertions:Array[QualityAssertion]) : Boolean = assertions.filter(ass => {
+  def isTaxonomicallyKosher (assertions:Array[QualityAssertion]) : Boolean = {
+    var assCodes = new ArrayBuffer[Int]()
+    assertions.foreach(qa => assCodes.append(qa.code))
+    AssertionCodes.isTaxonomicallyKosher(assCodes.toArray)
+  }
+
+  /*def isTaxonomicallyKosher (assertions:Array[QualityAssertion]) : Boolean = assertions.filter(ass => {
     val errorCode = AssertionCodes.all.find(errorCode => errorCode.code == ass.code )
     if(!errorCode.isEmpty){
       ass.code >= AssertionCodes.taxonomicBounds._1 &&
@@ -196,10 +213,11 @@ object AssertionCodes {
       false //we cant find the code, so ignore
     }
   }).isEmpty
-
+*/
   /** Is it taxonomically kosher based on a list of codes that have been asserted */
   def isTaxonomicallyKosher(assertions:Array[Int]):Boolean = assertions.filter(qa=> {
-    val code = AssertionCodes.taxonomicCodes.find(c => c.code == qa)
-    !code.isEmpty && code.get.isFatal
-  }).isEmpty
+    AssertionCodes.taxonomicCodes.exists(c => c.code == qa)
+    //val code = AssertionCodes.taxonomicCodes.find(c => c.code == qa)
+    //!code.isEmpty && code.get.isFatal
+  }).size > 0
 }
