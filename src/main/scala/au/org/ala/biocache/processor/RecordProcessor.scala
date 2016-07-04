@@ -114,7 +114,7 @@ class RecordProcessor {
       }
     } catch {
       case e: Exception => {
-        logger.error("Error processing record: " + raw.rowKey + ", " + e.getMessage())
+        logger.error("Error processing record: " + raw.rowKey, e)
         null
       }
     }
