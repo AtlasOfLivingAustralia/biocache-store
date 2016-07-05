@@ -97,9 +97,9 @@ class DAOLayerTest extends ConfigFunSuite {
     }
 
     val occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_NONE)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_NONE)
     println ("Occurrence record Quality Assertion: " + occurrenceDAO.getSystemAssertions(rowKey))
-    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn)))
+    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     val phase = Processors.getProcessorForError(qa.code)
     val listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
@@ -134,9 +134,9 @@ class DAOLayerTest extends ConfigFunSuite {
     }
 
     val occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_UNCONFIRMED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn)))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     val phase = Processors.getProcessorForError(qa.code)
     val listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
@@ -165,9 +165,9 @@ class DAOLayerTest extends ConfigFunSuite {
     }
 
     val occ2 = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ2.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_UNCONFIRMED)
-    println ("Occurrence record Quality Assertion: " + occ2.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ2.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn)))
+    assert (occ2.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ2.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ2.get.getUserAssertionStatus()))
 
 
     val phase2 = Processors.getProcessorForError(qa2.code)
@@ -220,8 +220,8 @@ class DAOLayerTest extends ConfigFunSuite {
     var userAssertions: List[QualityAssertion] = occurrenceDAO.getUserAssertions(rowKey)
     println("Initial: " + userAssertions.toString())
 
-    val firstAssertionToVerify = userAssertions.find(qa => AssertionCodes.isGeospatiallyKosher(Array(qa.code))).get
-    val secondAssertionToVerify = userAssertions.find(qa => AssertionCodes.isTaxonomicallyKosher(Array(qa.code))).get
+    val firstAssertionToVerify = userAssertions.find(qa => AssertionCodes.geospatialCodes.exists(c => c.code == qa.code)).get
+    val secondAssertionToVerify = userAssertions.find(qa => AssertionCodes.taxonomicCodes.exists(c => c.code == qa.code)).get
 
     val phase = Processors.getProcessorForError(firstAssertionToVerify.code)
     var listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
@@ -249,9 +249,9 @@ class DAOLayerTest extends ConfigFunSuite {
     var occ = occurrenceDAO.getByRowKey(rowKey)
 
     // Expecting unconfirmed because there is taxonomical assertion
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_UNCONFIRMED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
     println("List of error codes for " + phase + ": " + listErrorCodes)
@@ -271,9 +271,9 @@ class DAOLayerTest extends ConfigFunSuite {
     }
 
     occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_OPEN_ISSUE)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_OPEN_ISSUE)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
     println("List of error codes for " + phase2 + ": " + listErrorCodes2)
@@ -290,9 +290,9 @@ class DAOLayerTest extends ConfigFunSuite {
 
     occurrenceDAO.addUserAssertion(rowKey, qa3)
     occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_VERIFIED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_VERIFIED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
     println("List of error codes for " + phase2 + ": " + listErrorCodes2)
@@ -307,9 +307,9 @@ class DAOLayerTest extends ConfigFunSuite {
 
     occurrenceDAO.addUserAssertion(rowKey, qa4)
     occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_CORRECTED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_CORRECTED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
     println("List of error codes for " + phase2 + ": " + listErrorCodes2)
@@ -318,9 +318,9 @@ class DAOLayerTest extends ConfigFunSuite {
 
     occurrenceDAO.deleteUserAssertion(rowKey, qa4.uuid)
     occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_VERIFIED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_VERIFIED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
     println("List of error codes for " + phase2 + ": " + listErrorCodes2)
@@ -329,9 +329,9 @@ class DAOLayerTest extends ConfigFunSuite {
 
     occurrenceDAO.deleteUserAssertion(rowKey, qa3.uuid)
     occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_OPEN_ISSUE)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_OPEN_ISSUE)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
     println("List of error codes for " + phase2 + ": " + listErrorCodes2)
@@ -340,9 +340,9 @@ class DAOLayerTest extends ConfigFunSuite {
 
     occurrenceDAO.deleteUserAssertion(rowKey, qa2.uuid)
     occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_UNCONFIRMED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
     println("List of error codes for " + phase2 + ": " + listErrorCodes2)
@@ -352,9 +352,9 @@ class DAOLayerTest extends ConfigFunSuite {
 
     occurrenceDAO.deleteUserAssertion(rowKey, qa.uuid)
     occ = occurrenceDAO.getByRowKey(rowKey)
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_UNCONFIRMED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
     println("List of error codes for " + phase + ": " + listErrorCodes)
@@ -379,8 +379,8 @@ class DAOLayerTest extends ConfigFunSuite {
 
     println("Initial user assertions: " + userAssertions.toString())
 
-    val firstAssertionToDelete = userAssertions.find(qa => AssertionCodes.isGeospatiallyKosher(Array(qa.code))).get
-    val secondAssertionToDelete = userAssertions.find(qa => AssertionCodes.isTaxonomicallyKosher(Array(qa.code))).get
+    val firstAssertionToDelete = userAssertions.find(qa => AssertionCodes.geospatialCodes.exists(c => c.code == qa.code)).get
+    val secondAssertionToDelete = userAssertions.find(qa => AssertionCodes.taxonomicCodes.exists(c => c.code == qa.code)).get
 
     val phase = Processors.getProcessorForError(firstAssertionToDelete.code)
     var listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
@@ -403,9 +403,9 @@ class DAOLayerTest extends ConfigFunSuite {
     var occ = occurrenceDAO.getByRowKey(rowKey)
 
     // Expecting unconfirmed because there is taxonomical assertion
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_UNCONFIRMED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
     println("List of error codes for " + phase + ": " + listErrorCodes)
@@ -421,9 +421,9 @@ class DAOLayerTest extends ConfigFunSuite {
     occ = occurrenceDAO.getByRowKey(rowKey)
 
     // Expecting unconfirmed because there is taxonomical assertion
-    assert (occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn) != AssertionStatus.QA_UNCONFIRMED)
-    println ("Occurrence record Quality Assertion: " + occ.get.getMiscProperties.get(FullRecordMapper.userQualityAssertionColumn))
-    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getMiscProperties.get(FullRecordMapper.userAssertionStatusColumn).toString))
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
 
     listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
     println("List of error codes for " + phase2 + ": " + listErrorCodes2)

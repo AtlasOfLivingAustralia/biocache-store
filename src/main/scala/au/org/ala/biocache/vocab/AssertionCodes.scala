@@ -188,13 +188,18 @@ object AssertionCodes {
   }).isEmpty
 */
 
-   /** Is it geospatially kosher based on a list of codes that have been asserted */
-  def isGeospatiallyKosher(assertions:Array[Int]) : Boolean = assertions.filter(qa =>
-     AssertionCodes.geospatialCodes.exists(c => c.code == qa)
-    //val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
-   // !code.isEmpty && code.get.isFatal
-
-  ).size > 0
+   /** Is it geospatially kosher based on a list of codes that have been asserted
+     * Geospatially Kosher true is geospatially valid
+     * Geospatially Kosher false is geospatially suspect
+     *
+     * DECIMAL_LAT_LONG_CONVERSION_FAILED is geospatially suspect
+     * GEODETIC_DATUM_ASSUMED_WGS84 is geospatially valid
+     * */
+  def isGeospatiallyKosher(assertions:Array[Int]) : Boolean = assertions.filter(qa => {
+     AssertionCodes.geospatialCodes.exists(c => c.code == qa && !c.isFatal)
+   //  val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
+    // !code.isEmpty && code.get.isFatal
+   }).size > 0
 
   /** Is it taxonomically kosher */
   def isTaxonomicallyKosher (assertions:Array[QualityAssertion]) : Boolean = {
@@ -216,7 +221,7 @@ object AssertionCodes {
 */
   /** Is it taxonomically kosher based on a list of codes that have been asserted */
   def isTaxonomicallyKosher(assertions:Array[Int]):Boolean = assertions.filter(qa=> {
-    AssertionCodes.taxonomicCodes.exists(c => c.code == qa)
+    AssertionCodes.taxonomicCodes.exists(c => c.code == qa && !c.isFatal)
     //val code = AssertionCodes.taxonomicCodes.find(c => c.code == qa)
     //!code.isEmpty && code.get.isFatal
   }).size > 0

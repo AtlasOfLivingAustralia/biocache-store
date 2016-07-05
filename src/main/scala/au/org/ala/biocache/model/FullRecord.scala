@@ -27,6 +27,8 @@ class FullRecord (
   @BeanProperty var cl:java.util.Map[String,String] = new java.util.HashMap[String,String](),        //contextual layers
   @BeanProperty var miscProperties:java.util.Map[String,String] = new java.util.HashMap[String,String](),
   @BeanProperty var queryAssertions:java.util.Map[String,String] = new java.util.HashMap[String,String](),
+  @BeanProperty var userQualityAssertion:String = "",
+  @BeanProperty var userAssertionStatus:String = "",
   @BeanProperty var locationDetermined:Boolean = false,
   @BeanProperty var defaultValuesUsed:Boolean = false,
   @BeanProperty var geospatiallyKosher:Boolean = true,

@@ -964,7 +964,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     assertions.foreach { qa: QualityAssertion => if (!latestVerifiedList.exists(p => p.relatedUuid equals (qa.uuid))) combinedUserAssertions.append(qa) }
 
     // Default user assertion to none. This will be overwritten later if user assertion is found
-    var userAssertionStatus = AssertionStatus.QA_NONE
+   var userAssertionStatus = AssertionStatus.QA_NONE
 
     // However if it's verified assertion, default to latest verified qa Status, which could be Verified, Corrected or Open Issue
     // Use maxBy referenceRowKey rather than currentAssertion in case currentAssertion is the record that is to be deleted
@@ -976,6 +976,11 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
           userAssertionStatus = AssertionStatus.QA_UNCONFIRMED
         }
   //    userAssertionStatus = currentAssertion.qaStatus
+    } else {
+      // if it is not verified and it is a user assertion that is deleted we shouldn't ignore the latest status in verified list
+      if (!latestVerifiedList.isEmpty) {
+        userAssertionStatus = latestVerifiedList.maxBy(_.referenceRowKey).qaStatus
+      }
     }
 
     // still have user assertions that have not been verified.
@@ -1065,7 +1070,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     logger.debug("Final " + listErrorCodes)
     //update the list
-    //persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn,assertions.toList, classOf[QualityAssertion], true)
+    //persistenceManager.putList(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn,remainingAssertions.toList, classOf[QualityAssertion], true)
+    //val map = remainingAssertions.toList
+    persistenceManager.put(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn, Json.toJSON(remainingAssertions.toList))
     persistenceManager.putList(rowKey, entityName, FullRecordMapper.markAsQualityAssertion(phase), listErrorCodes.toList, classOf[Int], true)
 
     //set the overall decision if necessary
@@ -1073,7 +1080,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     //need to update the user assertion flag in the occurrence record
 
     properties += (FullRecordMapper.userAssertionStatusColumn -> userAssertionStatus.toString)
-    properties += (FullRecordMapper.userQualityAssertionColumn -> remainingAssertions.toString)
+  //  properties += (FullRecordMapper.userQualityAssertionColumn -> remainingAssertions.toList.toString())
 
   //  properties += (FullRecordMapper.userQualityAssertionColumn -> (userAssertions.size>0).toString)
     if (AssertionCodes.isVerified(assertion)) {
