@@ -52,9 +52,9 @@ trait OccurrenceDAO extends DAO {
 
   def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), condition:(Map[String,String]=>Boolean),columnsToRetrieve:Array[String],startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
 
-  def addRawOccurrence(fullRecord: FullRecord): Unit
+  def addRawOccurrence(fullRecord: FullRecord,removeNullFields:Boolean): Unit
 
-  def addRawOccurrenceBatch(fullRecords: Array[FullRecord]): Unit
+  def addRawOccurrenceBatch(fullRecords: Array[FullRecord], removeNullFields:Boolean=false): Unit
 
   def updateOccurrence(rowKey: String, fullRecord: FullRecord, version: Version): Unit
 

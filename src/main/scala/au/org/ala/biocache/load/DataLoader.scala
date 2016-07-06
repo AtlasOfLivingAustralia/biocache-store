@@ -1,17 +1,22 @@
 package au.org.ala.biocache.load
 
 import java.net.URL
-import au.org.ala.biocache.util.{HttpUtil, SFTPTools, FileHelper, BiocacheConversions}
+
+import au.org.ala.biocache.util.{BiocacheConversions, FileHelper, HttpUtil, SFTPTools}
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
-import org.apache.commons.io.{FilenameUtils, FileUtils}
-import java.io.{FileOutputStream, File}
+import org.apache.commons.io.{FileUtils, FilenameUtils}
+import java.io.{File, FileOutputStream, Writer}
+
 import scala.util.parsing.json.JSON
 import java.util.Date
+
 import au.org.ala.biocache.parser.DateParser
 import org.gbif.dwc.terms.TermFactory
+
 import scala.collection.mutable.ArrayBuffer
-import au.org.ala.biocache.model.{Multimedia, FullRecord}
+import au.org.ala.biocache.model.{FullRecord, Multimedia}
+
 import scala.collection.mutable
 
 /**
@@ -173,19 +178,19 @@ trait DataLoader {
   }
 
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], multimedia:Seq[Multimedia]) : Boolean = {
-    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None, multimedia)
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None, multimedia, false)
   }
 
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String]) : Boolean = {
-    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None, List())
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], true, false, false, None, List(), false)
   }
 
   def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean) : Boolean = {
-    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified, false, false, None, List())
+    load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified, false, false, None, List(), false)
   }
 
-  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean, downloadMedia:Boolean):Boolean ={
-    load(dataResourceUid, fr, identifyingTerms, updateLastModified, downloadMedia, false, None, List())
+  def load(dataResourceUid: String, fr: FullRecord, identifyingTerms: Seq[String], updateLastModified: Boolean, downloadMedia: Boolean, deleteIfNullValue: Boolean):Boolean ={
+    load(dataResourceUid, fr, identifyingTerms, updateLastModified, downloadMedia, false, None, List(), deleteIfNullValue)
   }
 
   /**
@@ -200,8 +205,7 @@ trait DataLoader {
    * @param rowKeyWriter
    * @return
    */
-  def load(dataResourceUid:String, fr:FullRecord, identifyingTerms:Seq[String], updateLastModified:Boolean,
-            downloadMedia:Boolean, stripSpaces:Boolean, rowKeyWriter:Option[java.io.Writer], multimedia: Seq[Multimedia]) : Boolean = {
+  def load(dataResourceUid: String, fr: FullRecord, identifyingTerms: Seq[String], updateLastModified: Boolean, downloadMedia: Boolean, stripSpaces: Boolean, rowKeyWriter: Option[Writer], multimedia: Seq[Multimedia], deleteIfNullValue: Boolean): Boolean = {
 
     //the details of how to construct the UniqueID belong in the Collectory
     val uniqueID = if(identifyingTerms.isEmpty) {
@@ -253,7 +257,7 @@ trait DataLoader {
     processMedia(dataResourceUid, fr, multimedia)
 
     //load the record
-    Config.occurrenceDAO.addRawOccurrence(fr)
+    Config.occurrenceDAO.addRawOccurrence(fr,deleteIfNullValue)
     true
   }
 

@@ -15,9 +15,21 @@ The name index can be downloaded [here](http://biocache.ala.org.au/archives/name
 directory `/data/lucene/namematching`
 or wherever the ```name.dir``` is configured to point to in your ``` /data/biocache/config/biocache-config.properties ``` file.
 
+Also, to pass SDS tests the system requires sds layers. They can be downloaded [here](http://biocache.ala.org.au/archives/layers/sds-layers.tgz). Or, if that link does not work try [here](http://biocache-imt.ala.org.au/archives/layers/sds-layers.tgz). Extract the content of this file into `/data/biocache/layers`.
+
 To skip the tests during the build, run ```mvn install -DskipTests=true```.
 
 ## Releases
 
 For a list of releases [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
 For a list of built releases, see [here](http://nexus.ala.org.au/#nexus-search;quick~biocache-store)
+
+
+## Acknowledgements
+YourKit is kindly supporting open source projects with its full-featured Java Profiler. YourKit, LLC is the creator of innovative and intelligent tools for profiling Java and .NET applications.
+
+[![Yourkit](https://www.yourkit.com/images/yklogo.png)](http://www.yourkit.com)
+
+Take a look at YourKit's leading software products: <a href="http://www.yourkit.com/java/profiler/index.jsp">YourKit Java Profiler</a> and <a href="http://www.yourkit.com/.net/profiler/index.jsp">YourKit .NET Profiler</a>.
+
+JetBrains is also a big supporter of open source projects and has kindly provided licenses for their fantastic IDE IntelliJ to ALA. Learn more at <a href="http://www.jetbrains.com/idea/">the IntelliJ site</a>.

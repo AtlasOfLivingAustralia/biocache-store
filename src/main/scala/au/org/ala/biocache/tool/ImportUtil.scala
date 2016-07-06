@@ -66,7 +66,7 @@ object ImportUtil extends Tool {
        val finalMap:Map[String,String] = map - (entity+"rowKey")
        //println(finalMap)
        //now add the record
-       Config.persistenceManager.put(guid.get, entity, finalMap)
+       Config.persistenceManager.put(guid.get, entity, finalMap, false)
      }
     }
   }
@@ -87,7 +87,7 @@ object ImportUtil extends Tool {
         val map = (fieldsToImport zip columns).toMap[String, String].filter {
           case (key, value) => value != null && value.toString.trim.length > 0
         }
-        Config.persistenceManager.put(columns(idColumnIdx), entity, map)
+        Config.persistenceManager.put(columns(idColumnIdx), entity, map, false)
       } else {
         println("Problem loading line: " + counter + ", cols:fields = " + columns.length +":"+ fieldsToImport.length)
       }
