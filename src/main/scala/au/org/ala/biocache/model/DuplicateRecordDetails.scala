@@ -8,9 +8,10 @@ class DuplicateRecordDetails(@BeanProperty var rowKey:String, @BeanProperty var 
                              @BeanProperty var point0_01:String, @BeanProperty var point0_001:String,
                              @BeanProperty var point0_0001:String,@BeanProperty var latLong:String,
                              @BeanProperty var rawScientificName:String, @BeanProperty var collector:String,
-                             @BeanProperty var oldStatus:String, @BeanProperty var oldDuplicateOf:String){
+                             @BeanProperty var oldStatus:String, @BeanProperty var oldDuplicateOf:String,
+                             @BeanProperty var recordNumber:String,@BeanProperty var catalogueNumber:String){
 
-  def this() = this(null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+  def this() = this(null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 
   @BeanProperty var status = "U"
   @BeanProperty var druid:String = {
