@@ -1,15 +1,19 @@
 package au.org.ala.biocache.util
 
+import java.io.{BufferedInputStream, InputStreamReader}
+import java.net.ConnectException
 import java.util
 
+import au.org.ala.biocache.Config
 import net.sf.json.JSONArray
 import org.ala.layers.dao.IntersectCallback
 import org.ala.layers.dto.IntersectionFile
-import org.apache.http.impl.client.DefaultHttpClient
+import org.apache.commons.httpclient.HttpStatus
 import org.apache.http.client.methods.HttpGet
-import scala.io.Source
-import java.io.{BufferedInputStream, InputStreamReader}
+import org.apache.http.impl.client.DefaultHttpClient
 import org.slf4j.LoggerFactory
+
+import scala.io.Source
 
 class LayersStore ( layersStoreUrl: String) {
 
@@ -22,7 +26,7 @@ class LayersStore ( layersStoreUrl: String) {
    * returns the sampling csv as a Reader e.g. csv = new CSVReader(sample(strings, doubles))
    */
   def sample(strings: Array[String], doubles: Array[Array[Double]], callback: IntersectCallback = null): java.io.Reader = {
-
+    var retries = Config.layerServiceRetries
     //format inputs
     val doublesString: StringBuilder = new StringBuilder()
     for ( i <- 0 until doubles.length ) {
@@ -46,37 +50,49 @@ class LayersStore ( layersStoreUrl: String) {
     val sleepLength = if (doubles.length < 1000) 1000 else 3000
     var (respCode, respBody, retry) = samplingStatus(statusUrl)
 
-    while( retry ) {
+    while( retry && retries > 0 ) {
       Thread.sleep(sleepLength)
       val r = samplingStatus(statusUrl)
       respCode = r._1
       respBody = r._2
       retry = r._3
 
+      if (respCode != HttpStatus.SC_OK)
+        logger.warn("Problem getting sampling status: " + r + " retries=" + retries)
       if (callback != null) {
-        val json = Json.toMap(respBody)
-        if (json.get("status").get == "waiting") {
-          callback.progressMessage("In queue for sampling.")
-        } else if (json.get("status").get == "error") {
-          callback.progressMessage("Error while sampling.")
-        } else if (json.get("status").get == "finished") {
-          callback.setCurrentLayerIdx(strings.length - 1)
-          callback.setCurrentLayer(new IntersectionFile("","","","finished. Now loading", "","","","",null))
-          callback.progressMessage("Loading sampling.")
-        } else if (json.get("status").get == "started") {
-          try {
-            var pos: Integer = Integer.parseInt(String.valueOf(json.get("progress").get))
-            callback.setCurrentLayerIdx(pos)
-            callback.setCurrentLayer(new IntersectionFile("","","","layer " + (pos + 1), "","","","",null))
-          } catch {
-            case _: Exception => {
-              logger.error("Failed to check progress: " + respBody)
-              (null)
+        if (respCode != HttpStatus.SC_OK) {
+          callback.progressMessage("Problem getting status: " + respCode + "/" + HttpStatus.getStatusText(respCode))
+        } else {
+          val json = Json.toMap(respBody)
+          if (json.get("status").get == "waiting") {
+            callback.progressMessage("In queue for sampling.")
+          } else if (json.get("status").get == "error") {
+            callback.progressMessage("Error while sampling.")
+          } else if (json.get("status").get == "finished") {
+            callback.setCurrentLayerIdx(strings.length - 1)
+            callback.setCurrentLayer(new IntersectionFile("", "", "", "finished. Now loading", "", "", "", "", null))
+            callback.progressMessage("Loading sampling.")
+          } else if (json.get("status").get == "started") {
+            try {
+              var pos: Integer = Integer.parseInt(String.valueOf(json.get("progress").get))
+              callback.setCurrentLayerIdx(pos)
+              callback.setCurrentLayer(new IntersectionFile("", "", "", "layer " + (pos + 1), "", "", "", "", null))
+            } catch {
+              case _: Exception => {
+                logger.error("Failed to check progress: " + respBody)
+                (null)
+              }
             }
+            callback.progressMessage("Sampling " + json.get("progress") + " of " + json.get("fields") + " layers.")
           }
-          callback.progressMessage("Sampling " + json.get("progress") + " of " + json.get("fields") + " layers.")
         }
       }
+      retries -= 1
+    }
+
+    if (retries <= 0 || respBody == null) {
+      logger.error("Unable to connect to " + statusUrl)
+      return null
     }
 
     try {
@@ -149,22 +165,33 @@ class LayersStore ( layersStoreUrl: String) {
     (Json.toMap(respBody).get("statusUrl").get.asInstanceOf[String])
   }
 
-  private def samplingStatus(statusUrl: String) : (Int, String, Boolean) = {
-    val httpClient = new DefaultHttpClient()
-    val httpGet = new HttpGet(statusUrl)
-    val response = httpClient.execute(httpGet)
-    val result = response.getStatusLine()
-    val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-    logger.debug("Response code: " + result.getStatusCode)
-    val json = Json.toMap(responseBody)
+  def samplingStatus(statusUrl: String) : (Int, String, Boolean) = {
+    try {
+      val httpClient = new DefaultHttpClient()
+      val httpGet = new HttpGet(statusUrl)
+      val response = httpClient.execute(httpGet)
+      val result = response.getStatusLine()
+      val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+      logger.debug("Response code: " + result.getStatusCode)
+      val json = Json.toMap(responseBody)
 
-    val status  = json.get("status").get
-    if (status.equals("error") || status.equals("cancelled")) {
-      (result.getStatusCode, responseBody, false)
-    } else if (status.equals("finished")) {
-      (result.getStatusCode, responseBody, false)
-    } else {
-      (result.getStatusCode, responseBody, true)
+      val status = json.get("status").get
+      if (status.equals("error") || status.equals("cancelled")) {
+        (result.getStatusCode, responseBody, false)
+      } else if (status.equals("finished")) {
+        (result.getStatusCode, responseBody, false)
+      } else {
+        (result.getStatusCode, responseBody, true)
+      }
+    } catch {
+      case ex:ConnectException => {
+        logger.debug("Connection exception to " + statusUrl, ex)
+        (HttpStatus.SC_SERVICE_UNAVAILABLE, null, true)
+      }
+      case ex:Exception => {
+        logger.debug("Exception connecting to " + statusUrl, ex)
+        (HttpStatus.SC_INTERNAL_SERVER_ERROR, null, false)
+      }
     }
   }
 }
