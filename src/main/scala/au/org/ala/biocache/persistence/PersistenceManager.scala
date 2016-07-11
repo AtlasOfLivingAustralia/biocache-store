@@ -56,23 +56,23 @@ trait PersistenceManager {
   /**
    * Put a single property.
    */
-  def put(uuid:String, entityName:String, propertyName:String, propertyValue:String) : String
+  def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, deleteIfNullValue: Boolean): String
 
   /**
    * Put a set of key value pairs.
    */
-  def put(uuid:String, entityName:String, keyValuePairs:Map[String, String]) : String
+  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean): String
 
   /**
    * Add a batch of properties.
    */
-  def putBatch(entityName:String, batch:Map[String, Map[String,String]])
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], removeNullFields: Boolean)
 
   /**
    * Store a list of the supplied object
    * @param overwrite if true, current stored value will be replaced without a read.
    */
-  def putList[A](uuid: String, entityName: String, propertyName: String, objectList:Seq[A], theClass:java.lang.Class[_], overwrite: Boolean) : String
+  def putList[A](uuid: String, entityName: String, propertyName: String, objectList:Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, deleteIfNullValue: Boolean) : String
 
   /**
    * Page over all entities, passing the retrieved UUID and property map to the supplied function.

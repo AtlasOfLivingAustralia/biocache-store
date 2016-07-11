@@ -39,9 +39,9 @@ object LocationDAO {
    */
   def addTagToLocation (latitude:Float, longitude:Float, tagName:String, tagValue:String) {
     val guid = getLatLongKey(latitude, longitude)
-    persistenceManager.put(guid, columnFamily, latitudeCol, latitude.toString)
-    persistenceManager.put(guid, columnFamily, longitudeCol, longitude.toString)
-    persistenceManager.put(guid, columnFamily, tagName, tagValue)
+    persistenceManager.put(guid, columnFamily, latitudeCol, latitude.toString, false)
+    persistenceManager.put(guid, columnFamily, longitudeCol, longitude.toString, false)
+    persistenceManager.put(guid, columnFamily, tagName, tagValue, false)
   }
 
   /**
@@ -53,7 +53,7 @@ object LocationDAO {
     properties ++= mapping
     properties.put(latitudeCol, latitude.toString)
     properties.put(longitudeCol, longitude.toString)
-    persistenceManager.put(guid, columnFamily, properties.toMap)
+    persistenceManager.put(guid, columnFamily, properties.toMap, false)
   }
 
   /**
@@ -62,7 +62,7 @@ object LocationDAO {
   def addRegionToPoint (latitude:String, longitude:String, mapping:Map[String,String]) {
     if (latitude!=null && latitude.trim.length>0 && longitude!=null && longitude.trim.length>0){
       val guid = getLatLongKey(latitude, longitude)
-      persistenceManager.put(guid, columnFamily, Map(latitudeCol -> latitude, longitudeCol -> longitude) ++ mapping)
+      persistenceManager.put(guid, columnFamily, Map(latitudeCol -> latitude, longitudeCol -> longitude) ++ mapping, false)
     }
   }
 
@@ -84,7 +84,7 @@ object LocationDAO {
       if (batch) {
         (guid -> mapBuffer.toMap)
       } else {
-        persistenceManager.put(guid, columnFamily, mapBuffer.toMap)
+        persistenceManager.put(guid, columnFamily, mapBuffer.toMap, false)
         null
       }
     } else {
@@ -102,7 +102,7 @@ object LocationDAO {
     var processedOK = false
     while (!processedOK && retries < 6) {
       try {
-        persistenceManager.putBatch(columnFamily, batch)
+        persistenceManager.putBatch(columnFamily, batch, false)
         processedOK = true
       } catch {
         case e: Exception => {

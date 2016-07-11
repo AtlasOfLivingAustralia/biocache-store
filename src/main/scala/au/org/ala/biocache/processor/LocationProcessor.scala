@@ -1340,7 +1340,7 @@ class LocationProcessor extends Processor {
 
         //update the raw record with whatever is left in the stringMap - change to use DAO method...
         if(StringUtils.isNotBlank(raw.rowKey)){
-          Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap)
+          Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap, false)
         }
 
       } else if(!outcome.isLoadable() && Config.obeySDSIsLoadable){
@@ -1366,7 +1366,7 @@ class LocationProcessor extends Processor {
       //Species is NOT sensitive
       //if the raw record has originalSensitive values we need to re-initialise the value
       if (StringUtils.isNotBlank(raw.rowKey) && raw.occurrence.originalSensitiveValues != null && !raw.occurrence.originalSensitiveValues.isEmpty) {
-        Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""))
+        Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""), false)
       }
     }
   }

@@ -68,7 +68,8 @@ object QualityAssertion {
   }
 
   def compareByReferenceRowKeyDesc = (a:QualityAssertion, b:QualityAssertion) => {
-    a.referenceRowKey > b.referenceRowKey
+    //a.referenceRowKey > b.referenceRowKey
+    a.referenceRowKey.split('|').last.toInt > b.referenceRowKey.split('|').last.toInt
   }
 
 }

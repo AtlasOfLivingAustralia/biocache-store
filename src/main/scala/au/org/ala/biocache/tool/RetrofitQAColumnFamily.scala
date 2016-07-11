@@ -21,7 +21,7 @@ object RetrofitQAColumnFamily {
         //add each assertion on the list to the QA column family
         qalist.foreach(qa => {
           val qaRowKey = rowKey + "|" + qa.getUserId + "|" + qa.getCode
-          pm.put(qaRowKey, "qa", FullRecordMapper.mapObjectToProperties(qa))
+          pm.put(qaRowKey, "qa", FullRecordMapper.mapObjectToProperties(qa), false)
         })
       }
       true

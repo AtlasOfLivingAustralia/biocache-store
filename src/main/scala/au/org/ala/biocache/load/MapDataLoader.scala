@@ -31,7 +31,7 @@ class MapDataLoader extends DataLoader {
       val keysToDwcMap = (keys zip biocacheModelValues).toMap
       val dwcMap = map.map{case (k,v) => (keysToDwcMap.getOrElse(k,k), v)}
       val fr = FullRecordMapper.createFullRecord("", dwcMap, Versions.RAW)
-      load(dataResourceUid, fr, uniqueTermsValues, true, true)
+      load(dataResourceUid, fr, uniqueTermsValues, true, true, false)
       rowKeys += fr.rowKey
     })
     rowKeys.toList

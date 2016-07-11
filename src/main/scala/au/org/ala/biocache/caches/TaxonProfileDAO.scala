@@ -79,6 +79,6 @@ object TaxonProfileDAO {
       if(taxonProfile.conservation != null && !taxonProfile.conservation.isEmpty){
         properties.put("conservation", Json.toJSON(taxonProfile.conservation.asInstanceOf[Array[AnyRef]]))
       }
-      persistenceManager.put(taxonProfile.guid, columnFamily, properties.toMap)
+      persistenceManager.put(taxonProfile.guid, columnFamily, properties.toMap, false)
   }
 }

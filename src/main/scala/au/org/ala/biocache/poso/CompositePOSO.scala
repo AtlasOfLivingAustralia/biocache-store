@@ -105,4 +105,8 @@ trait CompositePOSO extends POSO {
       case None => //do nothing
     }
   }
+
+  def getNestedProperties(): Iterable[String] = {
+    nestedProperties
+  }
 }

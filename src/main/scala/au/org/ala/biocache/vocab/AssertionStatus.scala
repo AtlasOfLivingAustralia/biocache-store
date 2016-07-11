@@ -18,7 +18,7 @@ object AssertionStatus {
   val QA_UNCONFIRMED = 50005
 
   def isUserAssertionType(code:Int) :Boolean = {
-    (code == QA_OPEN_ISSUE || code == QA_UNCONFIRMED || code == QA_NONE || code == QA_VERIFIED)
+    (code == QA_OPEN_ISSUE || code == QA_UNCONFIRMED || code == QA_NONE || code == QA_VERIFIED || code == UNCHECKED)
   }
 
   def getQAAssertionName (code: String) : String = {

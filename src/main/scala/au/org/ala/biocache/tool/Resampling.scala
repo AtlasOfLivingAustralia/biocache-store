@@ -42,9 +42,8 @@ object ReloadSampling extends Tool {
           if(!point.isEmpty){
             val (location, environmentalLayers, contextualLayers) = point.get
             Config.persistenceManager.put(guid, "occ", Map(
-              "el.p"-> Json.toJSON(environmentalLayers),
-              "cl.p" -> Json.toJSON(contextualLayers))
-            )
+                          "el.p"-> Json.toJSON(environmentalLayers),
+                          "cl.p" -> Json.toJSON(contextualLayers)), false)
           }
           counter += 1
           if(counter % 10000 == 0){

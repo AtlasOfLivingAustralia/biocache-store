@@ -68,7 +68,7 @@ object MigrationUtil {
             else if (value == "[]") false
             else true
           }})
-          targetPM.put(guid, columnFamily, mapFiltered)
+          targetPM.put(guid, columnFamily, mapFiltered, false)
         }
         true
       },startUuid,endUuid)

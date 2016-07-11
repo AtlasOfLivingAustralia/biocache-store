@@ -38,8 +38,8 @@ object TestMocks {
 
   def main(args: Array[String]) {
     val m = new MockPersistenceManager
-    m.put("test-uuid", "occ", "dave", "daveValue")
-    m.put("12.12|12.43", "loc", "ibra", "Australian Alps")
+    m.put("test-uuid", "occ", "dave", "daveValue", false)
+    m.put("12.12|12.43", "loc", "ibra", "Australian Alps", false)
     println(m.get("test-uuid", "occ", "dave"))
     println(m.get("12.12|12.43", "loc", "dave"))
     println(m.get("12.12|12.43sss", "loc", "dave"))

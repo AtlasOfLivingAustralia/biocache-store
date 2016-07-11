@@ -85,19 +85,19 @@ class TaxonomicNameTest extends ConfigFunSuite {
       val raw = new FullRecord
       var processed = new FullRecord
 
-      raw.classification.scientificName = "Symphyta"
-      raw.classification.family = "LASIOCAMPIDAE"
+      raw.classification.scientificName = "ISOPTERA"
+      //raw.classification.family = "Dilleniaceae"
       //unresolved cross rank homonym
       var qas = (new ClassificationProcessor).process("test", raw, processed);
       expectResult(true){processed.classification.getTaxonomicIssue().contains("homonym")}
 
       //resolve the homonym by setting the rank
       processed = new FullRecord
-      raw.classification.taxonRank ="genus"
+      raw.classification.taxonRank ="order"
       qas = (new ClassificationProcessor).process("test", raw, processed);
       expectResult(false){processed.classification.getTaxonomicIssue().contains("homonym")}
-      expectResult("Symphyta"){processed.classification.scientificName}
-      expectResult("ANIMALIA".toLowerCase()){processed.classification.kingdom.toLowerCase()}
+      expectResult("Termitoidae"){processed.classification.scientificName}
+      expectResult("Animalia".toLowerCase()){processed.classification.kingdom.toLowerCase()}
     }
 
 //    test("missing accepted name"){

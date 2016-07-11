@@ -1,24 +1,26 @@
 package au.org.ala.biocache.dao
 
+import java.io.OutputStream
 import java.util.Date
 
-import org.apache.commons.lang.StringUtils
-
-import scala.collection.{JavaConversions}
-import org.slf4j.LoggerFactory
-import com.google.inject.Inject
 import au.org.ala.biocache._
-import java.io.OutputStream
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
-import au.org.ala.biocache.model._
-import au.org.ala.biocache.index.{IndexFields, IndexDAO}
+import au.org.ala.biocache.index.{IndexDAO, IndexFields}
 import au.org.ala.biocache.load.{DownloadMedia, FullRecordMapper}
+import au.org.ala.biocache.model._
 import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.vocab.{AssertionStatus}
 import au.org.ala.biocache.vocab.{AssertionCodes}
 import au.org.ala.biocache.vocab.ErrorCode
 import au.org.ala.biocache.util.{BiocacheConversions, Json}
 import au.org.ala.biocache.processor.Processors
+import au.org.ala.biocache.util.{BiocacheConversions, Json}
+import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode}
+import com.google.inject.Inject
+import org.apache.commons.lang.StringUtils
+import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConversions
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 /**
  * A DAO for accessing occurrences.
@@ -455,7 +457,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   /**
    * Update the version of the occurrence record.
    */
-  def addRawOccurrence(fr:FullRecord) {
+  def addRawOccurrence(fr:FullRecord, deleteIfNullValue:Boolean=false) {
 
     //add the last load time
     fr.lastModifiedTime = new Date
@@ -467,21 +469,35 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     val properties = FullRecordMapper.fullRecord2Map(fr, Versions.RAW)
 
     //commit
-    persistenceManager.put(fr.rowKey, entityName, properties.toMap)
+    if(deleteIfNullValue){
+      properties ++=  fr.getRawFields().filter ({ case (k, v) => {!properties.isDefinedAt(k)}}).map({case (k,v) => {(k,null)}})
+    }
+
+
+    persistenceManager.put(fr.rowKey, entityName, properties.toMap, deleteIfNullValue)
   }
 
   /**
    * Update the version of the occurrence record.
    */
-  def addRawOccurrenceBatch(fullRecords: Array[FullRecord]) {
+  def addRawOccurrenceBatch(fullRecords: Array[FullRecord], removeNullFields:Boolean = false) {
     val batch = scala.collection.mutable.Map[String, Map[String, String]]()
     fullRecords.foreach(fr  => {
       //process the record
       val properties = FullRecordMapper.fullRecord2Map(fr, Versions.RAW)
+      if (removeNullFields) {
+        properties ++= fr.getRawFields().filter({ case (k, v) => {
+          !properties.isDefinedAt(k)
+        }
+        }).map({ case (k, v) => {
+          (k, null)
+        }
+        })
+      }
       batch.put(fr.rowKey, properties.toMap)
     })
     //commit
-    persistenceManager.putBatch(entityName, batch.toMap)
+    persistenceManager.putBatch(entityName, batch.toMap, removeNullFields)
   }
 
   /**
@@ -529,7 +545,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
 
     //commit to cassandra
-    persistenceManager.put(rowKey, entityName, properties.toMap)
+    persistenceManager.put(rowKey, entityName, properties.toMap, false)
   }
 
   /**
@@ -577,7 +593,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     //commit to cassandra if changes exist - changes exist if the properties to persist contain more info than the lastModifedTime
     if(!propertiesToPersist.isEmpty && !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")){
-      persistenceManager.put(rowKey, entityName, propertiesToPersist.toMap)
+      persistenceManager.put(rowKey, entityName, propertiesToPersist.toMap, false)
     }
   }
 
@@ -639,7 +655,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
 
     if (!all.isEmpty) {
-      persistenceManager.putBatch(entityName, all.toMap)
+      persistenceManager.putBatch(entityName, all.toMap, false)
     }
   }
 
@@ -722,7 +738,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    */
   def updateOccurrence(rowKey: String, anObject: AnyRef, version: Version) {
     val map = FullRecordMapper.mapObjectToProperties(anObject, version)
-    persistenceManager.put(rowKey, entityName, map)
+    persistenceManager.put(rowKey, entityName, map, false)
   }
 
   /**
@@ -741,7 +757,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val userAssertions = getUserAssertions(rowKey)
       updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions)
     }
-    persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn, systemAssertions.toList, classOf[QualityAssertion], true)
+    persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn, systemAssertions.toList, classOf[QualityAssertion], true, false)
   }
 
   /**
@@ -755,7 +771,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     val newSystemAssertions = systemAssertions.filter(_.code != assertionCode.code)
     val userAssertions = getUserAssertions(rowKey)
     updateAssertionStatus(rowKey, QualityAssertion(assertionCode), systemAssertions, userAssertions)
-    persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn, newSystemAssertions.toList, classOf[QualityAssertion], true)
+    persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn, newSystemAssertions.toList, classOf[QualityAssertion], true, false)
   }
 
   /**
@@ -768,7 +784,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   def updateSystemAssertions(rowKey: String, qualityAssertions: Map[String,Array[QualityAssertion]]) {
     var assertions = new ListBuffer[QualityAssertion] //getSystemAssertions(uuid)
     qualityAssertions.values.foreach(x => { assertions ++= x })
-    persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn,assertions.toList, classOf[QualityAssertion], true)
+    persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn,assertions.toList, classOf[QualityAssertion], true, false)
   }
 
   /**
@@ -826,16 +842,16 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     if(!record.isEmpty){
       //preserve the raw record
       val qaMap = qualityAssertionProperties ++ Map("snapshot" -> Json.toJSON(record.get))
-      persistenceManager.put(qaRowKey, qaEntityName, qaMap)
+      persistenceManager.put(qaRowKey, qaEntityName, qaMap, false)
       val systemAssertions = getSystemAssertions(rowKey)
       val userAssertions = getUserAssertions(rowKey)
       updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions)
 
       //set the last user assertion date
-      persistenceManager.put(rowKey, entityName, FullRecordMapper.lastUserAssertionDateColumn, qualityAssertion.created)
+      persistenceManager.put(rowKey, entityName, FullRecordMapper.lastUserAssertionDateColumn, qualityAssertion.created, false)
       //when the user assertion is verified need to add extra value
       if(AssertionCodes.isVerified(qualityAssertion)){
-        persistenceManager.put(rowKey, entityName, FullRecordMapper.userVerifiedColumn, "true")
+        persistenceManager.put(rowKey, entityName, FullRecordMapper.userVerifiedColumn, "true", false)
       }
     }
   }
@@ -1070,10 +1086,14 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     logger.debug("Final " + listErrorCodes)
     //update the list
+
     //persistenceManager.putList(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn,remainingAssertions.toList, classOf[QualityAssertion], true)
     //val map = remainingAssertions.toList
-    persistenceManager.put(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn, Json.toJSON(remainingAssertions.toList))
-    persistenceManager.putList(rowKey, entityName, FullRecordMapper.markAsQualityAssertion(phase), listErrorCodes.toList, classOf[Int], true)
+    persistenceManager.put(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn, Json.toJSON(remainingAssertions.toList), false)
+
+    //persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn,assertions.toList, classOf[QualityAssertion], true)
+    persistenceManager.putList(rowKey, entityName, FullRecordMapper.markAsQualityAssertion(phase), listErrorCodes.toList, classOf[Int], true, false)
+
 
     //set the overall decision if necessary
     var properties = scala.collection.mutable.Map[String, String]()
@@ -1097,7 +1117,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
     if(!properties.isEmpty){
       logger.debug("Updating the assertion status for : " + rowKey + properties)
-      persistenceManager.put(rowKey, entityName, properties.toMap)
+      persistenceManager.put(rowKey, entityName, properties.toMap, false)
     }
   }
 
@@ -1107,9 +1127,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   def setDeleted(rowKey: String, del: Boolean,dateTime:Option[String]=None) = {
     if(dateTime.isDefined){
       val values = Map(FullRecordMapper.deletedColumn -> del.toString, FullRecordMapper.dateDeletedColumn -> dateTime.get)
-      persistenceManager.put(rowKey, entityName, values)
+      persistenceManager.put(rowKey, entityName, values, false)
     } else {
-      persistenceManager.put(rowKey, entityName, FullRecordMapper.deletedColumn, del.toString)
+      persistenceManager.put(rowKey, entityName, FullRecordMapper.deletedColumn, del.toString, false)
     }
     //remove the datedeleted column if the records becomes undeleted...
     if(!del)
@@ -1179,7 +1199,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         val uuid = map.get.getOrElse("uuid","")
         val values = Map(rowKey -> uuid, "value|"+rowKey -> stringValue)
         val deletedKey = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd")
-        persistenceManager.put(deletedKey,"dellog",values)
+        persistenceManager.put(deletedKey, "dellog", values, false)
       }
     }
     //delete from the data store
@@ -1216,7 +1236,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         //get the map version of the record
         val values = Map(rowKey -> uuid, "value|" + rowKey -> stringValue)
         val deletedKey = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd")
-        persistenceManager.put(deletedKey, "dellog", values)
+        persistenceManager.put(deletedKey, "dellog", values, false)
       }
       //delete from the data store
       persistenceManager.delete(rowKey, entityName)

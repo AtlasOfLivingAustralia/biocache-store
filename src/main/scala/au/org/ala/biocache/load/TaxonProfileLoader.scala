@@ -82,7 +82,7 @@ object HabitatLoader extends NoArgsTool {
               } else {
                 "Terrestrial"
               }
-              Config.persistenceManager.put(guid, "taxon", Map("habitats" -> habitat))
+              Config.persistenceManager.put(guid, "taxon", Map("habitats" -> habitat), false)
               counter += 1
               if(counter % 1000 == 0) {
                 println(s"Habitat values loaded: $counter")
@@ -190,7 +190,7 @@ object ConservationListLoader extends NoArgsTool {
 
       if(!buff.isEmpty) {
         val csAsJson = Json.toJSON(buff.toList)
-        Config.persistenceManager.put(guid, "taxon", Map("conservation" -> csAsJson))
+        Config.persistenceManager.put(guid, "taxon", Map("conservation" -> csAsJson), false)
       }
     })
   }

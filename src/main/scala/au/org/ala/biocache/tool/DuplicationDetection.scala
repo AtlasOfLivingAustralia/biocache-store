@@ -193,7 +193,8 @@ object DuplicationDetection extends Tool {
 
   /**
    * Detect duplicates for all taxa
-   * @param file
+    *
+    * @param file
    * @param threads
    * @param exist
    * @param cleanup
@@ -332,7 +333,10 @@ class DuplicationDetection {
     "raw_taxon_name",
     "collectors",
     "duplicate_status",
-    "duplicate_record")
+    "duplicate_record",
+    "record_number",
+    "catalogue_number"
+  )
 
   val speciesFilters = Array("lat_long:[* TO *]")
 
@@ -407,7 +411,9 @@ class DuplicationDetection {
           rawName,
           collector,
           oldStatus,
-          oldDuplicateOf)
+          oldDuplicateOf,
+          currentLine(25),
+          currentLine(26))
       } else {
         logger.warn("lsid " + currentLine(0) + " line " + counter + " has incorrect number of columns: "
           + currentLine.size + ", vs " + fieldsToExport.length )
@@ -570,13 +576,13 @@ class DuplicationDetection {
         buffer.synchronized {
           buffer += primaryRecord.rowKey
         }
-        Config.persistenceManager.put(primaryRecord.uuid, "occ_duplicates", "value", dup)
-        Config.persistenceManager.put(primaryRecord.taxonConceptLsid + "|" + primaryRecord.year + "|" + primaryRecord.month + "|" + primaryRecord.day, "duplicates", primaryRecord.uuid, dup)
-        Config.persistenceManager.put(primaryRecord.rowKey, "occ", Map("associatedOccurrences.p" -> uuidList.mkString("|"), "duplicationStatus.p" -> "R"))
+        Config.persistenceManager.put(primaryRecord.uuid, "occ_duplicates", "value", dup, false)
+        Config.persistenceManager.put(primaryRecord.taxonConceptLsid + "|" + primaryRecord.year + "|" + primaryRecord.month + "|" + primaryRecord.day, "duplicates", primaryRecord.uuid, dup, false)
+        Config.persistenceManager.put(primaryRecord.rowKey, "occ", Map("associatedOccurrences.p" -> uuidList.mkString("|"), "duplicationStatus.p" -> "R"), false)
 
         newduplicates.foreach(r => {
           val types = if (r.dupTypes != null) r.dupTypes.toList.map(t => t.getId.toString).toArray[String] else Array[String]()
-          Config.persistenceManager.put(r.rowKey, "occ", Map("associatedOccurrences.p" -> primaryRecord.uuid, "duplicationStatus.p" -> "D", "duplicationType.p" -> mapper.writeValueAsString(types)))
+          Config.persistenceManager.put(r.rowKey, "occ", Map("associatedOccurrences.p" -> primaryRecord.uuid, "duplicationStatus.p" -> "D", "duplicationType.p" -> mapper.writeValueAsString(types)), false)
           //add a system message for the record - a duplication does not change the kosher fields and should always be displayed thus don't "checkExisting"
           Config.occurrenceDAO.addSystemAssertion(r.rowKey, QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD, "Record has been inferred as closely related to  " + primaryRecord.uuid), false)
           buffer.synchronized {
@@ -657,7 +663,8 @@ class DuplicationDetection {
         val oldStatus = StringUtils.trimToNull(currentLine(14))
         val oldDuplicateOf = StringUtils.trimToNull(currentLine(15).replaceAll("\\[", "").replaceAll("\\]", ""))
         buff += new DuplicateRecordDetails(rowKey, uuid, taxon_lsid, year, month, day, currentLine(6), currentLine(7),
-          currentLine(8), currentLine(9), currentLine(10), currentLine(11), rawName, collector, oldStatus, oldDuplicateOf)
+          currentLine(8), currentLine(9), currentLine(10), currentLine(11), rawName, collector, oldStatus, oldDuplicateOf,
+          currentLine(25), currentLine(26))
       } else {
         logger.warn("lsid " + lsid + " line " + counter + " has incorrect column number: " + currentLine.size)
       }
@@ -927,9 +934,15 @@ class DuplicationDetection {
 
           //if the spatial coordinates are considered the same (regardless of mismatches in precision)
           // and the normalised collectory name are the same, then we have a duplicate
-          if (isSpatialDuplicate(points, otherpoints) && isCollectorDuplicate(record, otherRecord)) {
-            otherRecord.duplicateOf = record.rowKey
-            dupBuffer.append(otherRecord)
+          if (isSpatialDuplicate(points, otherpoints)) {
+            // the below statement ensures all duplicate check functions are called
+            val isCollectorDup: Boolean = isCollectorDuplicate(record, otherRecord);
+            val isRecordNumberDup: Boolean = isRecordNumberDuplicate(record, otherRecord);
+            val isCatalogueNumberDup: Boolean = isCatalogueNumberDuplicate(record, otherRecord);
+            if( isCollectorDup || isRecordNumberDup || isCatalogueNumberDup){
+              otherRecord.duplicateOf = record.rowKey
+              dupBuffer.append(otherRecord)
+            }
           }
         }
       })
@@ -938,12 +951,56 @@ class DuplicationDetection {
     }
 
     /**
+      * Check if two records has the same catalogue number
+      *
+      * @param r1
+      * @param r2
+      * @return
+      */
+    def isCatalogueNumberDuplicate(r1: DuplicateRecordDetails, r2: DuplicateRecordDetails) : Boolean = {
+      if(r1.catalogueNumber != null && r2.catalogueNumber != null) {
+        if(isEmptyUnknown(r1.catalogueNumber) || isEmptyUnknown(r2.catalogueNumber)) {
+          false
+        } else if(StringUtils.trim(r1.catalogueNumber.toLowerCase()) == StringUtils.trim(r2.catalogueNumber.toLowerCase())){
+          r2.dupTypes = r2.dupTypes ++ Array(DuplicationTypes.EXACT_CATALOGUE_NUMBER)
+          true
+        } else {
+          false
+        }
+      } else {
+        false
+      }
+    }
+
+    /**
+      * Check if two records has the same record number
+      *
+      * @param r1
+      * @param r2
+      * @return
+      */
+    def isRecordNumberDuplicate(r1: DuplicateRecordDetails, r2: DuplicateRecordDetails) : Boolean = {
+      if(r1.recordNumber != null && r2.recordNumber != null) {
+        if(isEmptyUnknown(r1.recordNumber) || isEmptyUnknown(r2.recordNumber)) {
+          false
+        } else if(StringUtils.trim(r1.recordNumber.toLowerCase()) == StringUtils.trim(r2.recordNumber.toLowerCase())){
+          r2.dupTypes = r2.dupTypes ++ Array(DuplicationTypes.EXACT_FIELD_NUMBER)
+          true
+        } else {
+          false
+        }
+      } else {
+        false
+      }
+    }
+
+    /**
      * Is an empty or unknown collector string.
      *
      * @param in
      * @return
      */
-    def isEmptyUnknownCollector(in: String): Boolean = {
+    def isEmptyUnknown(in: String): Boolean = {
       StringUtils.isEmpty(in) || in.matches(unknownPatternString)
     }
 
@@ -956,17 +1013,15 @@ class DuplicationDetection {
      * <li>If we have a fuzzy match with 3 or less differences </li>
      *</ul>
      *
-     *
-     * @param r1
+      * @param r1
      * @param r2
-     *
-     * @return true if the collector names are the same.
+      * @return true if the collector names are the same.
      */
     def isCollectorDuplicate(r1: DuplicateRecordDetails, r2: DuplicateRecordDetails) : Boolean = {
 
       //if one of the collectors haven't been supplied assume that they are the same.
-      if (isEmptyUnknownCollector(r1.collector) || isEmptyUnknownCollector(r2.collector)) {
-        if (isEmptyUnknownCollector(r2.collector))
+      if (isEmptyUnknown(r1.collector) || isEmptyUnknown(r2.collector)) {
+        if (isEmptyUnknown(r2.collector))
           r2.dupTypes = r2.dupTypes ++ Array(DuplicationTypes.MISSING_COLLECTOR)
         true
       } else {

@@ -2,18 +2,19 @@ package au.org.ala.biocache.load
 
 import java.io._
 import java.net.URL
-import org.gbif.dwc.record.{Record, StarRecord}
-import org.gbif.dwc.text.{Archive, ArchiveFactory}
-import scala.collection.mutable.ArrayBuffer
+
 import au.org.ala.biocache._
-import org.gbif.dwc.terms.{DwcTerm, DcTerm, GbifTerm, Term}
-import scala.collection.mutable.ListBuffer
-import scala.collection.{mutable, JavaConversions}
-import org.apache.commons.lang3.StringUtils
+import au.org.ala.biocache.model.{FullRecord, Multimedia, Raw}
 import au.org.ala.biocache.util.OptionParser
-import au.org.ala.biocache.model.{Multimedia, Raw, FullRecord}
 import au.org.ala.biocache.vocab.DwC
+import org.apache.commons.lang3.StringUtils
+import org.gbif.dwc.record.{Record, StarRecord}
+import org.gbif.dwc.terms.{DcTerm, GbifTerm, Term}
+import org.gbif.dwc.text.ArchiveFactory
+
 import scala.collection.JavaConverters._
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.{JavaConversions, mutable}
 
 /**
  * Loading utility for pulling in a darwin core archive file.
@@ -48,6 +49,7 @@ object DwCALoader {
     var logRowKeys = false
     var testFile = false
     var bypassConnParamLookup = false
+    var removeNullFields = false
     val parser = new OptionParser("load darwin core archive") {
       arg("<data resource UID>", "The UID of the data resource to load", { v: String => resourceUid = v })
       opt("l", "local", "skip the download and use local file", { v:String => localFilePath = Some(v) } )
@@ -56,6 +58,8 @@ object DwCALoader {
       )
       opt("log","log row keys to file - allows processing/indexing of changed records",{ logRowKeys = true })
       opt("test", "test the file only do not load", { testFile = true })
+      opt("rnf", "remove-null-fields", "Remove the null/Empty fields currently exist in the atlas", { removeNullFields = true })
+
     }
     if(parser.parse(args)){
       val l = new DwCALoader
@@ -64,7 +68,7 @@ object DwCALoader {
         l.load(resourceUid, logRowKeys, testFile)
       } else {
         if(bypassConnParamLookup){
-          l.loadArchive(localFilePath.get, resourceUid, List(), None, false, logRowKeys, testFile)
+          l.loadArchive(localFilePath.get, resourceUid, List(), None, false, logRowKeys, testFile, removeNullFields)
         } else {
           l.loadLocal(resourceUid, localFilePath.get, logRowKeys,testFile)
         }
@@ -90,7 +94,7 @@ class DwCALoader extends DataLoader {
    * @param testFile
    * @param forceLoad
    */
-  def load(resourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean = false){
+  def load(resourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean = false, removeNullFields:Boolean=false){
     //remove the old files
     emptyTempFileStore(resourceUid)
     //remove the old row keys:
@@ -113,7 +117,7 @@ class DwCALoader extends DataLoader {
           logger.info("File last modified date: " + maxLastModifiedDate)
           if(fileName != null){
             //load the DWC file
-            loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental,testFile)
+            loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental,testFile, removeNullFields)
             loaded = true
           }
         })
@@ -127,14 +131,14 @@ class DwCALoader extends DataLoader {
     }
   }
 
-  def loadLocal(resourceUid:String, fileName:String, logRowKeys:Boolean, testFile:Boolean){
+  def loadLocal(resourceUid:String, fileName:String, logRowKeys:Boolean, testFile:Boolean, removeNullFields:Boolean=false){
     retrieveConnectionParameters(resourceUid) match {
       case None => throw new Exception("Unable to load resourceUid: " + resourceUid)
       case Some(dataResourceConfig) =>
         val conceptTerms = mapConceptTerms(dataResourceConfig.uniqueTerms)
         val strip = dataResourceConfig.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
         //load the DWC file
-        loadArchive(fileName, resourceUid, conceptTerms, dataResourceConfig.connectionParams.get("imageUrl"), strip, logRowKeys, testFile)
+        loadArchive(fileName, resourceUid, conceptTerms, dataResourceConfig.connectionParams.get("imageUrl"), strip, logRowKeys, testFile,removeNullFields)
     }
   }
 
@@ -145,7 +149,7 @@ class DwCALoader extends DataLoader {
     }
   }
 
-  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:Seq[Term], imageUrl:Option[String], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean){
+  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:Seq[Term], imageUrl:Option[String], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean, removeNullFields:Boolean=false){
     logger.info(s"Loading archive: $fileName " +
       s"for resource: $resourceUid, " +
       s"with unique terms: $uniqueTerms, " +
@@ -232,12 +236,15 @@ class DwCALoader extends DataLoader {
       val fieldTuples = new ListBuffer[(String, String)]()
       fieldShortNameToIdxMap.foreach({ case (fieldIdx, modelProperty) =>
         val property = star.core.column(fieldIdx)
-        if(logger.isDebugEnabled && StringUtils.isNotBlank(property)){
+        if (logger.isDebugEnabled && StringUtils.isNotBlank(property)) {
           logger.debug(s"Mapped field: $modelProperty, fieldIdx: $fieldIdx, value: $property")
         }
-
-        if(StringUtils.isNotBlank(property)) {
+        if (removeNullFields) {
           fieldTuples += (modelProperty -> property)
+        } else {
+          if (StringUtils.isNotBlank(property)) {
+            fieldTuples += (modelProperty -> property)
+          }
         }
       })
 
@@ -248,7 +255,7 @@ class DwCALoader extends DataLoader {
       //lookup the column
       val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, star, uniqueTerms, None)
       if(mappedProps.isDefined && uniqueID.isDefined){
-        Config.persistenceManager.put(uniqueID.get, "occ", mappedProps.get)
+        Config.persistenceManager.put(uniqueID.get, "occ", mappedProps.get, removeNullFields)
       }
 
       //add the record uuid to the map
@@ -288,7 +295,7 @@ class DwCALoader extends DataLoader {
       //debug
       if (count % 1000 == 0 && count > 0) {
         if(!testFile){
-          Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray)
+          Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
         }
         finishTime = System.currentTimeMillis
         val timeInSecs = 1000 / (((finishTime - startTime).toFloat) / 1000f)
@@ -322,7 +329,7 @@ class DwCALoader extends DataLoader {
     }
 
     //commit the batch
-    Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray)
+    Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
     logger.info("Finished DwCA loader. Records processed: " + count)
     count
   }

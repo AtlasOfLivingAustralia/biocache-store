@@ -1,23 +1,24 @@
 package au.org.ala.biocache.tool
 
 import java.io._
-import java.lang.InterruptedException
-import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, ConcurrentLinkedQueue}
+import java.util.concurrent.LinkedBlockingQueue
+
+import au.com.bytecode.opencsv.{CSVReader, CSVWriter}
+import au.org.ala.biocache._
+import au.org.ala.biocache.caches.LocationDAO
+import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
 import au.org.ala.biocache.index.BulkProcessor._
+import au.org.ala.biocache.model.QualityAssertion
+import au.org.ala.biocache.processor.LocationProcessor
+import au.org.ala.biocache.util.{FileHelper, Json, LayersStore, OptionParser}
+import org.ala.layers.dao.IntersectCallback
 import org.ala.layers.dto.IntersectionFile
 import org.apache.commons.lang.StringUtils
-import au.org.ala.biocache._
-import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
 import org.eclipse.jetty.util.ConcurrentHashSet
-import scala.collection.mutable.{ArrayBuffer, HashSet}
 import org.slf4j.LoggerFactory
-import org.ala.layers.dao.IntersectCallback
-import collection.mutable
-import au.org.ala.biocache.processor.LocationProcessor
-import au.org.ala.biocache.caches.LocationDAO
-import au.org.ala.biocache.model.QualityAssertion
-import au.org.ala.biocache.util.{LayersStore, OptionParser, Json, FileHelper}
-import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
+
+import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, HashSet}
 
 /**
  * Executable for running the sampling for a data resource.
@@ -460,7 +461,12 @@ class Sampling {
       callback.setLayersToSample(intersectionFiles)
     }
     //do sampling
-    val samples = new CSVReader(layersStore.sample(fields, points, callback))
+    val sampleStream = layersStore.sample(fields, points, callback)
+    if (sampleStream == null) {
+      logger.error("Unable to get samples for " + points + ", " + fields)
+      return
+    }
+    val samples = new CSVReader(sampleStream)
 
     //header
     var header = samples.readNext()

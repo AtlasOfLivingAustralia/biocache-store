@@ -163,7 +163,7 @@ object Store {
    */
   def loadRecordOnly(dataResourceUid:String, fr:FullRecord, identifyingTerms:java.util.List[String]){
     fr.lastModifiedTime = new Date()
-    (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true)
+    (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true, false)
   }
 
   /**
@@ -171,7 +171,7 @@ object Store {
    */
   def loadRecord(dataResourceUid:String, fr:FullRecord, identifyingTerms:java.util.List[String], shouldIndex:Boolean = true){
     fr.lastModifiedTime = new Date()
-    (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true)
+    (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true, false)
     val processor = new RecordProcessor
     processor.processRecordAndUpdate(fr)
     if(shouldIndex){
@@ -667,7 +667,7 @@ object Store {
    * @param customIndexFields
    */
   def storeCustomIndexFields(tempUid:String, customIndexFields:Array[String]){
-    Config.persistenceManager.put(tempUid, "upload", "customIndexFields", Json.toJSON(customIndexFields.map(v=> if(v.endsWith("_i") || v.endsWith("_d")) v else v + "_s")))
+    Config.persistenceManager.put(tempUid, "upload", "customIndexFields", Json.toJSON(customIndexFields.map(v=> if(v.endsWith("_i") || v.endsWith("_d")) v else v + "_s")), false)
   }
 
   /**
@@ -692,7 +692,7 @@ object Store {
    * @param customChartOptions
    */
   def storeCustomChartOptions(tempUid:String, customChartOptions:String) : Unit = {
-    Config.persistenceManager.put(tempUid, "upload", "customChartOptions", customChartOptions)
+    Config.persistenceManager.put(tempUid, "upload", "customChartOptions", customChartOptions, false)
   }
 
   /**
@@ -736,7 +736,7 @@ object Store {
    * @param customChartOptions
    */
   def storeLayerOptions(tempUid:String, customChartOptions:String) : Unit = {
-    Config.persistenceManager.put(tempUid, "upload", "layerOptions", customChartOptions)
+    Config.persistenceManager.put(tempUid, "upload", "layerOptions", customChartOptions, false)
   }
 
   /**
