@@ -8,6 +8,10 @@ import au.org.ala.biocache.index.{IndexDAO, IndexFields}
 import au.org.ala.biocache.load.{DownloadMedia, FullRecordMapper}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.persistence.PersistenceManager
+import au.org.ala.biocache.vocab.{AssertionStatus}
+import au.org.ala.biocache.vocab.{AssertionCodes}
+import au.org.ala.biocache.vocab.ErrorCode
+import au.org.ala.biocache.util.{BiocacheConversions, Json}
 import au.org.ala.biocache.processor.Processors
 import au.org.ala.biocache.util.{BiocacheConversions, Json}
 import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode}
@@ -195,6 +199,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     if (userAssertions.isDefined) {
       if (!mfields.contains(FullRecordMapper.userQualityAssertionColumn)) {
         mfields += FullRecordMapper.userQualityAssertionColumn
+        mfields += FullRecordMapper.userAssertionStatusColumn
         addedUserQAColumn = true
       }
       if (!mfields.contains("rowKey")) {
@@ -789,11 +794,46 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     persistenceManager.getList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn, classOf[QualityAssertion])
   }
 
+  def extractQAKeyNum (referenceRowKey: String): Int = {
+    if (StringUtils.isNotBlank(referenceRowKey)) {
+      val value = referenceRowKey.split('|').last
+      return Integer.parseInt(value)
+    } else {
+      return 0
+    }
+  }
+
+  implicit object QualityAssertionRowKeyOrdering extends Ordering[QualityAssertion] {
+    override def compare(x: QualityAssertion, y: QualityAssertion): Int = extractQAKeyNum(x.referenceRowKey).compareTo(extractQAKeyNum(y.referenceRowKey))
+  }
+
+  def getNextVerifiedRecordNumber (userAssertions: List[QualityAssertion]): String = {
+    val verifiedAssertions = userAssertions.filter(qa => qa.code == AssertionCodes.VERIFIED.code)
+
+    if (verifiedAssertions.size > 0) {
+      return (extractQAKeyNum(verifiedAssertions.max.referenceRowKey) + 1).toString
+    } else {
+      return "1"
+    }
+  }
+
+
   /**
    * Add a user supplied assertion - updating the status on the record.
    */
   def addUserAssertion(rowKey: String, qualityAssertion: QualityAssertion) {
-    val qaRowKey = rowKey+ "|" +qualityAssertion.getUserId + "|" + qualityAssertion.getCode
+
+    var userAssertions = getUserAssertions(rowKey)
+
+    var qaRowKey = rowKey+ "|" +qualityAssertion.getUserId + "|" + qualityAssertion.getCode
+
+    if (AssertionCodes.isVerified(qualityAssertion)) {
+      qaRowKey = qaRowKey + "|" + getNextVerifiedRecordNumber(userAssertions)
+    } else {
+      qualityAssertion.qaStatus = AssertionStatus.QA_UNCONFIRMED
+    }
+
+    qualityAssertion.referenceRowKey = qaRowKey
 
     //TODO add the serialised record to the quality assertion for later stage processing
     val qualityAssertionProperties = FullRecordMapper.mapObjectToProperties(qualityAssertion)
@@ -825,6 +865,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     //page over all the qa's that are for this record
     persistenceManager.pageOverAll(qaEntityName,(guid, map)=>{
       val qa = new QualityAssertion()
+      qa.referenceRowKey = guid
       FullRecordMapper.mapPropertiesToObject(qa, map)
       userAssertions += qa
       true
@@ -869,10 +910,10 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       if (!deletedAssertion.isEmpty) {
 
         //delete the assertion with the supplied UUID
-        val updateAssertions = assertions.filter(qa => {
+  /*      val updateAssertions = assertions.filter(qa => {
             !(qa.uuid equals assertionUuid)
         })
-
+*/
         //put the systemAssertions back - overwriting existing systemAssertions
         //persistenceManager.putList(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn, updateAssertions, classOf[QualityAssertion], true)
 
@@ -880,8 +921,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         //are there any matching systemAssertions for other users????
         val systemAssertions = getSystemAssertions(rowKey)
         //also delete it from the QA column family eventually we will not add it as a List to the occ column family
-        val qaRowKey = rowKey + "|" + deletedAssertion.get.getUserId +"|" + deletedAssertion.get.getCode
-        persistenceManager.delete(qaRowKey, qaEntityName)
+      //  val qaRowKey = rowKey + "|" + deletedAssertion.get.getUserId +"|" + deletedAssertion.get.getCode
+        persistenceManager.delete(deletedAssertion.get.referenceRowKey, qaEntityName)
+        val updateAssertions = getUserAssertions(rowKey)
         //update the assertion status
         updateAssertionStatus(rowKey, deletedAssertion.get, systemAssertions, updateAssertions)
         true
@@ -899,65 +941,171 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   }
 
   /**
+    * getCombinedUserStatus is used to get User Assertion Status based on the following rules. It also returns an array of open assertions
+    *
+    * There are 5 states for User Assertion Status:
+    * NONE: If no user assertion record exist
+    * UNCONFIRMED: If there is a user assertion but has not been verified by Collection Admin
+    * OPEN ISSUE: Collection Admin verifies the record and flags the user assertion as Open issue
+    * VERIFIED: Collection Admin verifies the record and flags the user assertion as Verified
+    * CORRECTED: Collection Admin verifies the record and flags the user assertion as Corrected
+    *
+    * If Collection Admin verifies the record, currentAssertion will have
+    * code: 50000 (AssertionCodes.VERIFIED.code),
+    * qaStatus: AssertionStatus.QA_OPEN_ISSUE, AssertionStatus.QA_VERIFIED, AssertionStatus:QA_CORRECTED
+    *
+    */
+  private def getCombinedUserStatus(currentAssertion: QualityAssertion, userAssertions: List[QualityAssertion]): (Int, ArrayBuffer[QualityAssertion]) = {
+
+   // val openAssertions = new ArrayBuffer[QualityAssertion]()
+
+    // Filter off only verified records
+    val verifiedAssertions = userAssertions.filter(qa => qa.code == AssertionCodes.VERIFIED.code)
+
+    // Filter off only user assertions type
+    val assertions = userAssertions.filter(qa => qa.code != AssertionCodes.VERIFIED.code && AssertionStatus.isUserAssertionType(qa.qaStatus))
+
+    // Sort the verified list according to relatedUuid and order of reference rowKey.
+    // RowKey for verified records consist of rowKey|userId|code|recNum where recNum increments everytime a verified record is added
+    val sortedList = verifiedAssertions.sortWith(QualityAssertion.compareByReferenceRowKeyDesc).sortBy(_.relatedUuid)
+
+    var latestVerifiedList = new ArrayBuffer[QualityAssertion]()
+
+    // Only extract latest verified assertion in latestVerifiedList
+    sortedList.foreach { qa: QualityAssertion => if (!latestVerifiedList.exists(p => p.relatedUuid equals (qa.relatedUuid))) latestVerifiedList.append(qa) }
+
+    // Get assertions that have not been verified to the assertion list
+    var combinedUserAssertions = new ArrayBuffer[QualityAssertion]()
+    assertions.foreach { qa: QualityAssertion => if (!latestVerifiedList.exists(p => p.relatedUuid equals (qa.uuid))) combinedUserAssertions.append(qa) }
+
+    // Default user assertion to none. This will be overwritten later if user assertion is found
+   var userAssertionStatus = AssertionStatus.QA_NONE
+
+    // However if it's verified assertion, default to latest verified qa Status, which could be Verified, Corrected or Open Issue
+    // Use maxBy referenceRowKey rather than currentAssertion in case currentAssertion is the record that is to be deleted
+    if (AssertionCodes.isVerified(currentAssertion)) {
+        if (!latestVerifiedList.isEmpty) {
+          userAssertionStatus = latestVerifiedList.maxBy(_.referenceRowKey).qaStatus
+        } else {
+          // assuming that there no more verified records but there are still user assertion records
+          userAssertionStatus = AssertionStatus.QA_UNCONFIRMED
+        }
+  //    userAssertionStatus = currentAssertion.qaStatus
+    } else {
+      // if it is not verified and it is a user assertion that is deleted we shouldn't ignore the latest status in verified list
+      if (!latestVerifiedList.isEmpty) {
+        userAssertionStatus = latestVerifiedList.maxBy(_.referenceRowKey).qaStatus
+      }
+    }
+
+    // still have user assertions that have not been verified.
+    if (combinedUserAssertions.size > 0) {
+      userAssertionStatus = AssertionStatus.QA_UNCONFIRMED
+    } else {
+      // If all user assertions have been verified, check to see if any verification is set to Open Issue
+      latestVerifiedList.foreach { qa: QualityAssertion => if (qa.qaStatus == AssertionStatus.QA_OPEN_ISSUE) {
+        combinedUserAssertions = combinedUserAssertions ++ (assertions.filter(a => a.uuid == qa.relatedUuid))
+        userAssertionStatus = AssertionStatus.QA_OPEN_ISSUE }
+      }
+    }
+
+    // Combined User Assertions contains unverified assertions or verified assertions that are still open issue
+  //  if (combinedUserAssertions.size > 0) {
+  //    combinedUserAssertions.foreach(qa => openAssertions.append(qa))
+  //  }
+
+    logger.debug("Overall assertion Status: " + userAssertionStatus)
+
+    return (userAssertionStatus, combinedUserAssertions)
+  }
+
+  /**
    * Update the assertion status using system and user systemAssertions.
    */
   def updateAssertionStatus(rowKey: String, assertion:QualityAssertion, systemAssertions: List[QualityAssertion], userAssertions: List[QualityAssertion]) {
 
     logger.debug("Updating the assertion status for : " + rowKey)
 
+    val (userAssertionStatus, remainingAssertions) = getCombinedUserStatus(assertion, userAssertions)
+
+    // default to the assertion which is to be evaluated
+    var actualAssertion = assertion
+    var bVerifiedOpen = true
+
+    // if this is verified assertion, replace with the actual user assertion which is still open
+    if (AssertionCodes.isVerified(assertion)) {
+      var bStillOpen = false
+      remainingAssertions.foreach(qa => if (qa.uuid == assertion.relatedUuid) {actualAssertion = qa; bStillOpen = true;})
+      if (!bStillOpen) {
+        userAssertions.foreach(qa => if (qa.uuid == assertion.relatedUuid) {actualAssertion = qa; bVerifiedOpen = false;})
+      }
+    }
+
     //get the phase based on the error type
-    val phase = Processors.getProcessorForError(assertion.code)
+    val phase = Processors.getProcessorForError(actualAssertion.code)
     logger.debug("Phase " + phase)
 
     //get existing values for the phase
     var listErrorCodes: Set[Int] = getListOfCodes(rowKey, phase).toSet
     logger.debug("Original: " + listErrorCodes)
 
-    val assertionName = assertion.name
-    val assertions = userAssertions.filter { _.name equals assertionName }
-    val userVerified = userAssertions.filter( qa => qa.code == AssertionCodes.VERIFIED.code).size > 0
+    val assertionName = actualAssertion.name
+    val assertions = (remainingAssertions).filter { _.name equals assertionName }
 
-    //if the a user assertion has been set for the supplied QA we will set the status bases on user assertions
+  //if the a user assertion has been set for the supplied QA we will set the status bases on user assertions
     if (!assertions.isEmpty) {
-        //if a single user has decided that there is NO QA issue this takes precidence
-      //val negativeAssertion = assertions.find(qa => !qa.problemAsserted)
-      val negativeAssertion = assertions.find(qa => qa.qaStatus == 1)
-      if (!negativeAssertion.isEmpty) {
+    //if a single user has decided that there is NO QA issue this takes precidence
+    //val negativeAssertion = assertions.find(qa => !qa.problemAsserted)
+      //val negativeAssertion = assertions.find(qa => qa.qaStatus == 1)
+
+      //if (!negativeAssertion.isEmpty) {
+      // the assertion has been verified Corrected or verified Verified
+      if (!bVerifiedOpen) {
         //need to remove this assertion from the error codes if it exists
-        listErrorCodes = listErrorCodes - assertion.code
+        listErrorCodes = listErrorCodes - actualAssertion.code
       } else {
         //at least one user has flagged this assertion so we need to add it
-        listErrorCodes = listErrorCodes + assertion.code
+        listErrorCodes = listErrorCodes + actualAssertion.code
       }
     } else if (!systemAssertions.isEmpty) {
       //check to see if a system assertion exists
-      val matchingAssertion = systemAssertions.find { _.name equals assertionName }
+      val matchingAssertion = systemAssertions.find {_.name equals assertionName}
       if (!matchingAssertion.isEmpty) {
         //this assertion has been set by the system
         val sysassertion = matchingAssertion.get
         listErrorCodes = listErrorCodes + sysassertion.code
       } else {
         //code needs to be removed
-        listErrorCodes = listErrorCodes - assertion.code
+        listErrorCodes = listErrorCodes - actualAssertion.code
       }
     } else {
       //there are no matching assertions in user or system thus remove this error code
-      listErrorCodes = listErrorCodes - assertion.code
+      listErrorCodes = listErrorCodes - actualAssertion.code
     }
 
     logger.debug("Final " + listErrorCodes)
     //update the list
-    //persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn,assertions.toList, classOf[QualityAssertion], true)
+    //persistenceManager.putList(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn,remainingAssertions.toList, classOf[QualityAssertion], true)
+    //val map = remainingAssertions.toList
+    persistenceManager.put(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn, Json.toJSON(remainingAssertions.toList), false)
     persistenceManager.putList(rowKey, entityName, FullRecordMapper.markAsQualityAssertion(phase), listErrorCodes.toList, classOf[Int], true, false)
 
     //set the overall decision if necessary
     var properties = scala.collection.mutable.Map[String, String]()
     //need to update the user assertion flag in the occurrence record
-    properties += (FullRecordMapper.userQualityAssertionColumn -> (userAssertions.size>0).toString)
-    if(userVerified){
-      properties += (FullRecordMapper.geospatialDecisionColumn -> "true")
-      properties += (FullRecordMapper.taxonomicDecisionColumn -> "true")
-    } else if(phase == FullRecordMapper.geospatialQa){
+
+    properties += (FullRecordMapper.userAssertionStatusColumn -> userAssertionStatus.toString)
+  //  properties += (FullRecordMapper.userQualityAssertionColumn -> remainingAssertions.toList.toString())
+
+  //  properties += (FullRecordMapper.userQualityAssertionColumn -> (userAssertions.size>0).toString)
+    if (AssertionCodes.isVerified(assertion)) {
+
+      if (AssertionCodes.isGeospatiallyKosher(listErrorCodes.toArray)) {
+        properties += (FullRecordMapper.geospatialDecisionColumn -> "true")
+      } else if (AssertionCodes.isTaxonomicallyKosher(listErrorCodes.toArray)) {
+        properties += (FullRecordMapper.taxonomicDecisionColumn -> "true")
+      }
+   } else if(phase == FullRecordMapper.geospatialQa){
       properties += (FullRecordMapper.geospatialDecisionColumn -> AssertionCodes.isGeospatiallyKosher(listErrorCodes.toArray).toString)
     } else if(phase == FullRecordMapper.taxonomicalQa){
       properties += (FullRecordMapper.taxonomicDecisionColumn -> AssertionCodes.isTaxonomicallyKosher(listErrorCodes.toArray).toString)

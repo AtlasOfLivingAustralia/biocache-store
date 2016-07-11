@@ -13,6 +13,7 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.AssertionCodes
+import au.org.ala.biocache.vocab.{AssertionStatus}
 import au.org.ala.biocache.util.Json
 import au.org.ala.biocache.model.QualityAssertion
 
@@ -347,10 +348,11 @@ trait IndexDAO {
 
         //Only set the geospatially kosher field if there are coordinates supplied
         val geoKosher = if (slat == "" && slon == "") "" else map.getOrElse(FullRecordMapper.geospatialDecisionColumn, "")
-        val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "") match {
-          case "true" => "true"
-          case "false" => "false"
-          case value: String => (value.length > 3).toString
+        //val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
+        val userAssertionStatus: Int = map.getOrElse(FullRecordMapper.userAssertionStatusColumn, AssertionStatus.QA_NONE.toString).toInt
+        val hasUserAss:String = userAssertionStatus match {
+          case AssertionStatus.QA_NONE => "false"
+          case _ => userAssertionStatus.toString
         }
 
         val (subspeciesGuid, subspeciesName): (String, String) = {
@@ -474,6 +476,7 @@ trait IndexDAO {
           getValue("locationRemarks", map),
           getValue("occurrenceRemarks", map),
           hasUserAss,
+        //  userAssertionStatus,
           getValue("recordedBy", map),
           stateCons, //stat
           rawStateCons,

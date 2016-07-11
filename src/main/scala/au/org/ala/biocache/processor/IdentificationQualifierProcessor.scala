@@ -93,7 +93,13 @@ class IdentificationQualifierProcessor extends Processor {
   }
 
   def regex(keyword: String): String = {
-    return "\\b" + keyword.replace(".", "[.]").replace("(ed)", "(?:ed)?").replaceAll("\\s+", " ") + "\\b"
+    if (keyword == "?") {
+      return "\\?"
+    } else if (keyword.contains(".")) {
+      return "\\b" + keyword.replace(".", "\\b[.]").replace("(ed)", "(?:ed)?").replaceAll("\\s+", " ")
+    } else {
+      return "\\b" + keyword.replace(".", "[.]").replace("(ed)", "(?:ed)?").replaceAll("\\s+", " ") + "\\b"
+    }
   }
 
   def getSource (filePath: String) : scala.io.Source = {

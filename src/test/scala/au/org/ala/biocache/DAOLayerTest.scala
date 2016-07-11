@@ -3,12 +3,14 @@ package au.org.ala.biocache
 import org.junit.Ignore
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.processor.Processors
 import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.util.Json
+import au.org.ala.biocache.vocab.AssertionStatus
+import au.org.ala.biocache.vocab.AssertionCodes
 
 @Ignore
 class DAOLayerTest extends ConfigFunSuite {
@@ -18,16 +20,22 @@ class DAOLayerTest extends ConfigFunSuite {
   val uuid = "35b3ff3-test-uuid"
 
   test("Kosher test") {
-    persistenceManager.put("qatestkosher", "occ", Map("attr.qa"-> "[]", "bor.qa" -> "[]", "default.qa" ->"[]", "duplicates.qa"->"[20014]", "event.qa"->"[]", "image.qa" ->"[10009,10010,10011,10012]", "loc.qa"->"[45,29,21,31,32,33,34,42]", "offline.q" ->"[20014]", "type.qa"->"[]"), false)
+    persistenceManager.put("qatestkosher", "occ", Map("attr.qa"-> "[]", "bor.qa" -> "[]", "default.qa" ->"[]", "duplicates.qa"->"[20014]", "class.qa"->"[10010]", "event.qa"->"[]", "image.qa" ->"[10009,10010,10011,10012]", "loc.qa"->"[45,29,21,31,32,33,34,42]", "offline.q" ->"[20014]", "type.qa"->"[]"), false)
     val qualityAssertions = """[{"name":"missingBasisOfRecord","code":20001,"uuid":"91fc7048-0fe3-424d-946f-b250cbfb0da2","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"badlyFormedBasisOfRecord","code":20002,"uuid":"7aa48b5b-18f1-4331-9a9f-793282461528","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"invalidCollectionDate","code":30007,"uuid":"c6af646e-78aa-4b0a-9966-940f5259b9e6","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"firstOfMonth","code":30003,"uuid":"2f8be2ea-aab2-4372-affb-88bb71060511","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"missingIdentificationQualifier","comment":"Missing identificationQualifier","code":10009,"uuid":"f283b659-1d80-4239-a237-338e90a401c6","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingIdentifiedBy","comment":"Missing identifiedBy","code":10010,"uuid":"92b2767b-eb23-4b0d-b527-400eb57b8d2b","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingIdentificationReferences","comment":"Missing identificationReferences","code":10011,"uuid":"15f1e1fe-a5ef-476e-a7ae-dd0e8d845b79","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingDateIdentified","comment":"Missing dateIdentified","code":10012,"uuid":"653ee10c-ff82-47fd-befb-9407689f819f","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingCatalogueNumber","code":20015,"uuid":"0fbf3e6e-6e1c-4ebe-8bc1-013c9ddb5a50","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"dataAreGeneralised","code":20009,"uuid":"ad5c0c31-14fd-44c8-9ebb-a302c471a3a3","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"inferredDuplicateRecord","comment":"Record has been inferred as closely related to  e20f2dc0-9404-4782-a5b3-7050ebef9d1a","code":20014,"uuid":"3a3daf60-618c-4a7c-b18b-9242e953c332","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingTaxonRank","comment":"Missing taxonRank","code":10008,"uuid":"1839d64a-97af-4e21-af33-f8c37fcaee57","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"nameNotSupplied","code":10015,"uuid":"89f33662-d9ce-4e11-b0f8-e4402821c563","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"nameNotRecognised","code":10004,"uuid":"774c0abd-8098-4ce6-873b-7b39e9b8532c","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"invalidScientificName","code":10001,"uuid":"e8fc31a5-07d8-4776-802d-c9e619878d98","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"nameNotInNationalChecklists","code":10005,"uuid":"14132c67-b833-447b-8a66-9463c49debc6","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"decimalCoordinatesNotSupplied","code":44,"uuid":"409baab2-ba41-4234-94ac-2590e43fe262","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"geodeticDatumAssumedWgs84","code":51,"uuid":"3e1c9213-79a6-4c8a-a00e-bd04f000ae0f","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"unrecognizedGeodeticDatum","code":52,"uuid":"a70304c4-7c4d-4d7e-b9f9-8853a6b2b932","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"decimalLatLongConverionFailed","code":46,"uuid":"14aa1b77-6432-4a82-8dec-e6ba96c616b7","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"decimalLatLongConverted","comment":"Decimal latitude and longitude were converted to WGS84 (EPSG:4326)","code":45,"uuid":"562974d2-e063-498e-ae92-67580d89b9ac","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"invertedCoordinates","code":3,"uuid":"c9d1c52a-912d-4e04-9e8d-2819cd3f2866","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"coordinatesOutOfRange","code":5,"uuid":"af5cb31c-e80c-4f22-a818-06613918bbd2","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"zeroCoordinates","code":4,"uuid":"060443b9-cbfb-4e96-8fcc-aebe339551f6","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"uncertaintyRangeMismatch","code":24,"uuid":"97ef8648-31e3-4d36-a616-9477f9893d2d","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"missingCoordinatePrecision","comment":"Missing coordinatePrecision","code":29,"uuid":"341f9c10-672d-467d-add2-cebc40c7d2dd","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"uncertaintyNotSpecified","code":27,"uuid":"d3aaa6f1-d46c-471a-a078-ab0633571e21","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"habitatMismatch","code":19,"uuid":"1c9cdb4b-85b8-4303-8d77-b67e5202aa5c","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"locationNotSupplied","code":43,"uuid":"6b259577-a5c3-4560-bb2b-95ce4cd3a0d1","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"countryInferredByCoordinates","code":21,"uuid":"f9a4048d-dfd0-4bf4-b853-fbc4fe89b605","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"coordinatesCentreOfStateProvince","code":22,"uuid":"2c6aa9c8-864c-4132-bbaf-59b0ddea3d16","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"coordinatesCentreOfCountry","code":28,"uuid":"db0a0a6e-f81e-4557-a8b2-6eec0f88ebe3","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"missingGeodeticDatum","code":30,"uuid":"ac1a68b3-4fe6-4def-92f5-6a722d8693e8","qaStatus":1,"created":"2013-05-31T18:31:20Z"},{"name":"missingGeorefencedBy","comment":"Missing georeferencedBy","code":31,"uuid":"959f8af0-84e1-4ef0-b0c1-435ae56227ba","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingGeoreferenceProtocol","comment":"Missing georeferenceProtocol","code":32,"uuid":"df7da30b-ef1f-4b85-a95e-4289a9de99dd","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingGeoreferenceSources","comment":"Missing georeferenceSources","code":33,"uuid":"7066673d-02ef-4cb6-a189-f082ae04ea76","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingGeoreferenceVerificationStatus","comment":"Missing georeferenceVerificationStatus","code":34,"uuid":"48fa79a2-a96e-42fc-8128-7c390f525af5","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"missingGeoreferenceDate","code":42,"uuid":"5c5bbada-1578-49c1-9132-9c7fafb863e6","qaStatus":0,"created":"2013-05-31T18:31:20Z"},{"name":"inferredDuplicateRecord","comment":"Record has been inferred as closely related to  e20f2dc0-9404-4782-a5b3-7050ebef9d1a","code":20014,"uuid":"355b8e86-113b-4545-850c-bb1cc4b3ec65","problemAsserted":true,"qaStatus":0,"created":"2013-04-13T03:36:41Z"}]"""
     val qaList = Json.toListWithGeneric(qualityAssertions, classOf[QualityAssertion])
     Config.occurrenceDAO.updateAssertionStatus("qatestkosher", QualityAssertion(AssertionCodes.UNRECOGNIZED_GEODETIC_DATUM), qaList, List())
-    val values = persistenceManager.get("qatestkosher", "occ")
+    var values = persistenceManager.get("qatestkosher", "occ")
     expectResult(true){
       values.isDefined
     }
     expectResult("true"){
       values.get.getOrElse(FullRecordMapper.geospatialDecisionColumn, "false")
+    }
+
+    Config.occurrenceDAO.updateAssertionStatus("qatestkosher", QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE), qaList, List())
+    values = persistenceManager.get("qatestkosher", "occ")
+    expectResult("true"){
+      values.get.getOrElse(FullRecordMapper.taxonomicDecisionColumn, "false")
     }
 //    println(Config.indexDAO.sortOutQas("qatest", qaList))
 //    println(Config.indexDAO.sortOutQas("qatest", List(QualityAssertion(AssertionCodes.COORDINATES_OUT_OF_RANGE))))
@@ -73,7 +81,46 @@ class DAOLayerTest extends ConfigFunSuite {
     }
   }
 
-  test("User Assertions addition and deletion") {
+  /*
+    * Test case: Add system assertion for loc group
+    *   Expected result: Occurrence record user Assertion Status: AssertionStatus.QA_NONE
+    *                    List of error codes for loc: List (44)
+   */
+  test("System Assertions addition") {
+    val qa = QualityAssertion(AssertionCodes.DECIMAL_COORDINATES_NOT_SUPPLIED, true)
+    qa.comment = ""
+    qa.userId = "collector"
+    occurrenceDAO.addSystemAssertion(rowKey, qa)
+    expectResult(1) {
+      val assertions = occurrenceDAO.getSystemAssertions(rowKey)
+      assertions.size
+    }
+
+    val occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_NONE)
+    println ("Occurrence record Quality Assertion: " + occurrenceDAO.getSystemAssertions(rowKey))
+    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    val phase = Processors.getProcessorForError(qa.code)
+    val listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
+    println("List of error codes for " + phase + ": " + listErrorCodes.toString)
+
+  }
+
+   /*
+    * Test case 1: Add user assertion with geospatial issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_UNCONFIRMED
+    *                    List of error codes for loc: List (44, 0)
+    *
+    * Test case 2: Add user assertion with taxonomical issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_UNCONFIRMED
+    *                    List of error codes for class: List (10000)
+    */
+  test("User Assertions additions") {
+
+    println ("\nStart of User Assertions additions tests")
+    println ("Test case 1: Add user assertion with geospatial issue")
+
     val qa = QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE, true)
     qa.comment = "My comment"
     qa.userId = "Natasha.Carter@csiro.au"
@@ -81,11 +128,25 @@ class DAOLayerTest extends ConfigFunSuite {
     occurrenceDAO.addUserAssertion(rowKey, qa)
     expectResult(1) {
       val userAssertions = occurrenceDAO.getUserAssertions(rowKey)
+      assert(!(userAssertions.filter(qa => qa.qaStatus == AssertionStatus.QA_UNCONFIRMED)).isEmpty)
+      println ("User Assertions List: " + userAssertions.toString())
       userAssertions.size
     }
+
+    val occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    val phase = Processors.getProcessorForError(qa.code)
+    val listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
+    println("List of error codes for " + phase + ": " + listErrorCodes)
+
+
+    println ("\nTest case 2: Add user assertion with taxonomical issue")
+
     val qaRowKey = rowKey + "|" + qa.getUserId + "|" + qa.getCode
     val qatest = persistenceManager.get(qaRowKey, "qa")
-    println(qatest)
 
     expectResult(true) {
       !qatest.isEmpty
@@ -95,16 +156,280 @@ class DAOLayerTest extends ConfigFunSuite {
     qa2.userId = "Natasha.Carter@csiro.au"
     qa2.userDisplayName = "Natasha Carter"
     occurrenceDAO.addUserAssertion(rowKey, qa2)
-    println(persistenceManager.get(qaRowKey, "qa"))
+    val qaRowKey2 = rowKey + "|" + qa2.getUserId + "|" + qa2.getCode
+    println(persistenceManager.get(qaRowKey2, "qa"))
     expectResult(2) {
       val userAssertions = occurrenceDAO.getUserAssertions(rowKey)
+      println ("User Assertions List: " + userAssertions.toString())
       userAssertions.size
     }
+
+    val occ2 = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ2.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ2.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status:" + AssertionStatus.getQAAssertionName(occ2.get.getUserAssertionStatus()))
+
+
+    val phase2 = Processors.getProcessorForError(qa2.code)
+    val listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("List of error codes for " + phase2 + ": " + listErrorCodes2)
+
+  }
+
+  /**
+    * Initial: 2 user assertions with geospatial and taxonomical issue
+    *         Occurrence record user Assertion Status : Unconfirmed
+    *         List of error codes for loc: List (44, 0) and class: List(10000)
+    *
+    * Test case 1: Verify Corrected to user assertion with geospatial issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_UNCONFIRMED
+    *                    List of error codes for loc: List (44)
+    *
+    * Test case 2: Verify Open to user assertion with taxonomical issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_Open
+    *                    List of error codes for class: List (10000)
+    *
+    * Test case 3: Verify Verified to user assertion with taxonomical issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_Verified
+    *                    List of error codes for class: List ()
+    *
+    * Test case 4: Verify Corrected to user assertion with taxonomical issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_Corrected
+    *                    List of error codes for class: List ()
+    *
+    * Test case 5: Delete Verify Corrected record from user assertion with taxonomical issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_VERIFIED
+    *                    List of error codes for class: List ()
+    *
+    * Test case 6: Delete Verify Verified record user assertion with taxonomical issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_OPEN_ISSUE
+    *                    List of error codes for class: List (10000)
+    *
+    * Test case 7: Delete Verify Open record from user assertion with taxonomical issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_UNCONFIRMED
+    *                    List of error codes for class: List (10000)
+    *
+    * Test case 8: Delete Verify Corrected record from user assertion with geospatial issue
+    *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_UNCONFIRMED
+    *                    List of error codes for loc: List (44, 0)
+    */
+  test("User Assertions verify records open, corrected and verified and verfication deletions") {
+
+    println ("\nStart of User Assertions verify records tests")
+
+    var userAssertions: List[QualityAssertion] = occurrenceDAO.getUserAssertions(rowKey)
+    println("Initial: " + userAssertions.toString())
+
+    val firstAssertionToVerify = userAssertions.find(qa => AssertionCodes.geospatialCodes.exists(c => c.code == qa.code)).get
+    val secondAssertionToVerify = userAssertions.find(qa => AssertionCodes.taxonomicCodes.exists(c => c.code == qa.code)).get
+
+    val phase = Processors.getProcessorForError(firstAssertionToVerify.code)
+    var listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
+    println("Initial error codes for " + phase + ": " + listErrorCodes)
+
+    val phase2 = Processors.getProcessorForError(secondAssertionToVerify.code)
+    var listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("Initial error codes for " + phase2 + ": " + listErrorCodes2)
+
+
+    println ("Test case 1: Verify Corrected to user assertion with geospatial issue")
+
+    // Perform verify assertion on the last user assertion record
+    val qa = QualityAssertion(AssertionCodes.VERIFIED, true)
+    qa.comment = ""
+    qa.qaStatus = AssertionStatus.QA_CORRECTED
+    qa.relatedUuid = firstAssertionToVerify.uuid
+    qa.userId = "collectorAdmin"
+    occurrenceDAO.addUserAssertion(rowKey, qa)
+    expectResult(3) {
+      val assertions = occurrenceDAO.getUserAssertions(rowKey)
+      assertions.size
+    }
+
+    var occ = occurrenceDAO.getByRowKey(rowKey)
+
+    // Expecting unconfirmed because there is taxonomical assertion
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
+    println("List of error codes for " + phase + ": " + listErrorCodes)
+
+    println ("Test case 2: Verify Open to user assertion with taxonomical issue")
+
+    // Perform verify assertion on the last user assertion record
+    val qa2 = QualityAssertion(AssertionCodes.VERIFIED, true)
+    qa2.comment = ""
+    qa2.qaStatus = AssertionStatus.QA_OPEN_ISSUE
+    qa2.relatedUuid = secondAssertionToVerify.uuid
+    qa2.userId = "collectorAdmin"
+    occurrenceDAO.addUserAssertion(rowKey, qa2)
+    expectResult(4) {
+      val assertions = occurrenceDAO.getUserAssertions(rowKey)
+      assertions.size
+    }
+
+    occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_OPEN_ISSUE)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("List of error codes for " + phase2 + ": " + listErrorCodes2)
+
+    //println(occ.get.toString)
+
+    println ("Test case 3: Verify Verified to user assertion with taxonomical issue")
+
+    val qa3 = QualityAssertion(AssertionCodes.VERIFIED, true)
+    qa3.comment = ""
+    qa3.qaStatus = AssertionStatus.QA_VERIFIED
+    qa3.relatedUuid = secondAssertionToVerify.uuid
+    qa3.userId = "collectorAdmin"
+
+    occurrenceDAO.addUserAssertion(rowKey, qa3)
+    occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_VERIFIED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("List of error codes for " + phase2 + ": " + listErrorCodes2)
+
+    println ("Test case 4: Verify Corrected to user assertion with taxonomical issue")
+
+    val qa4 = QualityAssertion(AssertionCodes.VERIFIED, true)
+    qa4.comment = ""
+    qa4.qaStatus = AssertionStatus.QA_CORRECTED
+    qa4.relatedUuid = secondAssertionToVerify.uuid
+    qa4.userId = "collectorAdmin"
+
+    occurrenceDAO.addUserAssertion(rowKey, qa4)
+    occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_CORRECTED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("List of error codes for " + phase2 + ": " + listErrorCodes2)
+
+    println ("Test case 5: Delete Verify Corrected record from user assertion with taxonomical issue")
+
+    occurrenceDAO.deleteUserAssertion(rowKey, qa4.uuid)
+    occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_VERIFIED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("List of error codes for " + phase2 + ": " + listErrorCodes2)
+
+    println ("Test case 6: Delete Verify Verified record user assertion with taxonomical issue")
+
+    occurrenceDAO.deleteUserAssertion(rowKey, qa3.uuid)
+    occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_OPEN_ISSUE)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("List of error codes for " + phase2 + ": " + listErrorCodes2)
+
+    println ("Test case 7: Delete Verify Open record from user assertion with taxonomical issue")
+
     occurrenceDAO.deleteUserAssertion(rowKey, qa2.uuid)
+    occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("List of error codes for " + phase2 + ": " + listErrorCodes2)
+
+
+    println ("Test case 8: Delete Verify Corrected record from user assertion with geospatial issue")
+
+    occurrenceDAO.deleteUserAssertion(rowKey, qa.uuid)
+    occ = occurrenceDAO.getByRowKey(rowKey)
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
+    println("List of error codes for " + phase + ": " + listErrorCodes)
+
+
+  }
+
+  /*
+   * Test case 1: Delete user assertion with geospatial issue
+   *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_UNCONFIRMED
+   *                    List of error codes for loc: List (44)
+   *
+   * Test case 2: Delete user assertion with taxonomical issue
+   *   Expected result: Occurrence record user Assertion Status : AssertionStatus.QA_UNCONFIRMED
+   *                    List of error codes for class: List ()
+   */
+  test("User Assertions deletion") {
+
+    println ("\nStart User Assertion deletion tests")
+
+    var userAssertions: List[QualityAssertion] = occurrenceDAO.getUserAssertions(rowKey)
+
+    println("Initial user assertions: " + userAssertions.toString())
+
+    val firstAssertionToDelete = userAssertions.find(qa => AssertionCodes.geospatialCodes.exists(c => c.code == qa.code)).get
+    val secondAssertionToDelete = userAssertions.find(qa => AssertionCodes.taxonomicCodes.exists(c => c.code == qa.code)).get
+
+    val phase = Processors.getProcessorForError(firstAssertionToDelete.code)
+    var listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
+    println("Initial error codes for " + phase + ": " + listErrorCodes)
+
+    val phase2 = Processors.getProcessorForError(secondAssertionToDelete.code)
+    var listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("Initial error codes for " + phase2 + ": " + listErrorCodes2)
+
+    println ("Test case 1: Delete user assertion with geospatial issue")
+
+    occurrenceDAO.deleteUserAssertion(rowKey, firstAssertionToDelete.uuid)
+
     expectResult(1) {
       val userAssertions = occurrenceDAO.getUserAssertions(rowKey)
+      println(userAssertions.toString())
       userAssertions.size
     }
+
+    var occ = occurrenceDAO.getByRowKey(rowKey)
+
+    // Expecting unconfirmed because there is taxonomical assertion
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase), classOf[Int])
+    println("List of error codes for " + phase + ": " + listErrorCodes)
+
+    println ("Test case 2: Delete user assertion with taxonomical issue")
+
+    occurrenceDAO.deleteUserAssertion(rowKey, secondAssertionToDelete.uuid)
+    expectResult(0) {
+      val userAssertions = occurrenceDAO.getUserAssertions(rowKey)
+      userAssertions.filter(qa => !AssertionCodes.isVerified(qa)).size
+    }
+
+    occ = occurrenceDAO.getByRowKey(rowKey)
+
+    // Expecting unconfirmed because there is taxonomical assertion
+    assert (occ.get.getUserAssertionStatus() != AssertionStatus.QA_UNCONFIRMED)
+    println ("Occurrence record Quality Assertion: " + occ.get.getUserQualityAssertion())
+    println ("Occurrence record user Assertion Status :" + AssertionStatus.getQAAssertionName(occ.get.getUserAssertionStatus()))
+
+    listErrorCodes2 = persistenceManager.getList(rowKey, occurrenceDAO.entityName, FullRecordMapper.markAsQualityAssertion(phase2), classOf[Int])
+    println("List of error codes for " + phase2 + ": " + listErrorCodes2)
+
+    println("Final occ record: " + occ.get)
+
   }
 
   test("JSON parsing for Duplicates"){
