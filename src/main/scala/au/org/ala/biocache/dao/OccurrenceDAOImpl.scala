@@ -846,7 +846,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val systemAssertions = getSystemAssertions(rowKey)
       val userAssertions = getUserAssertions(rowKey)
       updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions)
-
       //set the last user assertion date
       persistenceManager.put(rowKey, entityName, FullRecordMapper.lastUserAssertionDateColumn, qualityAssertion.created, false)
       //when the user assertion is verified need to add extra value
@@ -1086,14 +1085,10 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     logger.debug("Final " + listErrorCodes)
     //update the list
-
     //persistenceManager.putList(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn,remainingAssertions.toList, classOf[QualityAssertion], true)
     //val map = remainingAssertions.toList
     persistenceManager.put(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn, Json.toJSON(remainingAssertions.toList), false)
-
-    //persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn,assertions.toList, classOf[QualityAssertion], true)
     persistenceManager.putList(rowKey, entityName, FullRecordMapper.markAsQualityAssertion(phase), listErrorCodes.toList, classOf[Int], true, false)
-
 
     //set the overall decision if necessary
     var properties = scala.collection.mutable.Map[String, String]()
