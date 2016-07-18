@@ -1,18 +1,13 @@
 package au.org.ala.biocache.persistence
 
-import scala.collection.mutable.ListBuffer
-import org.scale7.cassandra.pelops.Cluster
-import com.google.inject.name.Named
-import com.google.inject.Inject
-import java.util.UUID
-import scala.slick.jdbc.{StaticQuery => Q}
-
 /**
  * Trait (interface) for persistence storage in the Biocache.
  * 
  * This trait is implemented for Cassandra,
  * but could also be implemented for another backend supporting basic key value pair storage and
- * allowing the selection of a set of key value pairs via a record ID.
+ * allowing the selection of a set of key value pairs via a rowkey.
+ *
+ * The rowkey is the primary key for the entity.
  *
  * @author Dave Martin (David.Martin@csiro.au)
  */
@@ -21,47 +16,47 @@ trait PersistenceManager {
   /**
    * Get a single property.
    */
-  def get(uuid:String, entityName:String, propertyName:String) : Option[String]
+  def get(rowkey:String, entityName:String, propertyName:String) : Option[String]
 
   /**
    * Gets the supplied properties for this record
    */
-  def getSelected(uuid:String, entityName:String, propertyNames:Seq[String]):Option[Map[String,String]]
+  def getSelected(rowkey:String, entityName:String, propertyNames:Seq[String]):Option[Map[String,String]]
 
   /**
    * Get a key value pair map for this record.
    */
-  def get(uuid:String, entityName:String): Option[Map[String, String]]
+  def get(rowkey:String, entityName:String): Option[Map[String, String]]
 
   /**
    * Get a key value pair map for this column timestamps of this record.
    */
-  def getColumnsWithTimestamps(uuid:String, entityName:String): Option[Map[String, Long]]
+  def getColumnsWithTimestamps(rowkey:String, entityName:String): Option[Map[String, Long]]
 
   /**
    * Gets KVP map for a record based on a value in an index
    */
-  def getByIndex(uuid:String, entityName:String, idxColumn:String) : Option[Map[String,String]]
+  def getByIndex(rowkey:String, entityName:String, idxColumn:String) : Option[Map[String,String]]
 
   /**
    * Gets a single property based on an indexed value.  Returns the value of the "first" matched record.
    */
-  def getByIndex(uuid:String, entityName:String, idxColumn:String, propertyName:String) :Option[String]
+  def getByIndex(rowkey:String, entityName:String, idxColumn:String, propertyName:String) :Option[String]
 
   /**
    * Retrieve an array of objects from a single column.
    */
-  def getList[A](uuid: String, entityName: String, propertyName: String, theClass:java.lang.Class[_]) : List[A]
+  def getList[A](rowkey: String, entityName: String, propertyName: String, theClass:java.lang.Class[_]) : List[A]
 
   /**
    * Put a single property.
    */
-  def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, deleteIfNullValue: Boolean): String
+  def put(rowkey: String, entityName: String, propertyName: String, propertyValue: String, deleteIfNullValue: Boolean): String
 
   /**
    * Put a set of key value pairs.
    */
-  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean): String
+  def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean): String
 
   /**
    * Add a batch of properties.
@@ -72,28 +67,28 @@ trait PersistenceManager {
    * Store a list of the supplied object
    * @param overwrite if true, current stored value will be replaced without a read.
    */
-  def putList[A](uuid: String, entityName: String, propertyName: String, objectList:Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, deleteIfNullValue: Boolean) : String
+  def putList[A](rowkey: String, entityName: String, propertyName: String, objectList:Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, deleteIfNullValue: Boolean) : String
 
   /**
-   * Page over all entities, passing the retrieved UUID and property map to the supplied function.
+   * Page over all entities, passing the retrieved rowkey and property map to the supplied function.
    * Function should return false to exit paging.
    */
-  def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String="", endUuid:String="", pageSize:Int = 1000)
+  def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String="", endRowkey:String="", pageSize:Int = 1000)
 
   /**
    * Page over the records, retrieving the supplied columns only.
    */
-  def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String, endUuid:String, pageSize:Int, columnName:String*)
+  def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String, endRowkey:String, pageSize:Int, columnName:String*)
 
   /**
    * Page over the records, retrieving the supplied columns range.
    */
-  def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String="", endUuid:String="", pageSize:Int=1000, startColumn:String="", endColumn:String="")
+  def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String="", endRowkey:String="", pageSize:Int=1000, startColumn:String="", endColumn:String="")
 
   /**
-   * Select the properties for the supplied record UUIDs
+   * Select the properties for the supplied record rowkeys
    */
-  def selectRows(uuids:Seq[String],entityName:String,propertyNames:Seq[String],proc:((Map[String,String])=>Unit))
+  def selectRows(rowkeys:Seq[String], entityName:String, propertyNames:Seq[String], proc:((Map[String,String])=>Unit))
 
   /**
    * The column to delete.
