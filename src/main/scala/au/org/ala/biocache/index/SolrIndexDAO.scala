@@ -552,8 +552,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         /** UK NBN **/
 
         // user if userQA = true
-        val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false")
-        if ("true".equals(hasUserAssertions)) {
+        val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
+        if (!"".equals(hasUserAssertions)) {
           val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(guid)
           assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
         }

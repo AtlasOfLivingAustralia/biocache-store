@@ -17,6 +17,7 @@ object FullRecordMapper {
   val entityName = "occ"
   val qualityAssertionColumn = "qualityAssertion"
   val userQualityAssertionColumn = "userQualityAssertion"
+  val userAssertionStatusColumn = "userAssertionStatus"
   val geospatialDecisionColumn = "geospatiallyKosher"
   val taxonomicDecisionColumn = "taxonomicallyKosher"
   val userVerifiedColumn ="userVerified"
