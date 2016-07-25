@@ -18,9 +18,13 @@ trait OccurrenceDAO extends DAO {
 
   def getRowKeyFromUuid(uuid:String) : Option[String]
 
-  def getByUuid(uuid: String, includeSensitive:Boolean = false): Option[FullRecord]
+  def getByUuid(uuid: String) : Option[FullRecord] = getByUuid(uuid, false)
 
-  def getByRowKey(rowKey: String, includeSensitive:Boolean = false) :Option[FullRecord]
+  def getByUuid(uuid: String, includeSensitive:Boolean): Option[FullRecord]
+
+  def getByRowKey(rowKey: String) : Option[FullRecord] = getByRowKey(rowKey, false)
+
+  def getByRowKey(rowKey: String, includeSensitive:Boolean) :Option[FullRecord]
 
   def getAllVersionsByRowKey(rowKey:String, includeSensitive:Boolean=false) : Option[Array[FullRecord]]
 

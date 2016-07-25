@@ -60,7 +60,7 @@ class RecordProcessor {
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    rowKeys.foreach(rowKey =>{
+    rowKeys.foreach { rowKey =>
       val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(rowKey)
       if (!rawProcessed.isEmpty){
         val rp = rawProcessed.get
@@ -73,7 +73,8 @@ class RecordProcessor {
           startTime = System.currentTimeMillis
         }
       }
-    })
+      counter += 1
+    }
   }
 
   /**
