@@ -5,6 +5,7 @@ import org.junit.runner.RunWith
 import au.org.ala.biocache.model.{Versions, QualityAssertion, FullRecord}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.AssertionCodes
+import au.org.ala.biocache.vocab.AssertionStatus
 
 @RunWith(classOf[JUnitRunner])
 class AssertionCodeTest extends ConfigFunSuite {
@@ -47,7 +48,7 @@ class AssertionCodeTest extends ConfigFunSuite {
     processed.location.decimalLongitude = "123.123"
     processed.rowKey = rowKey
     processed.uuid = uuid
-    val assertions = Some(Map("loc" -> Array(QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE))))
+    val assertions = Some(Map("loc" -> Array(QualityAssertion("123", AssertionCodes.GEOSPATIAL_ISSUE, 0, ""))))
     occurrenceDAO.updateOccurrence(rowKey, processed, assertions, Versions.PROCESSED)
     expectResult(1) {
       occurrenceDAO.getSystemAssertions(rowKey).size
@@ -62,7 +63,9 @@ class AssertionCodeTest extends ConfigFunSuite {
     }
     //println(Config.persistenceManager)
     //now have a false user assertion counteract this one
-    val qa = QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE, false)
+    val qa = QualityAssertion("", AssertionCodes.VERIFIED, AssertionStatus.QA_VERIFIED, "123")
+
+ //   val qa = QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE, false)
     qa.comment = "Overrride the system assertion"
     qa.userId = "Natasha.Carter@csiro.au"
     qa.userDisplayName = "Natasha Carter"
@@ -82,7 +85,7 @@ class AssertionCodeTest extends ConfigFunSuite {
    * A false user assertion overrides all true user or system assertions (for the same code)
    */
   test("Single false User Assertion takes precedence") {
-    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, true)
+    val qa1 = QualityAssertion("222", AssertionCodes.TAXONOMIC_ISSUE, 0, "")
     qa1.comment = "True user assertion"
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
@@ -96,7 +99,8 @@ class AssertionCodeTest extends ConfigFunSuite {
       //println(record.get.assertions.toSet)
       record.get.assertions.contains("taxonomicIssue")
     }
-    val qa2 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, false)
+ //   val qa2 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, false)
+    val qa2 = QualityAssertion("", AssertionCodes.VERIFIED, AssertionStatus.QA_VERIFIED, "222")
     qa2.comment = "False user assertion to override"
     qa2.userId = "Natasha.Carter2@csiro.au"
     qa2.userDisplayName = "Natasha Carter"

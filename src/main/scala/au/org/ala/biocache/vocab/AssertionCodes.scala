@@ -175,20 +175,8 @@ object AssertionCodes {
     assertions.foreach(qa => assCodes.append(qa.code))
     AssertionCodes.isGeospatiallyKosher(assCodes.toArray)
   }
-/*
-  def isGeospatiallyKosher (assertions:Array[QualityAssertion]) : Boolean = assertions.filter(ass => {
-     val errorCode = AssertionCodes.all.find(errorCode => errorCode.code == ass.code )
-     if(!errorCode.isEmpty){
-       ass.code >= AssertionCodes.geospatialBounds._1 &&
-              ass.code < AssertionCodes.geospatialBounds._2 &&
-              errorCode.get.isFatal
-     } else {
-        false
-     }
-  }).isEmpty
-*/
 
-   /** Is it geospatially kosher based on a list of codes that have been asserted
+  /** Is it geospatially kosher based on a list of codes that have been asserted
      * Geospatially Kosher true is geospatially valid
      * Geospatially Kosher false is geospatially suspect
      *
@@ -196,10 +184,10 @@ object AssertionCodes {
      * GEODETIC_DATUM_ASSUMED_WGS84 is geospatially valid
      * */
   def isGeospatiallyKosher(assertions:Array[Int]) : Boolean = assertions.filter(qa => {
-     AssertionCodes.geospatialCodes.exists(c => c.code == qa && !c.isFatal)
+     AssertionCodes.geospatialCodes.exists(c => c.code == qa && c.isFatal)
    //  val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
     // !code.isEmpty && code.get.isFatal
-   }).size > 0
+   }).isEmpty
 
   /** Is it taxonomically kosher */
   def isTaxonomicallyKosher (assertions:Array[QualityAssertion]) : Boolean = {
@@ -208,21 +196,10 @@ object AssertionCodes {
     AssertionCodes.isTaxonomicallyKosher(assCodes.toArray)
   }
 
-  /*def isTaxonomicallyKosher (assertions:Array[QualityAssertion]) : Boolean = assertions.filter(ass => {
-    val errorCode = AssertionCodes.all.find(errorCode => errorCode.code == ass.code )
-    if(!errorCode.isEmpty){
-      ass.code >= AssertionCodes.taxonomicBounds._1 &&
-      ass.code < AssertionCodes.taxonomicBounds._2 &&
-      errorCode.get.isFatal
-    } else {
-      false //we cant find the code, so ignore
-    }
-  }).isEmpty
-*/
   /** Is it taxonomically kosher based on a list of codes that have been asserted */
   def isTaxonomicallyKosher(assertions:Array[Int]):Boolean = assertions.filter(qa=> {
-    AssertionCodes.taxonomicCodes.exists(c => c.code == qa && !c.isFatal)
+    AssertionCodes.taxonomicCodes.exists(c => c.code == qa && c.isFatal)
     //val code = AssertionCodes.taxonomicCodes.find(c => c.code == qa)
     //!code.isEmpty && code.get.isFatal
-  }).size > 0
+  }).isEmpty
 }
