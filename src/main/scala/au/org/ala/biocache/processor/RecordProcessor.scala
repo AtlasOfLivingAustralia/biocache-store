@@ -1,15 +1,15 @@
 package au.org.ala.biocache.processor
 
-import org.slf4j.LoggerFactory
-import au.org.ala.biocache._
 import java.util.UUID
-import java.util.concurrent.ArrayBlockingQueue
-import scala.Some
-import au.org.ala.biocache.dao.OccurrenceDAO
+
 import au.org.ala.biocache
-import au.org.ala.biocache.model.{QualityAssertion, Processed, Versions, FullRecord}
+import au.org.ala.biocache._
+import au.org.ala.biocache.dao.OccurrenceDAO
 import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.util.{FileHelper, StringConsumer}
+import au.org.ala.biocache.model.{FullRecord, Processed, QualityAssertion, Versions}
+import org.slf4j.LoggerFactory
+
+import scala.Some
 
 /**
  * Runnable for starting record processing.
