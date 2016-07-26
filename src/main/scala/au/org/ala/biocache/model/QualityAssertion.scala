@@ -57,11 +57,8 @@ object QualityAssertion {
     val uuid = UUID.randomUUID().toString
     new QualityAssertion(uuid,null, null, assertionCode,null,null,qaStatus,null,null,null,null,null,null,null,null,new Date())
   }
-  def apply(recUuid: String, errorCode:ErrorCode, qaStatus:Int, relatedUuid: String) ={
-    var uuid = recUuid
-    if (uuid.equals("")) {
-      uuid = UUID.randomUUID().toString
-    }
+  def apply(errorCode:ErrorCode, relatedUuid: String, qaStatus:Int) = {
+    val uuid = UUID.randomUUID().toString
     new QualityAssertion(uuid,null, errorCode.name, errorCode.code,null,relatedUuid,qaStatus,null,null,null,null,null,null,null,null,new Date())
   }
 
