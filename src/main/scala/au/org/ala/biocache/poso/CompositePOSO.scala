@@ -1,5 +1,7 @@
 package au.org.ala.biocache.poso
 
+import org.apache.commons.lang3.BooleanUtils
+
 import scala.util.parsing.json.JSON
 import scala.collection.immutable.Map
 import au.org.ala.biocache.util.Json
@@ -18,7 +20,8 @@ trait CompositePOSO extends POSO {
 
   /**
    * Properties for this composite POSO lower cased.
-   * @return
+    *
+    * @return
    */
   override def getPropertyNames: List[String] = ReflectionCache.getCompositePropertyNames(this)
 
@@ -67,11 +70,28 @@ trait CompositePOSO extends POSO {
               }
             }
           }
+        } else if (property.typeName == "boolean") {
+          val valueBoolean:java.lang.Boolean = BooleanUtils.toBoolean(value)
+          try {
+            property.setter.invoke(this, valueBoolean)
+          } catch {
+            case e: Exception => {
+              success = false
+              logger.error(e.getMessage, e)
+            }
+          }
         } else {
           //NC The print statement below can be enabled for debug purposes but please don't
           //check it back without commenting it out because it creates a lot of output when loading a DwcA
           //println(property.name + " : "+property.typeName + " : " + value)
-          property.setter.invoke(this, value)
+          try {
+            property.setter.invoke(this, value)
+          } catch {
+            case e:Exception => {
+              println(e.getMessage)
+              e.printStackTrace()
+            }
+          }
         }
       }
       case None => setNestedProperty(name, value)
