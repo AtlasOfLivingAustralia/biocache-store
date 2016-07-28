@@ -13,9 +13,7 @@ import org.scalatest.junit.JUnitRunner
 class Cassandra3PersistenceTests extends FunSuite {
 
   test("Get by RowKey"){
-    val pm = new Cassandra3PersistenceManager(
-      "127.0.0.1", 9042, "occ_test"
-    )
+    val pm = new Cassandra3PersistenceManager("127.0.0.1", 9042, "occ_test")
 
     val rowkey = "dr0|" + UUID.randomUUID().toString
     pm.put(rowkey, "occ_test_fixed", Map("scientificName" -> "Macropus rufus", "dataResourceUID" -> "dr0"), true)
@@ -29,9 +27,7 @@ class Cassandra3PersistenceTests extends FunSuite {
   }
 
   test("Get by indexed value"){
-    val pm = new Cassandra3PersistenceManager(
-      "127.0.0.1", 9042, "occ_test"
-    )
+    val pm = new Cassandra3PersistenceManager("127.0.0.1", 9042, "occ_test")
     val rowkey = "dr0|" + UUID.randomUUID().toString
     val uuid = UUID.randomUUID().toString
     pm.put(rowkey, "occ_test_fixed", Map("scientificName" -> "Macropus rufus", "dataResourceUID" -> "dr0", "uuid" -> uuid), true)
@@ -45,9 +41,7 @@ class Cassandra3PersistenceTests extends FunSuite {
   }
 
   test("Put list"){
-    val pm = new Cassandra3PersistenceManager(
-      "127.0.0.1", 9042, "occ_test"
-    )
+    val pm = new Cassandra3PersistenceManager("127.0.0.1", 9042, "occ_test")
 
     val rowkey = "dr0|" + UUID.randomUUID().toString
     pm.put(rowkey, "occ_test_fixed", Map("scientificName" -> "Macropus rufus", "dataResourceUID" -> "dr0"), true)
@@ -62,6 +56,16 @@ class Cassandra3PersistenceTests extends FunSuite {
       }
       case None => println("No record")
     }
+  }
+
+  test("Page over all"){
+
+
+  }
+
+  test("Page over by data resource UID"){
+
+
   }
 
 }

@@ -13,7 +13,7 @@ import java.io.{File, FileInputStream}
 import com.google.inject.name.Names
 import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
-import au.org.ala.biocache.persistence.{MockPersistenceManager, PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
+import au.org.ala.biocache.persistence._
 import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
 import scala.io.Source
 
@@ -328,6 +328,7 @@ private class ConfigModule extends AbstractModule {
       case "mock" => bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(Scopes.SINGLETON)
       case "postgres" => bind(classOf[PersistenceManager]).to(classOf[PostgresPersistenceManager]).in(Scopes.SINGLETON)
       case "cassandra" => bind(classOf[PersistenceManager]).to(classOf[CassandraPersistenceManager]).in(Scopes.SINGLETON)
+      case "cassandra3" => bind(classOf[PersistenceManager]).to(classOf[Cassandra3PersistenceManager]).in(Scopes.SINGLETON)
       case _ => throw new RuntimeException("Persistence manager typ unrecognised. Please check your external config file. ")
     }
     logger.debug("Configure complete")

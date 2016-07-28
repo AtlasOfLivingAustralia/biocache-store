@@ -3,8 +3,12 @@ package au.org.ala.biocache.persistence
 import java.util
 import java.util.UUID
 
+import au.org.ala.biocache.util.Json
 import com.datastax.driver.core._
 import com.datastax.driver.core.querybuilder.QueryBuilder
+import com.google.inject.Inject
+import com.google.inject.name.Named
+import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
 import scala.collection.{JavaConversions}
 
@@ -12,12 +16,15 @@ import scala.collection.{JavaConversions}
   * Cassandra 3 based implementation of a persistence manager.
   * This should maintain most of the cassandra 3 logic.
   */
-class Cassandra3PersistenceManager (
-                                     val host:String = "localhost",
-                                     val port:Int = 9160,
-                                     val keyspace:String = "occ") extends PersistenceManager {
+class Cassandra3PersistenceManager  @Inject() (
+                  @Named("cassandra.hosts") val host:String = "localhost",
+                  @Named("cassandra.port") val port:Int = 9160,
+                  @Named("cassandra.pool") val poolName:String = "biocache-store-pool",
+                  @Named("cassandra.keyspace") val keyspace:String = "occ") extends PersistenceManager {
 
   import JavaConversions._
+
+  val logger = LoggerFactory.getLogger("Cassandra3PersistenceManager")
 
   val cluster = {
     val hosts = host.split(",")
@@ -79,7 +86,6 @@ class Cassandra3PersistenceManager (
     } else {
       None
     }
-
   }
 
   /**
@@ -141,7 +147,11 @@ class Cassandra3PersistenceManager (
     if (rows.hasNext()) {
       val row = rows.next()
       val value = row.getString(propertyName)
-      Some(value)
+      if(value != null){
+        Some(value)
+      } else {
+        None
+      }
     } else {
       None
     }
@@ -285,9 +295,35 @@ class Cassandra3PersistenceManager (
   def pageOverAll(entityName:String, proc:((String, Map[String, String]) => Boolean),
                   startUuid:String = "", endUuid:String = "", pageSize:Int = 1000) = {
 
+    logger.debug("Start: Testing paging over all")
 
+    //page through the data
+    val stmt: Statement = new SimpleStatement(s"SELECT * FROM $entityName")
+    stmt.setFetchSize(1000)
+    val rs: ResultSet = session.execute(stmt)
+    val rows: util.Iterator[Row] = rs.iterator
+    var counter: Int = 0
+    val start: Long = System.currentTimeMillis
+    while (rows.hasNext) {
+      val row = rows.next
+      val rowkey = row.getString("rowkey")
+      counter += 1
+      val map = new util.HashMap[String, String]()
+      row.getColumnDefinitions.foreach { defin =>
+        val value = row.getString(defin.getName)
+        if(value != null){
+          map.put(defin.getName, value)
+        }
+      }
 
+      val currentTime: Long = System.currentTimeMillis
+      logger.debug(row.getString(0) + " - records read: " + counter + ".  Records per sec: " + (counter.toFloat) / ((currentTime - start).toFloat / 1000f) + "  Time taken: " + ((currentTime - start) / 1000))
 
+      proc(rowkey, map.toMap)
+    }
+    //get token ranges....
+    //iterate through each token range....
+    logger.debug("End: Testing paging over all")
   }
 
   /**
@@ -297,7 +333,10 @@ class Cassandra3PersistenceManager (
     throw new RuntimeException("No supported")
 
 
-  def shutdown = throw new RuntimeException("Not supported")
+  def shutdown = {
+    this.session.close()
+    this.cluster.close()
+  }
 
   /**
     * Delete the value for the supplied column
