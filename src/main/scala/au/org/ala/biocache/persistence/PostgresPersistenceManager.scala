@@ -19,6 +19,10 @@ class PostgresPersistenceManager() extends PersistenceManager {
 
   import JavaConversions._
 
+  override def pageOverLocal(entityName: String, proc: (String, Map[String, String]) => Boolean, threads: Int, localNodeIP: String): Int = {
+    throw new RuntimeException("Not supported!!!")
+  }
+
   val logger = LoggerFactory.getLogger("PostgresPersistenceManager")
 
    /**

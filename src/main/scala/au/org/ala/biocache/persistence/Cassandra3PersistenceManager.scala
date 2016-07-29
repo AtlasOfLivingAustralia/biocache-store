@@ -2,10 +2,14 @@ package au.org.ala.biocache.persistence
 
 import java.util
 import java.util.UUID
+import java.util.concurrent._
 
 import au.org.ala.biocache.util.Json
 import com.datastax.driver.core._
+import com.datastax.driver.core.policies.{DCAwareRoundRobinPolicy, TokenAwarePolicy}
 import com.datastax.driver.core.querybuilder.QueryBuilder
+import com.google.common.collect.MapMaker
+import com.google.common.util.concurrent.MoreExecutors
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.slf4j.LoggerFactory
@@ -35,6 +39,28 @@ class Cassandra3PersistenceManager  @Inject() (
 
   val session = cluster.connect(keyspace)
 
+  val policy = new TokenAwarePolicy(DCAwareRoundRobinPolicy.builder.build)
+
+  val map = new MapMaker().weakValues().makeMap[String, PreparedStatement]()
+
+  private def getPreparedStmt(query:String) : PreparedStatement = {
+    if(map.containsKey(query)){
+      return map.get(query)
+    } else {
+      try {
+        val preparedStatement = session.prepare(query)
+        map.put(query, preparedStatement)
+        return preparedStatement
+      } catch {
+        case e:Exception => {
+          logger.error("problem creating a statement for query: " + query)
+          logger.error( e.getMessage, e)
+          throw e
+        }
+      }
+    }
+  }
+
   /**
     * Retrieve the a list of key value pairs for the supplied UUID.
     *
@@ -43,7 +69,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * @return
     */
   def get(uuid:String, entityName:String) : Option[Map[String, String]] = {
-    val stmt = session.prepare(s"SELECT * FROM $entityName where rowkey = ? ALLOW FILTERING")
+    val stmt = getPreparedStmt(s"SELECT * FROM $entityName where rowkey = ? ALLOW FILTERING")
     val boundStatement = stmt bind uuid
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
@@ -68,7 +94,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * This will support removing columns that were not updated during a reload
     */
   def getColumnsWithTimestamps(uuid:String, entityName:String): Option[Map[String, Long]] = {
-    val stmt = session.prepare(s"SELECT * FROM $entityName where rowkey = ?")
+    val stmt = getPreparedStmt(s"SELECT * FROM $entityName where rowkey = ?")
     val boundStatement = stmt bind uuid
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
@@ -100,7 +126,7 @@ class Cassandra3PersistenceManager  @Inject() (
     *
     */
   def getByIndex(uuid:String, entityName:String, idxColumn:String) : Option[Map[String,String]] = {
-    val stmt = session.prepare(s"SELECT * FROM $entityName where $idxColumn = ?")
+    val stmt = getPreparedStmt(s"SELECT * FROM $entityName where $idxColumn = ?")
     val boundStatement = stmt bind uuid
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
@@ -123,7 +149,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * Retrieves a specific property value using the index as the retrieval method.
     */
   def getByIndex(uuid:String, entityName:String, idxColumn:String, propertyName:String) = {
-    val stmt = session.prepare(s"SELECT $propertyName FROM $entityName where $idxColumn = ?")
+    val stmt = getPreparedStmt(s"SELECT $propertyName FROM $entityName where $idxColumn = ?")
     val boundStatement = stmt bind uuid
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
@@ -140,7 +166,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * Retrieve the column value.
     */
   def get(uuid:String, entityName:String, propertyName:String) = {
-    val stmt = session.prepare(s"SELECT $propertyName FROM $entityName where rowkey = ?")
+    val stmt = getPreparedStmt(s"SELECT $propertyName FROM $entityName where rowkey = ?")
     val boundStatement = stmt bind uuid
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
@@ -194,24 +220,45 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * Store the supplied batch of maps of properties as separate columns in cassandra.
     */
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]], removeNullFields: Boolean) =
-    throw new RuntimeException("No supported")
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], removeNullFields: Boolean) = {
+    batch.keySet.foreach { rowkey =>
+      val map = batch.get(rowkey)
+      if(!map.isEmpty) {
+        put(rowkey, entityName, map.get, removeNullFields)
+      }
+    }
+  }
 
   /**
     * Store the supplied map of properties as separate columns in cassandra.
     */
   def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
-    val placeHolders = ",?" * keyValuePairs.size
-    val insertCQL = s"INSERT INTO $entityName (rowkey," + keyValuePairs.keySet.mkString(",") + ") VALUES (?" + placeHolders + ")"
-    val statement = session.prepare(insertCQL)
-    val boundStatement = if(keyValuePairs.size == 1){
-      statement.bind(Array(uuid, keyValuePairs.values.head))
-    } else {
-      val values = Array(uuid) ++ keyValuePairs.values.toArray[String]
-      statement.bind(values:_*)
+
+    try {
+
+      val keyValuePairsToUse = if(keyValuePairs.containsKey("rowkey") || keyValuePairs.containsKey("rowKey")){
+        keyValuePairs.-("rowKey").-("rowkey")
+      } else {
+        keyValuePairs
+      }
+
+      val placeHolders = ",?" * keyValuePairsToUse.size
+      val statement = getPreparedStmt(s"INSERT INTO $entityName (rowkey," + keyValuePairsToUse.keySet.mkString(",") + ") VALUES (?" + placeHolders + ")")
+      val boundStatement = if (keyValuePairsToUse.size == 1) {
+        statement.bind(Array(uuid, keyValuePairsToUse.values.head))
+      } else {
+        val values = Array(uuid) ++ keyValuePairsToUse.values.toArray[String]
+        statement.bind(values: _*)
+      }
+      val future = session.execute(boundStatement)
+      uuid
+    } catch {
+      case e:Exception => {
+        logger.error("Problem persisting the following to " + entityName + " - " + e.getMessage)
+        keyValuePairs.foreach({case(key, value) => logger.error(s"$key = $value")})
+        throw e
+      }
     }
-    val future = session.execute(boundStatement)
-    uuid
   }
 
   /**
@@ -219,7 +266,7 @@ class Cassandra3PersistenceManager  @Inject() (
     */
   def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, removeNullFields: Boolean) = {
     val insertCQL = s"INSERT INTO $entityName (rowkey, $propertyName) VALUES (?,?)"
-    val statement = session.prepare(insertCQL)
+    val statement = getPreparedStmt(insertCQL)
     val boundStatement = statement.bind(uuid, propertyValue)
     val future = session.execute(boundStatement)
     uuid
@@ -324,6 +371,92 @@ class Cassandra3PersistenceManager  @Inject() (
     //get token ranges....
     //iterate through each token range....
     logger.debug("End: Testing paging over all")
+  }
+
+  /***
+   *
+    * @param entityName
+   * @param proc
+   * @param threads
+   */
+  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, localNodeIP:String) : Int = {
+
+    val metadata = cluster.getMetadata
+    val allHosts = metadata.getAllHosts
+    val localHost = {
+      var localhost:Host = null
+      allHosts.foreach { host =>
+        if (host.getAddress().getHostAddress() == localNodeIP) {
+          localhost = host
+        }
+      }
+      localhost
+    }
+
+    logger.info("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
+
+    val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges(keyspace, localHost)).toArray(new Array[TokenRange](0))
+    for (tokenRange <- tokenRanges) {
+      logger.info("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+    }
+
+    val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
+    val callables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
+
+    for (tokenRange <- tokenRanges) {
+
+      val scanTask = new Callable[Int]{
+        def call() : Int = {
+            val stmt = new SimpleStatement("SELECT * FROM occ where token(rowkey) > " + tokenRange.getStart() + " and token(rowkey) < " + tokenRange.getEnd())
+            stmt.setFetchSize(1000)
+            val rs = session.execute(stmt)
+            val rows = rs.iterator()
+            var counter = 0
+            val start = System.currentTimeMillis()
+            while (rows.hasNext()) {
+              val row = rows.next()
+              val rowkey = row.getString("rowkey")
+              counter += 1
+              val map = new util.HashMap[String, String]()
+              row.getColumnDefinitions.foreach { defin =>
+                val value = row.getString(defin.getName)
+                if(value != null){
+                  map.put(defin.getName, value)
+                }
+              }
+
+              proc(rowkey, map.toMap)
+
+              counter +=1
+              if (counter % 10000 == 0) {
+                val currentTime = System.currentTimeMillis()
+                logger.info("[" + tokenRange.getStart() + "] " + row.getString(0) + " records read: " + counter + ", records per sec: " +
+                  ( counter.toFloat) / ( (currentTime - start).toFloat / 1000f) + "  Time taken: " +
+                  ((currentTime - start) / 1000))
+              }
+            }
+            return counter
+          }
+        }
+      callables.add(scanTask)
+    }
+
+    val futures: util.List[Future[Int]] = es.invokeAll(callables)
+    var grandTotal: Int = 0
+    for (f <- futures) {
+      val count:Int = f.get.asInstanceOf[Int]
+      grandTotal += count
+    }
+    grandTotal
+  }
+
+  private def unwrapTokenRanges(wrappedRanges: util.Set[TokenRange]) : util.Set[TokenRange] = {
+    import scala.collection.JavaConversions._
+    val tokenRanges: util.HashSet[TokenRange] = new util.HashSet[TokenRange]
+    for (tokenRange <- wrappedRanges) {
+      tokenRanges.addAll(tokenRange.unwrap)
+    }
+    tokenRanges
   }
 
   /**

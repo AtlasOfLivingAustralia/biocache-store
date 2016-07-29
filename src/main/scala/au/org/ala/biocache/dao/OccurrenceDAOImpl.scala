@@ -423,6 +423,17 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     },startKey,endKey, pageSize)
   }
 
+  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4, localNodeIP:String): Int = {
+    persistenceManager.pageOverLocal(entityName, (guid, map) => {
+      //retrieve all versions
+      val raw = FullRecordMapper.createFullRecord(guid, map, Versions.RAW)
+      val processed = FullRecordMapper.createFullRecord(guid, map, Versions.PROCESSED)
+      //pass all version to the procedure, wrapped in the Option
+      proc(Some(raw, processed))
+    }, threads, localNodeIP)
+  }
+
+
   /**
    * Iterate over the undeleted occurrences. Prevents overhead of processing records that are deleted. Also it is quicker to get a smaller
    * number of columns.  Thus only get all the columns for record that need to be processed.

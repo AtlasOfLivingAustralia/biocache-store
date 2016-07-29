@@ -473,6 +473,10 @@ class CassandraPersistenceManager @Inject() (
     pageOver(entityName, proc, pageSize, slicePredicate,true,startRowkey=startRowkey, endRowkey=endRowkey)
   }
 
+  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, localNodeIP:String) : Int = {
+    throw new RuntimeException("Not supported with cassandra 1 !!!!")
+  }
+
   /**
    * Select fields from rows and pass to the supplied function.
    */

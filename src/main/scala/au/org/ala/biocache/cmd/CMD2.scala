@@ -234,6 +234,7 @@ object CMD2 {
     ProcessSingleRecord,
     ProcessUuids,
     ProcessRecords,
+    ProcessLocalRecords,
     ReprocessIndexSelect,
     ResampleRecordsByQuery,
     ReloadSampling,
