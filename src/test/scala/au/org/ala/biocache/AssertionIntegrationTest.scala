@@ -4,7 +4,7 @@ import org.junit.Ignore
 import au.org.ala.biocache.model.{Versions, QualityAssertion, FullRecord}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.AssertionCodes
-
+import au.org.ala.biocache.vocab.AssertionStatus
 /**
  * Integration tests
  *
@@ -40,7 +40,7 @@ class AssertionIntegrationTest extends ConfigFunSuite {
     }
     println(Config.persistenceManager)
     //now have a false user assertion counteract this one
-    val qa = QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE, false)
+    val qa = QualityAssertion(AssertionCodes.VERIFIED, "system", AssertionStatus.QA_VERIFIED)
     qa.comment = "Overrride the system assertion"
     qa.userId = "Natasha.Carter@csiro.au"
     qa.userDisplayName = "Natasha Carter"
@@ -61,7 +61,7 @@ class AssertionIntegrationTest extends ConfigFunSuite {
    * A false user assertion overrides all true user or system assertions (for the same code)
    */
   test("Single false User Assertion takes precedence") {
-    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, true)
+    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, "", AssertionStatus.QA_UNCONFIRMED)
     qa1.comment = "True user assertion"
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
@@ -75,7 +75,7 @@ class AssertionIntegrationTest extends ConfigFunSuite {
       println(record.get.assertions.toSet)
       record.get.assertions.contains("taxonomicIssue")
     }
-    val qa2 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, false)
+    val qa2 = QualityAssertion(AssertionCodes.VERIFIED, qa1.getUuid, AssertionStatus.QA_VERIFIED)
     qa2.comment = "False user assertion to override"
     qa2.userId = "Natasha.Carter2@csiro.au"
     qa2.userDisplayName = "Natasha Carter"
@@ -95,7 +95,7 @@ class AssertionIntegrationTest extends ConfigFunSuite {
    */
   test("User Assertions checked during system assertions update") {
     //add user asssertion
-    val qa1 = QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, true)
+    val qa1 = QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, "", AssertionStatus.QA_UNCONFIRMED)
     qa1.comment = "Tests user assertion is still applied after system assertions updated"
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
@@ -110,13 +110,14 @@ class AssertionIntegrationTest extends ConfigFunSuite {
       record.get.assertions.contains("idPreOccurrence")
     }
     println(Config.persistenceManager)
-    val qa2 = QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, false)
+    val qa2 = QualityAssertion(AssertionCodes.VERIFIED, qa1.uuid, AssertionStatus.QA_CORRECTED)
     qa2.comment = "False value overrides"
     qa2.userId = "Natasha.Carter2@csiro.au"
     qa2.userDisplayName = "Natasha Carter"
     occurrenceDAO.addUserAssertion(rowKey, qa2)
     expectResult(false) {
       val record = occurrenceDAO.getByRowKey(rowKey)
+      println(record.get.assertions.toSet)
       record.get.assertions.contains("idPreOccurrence")
     }
     occurrenceDAO.updateOccurrence(rowKey, processed, assertions, Versions.PROCESSED)
@@ -140,7 +141,7 @@ class AssertionIntegrationTest extends ConfigFunSuite {
       val record = occurrenceDAO.getByRowKey(rowKey2)
       record.get.geospatiallyKosher
     }
-    val vr = QualityAssertion(AssertionCodes.VERIFIED, true)
+    val vr = QualityAssertion(AssertionCodes.VERIFIED, "system", AssertionStatus.QA_VERIFIED)
     vr.comment = "This record is verified"
     vr.userId = "Natasha.Carter@csiro.au"
     vr.userDisplayName = "Natasha Carter"
@@ -157,7 +158,7 @@ class AssertionIntegrationTest extends ConfigFunSuite {
     expectResult(true) {
       val record = occurrenceDAO.getByRowKey(rowKey2)
       println(record.get.assertions.toList)
-      record.get.geospatiallyKosher && record.get.assertions.contains("userVerified")
+      record.get.geospatiallyKosher //&& record.get.assertions.contains("userVerified")
 
     }
     //test that record 2 only reports back the 1 user assertion
@@ -173,16 +174,18 @@ class AssertionIntegrationTest extends ConfigFunSuite {
   test("user assertion flag") {
     val processed = new FullRecord
     occurrenceDAO.updateOccurrence(rowKey3, processed, None, Versions.PROCESSED)
-    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, true)
+    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, "", AssertionStatus.QA_UNCONFIRMED)
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
     occurrenceDAO.addUserAssertion(rowKey3, qa1)
-    expectResult("true") {
-      Config.persistenceManager.get(rowKey3, "occ", FullRecordMapper.userQualityAssertionColumn).get
+    expectResult(AssertionStatus.QA_UNCONFIRMED) {
+      println(Config.persistenceManager.get(rowKey3, "occ", FullRecordMapper.userQualityAssertionColumn).get)
+      Integer.parseInt(Config.persistenceManager.get(rowKey3, "occ", FullRecordMapper.userAssertionStatusColumn).get)
     }
     occurrenceDAO.deleteUserAssertion(rowKey3, qa1.uuid)
-    expectResult("false") {
-      Config.persistenceManager.get(rowKey3, "occ", FullRecordMapper.userQualityAssertionColumn).get
+    expectResult(AssertionStatus.QA_NONE) {
+      println(Config.persistenceManager.get(rowKey3, "occ", FullRecordMapper.userQualityAssertionColumn).get)
+      Integer.parseInt(Config.persistenceManager.get(rowKey3, "occ", FullRecordMapper.userAssertionStatusColumn).get)
     }
   }
 }
