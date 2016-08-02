@@ -295,10 +295,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   /**
    * Shutdown the index by stopping the indexing thread and shutting down the index core
    */
-  def shutdown {
-    //threads.foreach(t => t.stopRunning)
-    if (cc != null)
-      cc.shutdown
+  def shutdown = if (cc != null) {
+    cc.shutdown
   }
 
   def optimise : String = {
@@ -358,7 +356,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                             csvFileWriterSensitive:FileWriter = null) {
     init
 
-    //val header = getHeaderValues()
     if (shouldIndex(map, startDate)) {
       
       val values = getOccIndexModel(guid, map)
@@ -571,28 +568,29 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.addField("suitable_modelling", suitableForModelling.toString)
 
         //index the available el and cl's - more efficient to use the supplied map than using the old way
-        val els = Json.toStringMap(map.getOrElse("el" +  Config.persistenceManager.fieldDelimiter + "p", "{}"))
+        val els = Json.toStringMap(getValue("el", map, true, "{}"))
         els.foreach {
           case (key, value) => doc.addField(key, value)
         }
-        val cls = Json.toStringMap(map.getOrElse("cl" +  Config.persistenceManager.fieldDelimiter + "p", "{}"))
+        val cls = Json.toStringMap(getValue("cl", map, true, "{}"))
         cls.foreach {
           case (key, value) => doc.addField(key, value)
         }
 
         //index the additional species information - ie species groups
-        val lft = map.get("left" +  Config.persistenceManager.fieldDelimiter + "p")
-        val rgt = map.get("right" +   Config.persistenceManager.fieldDelimiter + "p")
-        if(lft.isDefined && rgt.isDefined){
+        val lft = getValue("left", map, true)
+        val rgt = getValue("right", map, true)
+
+        if(lft != "" && rgt !=""){
 
           // add the species groups
-          val sgs = SpeciesGroups.getSpeciesGroups(lft.get, rgt.get)
+          val sgs = SpeciesGroups.getSpeciesGroups(lft, rgt)
           if(sgs.isDefined){
             sgs.get.foreach{v:String => doc.addField("species_group", v)}
           }
 
           // add the species subgroups
-          val ssgs = SpeciesGroups.getSpeciesSubGroups(lft.get, rgt.get)
+          val ssgs = SpeciesGroups.getSpeciesSubGroups(lft, rgt)
           if(ssgs.isDefined){
             ssgs.get.foreach{v:String => doc.addField("species_subgroup", v)}
           }

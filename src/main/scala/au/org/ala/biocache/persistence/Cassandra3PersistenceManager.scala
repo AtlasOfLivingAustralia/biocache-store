@@ -408,7 +408,7 @@ class Cassandra3PersistenceManager  @Inject() (
       val scanTask = new Callable[Int]{
         def call() : Int = {
 
-            logger.info("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
+            logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
 
             val stmt = new SimpleStatement("SELECT * FROM occ where token(rowkey) > " + tokenRanges(tokenRangeIdx).getStart() + " and token(rowkey) < " + tokenRanges(tokenRangeIdx).getEnd())
             stmt.setFetchSize(1000)
