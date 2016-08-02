@@ -47,7 +47,7 @@ object ClassificationDAO {
         || cl.infraspecificEpithet != null || cl.kingdom != null || cl.phylum != null
         || cl.classs != null || cl.order != null || cl.family !=null  || cl.genus!=null){
         Array(cl.kingdom,cl.phylum,cl.classs,cl.order,cl.family,cl.genus,cl.species,cl.specificEpithet,
-          cl.subspecies,cl.infraspecificEpithet,cl.scientificName,cl.taxonRank).reduceLeft(_+"|"+_)
+          cl.subspecies,cl.infraspecificEpithet,cl.scientificName,cl.taxonRank, cl.taxonConceptID).reduceLeft(_+"|"+_)
       } else {
         cl.vernacularName
       }
