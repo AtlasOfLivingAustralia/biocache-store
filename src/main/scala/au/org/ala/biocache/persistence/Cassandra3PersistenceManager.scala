@@ -403,11 +403,14 @@ class Cassandra3PersistenceManager  @Inject() (
     val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
     val callables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
 
-    for (tokenRange <- tokenRanges) {
+    for (tokenRangeIdx <- 0 until tokenRanges.length){
 
       val scanTask = new Callable[Int]{
         def call() : Int = {
-            val stmt = new SimpleStatement("SELECT * FROM occ where token(rowkey) > " + tokenRange.getStart() + " and token(rowkey) < " + tokenRange.getEnd())
+
+            logger.info("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
+
+            val stmt = new SimpleStatement("SELECT * FROM occ where token(rowkey) > " + tokenRanges(tokenRangeIdx).getStart() + " and token(rowkey) < " + tokenRanges(tokenRangeIdx).getEnd())
             stmt.setFetchSize(1000)
             val rs = session.execute(stmt)
             val rows = rs.iterator()
@@ -416,7 +419,6 @@ class Cassandra3PersistenceManager  @Inject() (
             while (rows.hasNext()) {
               val row = rows.next()
               val rowkey = row.getString("rowkey")
-              counter += 1
               val map = new util.HashMap[String, String]()
               row.getColumnDefinitions.foreach { defin =>
                 val value = row.getString(defin.getName)
@@ -430,9 +432,9 @@ class Cassandra3PersistenceManager  @Inject() (
               counter +=1
               if (counter % 10000 == 0) {
                 val currentTime = System.currentTimeMillis()
-                logger.info("[" + tokenRange.getStart() + "] " + row.getString(0) + " records read: " + counter + ", records per sec: " +
+                logger.info("[Token range : " + tokenRangeIdx + "] " + row.getString(0) + " records read: " + counter + ", records per sec: " +
                   ( counter.toFloat) / ( (currentTime - start).toFloat / 1000f) + "  Time taken: " +
-                  ((currentTime - start) / 1000))
+                  ((currentTime - start) / 1000) + " seconds")
               }
             }
             return counter
@@ -440,8 +442,10 @@ class Cassandra3PersistenceManager  @Inject() (
         }
       callables.add(scanTask)
     }
-
+    logger.info("Starting threads...")
     val futures: util.List[Future[Int]] = es.invokeAll(callables)
+    logger.info("All threads have completed paging")
+
     var grandTotal: Int = 0
     for (f <- futures) {
       val count:Int = f.get.asInstanceOf[Int]
@@ -485,4 +489,6 @@ class Cassandra3PersistenceManager  @Inject() (
     * The field delimiter to use
     */
   override def fieldDelimiter: Char = '_'
+
+  override def caseInsensitiveFields = true
 }

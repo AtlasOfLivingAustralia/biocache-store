@@ -1,6 +1,6 @@
 package au.org.ala.biocache.export
 
-import org.apache.lucene.index.IndexReader
+import org.apache.lucene.index.{DirectoryReader, IndexReader}
 import org.apache.lucene.store.FSDirectory
 import java.io.{FileWriter, File}
 import au.org.ala.biocache.util.OptionParser
@@ -28,7 +28,7 @@ object ExportForOutliers extends Tool {
   def runExtract(indexDir:String, exportDir:String, separator:Char = '\t'){
     println("Running extract....")
     
-    val indexReader = IndexReader.open(FSDirectory.open(new File(indexDir)))
+    val indexReader = DirectoryReader.open(FSDirectory.open(new File(indexDir).toPath))
     
     val spWriter = new FileWriter(new File(exportDir + File.separator + "species-unsorted.txt"))
     val sbpWriter = new FileWriter(new File(exportDir + File.separator + "subspecies-unsorted.txt"))
@@ -92,7 +92,8 @@ object ExportSpecies {
 
   def main(args:Array[String]){
 
-    val indexReader = IndexReader.open(FSDirectory.open(new File(args.head)))
+    val indexReader = DirectoryReader.open(FSDirectory.open(new File(args.head).toPath))
+
     var counter = 0
     val maxDocId = indexReader.maxDoc()
     val separator = '\t'
@@ -129,7 +130,7 @@ object ExportSubspecies {
 
   def main(args:Array[String]){
 
-    val indexReader = IndexReader.open(FSDirectory.open(new File(args.head)))
+    val indexReader = DirectoryReader.open(FSDirectory.open(new File(args.head).toPath))
     var counter = 0
     val maxDocId = indexReader.maxDoc()
     val separator = '\t'

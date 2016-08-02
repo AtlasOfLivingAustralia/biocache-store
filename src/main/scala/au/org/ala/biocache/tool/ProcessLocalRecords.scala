@@ -5,6 +5,7 @@ import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.model.Versions
 import au.org.ala.biocache.processor.RecordProcessor
 import au.org.ala.biocache.util.OptionParser
+import org.slf4j.LoggerFactory
 
 object ProcessLocalRecords extends Tool {
 
@@ -30,10 +31,14 @@ object ProcessLocalRecords extends Tool {
   */
 class ProcessLocalRecords {
 
+  val logger = LoggerFactory.getLogger("ProcessLocalRecords")
+
   def processRecords(threads:Int, address:String): Unit = {
+
     val processor = new RecordProcessor
-    var counter = 0
-    Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
+    val start = System.currentTimeMillis()
+
+    val total = Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
       if(!record.isEmpty){
         val raw = record.get._1
         val (processed, assertions) = processor.processRecord(raw)
@@ -41,5 +46,8 @@ class ProcessLocalRecords {
       }
       true
     }, threads, address)
+
+    val end = System.currentTimeMillis()
+    logger.info("Total records processed : " + total + " in " + ((end-start).toFloat / 60f /60f) + " minutes")
   }
 }

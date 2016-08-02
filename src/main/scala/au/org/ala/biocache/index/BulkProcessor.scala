@@ -1,5 +1,6 @@
 package au.org.ala.biocache.index
 
+import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.Config
@@ -7,8 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache.cmd.Tool
 import org.apache.lucene.store.FSDirectory
 import java.io.File
-import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.index.IndexWriterConfig
+import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.index.IndexWriterConfig.OpenMode
 import org.apache.lucene.util.Version
 import org.apache.commons.io.FileUtils
@@ -224,6 +224,7 @@ object IndexMergeTool extends Tool {
 
   /**
    * Merge method that wraps SOLR merge API
+ *
    * @param mergeDir
    * @param directoriesToMerge
    * @param forceMerge
@@ -243,14 +244,14 @@ object IndexMergeTool extends Tool {
       FileUtils.forceMkdir(mergeDirFile)
     }
 
-    val mergedIndex = FSDirectory.open(mergeDirFile)
+    val mergedIndex = FSDirectory.open(mergeDirFile.toPath)
 
-    val writerConfig = (new IndexWriterConfig(Version.LUCENE_CURRENT, null))
+    val writerConfig = (new IndexWriterConfig(new StandardAnalyzer()))
       .setOpenMode(OpenMode.CREATE)
       .setRAMBufferSizeMB(rambuffer)
 
     val writer = new IndexWriter(mergedIndex, writerConfig)
-    val indexes = directoriesToMerge.map(dir => FSDirectory.open(new File(dir)))
+    val indexes = directoriesToMerge.map(dir => FSDirectory.open(new File(dir).toPath))
 
     logger.info("Adding indexes...")
     writer.addIndexes(indexes:_*)

@@ -4,12 +4,12 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.slf4j.LoggerFactory
 import org.apache.solr.core.CoreContainer
-import org.apache.solr.client.solrj.{StreamingResponseCallback, SolrQuery, SolrServer}
+import org.apache.solr.client.solrj.{SolrClient, StreamingResponseCallback, SolrQuery, SolrServer}
 import au.org.ala.biocache.dao.OccurrenceDAO
 import org.apache.solr.common.{SolrDocument, SolrInputDocument}
 import java.io.{FileWriter, OutputStream, File}
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
-import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrServer}
+import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrClient, CloudSolrClient, ConcurrentUpdateSolrServer}
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.common.params.{MapSolrParams, ModifiableSolrParams}
 import java.util.Date
@@ -43,10 +43,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   } else {
     defaultMiscFields.split(",")
   }
-  
+
   var cc: CoreContainer = _
-  var solrServer: SolrServer = _
-  var cloudServer: org.apache.solr.client.solrj.impl.CloudSolrServer = _
+  var solrServer: SolrClient = _
+  var cloudServer: org.apache.solr.client.solrj.impl.CloudSolrClient = _
   var solrConfigPath: String = ""
 
   @Inject
@@ -67,28 +67,27 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   override def init() {
 
-    if (solrServer == null) {
-      logger.info("Initialising the solr server " + solrHome + " cloudserver:" + cloudServer + " solrServer:" + solrServer)
-      if(!solrHome.startsWith("http://")){
-        if(solrHome.contains(":")) {
-          //assume that it represents a SolrCloud
-          cloudServer = new org.apache.solr.client.solrj.impl.CloudSolrServer(solrHome)
-          cloudServer.setDefaultCollection("biocache1")
-          solrServer = cloudServer
-        } else if (solrConfigPath != "") {
-          logger.info("Initialising embedded SOLR server.....")
-          cc = CoreContainer.createAndLoad(solrHome, new File(solrHome+"/solr.xml"))
-          solrServer = new EmbeddedSolrServer(cc, "biocache")
+    synchronized {
+      if (solrServer == null) {
+        logger.info("Initialising the solr server " + solrHome + " cloudserver:" + cloudServer + " solrServer:" + solrServer)
+        if (!solrHome.startsWith("http://")) {
+          if (solrHome.contains(":")) {
+            //assume that it represents a SolrCloud
+            cloudServer = new CloudSolrClient(solrHome)
+            cloudServer.setDefaultCollection("biocache")
+            solrServer = cloudServer
+          } else {
+            logger.info("Initialising embedded SOLR server.....")
+            System.setProperty("solr.solr.home", solrHome)
+            cc = CoreContainer.createAndLoad(new File(solrHome).toPath, new File(solrHome + "/solr.xml").toPath) //new CoreContainer(solrHome)
+            solrServer = new EmbeddedSolrServer(cc, "biocache")
+            logger.info("Initialising solrServer .... " + solrServer)
+          }
         } else {
-          logger.info("Initialising embedded SOLR server.....")
-          System.setProperty("solr.solr.home", solrHome)
-          cc = CoreContainer.createAndLoad(solrHome,new File(solrHome + "/solr.xml"))//new CoreContainer(solrHome)
-          solrServer = new EmbeddedSolrServer(cc, "biocache")
+          logger.info("Initialising connection to SOLR server.....")
+          solrServer = new ConcurrentUpdateSolrClient(solrHome, BATCH_SIZE, Config.solrUpdateThreads)
+          logger.info("Initialising connection to SOLR server - done.")
         }
-      } else {
-        logger.info("Initialising connection to SOLR server.....")
-        solrServer = new ConcurrentUpdateSolrServer(solrHome, BATCH_SIZE, Config.solrUpdateThreads)
-        logger.info("Initialising connection to SOLR server - done.")
       }
     }
   }
@@ -200,7 +199,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
       if (sortField.isDefined) {
         val dir = sortDir.getOrElse("asc")
-        q.setSortField(sortField.get, if (dir == "asc") {
+        q.setSort(sortField.get, if (dir == "asc") {
           org.apache.solr.client.solrj.SolrQuery.ORDER.asc
         } else {
           org.apache.solr.client.solrj.SolrQuery.ORDER.desc
@@ -319,7 +318,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   def shouldIndex(map: scala.collection.Map[String, String], startDate: Option[Date]): Boolean = {
     if (!startDate.isEmpty) {
       val lastLoaded = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn, map))
-      val lastProcessed = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn + ".p", map))
+      val lastProcessed = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn +  Config.persistenceManager.fieldDelimiter + "p", map))
       return startDate.get.before(lastProcessed.getOrElse(startDate.get)) || startDate.get.before(lastLoaded.getOrElse(startDate.get))
     }
     true
@@ -500,7 +499,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.addField("system_assertions", sa)
 
         //load the species lists that are configured for the matched guid.
-        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p",""))
+        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonconceptid" + Config.persistenceManager.fieldDelimiter + "p",""))
         speciesLists.foreach { v =>
           doc.addField("species_list_uid", v)
         }
@@ -510,7 +509,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
          * TODO refactor so that additional indexing is pluggable without core changes.
          */
         if(Config.gridRefIndexingEnabled){
-          val bboxString = map.getOrElse("bbox.p", "")
+          val bboxString = map.getOrElse("bbox" +  Config.persistenceManager.fieldDelimiter + "p", "")
           if(bboxString != ""){
             val bbox = bboxString.split(",")
             doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
@@ -519,11 +518,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
             doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
           }
 
-          val easting = map.getOrElse("easting.p", "")
-          if(easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting))
-          val northing = map.getOrElse("northing.p", "")
-          if(northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing))
-          val gridRef = map.getOrElse("gridReference", "")
+          val easting = map.getOrElse("easting" +  Config.persistenceManager.fieldDelimiter + "p", "")
+          if(easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting).toInt)
+          val northing = map.getOrElse("northing" +  Config.persistenceManager.fieldDelimiter + "p",  "")
+          if(northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing).toInt)
+          val gridRef = map.getOrElse("gridreference", "")
           if(gridRef != "") {
             doc.addField("grid_ref", gridRef)
 
@@ -572,18 +571,18 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.addField("suitable_modelling", suitableForModelling.toString)
 
         //index the available el and cl's - more efficient to use the supplied map than using the old way
-        val els = Json.toStringMap(map.getOrElse("el.p", "{}"))
+        val els = Json.toStringMap(map.getOrElse("el" +  Config.persistenceManager.fieldDelimiter + "p", "{}"))
         els.foreach {
           case (key, value) => doc.addField(key, value)
         }
-        val cls = Json.toStringMap(map.getOrElse("cl.p", "{}"))
+        val cls = Json.toStringMap(map.getOrElse("cl" +  Config.persistenceManager.fieldDelimiter + "p", "{}"))
         cls.foreach {
           case (key, value) => doc.addField(key, value)
         }
 
         //index the additional species information - ie species groups
-        val lft = map.get("left.p")
-        val rgt = map.get("right.p")
+        val lft = map.get("left" +  Config.persistenceManager.fieldDelimiter + "p")
+        val rgt = map.get("right" +   Config.persistenceManager.fieldDelimiter + "p")
         if(lft.isDefined && rgt.isDefined){
 
           // add the species groups
@@ -716,7 +715,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     init
     val solrQuery = new SolrQuery();
-    solrQuery.setQueryType("standard");
     // Facets
     solrQuery.setFacet(true)
     solrQuery.addFacetField("row_key")
@@ -751,7 +749,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     init
     val solrQuery = new SolrQuery();
-    solrQuery.setQueryType("standard");
     // Facets
     solrQuery.setFacet(true)
     solrQuery.addFacetField("row_key")
@@ -778,7 +775,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   def getDistinctValues(query: String, field: String, max: Int): Option[List[String]] = {
     init
     val solrQuery = new SolrQuery();
-    solrQuery.setQueryType("standard");
     // Facets
     solrQuery.setFacet(true)
     solrQuery.addFacetField(field)
@@ -827,7 +823,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     var continue = true
 
     val solrQuery = new SolrQuery()
-      .setQueryType("standard")
       .setFacet(false)
       .setFields(field)
       .setQuery(query)

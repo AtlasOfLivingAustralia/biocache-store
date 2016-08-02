@@ -110,6 +110,11 @@ trait PersistenceManager {
    * The field delimiter to use
    */
   def fieldDelimiter = '.'
+
+  /**
+    * The field delimiter to use
+    */
+  def caseInsensitiveFields = false
 }
 
 

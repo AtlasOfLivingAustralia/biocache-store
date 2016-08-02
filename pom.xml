@@ -25,7 +25,7 @@
         <scala.version>2.10.4</scala.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <org.springframework.version>3.0.6.RELEASE</org.springframework.version>
-        <solr.version>4.10.4</solr.version>
+        <solr.version>5.5.2</solr.version>
         <jts.version>1.12</jts.version>
     </properties>
     <description>
@@ -203,7 +203,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>ala-name-matching</artifactId>
-            <version>2.3.3-SNAPSHOT</version>
+            <version>2.4.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.gbif</groupId>
@@ -234,6 +234,21 @@
                     <groupId>slf4j-api</groupId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-queries</artifactId>
+            <version>5.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-codecs</artifactId>
+            <version>5.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-backward-codecs</artifactId>
+            <version>5.5.2</version>
         </dependency>
         <!-- DWC-A -->
         <dependency>
