@@ -65,8 +65,6 @@ object Config {
     SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl, nameIndex)
   }
 
-  val defaultSourceCrs = configModule.properties.getProperty("default.source.crs", "EPSG:27700")
-
   val sdsEnabled = configModule.properties.getProperty("sds.enabled", "true").toBoolean
 
   val hashImageFileNames = configModule.properties.getProperty("hash.image.filenames", "false").toBoolean

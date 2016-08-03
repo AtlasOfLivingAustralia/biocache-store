@@ -390,10 +390,10 @@ object DateExtractor {
 }
 
 object GridReferenceExtractor {
-  def unapply(str: String): Option[(Int, Int, Option[Int], Int, Int, Int, Int)] = {
+  def unapply(str: String): Option[(Int, Int, Option[Int], Int, Int, Int, Int, String)] = {
     try {
       val l = new LocationProcessor
-      l.osGridReferenceToEastingNorthing(str)
+      l.gridReferenceToEastingNorthing(str)
     } catch {
       case e: Exception => None
     }
