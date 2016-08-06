@@ -85,8 +85,15 @@ class GridReferenceTest extends FunSuite {
     expectResult("10000") { result.get.coordinateUncertaintyInMeters.toString }
   }
 
-  test("NH12341234 at different resolutions") {
+  test("NH1234123 at different resolutions") {
+    val map = GridUtil.getGridRefAsResolutions("NH123123")
+    expectResult("NH") { map.get("grid_ref_100000") }
+    expectResult("NH11") { map.get("grid_ref_10000") }
+    expectResult("NH1212") { map.get("grid_ref_1000") }
+    expectResult("NH123123") { map.get("grid_ref_100") }
+  }
 
+  test("NH12341234 at different resolutions") {
     val map = GridUtil.getGridRefAsResolutions("NH12341234")
     expectResult("NH") { map.get("grid_ref_100000") }
     expectResult("NH11") { map.get("grid_ref_10000") }
@@ -94,8 +101,16 @@ class GridReferenceTest extends FunSuite {
     expectResult("NH123123") { map.get("grid_ref_100") }
   }
 
-  test("J12341234 at different resolutions") {
+  test("NH1234512345 at different resolutions") {
+    val map = GridUtil.getGridRefAsResolutions("NH1234512345")
+    expectResult("NH") { map.get("grid_ref_100000") }
+    expectResult("NH11") { map.get("grid_ref_10000") }
+    expectResult("NH11G") { map.get("grid_ref_2000") }
+    expectResult("NH1212") { map.get("grid_ref_1000") }
+    expectResult("NH123123") { map.get("grid_ref_100") }
+  }
 
+  test("J12341234 at different resolutions") {
     val map = GridUtil.getGridRefAsResolutions("J12341234")
     expectResult("J") { map.get("grid_ref_100000") }
     expectResult("J11") { map.get("grid_ref_10000") }
@@ -103,8 +118,52 @@ class GridReferenceTest extends FunSuite {
     expectResult("J123123") { map.get("grid_ref_100") }
   }
 
-  test("J1212 at different resolutions") {
+  test("J43214321 at different resolutions") {
+    val map = GridUtil.getGridRefAsResolutions("J43214321")
+    expectResult("J") { map.get("grid_ref_100000") }
+    expectResult("J44") { map.get("grid_ref_10000") }
+    expectResult("J44G") { map.get("grid_ref_2000") }
+    expectResult("J4343") { map.get("grid_ref_1000") }
+    expectResult("J432432") { map.get("grid_ref_100") }
+  }
 
+  test("Dogfood at different resolutions - J43G") {
+     GridUtil.gridReferenceToEastingNorthing("J43G") match {
+       case Some((gridLetters, easting, northing, coordinatePrecision, minE, minN, maxE, maxN, datum)) => {
+         val gridref = gridLetters + easting.toString().substring(1) + northing.toString().substring(1)
+         val map = GridUtil.getGridRefAsResolutions(gridref)
+         expectResult("J") { map.get("grid_ref_100000") }
+         expectResult("J43") { map.get("grid_ref_10000") }
+         expectResult("J43G") { map.get("grid_ref_2000") }
+      }
+    }
+  }
+
+  test("Dogfood at different resolutions - C12Q") {
+    GridUtil.gridReferenceToEastingNorthing("C12Q") match {
+      case Some((gridLetters, easting, northing, coordinatePrecision, minE, minN, maxE, maxN, datum)) => {
+        val gridref = gridLetters + easting.toString().substring(1) + northing.toString().substring(1)
+        val map = GridUtil.getGridRefAsResolutions(gridref)
+        expectResult("C") { map.get("grid_ref_100000") }
+        expectResult("C12") { map.get("grid_ref_10000") }
+        expectResult("C12Q") { map.get("grid_ref_2000") }
+      }
+    }
+  }
+
+  test("Dogfood at different resolutions - NH12Q") {
+    GridUtil.gridReferenceToEastingNorthing("NH12Q") match {
+      case Some((gridLetters, easting, northing, coordinatePrecision, minE, minN, maxE, maxN, datum)) => {
+        val gridref = gridLetters + easting.toString().substring(1) + northing.toString().substring(1)
+        val map = GridUtil.getGridRefAsResolutions(gridref)
+        expectResult("NH") { map.get("grid_ref_100000") }
+        expectResult("NH12") { map.get("grid_ref_10000") }
+        expectResult("NH12Q") { map.get("grid_ref_2000") }
+      }
+    }
+  }
+
+  test("J1212 at different resolutions") {
     val map = GridUtil.getGridRefAsResolutions("J1212")
     expectResult("J") { map.get("grid_ref_100000") }
     expectResult("J11") { map.get("grid_ref_10000") }
@@ -112,7 +171,6 @@ class GridReferenceTest extends FunSuite {
   }
 
   test("J11 at different resolutions") {
-
     val map = GridUtil.getGridRefAsResolutions("J11")
     expectResult("J") { map.get("grid_ref_100000") }
     expectResult("J11") { map.get("grid_ref_10000") }
@@ -127,5 +185,6 @@ class GridReferenceTest extends FunSuite {
     val map = GridUtil.getGridRefAsResolutions("NH")
     expectResult("NH") { map.get("grid_ref_100000") }
     expectResult(false) { map.get("grid_ref_10000")  == "NH00"}
+    expectResult(true) { map.get("grid_ref_10000")  == null}
   }
 }
