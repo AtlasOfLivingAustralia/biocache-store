@@ -62,7 +62,7 @@ class IndexLocalRecords {
       } catch {
         case e:Exception => {
           logger.error("Problem indexing record: " + guid + " - "  + e.getMessage())
-          logger.debug("Problem indexing record: " + guid + " - "  + e.getMessage(), e)
+          logger.error("Problem indexing record: " + guid + " - "  + e.getMessage(), e)
         }
       }
       true

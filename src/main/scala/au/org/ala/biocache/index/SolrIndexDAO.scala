@@ -1,5 +1,8 @@
 package au.org.ala.biocache.index
 
+import java.util
+
+import au.org.ala.biocache.processor.LocationProcessor
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.slf4j.LoggerFactory
@@ -20,7 +23,7 @@ import org.apache.commons.lang.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.{AssertionCodes, SpeciesGroups, ErrorCodeCategory}
-import au.org.ala.biocache.util.Json
+import au.org.ala.biocache.util.{GridUtil, Json}
 
 /**
  * DAO for indexing to SOLR
@@ -522,27 +525,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           val gridRef = map.getOrElse("gridreference", "")
           if(gridRef != "") {
             doc.addField("grid_ref", gridRef)
-
-            if(gridRef.length() > 2) {
-
-              val gridChars = gridRef.substring(0,2)
-              val eastNorthing = gridRef.substring(2)
-              val es = eastNorthing.splitAt((eastNorthing.length() / 2) )
-
-              //add grid references for 10km, and 1km
-              if (gridRef.length() >= 4) {
-                doc.addField("grid_ref_10000", gridChars + es._1.substring(0,1)+ es._2.substring(0,1))
-              }
-              if (gridRef.length() == 5) {
-                doc.addField("grid_ref_2000", gridRef)
-              }
-              if (gridRef.length() >= 6) {
-                doc.addField("grid_ref_1000", gridChars + es._1.substring(0,2)+ es._2.substring(0,2))
-              }
-              if (gridRef.length() >= 8) {
-                doc.addField("grid_ref_100", gridChars + es._1.substring(0,3)+ es._2.substring(0,3))
-              }
-            }
+            val map = GridUtil.getGridRefAsResolutions(gridRef)
+            map.keySet.foreach { key => doc.addField(key, map.getOrElse(key, "")) }
           }
         }
         /** UK NBN **/

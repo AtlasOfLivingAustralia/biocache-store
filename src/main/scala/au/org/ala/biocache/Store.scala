@@ -717,8 +717,8 @@ object Store {
     * @return
     */
   def convertGridReference(gridRef:String): Array[Int] = {
-    new LocationProcessor().gridReferenceToEastingNorthing(gridRef) match {
-      case Some((easting, northing, uncertainty, minE, minN, maxE, maxN, projection)) => {
+    GridUtil.gridReferenceToEastingNorthing(gridRef) match {
+      case Some((gridletters, easting, northing, uncertainty, minE, minN, maxE, maxN, datum)) => {
         Array(
           easting,
           northing,

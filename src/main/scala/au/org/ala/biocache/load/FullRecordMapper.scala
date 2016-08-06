@@ -141,11 +141,11 @@ object FullRecordMapper {
     fullRecord.lastModifiedTime = fields.getOrElse(markNameBasedOnVersion("lastModifiedTime",version),"")
     fullRecord.firstLoaded = fields.getOrElse("firstLoaded","")
 
-    fullRecord.setRawFields(fields)
+    fullRecord.setRawFieldsWithMapping(fields)
     fields.keySet.foreach( fieldName => {
       //ascertain which term should be associated with which object
 
-      var fieldValue = fields.get(fieldName) match{
+      val fieldValue = fields.get(fieldName) match {
         case Some(null) => ""
         case _ => fields.getOrElse(fieldName, "").trim
       }
