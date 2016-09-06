@@ -473,7 +473,7 @@ class CassandraPersistenceManager @Inject() (
     pageOver(entityName, proc, pageSize, slicePredicate,true,startRowkey=startRowkey, endRowkey=endRowkey)
   }
 
-  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, localNodeIP:String) : Int = {
+  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String]) : Int = {
     throw new RuntimeException("Not supported with cassandra 1 !!!!")
   }
 
@@ -570,4 +570,10 @@ class CassandraPersistenceManager @Inject() (
       val deletor = Pelops.createRowDeletor(poolName)
       deletor.deleteRow(entityName, uuid, ConsistencyLevel.ONE)
     }
+
+  /**
+    * Removes the record for the supplied uuid from entityName.
+    */
+  def createSecondaryIndex(uuid:String, entityName:String, threads:Int) : Int =
+    throw new RuntimeException("Unsupported")
 }

@@ -66,7 +66,7 @@ class IndexLocalRecords {
         }
       }
       true
-    }, threads, address)
+    }, threads, Array())
 
     val end = System.currentTimeMillis()
     logger.info("Total records indexed : " + total + " in " + ((end-start).toFloat / 1000f / 60f) + " minutes")

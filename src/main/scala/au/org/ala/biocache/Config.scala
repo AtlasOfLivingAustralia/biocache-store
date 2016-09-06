@@ -205,6 +205,8 @@ object Config {
 
   val loadSpeciesLists = configModule.properties.getProperty("include.species.lists", "false").toBoolean
 
+  val localNodeIp = configModule.properties.getProperty("local.node.ip", "127.0.0.1")
+
   def getProperty(prop:String) = configModule.properties.getProperty(prop)
 
   private def getProperty(prop:String, default:String) = configModule.properties.getProperty(prop,default)
@@ -327,7 +329,7 @@ private class ConfigModule extends AbstractModule {
       case "postgres" => bind(classOf[PersistenceManager]).to(classOf[PostgresPersistenceManager]).in(Scopes.SINGLETON)
       case "cassandra" => bind(classOf[PersistenceManager]).to(classOf[CassandraPersistenceManager]).in(Scopes.SINGLETON)
       case "cassandra3" => bind(classOf[PersistenceManager]).to(classOf[Cassandra3PersistenceManager]).in(Scopes.SINGLETON)
-      case _ => throw new RuntimeException("Persistence manager typ unrecognised. Please check your external config file. ")
+      case _ => throw new RuntimeException("Persistence manager type unrecognised. Please check your external config file. ")
     }
     logger.debug("Configure complete")
   }

@@ -712,32 +712,13 @@ object Store {
   }
 
   /**
-    * Utility method for conversion of grid references.
-    * @param gridRef
-    * @return
-    */
-  def convertGridReference(gridRef:String): Array[Int] = {
-    GridUtil.gridReferenceToEastingNorthing(gridRef) match {
-      case Some((gridletters, easting, northing, uncertainty, minE, minN, maxE, maxN, datum)) => {
-        Array(
-          easting,
-          northing,
-          uncertainty.getOrElse(-1)
-        )
-      }
-      case None => Array()
-    }
-  }
-
-  /**
    * Persist custom index fields.
    *
    * @param tempUid
    * @param customChartOptions
    */
-  def storeLayerOptions(tempUid:String, customChartOptions:String) : Unit = {
+  def storeLayerOptions(tempUid:String, customChartOptions:String) : String =
     Config.persistenceManager.put(tempUid, "upload", "layerOptions", customChartOptions, false)
-  }
 
   /**
    * Retrieve custom index fields.

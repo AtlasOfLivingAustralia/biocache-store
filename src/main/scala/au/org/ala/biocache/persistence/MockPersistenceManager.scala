@@ -145,7 +145,10 @@ class MockPersistenceManager extends PersistenceManager {
 
   def shutdown = mockStore.clear
 
-  override def pageOverLocal(entityName: String, proc: (String, Map[String, String]) => Boolean, threads: Int, localNodeIP: String): Int = {
+  def pageOverLocal(entityName: String, proc: (String, Map[String, String]) => Boolean, threads: Int, columns:Array[String]): Int = {
     throw new RuntimeException("Not implemented yet!!!")
   }
+
+  def createSecondaryIndex(entityName:String, indexFieldName:String, threads:Int) = 0
+
 }

@@ -56,7 +56,7 @@ trait OccurrenceDAO extends DAO {
   def pageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), startKey:String="", endKey:String="",
                            pageSize: Int = 1000): Unit
 
-  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4, localNodeIP:String) : Int
+  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4) : Int
 
   def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean),
                                       condition:(Map[String,String]=>Boolean), columnsToRetrieve:Array[String],

@@ -4,6 +4,7 @@ import java.util
 import java.util.UUID
 import java.util.concurrent._
 
+import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.Json
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{DCAwareRoundRobinPolicy, TokenAwarePolicy}
@@ -125,37 +126,47 @@ class Cassandra3PersistenceManager  @Inject() (
     * be alright because the index should only be hit for reads via webapp.
     *
     */
-  def getByIndex(uuid:String, entityName:String, idxColumn:String) : Option[Map[String,String]] = {
-    val stmt = getPreparedStmt(s"SELECT * FROM $entityName where $idxColumn = ?")
-    val boundStatement = stmt bind uuid
-    val rs = session.execute(boundStatement)
-    val rows = rs.iterator
-    if (rows.hasNext()) {
-      val row = rows.next()
-      val map = new util.HashMap[String,String]()
-      row.getColumnDefinitions.foreach { defin =>
-        val value = row.getString(defin.getName)
-        if(value != null){
-          map.put(defin.getName, value)
-        }
-      }
-      Some(map.toMap)
+  def getByIndex(indexedValue:String, entityName:String, idxColumn:String) : Option[Map[String,String]] = {
+    val rowkey = getRowkeyByIndex(indexedValue, entityName, idxColumn)
+    if(!rowkey.isEmpty){
+      get(rowkey.get, entityName)
     } else {
       None
     }
   }
 
   /**
+    * Does a lookup against an index table which has the form
+    *  table: occ
+    *  field to index: uuid
+    *  index_table: occ_uuid
+    *
+    *
     * Retrieves a specific property value using the index as the retrieval method.
     */
-  def getByIndex(uuid:String, entityName:String, idxColumn:String, propertyName:String) = {
-    val stmt = getPreparedStmt(s"SELECT $propertyName FROM $entityName where $idxColumn = ?")
-    val boundStatement = stmt bind uuid
+  def getByIndex(indexedValue:String, entityName:String, idxColumn:String, propertyName:String) = {
+    val rowkey = getRowkeyByIndex(indexedValue, entityName, idxColumn)
+    if("rowkey".equals(propertyName)){
+      rowkey
+    } else {
+      if(!rowkey.isEmpty){
+        get(rowkey.get, entityName, propertyName)
+      } else {
+        None
+      }
+    }
+  }
+
+  private def getRowkeyByIndex(indexedValue:String, entityName:String, idxColumn:String) : Option[String] = {
+
+    val indexTable = entityName + "_" + idxColumn
+    val stmt = getPreparedStmt(s"SELECT value FROM $indexTable where rowkey = ?")
+    val boundStatement = stmt bind indexedValue
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
     if (rows.hasNext()) {
       val row = rows.next()
-      val value = row.getString(propertyName)
+      val value = row.getString("value")
       Some(value)
     } else {
       None
@@ -232,7 +243,7 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * Store the supplied map of properties as separate columns in cassandra.
     */
-  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
+  def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
 
     try {
 
@@ -243,15 +254,19 @@ class Cassandra3PersistenceManager  @Inject() (
       }
 
       val placeHolders = ",?" * keyValuePairsToUse.size
-      val statement = getPreparedStmt(s"INSERT INTO $entityName (rowkey," + keyValuePairsToUse.keySet.mkString(",") + ") VALUES (?" + placeHolders + ")")
+      val sql = s"INSERT INTO $entityName (rowkey," + keyValuePairsToUse.keySet.mkString(",") + ") VALUES (?" + placeHolders + ")"
+
+      val statement = getPreparedStmt(sql)
+
       val boundStatement = if (keyValuePairsToUse.size == 1) {
-        statement.bind(Array(uuid, keyValuePairsToUse.values.head))
+        val values = Array(rowkey, keyValuePairsToUse.values.head)
+        statement.bind(values: _*)
       } else {
-        val values = Array(uuid) ++ keyValuePairsToUse.values.toArray[String]
+        val values = Array(rowkey) ++ keyValuePairsToUse.values.toArray[String]
         statement.bind(values: _*)
       }
       val future = session.execute(boundStatement)
-      uuid
+      rowkey
     } catch {
       case e:Exception => {
         logger.error("Problem persisting the following to " + entityName + " - " + e.getMessage)
@@ -323,7 +338,39 @@ class Cassandra3PersistenceManager  @Inject() (
     * @param columnName The names of the columns that need to be provided for processing by the proc
     */
   def pageOverSelect(entityName:String, proc:((String, Map[String,String]) => Boolean), startUuid:String, endUuid:String, pageSize:Int, columnName:String*){
-    throw new RuntimeException("No supported")
+
+
+    val columnsString = "rowkey," + columnName.mkString(",")
+
+    logger.debug("Start: Testing paging over all")
+
+    //page through the data
+    val stmt: Statement = new SimpleStatement(s"SELECT $columnsString FROM $entityName")
+    stmt.setFetchSize(1000)
+    val rs: ResultSet = session.execute(stmt)
+    val rows: util.Iterator[Row] = rs.iterator
+    var counter: Int = 0
+    val start: Long = System.currentTimeMillis
+    while (rows.hasNext) {
+      val row = rows.next
+      val rowkey = row.getString("rowkey")
+      counter += 1
+      val map = new util.HashMap[String, String]()
+      row.getColumnDefinitions.foreach { defin =>
+        val value = row.getString(defin.getName)
+        if(value != null){
+          map.put(defin.getName, value)
+        }
+      }
+
+      val currentTime: Long = System.currentTimeMillis
+      logger.debug(row.getString(0) + " - records read: " + counter + ".  Records per sec: " + (counter.toFloat) / ((currentTime - start).toFloat / 1000f) + "  Time taken: " + ((currentTime - start) / 1000))
+
+      proc(rowkey, map.toMap)
+    }
+    //get token ranges....
+    //iterate through each token range....
+    logger.debug("End: Testing paging over all")
   }
 
   /**
@@ -379,25 +426,25 @@ class Cassandra3PersistenceManager  @Inject() (
    * @param proc
    * @param threads
    */
-  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, localNodeIP:String) : Int = {
+  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
 
     val metadata = cluster.getMetadata
     val allHosts = metadata.getAllHosts
     val localHost = {
       var localhost:Host = null
       allHosts.foreach { host =>
-        if (host.getAddress().getHostAddress() == localNodeIP) {
+        if (host.getAddress().getHostAddress() == Config.localNodeIp) {
           localhost = host
         }
       }
       localhost
     }
 
-    logger.info("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
+    logger.debug("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
 
     val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges(keyspace, localHost)).toArray(new Array[TokenRange](0))
     for (tokenRange <- tokenRanges) {
-      logger.info("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+      logger.debug("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
     }
 
     val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
@@ -408,9 +455,15 @@ class Cassandra3PersistenceManager  @Inject() (
       val scanTask = new Callable[Int]{
         def call() : Int = {
 
+            val columnsString = if(columns.length > 0){
+              columns.mkString(",")
+            } else {
+              "*"
+            }
+
             logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
 
-            val stmt = new SimpleStatement("SELECT * FROM occ where token(rowkey) > " + tokenRanges(tokenRangeIdx).getStart() + " and token(rowkey) < " + tokenRanges(tokenRangeIdx).getEnd())
+            val stmt = new SimpleStatement("SELECT " + columnsString + " FROM occ where token(rowkey) > " + tokenRanges(tokenRangeIdx).getStart() + " and token(rowkey) < " + tokenRanges(tokenRangeIdx).getEnd())
             stmt.setFetchSize(1000)
             val rs = session.execute(stmt)
             val rows = rs.iterator()
@@ -491,4 +544,42 @@ class Cassandra3PersistenceManager  @Inject() (
   override def fieldDelimiter: Char = '_'
 
   override def caseInsensitiveFields = true
+
+  /**
+   * Creates and populates a secondary index.
+   *
+   * @param entityName
+   * @param indexField
+   * @return
+   */
+  def createSecondaryIndex(entityName:String, indexField:String, threads:Int): Int = {
+
+    try {
+      val stmt = new SimpleStatement("CREATE TABLE occ_uuid (rowkey varchar, value varchar, PRIMARY KEY (rowkey));")
+      val rs = session.execute(stmt)
+    } catch {
+      case e:com.datastax.driver.core.exceptions.AlreadyExistsException => println("Index already exists...")
+    }
+
+    var counter = 0
+    val start = System.currentTimeMillis()
+    // create table
+    pageOverLocal(entityName, (guid, map) => {
+      //insert into secondary index
+      map.get("uuid") match {
+        case Some(uuid) => put(uuid, entityName + "_" + indexField, "value", guid, false)
+        case None => println(s"Record with guid: $guid missing $indexField value")
+      }
+      counter += 1
+      if (counter % 10000 == 0) {
+        val currentTime = System.currentTimeMillis()
+        logger.info("Records indexed: " + counter + ", records per sec: " +
+          ( counter.toFloat) / ( (currentTime - start).toFloat / 1000f) + "  Time taken: " +
+          ((currentTime - start) / 1000) + " seconds")
+      }
+      true
+    }, threads, columns = Array("rowkey", indexField))
+
+    counter
+  }
 }

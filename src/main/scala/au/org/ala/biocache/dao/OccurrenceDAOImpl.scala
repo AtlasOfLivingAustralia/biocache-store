@@ -161,7 +161,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       //persistenceManager.put(uniqueID, "dr", "uuid", newUuid)
       (newUuid, true)
     } else {
-      (recordUUID.get,false)
+      (recordUUID.get, false)
     }
   }
 
@@ -423,14 +423,14 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     },startKey,endKey, pageSize)
   }
 
-  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4, localNodeIP:String): Int = {
+  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4): Int = {
     persistenceManager.pageOverLocal(entityName, (guid, map) => {
       //retrieve all versions
       val raw = FullRecordMapper.createFullRecord(guid, map, Versions.RAW)
       val processed = FullRecordMapper.createFullRecord(guid, map, Versions.PROCESSED)
       //pass all version to the procedure, wrapped in the Option
       proc(Some(raw, processed))
-    }, threads, localNodeIP)
+    }, threads, Array())
   }
 
 
@@ -468,7 +468,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   /**
    * Update the version of the occurrence record.
    */
-  def addRawOccurrence(fr:FullRecord, deleteIfNullValue:Boolean=false) {
+  def addRawOccurrence(fr:FullRecord, deleteIfNullValue:Boolean = false) {
 
     //add the last load time
     fr.lastModifiedTime = new Date
@@ -481,11 +481,13 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     //commit
     if(deleteIfNullValue){
-      properties ++=  fr.getRawFields().filter ({ case (k, v) => {!properties.isDefinedAt(k)}}).map({case (k,v) => {(k,null)}})
+      properties ++=  fr.getRawFields().filter { case (k, v) => !properties.isDefinedAt(k) } map { case (k,v) => (k,null) }
     }
 
-
     persistenceManager.put(fr.rowKey, entityName, properties.toMap, deleteIfNullValue)
+
+    //store a secondary index value
+    persistenceManager.put(fr.uuid, entityName + "_uuid", "rowKey", fr.rowKey, false)
   }
 
   /**
@@ -493,22 +495,26 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    */
   def addRawOccurrenceBatch(fullRecords: Array[FullRecord], removeNullFields:Boolean = false) {
     val batch = scala.collection.mutable.Map[String, Map[String, String]]()
-    fullRecords.foreach(fr  => {
+    val batchSecondaryIndex = scala.collection.mutable.Map[String, Map[String, String]]()
+
+    fullRecords.foreach { fr =>
       //process the record
       val properties = FullRecordMapper.fullRecord2Map(fr, Versions.RAW)
       if (removeNullFields) {
-        properties ++= fr.getRawFields().filter({ case (k, v) => {
-          !properties.isDefinedAt(k)
+        properties ++= fr.getRawFields().filter {
+          case (k, v) => !properties.isDefinedAt(k)
         }
-        }).map({ case (k, v) => {
-          (k, null)
+        .map {
+          case (k, v) => (k, null)
         }
-        })
       }
       batch.put(fr.rowKey, properties.toMap)
-    })
+      batchSecondaryIndex.put(fr.uuid, Map("rowkey" -> fr.uuid, "value" -> fr.rowKey))
+    }
     //commit
     persistenceManager.putBatch(entityName, batch.toMap, removeNullFields)
+
+    persistenceManager.putBatch(entityName + "_uuid", batchSecondaryIndex.toMap, false)
   }
 
   /**
@@ -582,20 +588,18 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     })
 
     //check for deleted properties
-    val deletedProperties = oldproperties.filter({
-      case (key, value) => !properties.contains(key)
-    })
+    val deletedProperties = oldproperties.filter { case (key, value) => !properties.contains(key) }
 
-    propertiesToPersist ++= deletedProperties.map({
-      case (key, value) => key -> ""
-    })
+    propertiesToPersist ++= deletedProperties.map { case (key, value) => key -> "" }
 
     val timeCol = FullRecordMapper.markNameBasedOnVersion(FullRecordMapper.alaModifiedColumn, version)
 
     if(!assertions.isEmpty){
       initAssertions(newRecord, assertions.get)
       //only add  the assertions if they are different OR the properties to persist contain more than the last modified time stamp
-      if((oldRecord.assertions.toSet != newRecord.assertions.toSet) || !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")){
+      if((oldRecord.assertions.toSet != newRecord.assertions.toSet)
+        || !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")
+      ){
         //only add the assertions if they have changed since the last time or the number of records to persist >1
         propertiesToPersist ++= convertAssertionsToMap(rowKey,assertions.get,newRecord.userVerified)
         updateSystemAssertions(rowKey, assertions.get)
@@ -1155,13 +1159,13 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
   }
 
-  def getRowKeyFromUuidDB(uuid:String):Option[String] = persistenceManager.getByIndex(uuid, entityName, "uuid", "rowKey")
+  def getRowKeyFromUuidDB(uuid:String) : Option[String] = persistenceManager.getByIndex(uuid, entityName, "uuid", "rowKey")
 
-  def getRowKeyFromUuidIndex(uuid:String):Option[String] = {
+  def getRowKeyFromUuidIndex(uuid:String) : Option[String] = {
     if(uuid.startsWith("dr")){
       Some(uuid)
     } else {
-      val list = Config.indexDAO.getRowKeysForQuery("id:"+uuid,1)
+      val list = Config.indexDAO.getRowKeysForQuery("id:" + uuid,1)
       if(list.isDefined){
         list.get.headOption
       } else {
@@ -1181,8 +1185,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     if(map.isEmpty){
       logger.debug("Unable to reindex : " + rowKey)
     } else {
-      var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexDAO.getCsvWriter() } else { null }
-      var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexDAO.getCsvWriter(true) } else { null }
+      val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexDAO.getCsvWriter() } else { null }
+      val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexDAO.getCsvWriter(true) } else { null }
       indexDAO.indexFromMap(rowKey, map.get, batch=false, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
       if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }

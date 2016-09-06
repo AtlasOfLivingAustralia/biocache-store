@@ -15,13 +15,11 @@ object ProcessLocalRecords extends Tool {
   def main(args:Array[String]){
 
     var threads:Int = 1
-    var address:String = "127.0.0.1"
     val parser = new OptionParser(help) {
       intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
-      opt("ip", "local-ip-node", "The address", {v:String => address = v } )
     }
     if(parser.parse(args)){
-      new ProcessLocalRecords().processRecords(threads, address)
+      new ProcessLocalRecords().processRecords(threads)
     }
   }
 }
@@ -33,7 +31,7 @@ class ProcessLocalRecords {
 
   val logger = LoggerFactory.getLogger("ProcessLocalRecords")
 
-  def processRecords(threads:Int, address:String): Unit = {
+  def processRecords(threads:Int): Unit = {
 
     val processor = new RecordProcessor
     val start = System.currentTimeMillis()
@@ -45,7 +43,7 @@ class ProcessLocalRecords {
         Config.occurrenceDAO.updateOccurrence(raw.getRowKey, processed, Versions.PROCESSED)
       }
       true
-    }, threads, address)
+    }, threads)
 
     val end = System.currentTimeMillis()
     logger.info("Total records processed : " + total + " in " + ((end-start).toFloat / 60f /60f) + " minutes")

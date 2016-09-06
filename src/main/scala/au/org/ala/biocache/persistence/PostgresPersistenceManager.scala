@@ -19,7 +19,7 @@ class PostgresPersistenceManager() extends PersistenceManager {
 
   import JavaConversions._
 
-  override def pageOverLocal(entityName: String, proc: (String, Map[String, String]) => Boolean, threads: Int, localNodeIP: String): Int = {
+  override def pageOverLocal(entityName: String, proc: (String, Map[String, String]) => Boolean, threads: Int, columns:Array[String]): Int = {
     throw new RuntimeException("Not supported!!!")
   }
 
@@ -211,4 +211,6 @@ class PostgresPersistenceManager() extends PersistenceManager {
     * Close db connections etc
     */
    def shutdown: Unit = {}
+
+  def createSecondaryIndex(entityName:String, indexFieldName:String, threads:Int) = throw new RuntimeException("Not implemented")
  }
