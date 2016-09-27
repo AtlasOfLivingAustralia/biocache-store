@@ -2,8 +2,13 @@ package au.org.ala.biocache.util
 
 import java.util
 
+import au.org.ala.biocache.model.QualityAssertion
+import au.org.ala.biocache.processor.GISPoint
+
+import scala.collection.mutable.ArrayBuffer
+
 /**
-  * Utilities for parsing OS and Irish grid references.
+  * Utilities for parsing UK Ordnance survey British and Irish grid references.
   */
 object GridUtil {
 
@@ -23,6 +28,8 @@ object GridUtil {
   val irishGridRefRegex = """(I?[A-Z]{1})\s*([0-9]+)\s*([0-9]+)$""".r
   val irishGridRefWithQuadRegex = """(I?[A-Z]{1})\s*([0-9]+)\s*([0-9]+)\s*([NW|NE|SW|SE]{2})$""".r
   val tetradLetters = Array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','P','Q','R','S','T','U','V','W','X','Y','Z')
+
+  //CRS
   val IRISH_CRS = "EPSG:29902"
   val OSGB_CRS = "EPSG:27700"
 
@@ -51,6 +58,11 @@ object GridUtil {
 
   /**
     * Takes a grid reference and returns a map of grid references at different resolutions.
+    * Map will look like:
+    * grid_ref_100000 -> "NO"
+    * grid_ref_10000 -> "NO11"
+    * grid_ref_1000 -> "NO1212"
+    * grid_ref_100 -> "NO123123"
     *
     * @param gridRef
     * @return
@@ -60,27 +72,37 @@ object GridUtil {
     val map = new util.HashMap[String, String]
 
     gridReferenceToEastingNorthing(gridRef) match {
-      case Some((gridletters, easting, northing, precision, minE, minN, maxE, maxN, datum)) => {
+      case Some(gr) => {
 
-        map.put("grid_ref_100000", gridletters)
+        val gridSize = gr.coordinateUncertainty.getOrElse(-1)
+        map.put("grid_ref_100000", gr.gridLetters)
 
           if (gridRef.length > 2) {
-            val eastingAsStr = easting.toString
-            val northingAsStr = northing.toString
+            var eastingAsStr = gr.easting.toString
+            var northingAsStr = gr.northing.toString
+
+            if(eastingAsStr.length == 5) eastingAsStr = "0" + eastingAsStr
+            if(northingAsStr.length == 5) northingAsStr = "0" + northingAsStr
 
             //add grid references for 10km, and 1km
             if (eastingAsStr.length() >= 3 && northingAsStr.length() >= 3) {
-              map.put("grid_ref_10000", gridletters + eastingAsStr.substring(1, 2) + northingAsStr.substring(1, 2))
+              map.put("grid_ref_10000", gr.gridLetters + eastingAsStr.substring(1, 2) + northingAsStr.substring(1, 2))
             }
             if (eastingAsStr.length() >= 4 && northingAsStr.length() >= 4) {
               val eastingWithin10km = eastingAsStr.substring(2, 3).toInt
               val northingWithin10km = northingAsStr.substring(2, 3).toInt
               val tetrad = tetradLetters((eastingWithin10km / 2) * 5 + (northingWithin10km /2))
-              map.put("grid_ref_2000", gridletters + eastingAsStr.substring(1, 2) + northingAsStr.substring(1, 2) + tetrad)
-              map.put("grid_ref_1000", gridletters + eastingAsStr.substring(1, 3) + northingAsStr.substring(1, 3))
+
+              if(gridSize != -1 && gridSize <= 2000){
+                map.put("grid_ref_2000", gr.gridLetters + eastingAsStr.substring(1, 2) + northingAsStr.substring(1, 2) + tetrad)
+              }
+              if(gridSize != -1 && gridSize <= 1000) {
+                map.put("grid_ref_1000", gr.gridLetters + eastingAsStr.substring(1, 3) + northingAsStr.substring(1, 3))
+              }
             }
+
             if (eastingAsStr.length() >= 5 && northingAsStr.length() >= 5) {
-              map.put("grid_ref_100", gridletters + eastingAsStr.substring(1, 4) + northingAsStr.substring(1, 4))
+              map.put("grid_ref_100", gr.gridLetters + eastingAsStr.substring(1, 4) + northingAsStr.substring(1, 4))
             }
           }
       }
@@ -92,7 +114,7 @@ object GridUtil {
   /**
    * Takes a grid reference (british or irish) and returns easting, northing, datum and precision.
    */
-  def gridReferenceToEastingNorthing(gridRef:String): Option[(String, Int, Int, Option[Int], Int, Int, Int, Int, String)] = {
+  def gridReferenceToEastingNorthing(gridRef:String): Option[GridRef] = {
     val result = osGridReferenceToEastingNorthing(gridRef)
     if(!result.isEmpty){
       result
@@ -113,7 +135,7 @@ object GridUtil {
     * @return easting, northing, coordinate uncertainty in meters, minEasting, minNorthing, maxEasting, maxNorthing, coordinate system
     *
     */
-  def irishGridReferenceToEastingNorthing(gridRef:String): Option[(String, Int, Int, Option[Int], Int, Int, Int, Int, String)] = {
+  def irishGridReferenceToEastingNorthing(gridRef:String): Option[GridRef] = {
 
     // validate & parse format
     val (gridletters:String, easting:String, northing:String, twoKRef:String, quadRef:String, coordinateUncertainty:Option[Int]) = gridRef.trim() match {
@@ -213,7 +235,7 @@ object GridUtil {
     /** end of C & P ***/
     val coordinateUncertaintyOrZero = if(coordinateUncertainty.isEmpty) 0 else coordinateUncertainty.get
 
-    Some((gridletters, e, n, Some(coordinateUncertaintyOrZero), e, n, e + coordinateUncertaintyOrZero, n + coordinateUncertaintyOrZero, IRISH_CRS))
+    Some(GridRef(gridletters, e, n, Some(coordinateUncertaintyOrZero), e, n, e + coordinateUncertaintyOrZero, n + coordinateUncertaintyOrZero, IRISH_CRS))
   }
 
   /**
@@ -227,7 +249,7 @@ object GridUtil {
     * @param gridRef
     * @return easting, northing, coordinate uncertainty in meters, minEasting, minNorthing, maxEasting, maxNorthing
     */
-  def osGridReferenceToEastingNorthing(gridRef:String): Option[(String, Int, Int, Option[Int], Int, Int, Int, Int, String)] = {
+  def osGridReferenceToEastingNorthing(gridRef:String): Option[GridRef] = {
 
     //deal with the 2k OS grid ref separately
     val osGridRefNoEastingNorthing = ("""([A-Z]{2})""").r
@@ -357,6 +379,59 @@ object GridUtil {
 
     val coordinateUncertaintyOrZero = if(coordinateUncertainty.isEmpty) 0 else coordinateUncertainty.get
 
-    Some((gridletters, e, n, coordinateUncertainty, e, n, e + coordinateUncertaintyOrZero, n + coordinateUncertaintyOrZero, OSGB_CRS))
+    Some(GridRef(gridletters, e, n, coordinateUncertainty, e, n, e + coordinateUncertaintyOrZero, n + coordinateUncertaintyOrZero, OSGB_CRS))
+  }
+
+  /**
+    * Process supplied grid references. This currently only recognises UK OS grid references but could be
+    * extended to support other systems.
+    *
+    * @param gridReference
+    */
+  def processGridReference(gridReference:String): Option[GISPoint] = {
+
+    GridUtil.gridReferenceToEastingNorthing(gridReference) match {
+      case Some(gr) => {
+
+        //move coordinates to the centroid of the grid
+        val reposition = if(!gr.coordinateUncertainty.isEmpty && gr.coordinateUncertainty.get > 0){
+          gr.coordinateUncertainty.get / 2
+        } else {
+          0
+        }
+
+        val coords = GISUtil.reprojectCoordinatesToWGS84(gr.easting + reposition, gr.northing + reposition, gr.datum, 5)
+
+        //reproject min/max lat/lng
+        val bbox = Array(
+          GISUtil.reprojectCoordinatesToWGS84(gr.minEasting, gr.minNorthing, gr.datum, 5),
+          GISUtil.reprojectCoordinatesToWGS84(gr.maxEasting, gr.maxNorthing, gr.datum, 5)
+        )
+
+        if(!coords.isEmpty){
+          val (latitude, longitude) = coords.get
+          val uncertaintyToUse = if(!gr.coordinateUncertainty.isEmpty){
+            gr.coordinateUncertainty.get.toString
+          } else {
+            null
+          }
+          Some(GISPoint(
+            latitude,
+            longitude,
+            GISUtil.WGS84_EPSG_Code,
+            uncertaintyToUse,
+            easting = gr.easting.toString,
+            northing = gr.northing.toString,
+            minLatitude = bbox(0).get._1,
+            minLongitude = bbox(0).get._2,
+            maxLatitude = bbox(1).get._1,
+            maxLongitude = bbox(1).get._2
+          ))
+        } else {
+          None
+        }
+      }
+      case None => None
+    }
   }
 }
