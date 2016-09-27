@@ -101,7 +101,7 @@ object Config {
   val obeySDSIsLoadable = configModule.properties.getProperty("obey.sds.is.loadable", "true").toBoolean
 
   /** a regex pattern for identifying guids associated with the national checklists */
-  val nationalChecklistIdentifierPattern = configModule.properties.getProperty("national.checklist.guid.pattern", """biodiversity.org.au""")
+  val nationalChecklistIdentifierPattern = configModule.properties.getProperty("national.checklist.guid.pattern", """(:afd.|:apni.)""")
 
   //fields that should be hidden in certain views
   val sensitiveFields = {

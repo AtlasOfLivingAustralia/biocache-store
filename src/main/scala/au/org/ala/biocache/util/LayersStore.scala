@@ -57,12 +57,8 @@ class LayersStore ( layersStoreUrl: String) {
       respBody = r._2
       retry = r._3
 
-      if (respCode != HttpStatus.SC_OK) {
+      if (respCode != HttpStatus.SC_OK)
         logger.warn("Problem getting sampling status: " + r + " retries=" + retries)
-        
-        //count down retries if status is not OK
-        retries -= 1
-      } 
       if (callback != null) {
         if (respCode != HttpStatus.SC_OK) {
           callback.progressMessage("Problem getting status: " + respCode + "/" + HttpStatus.getStatusText(respCode))
@@ -91,6 +87,7 @@ class LayersStore ( layersStoreUrl: String) {
           }
         }
       }
+      retries -= 1
     }
 
     if (retries <= 0 || respBody == null) {

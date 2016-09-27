@@ -1,15 +1,15 @@
 package au.org.ala.biocache.processor
 
-import java.util.UUID
-
-import au.org.ala.biocache
-import au.org.ala.biocache._
-import au.org.ala.biocache.dao.OccurrenceDAO
-import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.model.{FullRecord, Processed, QualityAssertion, Versions}
 import org.slf4j.LoggerFactory
-
+import au.org.ala.biocache._
+import java.util.UUID
+import java.util.concurrent.ArrayBlockingQueue
 import scala.Some
+import au.org.ala.biocache.dao.OccurrenceDAO
+import au.org.ala.biocache
+import au.org.ala.biocache.model.{QualityAssertion, Processed, Versions, FullRecord}
+import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.util.{FileHelper, StringConsumer}
 
 /**
  * Runnable for starting record processing.
@@ -115,7 +115,7 @@ class RecordProcessor {
       }
     } catch {
       case e: Exception => {
-        logger.error("Error processing record: " + raw.rowKey, e)
+        logger.error("Error processing record: " + raw.rowKey + ", " + e.getMessage())
         null
       }
     }

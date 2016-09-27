@@ -5,7 +5,6 @@ import org.junit.runner.RunWith
 import au.org.ala.biocache.model.{Versions, QualityAssertion, FullRecord}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.AssertionCodes
-import au.org.ala.biocache.vocab.AssertionStatus
 
 @RunWith(classOf[JUnitRunner])
 class AssertionCodeTest extends ConfigFunSuite {
@@ -14,59 +13,6 @@ class AssertionCodeTest extends ConfigFunSuite {
   val rowKey3 = "test3"
   val uuid = "uuid"
   val occurrenceDAO = Config.occurrenceDAO
-
-  test("Test isGeospatiallyKosher"){
-    val expectTrue1 = AssertionCodes.isGeospatiallyKosher(Array(20000))
-    expectResult(true){expectTrue1}
-
-    val expectTrue2 = AssertionCodes.isGeospatiallyKosher(Array(1))
-    expectResult(true){expectTrue2}
-
-    val expectFalse = AssertionCodes.isGeospatiallyKosher(Array(0, 1))
-    expectResult(false){expectFalse}
-
-    val expectTrueOld1 = Array(20000).filter(qa=> {
-      val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
-      !code.isEmpty && code.get.isFatal
-    }).isEmpty
-    expectResult(true){expectTrueOld1}
-
-    val expectTrueOld2 = Array(1).filter(qa=> {
-      val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
-      !code.isEmpty && code.get.isFatal
-    }).isEmpty
-    expectResult(true){expectTrueOld2}
-
-    val expectFalseOld = Array(0, 1).filter(qa=> {
-      val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
-      !code.isEmpty && code.get.isFatal
-    }).isEmpty
-    expectResult(false){expectFalseOld}
-
-  }
-
-  test("Test isTaxonomicallyKosher"){
-    val expectTrue1 = AssertionCodes.isTaxonomicallyKosher(Array(0))
-    expectResult(true){expectTrue1}
-
-    val expectTrue2 = AssertionCodes.isTaxonomicallyKosher(Array(10000))
-    expectResult(true){expectTrue2}
-
-     val expectTrueOld1 = Array(0).filter(qa=> {
-      val code = AssertionCodes.taxonomicCodes.find(c => c.code == qa)
-      !code.isEmpty && code.get.isFatal
-    }).isEmpty
-    expectResult(true){expectTrueOld1}
-
-    val expectTrueOld2 = Array(10000).filter(qa=> {
-      val code = AssertionCodes.taxonomicCodes.find(c => c.code == qa)
-      !code.isEmpty && code.get.isFatal
-    }).isEmpty
-    expectResult(true){expectTrueOld2}
-
-  }
-
-
   test("Test the geospatially kosher test") {
 
     val assertions1 = Array(QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE), QualityAssertion(AssertionCodes.INVERTED_COORDINATES))
@@ -116,8 +62,7 @@ class AssertionCodeTest extends ConfigFunSuite {
     }
     //println(Config.persistenceManager)
     //now have a false user assertion counteract this one
-    val qa = QualityAssertion(AssertionCodes.VERIFIED, "system", AssertionStatus.QA_VERIFIED)
- //   val qa = QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE, false)
+    val qa = QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE, false)
     qa.comment = "Overrride the system assertion"
     qa.userId = "Natasha.Carter@csiro.au"
     qa.userDisplayName = "Natasha Carter"
@@ -137,7 +82,7 @@ class AssertionCodeTest extends ConfigFunSuite {
    * A false user assertion overrides all true user or system assertions (for the same code)
    */
   test("Single false User Assertion takes precedence") {
-    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, "", AssertionStatus.QA_UNCONFIRMED)
+    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, true)
     qa1.comment = "True user assertion"
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
@@ -151,8 +96,7 @@ class AssertionCodeTest extends ConfigFunSuite {
       //println(record.get.assertions.toSet)
       record.get.assertions.contains("taxonomicIssue")
     }
- //   val qa2 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, false)
-    val qa2 = QualityAssertion(AssertionCodes.VERIFIED, qa1.uuid, AssertionStatus.QA_VERIFIED)
+    val qa2 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, false)
     qa2.comment = "False user assertion to override"
     qa2.userId = "Natasha.Carter2@csiro.au"
     qa2.userDisplayName = "Natasha Carter"
@@ -172,7 +116,7 @@ class AssertionCodeTest extends ConfigFunSuite {
    */
   test("User Assertions checked during system assertions update") {
     //add user asssertion
-    val qa1 = QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, "", AssertionStatus.QA_UNCONFIRMED)
+    val qa1 = QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, true)
     qa1.comment = "Tests user assertion is still applied after system assertions updated"
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
@@ -189,7 +133,7 @@ class AssertionCodeTest extends ConfigFunSuite {
       record.get.assertions.contains("idPreOccurrence")
     }
     //println(Config.persistenceManager)
-    val qa2 = QualityAssertion(AssertionCodes.VERIFIED, qa1.uuid, AssertionStatus.QA_VERIFIED)
+    val qa2 = QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, false)
     qa2.comment = "False value overrides"
     qa2.userId = "Natasha.Carter2@csiro.au"
     qa2.userDisplayName = "Natasha Carter"
@@ -221,7 +165,7 @@ class AssertionCodeTest extends ConfigFunSuite {
       val record = occurrenceDAO.getByRowKey(rowKey2)
       record.get.geospatiallyKosher
     }
-    val vr = QualityAssertion(AssertionCodes.VERIFIED, "system", AssertionStatus.QA_VERIFIED)
+    val vr = QualityAssertion(AssertionCodes.VERIFIED, true)
     vr.comment = "This record is verified"
     vr.userId = "Natasha.Carter@csiro.au"
     vr.userDisplayName = "Natasha Carter"
@@ -238,7 +182,7 @@ class AssertionCodeTest extends ConfigFunSuite {
     expectResult(true) {
       val record = occurrenceDAO.getByRowKey(rowKey2)
       //println(record.get.assertions.toList)
-      record.get.geospatiallyKosher //&& record.get.assertions.contains("userVerified")
+      record.get.geospatiallyKosher && record.get.assertions.contains("userVerified")
 
     }
     //test that record 2 only reports back the 1 user assertion
@@ -256,16 +200,16 @@ class AssertionCodeTest extends ConfigFunSuite {
     processed.rowKey = rowKey3
     processed.uuid = uuid
     occurrenceDAO.updateOccurrence(rowKey3, processed, None, Versions.PROCESSED)
-    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, "", AssertionStatus.QA_UNCONFIRMED)
+    val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, true)
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
     occurrenceDAO.addUserAssertion(rowKey3, qa1)
-    expectResult(AssertionStatus.QA_UNCONFIRMED) {
-      Integer.parseInt(pm.get(rowKey3, "occ", FullRecordMapper.userAssertionStatusColumn).get)
+    expectResult("true") {
+      pm.get(rowKey3, "occ", FullRecordMapper.userQualityAssertionColumn).get
     }
     occurrenceDAO.deleteUserAssertion(rowKey3, qa1.uuid)
-    expectResult(AssertionStatus.QA_NONE) {
-      Integer.parseInt(pm.get(rowKey3, "occ", FullRecordMapper.userAssertionStatusColumn).get)
+    expectResult("false") {
+      pm.get(rowKey3, "occ", FullRecordMapper.userQualityAssertionColumn).get
     }
   }
 

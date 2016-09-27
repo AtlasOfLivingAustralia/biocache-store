@@ -4,7 +4,6 @@ import au.org.ala.biocache.util.LayersStore
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.client.{RemoteMappingBuilder, ScenarioMappingBuilder}
 import com.github.tomakehurst.wiremock.junit.WireMockStaticRule
-import com.github.tomakehurst.wiremock.stubbing.Scenario
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
@@ -132,25 +131,18 @@ class LayersStoreTest extends ConfigFunSuite {
     val batchBody = "{ \"statusUrl\": \"" + mockLayersService + statusPath + "\"  }"
     val batchResponse = aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(batchBody)
     val batchMap = post(urlEqualTo(batchPath)).willReturn(batchResponse).asInstanceOf[RemoteMappingBuilder[_ <: AnyRef, _ <: ScenarioMappingBuilder]]
-    val statusBody1 = "{\"progress\": 2, \"progressMessage\": \"Finished sampling layer: aus1. Points processed: 1\", \"status\": \"waiting\", \"points\": 2, \"started\": \"06/07/16 11:51:56:439\", \"fields\": 1 }"
-    val statusResponse1 = aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(statusBody1)
-    val statusMap1 = get(urlEqualTo(statusPath)).inScenario("waiting").whenScenarioStateIs(Scenario.STARTED).willSetStateTo("waited").willReturn(statusResponse1).asInstanceOf[RemoteMappingBuilder[_ <: AnyRef, _ <: ScenarioMappingBuilder]]
-    val statusBody2 = "{\"progress\": 2, \"progressMessage\": \"Finished sampling layer: aus1. Points processed: 1\", \"status\": \"finished\", \"downloadUrl\": \"" + mockLayersService + downloadPath + "\", \"finished\": \"06/07/16 11:51:56:532\", \"points\": 2, \"started\": \"06/07/16 11:51:56:439\", \"fields\": 1 }"
-    val statusResponse2 = aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(statusBody2)
-    val statusMap2 = get(urlEqualTo(statusPath)).inScenario("waiting").whenScenarioStateIs("waited").willReturn(statusResponse2).asInstanceOf[RemoteMappingBuilder[_ <: AnyRef, _ <: ScenarioMappingBuilder]]
+    val statusBody = "{\"progress\": 2, \"progressMessage\": \"Finished sampling layer: aus1. Points processed: 1\", \"status\": \"waiting\", \"downloadUrl\": \"" + mockLayersService + downloadPath + "\", \"finished\": \"06/07/16 11:51:56:532\", \"points\": 2, \"started\": \"06/07/16 11:51:56:439\", \"fields\": 1 }"
+    val statusResponse = aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(statusBody)
+    val statusMap = get(urlEqualTo(statusPath)).willReturn(statusResponse).asInstanceOf[RemoteMappingBuilder[_ <: AnyRef, _ <: ScenarioMappingBuilder]]
     val downloadBody = "I should be a zip file"
     val downloadResponse = aResponse().withStatus(200).withHeader("Content-Type", "application/zip").withBody(downloadBody)
     val downloaDMap = get(urlEqualTo(downloadPath + "?csv=true")).willReturn(downloadResponse).asInstanceOf[RemoteMappingBuilder[_ <: AnyRef, _ <: ScenarioMappingBuilder]]
     stubFor(batchMap)
-    stubFor(statusMap1)
-    stubFor(statusMap2)
+    stubFor(statusMap)
     stubFor(downloaDMap)
 
     val reader = layersStore.sample(Array("cl22"), Array(Array(29.911,132.769),Array(-20.911,122.769)), null)
-    expectResult(false) { reader == null }
-    expectResult('I') { reader.read }
-    expectResult(' ') { reader.read }
-    expectResult('s') { reader.read }
+    expectResult(true) { reader == null }
   }
 
   test("sample no-connect") {
