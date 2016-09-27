@@ -57,6 +57,11 @@ object QualityAssertion {
     val uuid = UUID.randomUUID().toString
     new QualityAssertion(uuid,null, null, assertionCode,null,null,qaStatus,null,null,null,null,null,null,null,null,new Date())
   }
+  def apply(errorCode:ErrorCode, relatedUuid: String, qaStatus:Int) = {
+    val uuid = UUID.randomUUID().toString
+    new QualityAssertion(uuid,null, errorCode.name, errorCode.code,null,relatedUuid,qaStatus,null,null,null,null,null,null,null,null,new Date())
+  }
+
 
   def compareByRelatedId = (a:QualityAssertion, b:QualityAssertion) => {
     a.relatedUuid < b.relatedUuid
