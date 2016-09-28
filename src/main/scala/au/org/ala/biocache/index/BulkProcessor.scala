@@ -244,14 +244,14 @@ object IndexMergeTool extends Tool {
       FileUtils.forceMkdir(mergeDirFile)
     }
 
-    val mergedIndex = FSDirectory.open(mergeDirFile.toPath)
+    val mergedIndex = FSDirectory.open(mergeDirFile)
 
-    val writerConfig = (new IndexWriterConfig(new StandardAnalyzer()))
+    val writerConfig = (new IndexWriterConfig(Version.LATEST, new StandardAnalyzer()))
       .setOpenMode(OpenMode.CREATE)
       .setRAMBufferSizeMB(rambuffer)
 
     val writer = new IndexWriter(mergedIndex, writerConfig)
-    val indexes = directoriesToMerge.map(dir => FSDirectory.open(new File(dir).toPath))
+    val indexes = directoriesToMerge.map(dir => FSDirectory.open(new File(dir)))
 
     logger.info("Adding indexes...")
     writer.addIndexes(indexes:_*)
