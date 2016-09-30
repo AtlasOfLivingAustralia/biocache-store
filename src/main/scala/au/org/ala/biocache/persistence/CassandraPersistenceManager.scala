@@ -375,12 +375,20 @@ class CassandraPersistenceManager @Inject() (
           columnMap = new util.HashMap[Bytes, java.util.List[Column]]
         }
         case e:Exception => {
-          logger.debug("Problem retrieving data. Number of retries left:" + (permittedRetries - noOfRetries) +
+          logger.warn("Problem retrieving data. Number of retries left:" + (permittedRetries - noOfRetries) +
             ", Error: " + e.getMessage)
           Thread.sleep(20000)
           //Don't remove the pool because all requests while the reinit happens will result in NPE.
           //Pelops.removePool(poolName)
-          initialise //re-initialise
+
+          try {
+            initialise //re-initialise
+          } catch {
+            case ex:Exception => {
+              logger.warn("Problem reinitialising Cassandra connection Error: " + ex.getMessage)
+            }
+          }
+
           if (noOfRetries == permittedRetries){
             logger.error("Problem retrieving data. Number of DB connection retries exceeded. Error: " + e.getMessage, e)
             throw new RuntimeException(e)
