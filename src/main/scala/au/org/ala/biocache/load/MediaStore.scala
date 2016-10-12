@@ -447,7 +447,8 @@ object LocalMediaStore extends MediaStore {
 
   def getImageFormats(fileName:String) : java.util.Map[String, String] = {
     val url = convertPathToUrl(fileName)
-    val extension = url.substring(url.lastIndexOf("."))
+    val dp = url.lastIndexOf(".")
+    val extension = if (dp >= 0) url.substring(dp) else ""
     val map = new util.HashMap[String, String]
     //some files will not have an extension
     if (extension.length() != 4) {
@@ -455,9 +456,10 @@ object LocalMediaStore extends MediaStore {
       map.put("small", url + "__small")
       map.put("large", url + "__large")
     } else {
-      map.put("thumb", url.replace(extension, "__thumb" + extension))
-      map.put("small", url.replace(extension, "__small" + extension))
-      map.put("large", url.replace(extension, "__large" + extension))
+      val base = url.substring(0, dp)
+      map.put("thumb", base + "__thumb" + extension)
+      map.put("small", base + "__small" + extension)
+      map.put("large", base + "__large" + extension)
     }
     map.put("raw", url)
     map

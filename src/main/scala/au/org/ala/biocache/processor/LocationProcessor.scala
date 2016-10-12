@@ -6,7 +6,7 @@ import scala.collection.JavaConversions
 import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.StringUtils
 import org.geotools.referencing.crs.DefaultGeographicCRS
-import org.geotools.referencing.{CRS}
+import org.geotools.referencing.CRS
 import org.geotools.referencing.operation.DefaultCoordinateOperationFactory
 import org.geotools.geometry.GeneralDirectPosition
 import org.apache.commons.math3.util.Precision
@@ -15,7 +15,7 @@ import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab._
-import au.org.ala.biocache.util.{StringHelper}
+import au.org.ala.biocache.util.{GISUtil, GISPoint, GridUtil, StringHelper}
 
 /**
  * Processor of location information.
@@ -25,8 +25,6 @@ class LocationProcessor extends Processor {
   import StringHelper._, AssertionCodes._, AssertionStatus._, JavaConversions._
 
   val logger = LoggerFactory.getLogger("LocationProcessor")
-
-  val WGS84_EPSG_Code = "EPSG:4326"
 
   /**
    * Process geospatial details of the record. This step parses coordinates and cordinate precision values.
@@ -161,170 +159,6 @@ class LocationProcessor extends Processor {
         processed.location.country = countryCodeTerm.get.canonical
       }
     }
-  }
-
-  /**
-   * Derive a value from the grid reference accuracy for coordinateUncertaintyInMeters.
-   *
-   * @param noOfNumericalDigits
-   * @param noOfSecondaryAlphaChars
-   * @return
-   */
-  def getCoordinateUncertaintyFromGridRef(noOfNumericalDigits:Int, noOfSecondaryAlphaChars:Int) : Option[Int] = {
-    val accuracy = noOfNumericalDigits match {
-      case 8 => 10
-      case 6 => 100
-      case 4 => 1000
-      case 2 => 10000
-      case 0 => 100000
-      case _ => return None
-    }
-    noOfSecondaryAlphaChars match {
-      case 2 => Some(accuracy / 2)
-      case 1 => Some(accuracy / 5)
-      case _ => Some(accuracy)
-    }
-  }
-
-  /**
-   * Convert an ordnance survey grid reference to northing, easting and coordinateUncertaintyInMeters.
-   * This is a port of this javascript code:
-   *
-   * http://www.movable-type.co.uk/scripts/latlong-gridref.html
-   *
-   * with additional extensions to handle 2km grid references e.g. NM39A
-   *
-   * @param gridRef
-   * @return easting, northing, coordinate uncertainty in meters
-   */
-  def osGridReferenceToEastingNorthing(gridRef:String): Option[(Int, Int, Option[Int], Int, Int, Int, Int)] = {
-
-    //deal with the 2k OS grid ref separately
-    val gridRefRegex1Number = """([A-Z]{2})\s*([0-9]+)$""".r
-    val gridRef2kRegex = """([A-Z]{2})\s*([0-9]+)\s*([0-9]+)\s*([A-Z]{1})""".r
-    val gridRefRegex = """([A-Z]{2})\s*([0-9]+)\s*([0-9]+)$""".r
-    val gridRefWithQuadRegex = """([A-Z]{2})\s*([0-9]+)\s*([0-9]+)\s*([NW|NE|SW|SE]{2})$""".r
-
-    // validate & parse format
-    val (gridletters:String, easting:String, northing:String, twoKRef:String, quadRef:String,
-    coordinateUncertainty:Option[Int]) = gridRef.trim() match {
-      case gridRefRegex1Number(gridletters, oneNumber) => {
-        val gridDigits = oneNumber.toString
-        val en = Array(gridDigits.substring(0, gridDigits.length / 2), gridDigits.substring(gridDigits.length / 2))
-        val coordUncertainty = getCoordinateUncertaintyFromGridRef(gridDigits.length, 0)
-        (gridletters, en(0), en(1), "", "", coordUncertainty)
-      }
-      case gridRefRegex(gridletters, easting, northing) => {
-        (gridletters, easting, northing, "", "", getCoordinateUncertaintyFromGridRef(easting.length * 2, 0))
-      }
-      case gridRef2kRegex(gridletters, easting, northing, twoKRef) => {
-        (gridletters, easting, northing, twoKRef, "", getCoordinateUncertaintyFromGridRef(easting.length * 2, 1))
-      }
-      case gridRefWithQuadRegex(gridletters, easting, northing, quadRef) => {
-        (gridletters, easting, northing, "", quadRef, getCoordinateUncertaintyFromGridRef(easting.length * 2, 2))
-      }
-      case _ => return None
-    }
-
-    // get numeric values of letter references, mapping A->0, B->1, C->2, etc:
-    val l1 = {
-      val value = Character.codePointAt(gridletters, 0) - Character.codePointAt("A", 0)
-      if(value > 7){
-        value - 1
-      } else {
-        value
-      }
-    }
-    val l2 = {
-      val value = Character.codePointAt(gridletters, 1) - Character.codePointAt("A", 0)
-      if(value > 7){
-        value - 1
-      } else {
-        value
-      }
-    }
-
-    // convert grid letters into 100km-square indexes from false origin (grid square SV):
-    val e100km = (((l1-2) % 5) * 5 + (l2 % 5)).toInt
-    val n100km = ((19 - Math.floor(l1 / 5) * 5) - Math.floor(l2 / 5)).toInt
-
-    // validation
-    if (e100km<0 || e100km>6 || n100km<0 || n100km>12) {
-      return None
-    }
-    if (easting == null || northing == null){
-      return None
-    }
-    if (easting.length() != northing.length()){
-      return None
-    }
-
-    // standardise to 10-digit refs (metres)
-    val easting10digit = (easting + "00000").substring(0, 5)
-    val northing10digit = (northing + "00000").substring(0, 5)
-
-    var e = (e100km.toString + easting10digit).toInt
-    var n = (n100km.toString + northing10digit).toInt
-
-    //handle the non standard grid parts
-    if(twoKRef != ""){
-
-      val cellSize = {
-        if (easting.length == 1) 2000
-        else if (easting.length == 2) 200
-        else if (easting.length == 3) 20
-        else if (easting.length == 4) 2
-        else 0
-      }
-
-      //Dealing with 5 character grid references = 2km grids
-      //http://www.kmbrc.org.uk/recording/help/gridrefhelp.php?page=6
-      twoKRef match {
-        case it if (Character.codePointAt(twoKRef, 0) <= 'N') => {
-          e = e + (((Character.codePointAt(twoKRef, 0) - 65) / 5) * cellSize)
-          n = n + (((Character.codePointAt(twoKRef, 0) - 65) % 5) * cellSize)
-        }
-        case it if (Character.codePointAt(twoKRef, 0) >= 'P') => {
-          e = e + (((Character.codePointAt(twoKRef, 0) - 66) / 5) * cellSize)
-          n = n + (((Character.codePointAt(twoKRef, 0) - 66) % 5) * cellSize)
-        }
-        case _ => return None
-      }
-    } else if (quadRef != ""){
-
-      val cellSize = {
-        if (easting.length == 1) 5000
-        else if (easting.length == 2) 500
-        else if (easting.length == 3) 50
-        else if (easting.length == 4) 5
-        else 0
-      }
-      if (cellSize > 0) {
-        twoKRef match {
-          case "NW" => {
-            e = e + (cellSize / 2)
-            n = n + (cellSize + cellSize / 2)
-          }
-          case "NE" => {
-            e = e + (cellSize + cellSize / 2)
-            n = n + (cellSize + cellSize / 2)
-          }
-          case "SW" => {
-            e = e + (cellSize / 2)
-            n = n + (cellSize / 2)
-          }
-          case "SE" => {
-            e = e + (cellSize + cellSize / 2)
-            n = n + (cellSize / 2)
-          }
-          case _ => return None
-        }
-      }
-    }
-
-    val coordinateUncertaintyOrZero = if(coordinateUncertainty.isEmpty) 0 else coordinateUncertainty.get
-
-    Some((e, n, coordinateUncertainty, e, n, e + coordinateUncertaintyOrZero, n + coordinateUncertaintyOrZero))
   }
 
   /**
@@ -538,66 +372,16 @@ class LocationProcessor extends Processor {
           None
         }
       } else if (easting != null && northing != null && zone != null) {
-        processNorthingEastingZone(verbatimSRS, easting, northing, zone, assertions)
+        GridUtil.processNorthingEastingZone(verbatimSRS, easting, northing, zone, assertions)
       } else if ( gridReference != null) {
-        processGridReference(gridReference, assertions)
+        val result = GridUtil.processGridReference(gridReference)
+        if(!result.isEmpty){
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF)
+        }
+        result
       } else {
         None
       }
-    }
-  }
-
-  /**
-   * Process supplied grid references. This currently only recognises UK OS grid references but could be
-   * extended to support other systems.
-   *
-   * @param gridReference
-   * @param assertions
-   */
-  def processGridReference(gridReference:String, assertions:ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
-
-    osGridReferenceToEastingNorthing(gridReference) match {
-      case Some((easting, northing, coordUncertaintyOption, minE, minN, maxE, maxN)) => {
-
-        //move coordinates to the centroid of the grid
-        val reposition = if(!coordUncertaintyOption.isEmpty && coordUncertaintyOption.get > 0){
-          coordUncertaintyOption.get / 2
-        } else {
-          0
-        }
-
-        val coords = reprojectCoordinatesToWGS84(easting + reposition, northing + reposition, Config.defaultSourceCrs, 5)
-
-        //reproject min/max lat/lng
-        val bbox = Array(
-          reprojectCoordinatesToWGS84(minE, minN, Config.defaultSourceCrs, 5),
-          reprojectCoordinatesToWGS84(maxE, maxN, Config.defaultSourceCrs, 5)
-        )
-
-        if(!coords.isEmpty){
-          val (latitude, longitude) = coords.get
-          assertions.add(QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF))
-          val uncertaintyToUse = if(!coordUncertaintyOption.isEmpty){
-            coordUncertaintyOption.get.toString
-          } else {
-            null
-          }
-          Some(GISPoint(latitude,
-            longitude,
-            WGS84_EPSG_Code,
-            uncertaintyToUse,
-            easting = easting.toString,
-            northing = northing.toString,
-            minLatitude = bbox(0).get._1,
-            minLongitude = bbox(0).get._2,
-            maxLatitude = bbox(1).get._1,
-            maxLongitude = bbox(1).get._2
-          ))
-        } else {
-          None
-        }
-      }
-      case None => None
     }
   }
 
@@ -620,19 +404,18 @@ class LocationProcessor extends Processor {
     if (rawGeodeticDatum != null) {
       //no assumptions about the datum is being made:
       assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, PASSED)
-      val sourceEpsgCode = lookupEpsgCode(rawGeodeticDatum)
+      val sourceEpsgCode = GridUtil.lookupEpsgCode(rawGeodeticDatum)
       if (!sourceEpsgCode.isEmpty) {
         //datum is recognised so pass the test:
         assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, PASSED)
-        if (sourceEpsgCode.get == WGS84_EPSG_Code) {
+        if (sourceEpsgCode.get == GISUtil.WGS84_EPSG_Code) {
           //already in WGS84, no need to reproject
-          Some(GISPoint(rawLatitude, rawLongitude, WGS84_EPSG_Code, null))
+          Some(GISPoint(rawLatitude, rawLongitude, GISUtil.WGS84_EPSG_Code, null))
         } else {
           // Reproject decimal lat/long to WGS84
-          val desiredNoDecimalPlaces = math.min(getNumberOfDecimalPlacesInDouble(rawLatitude),
-            getNumberOfDecimalPlacesInDouble(rawLongitude))
+          val desiredNoDecimalPlaces = math.min(getNumberOfDecimalPlacesInDouble(rawLatitude), getNumberOfDecimalPlacesInDouble(rawLongitude))
 
-          val reprojectedCoords = reprojectCoordinatesToWGS84(
+          val reprojectedCoords = GISUtil.reprojectCoordinatesToWGS84(
             rawLatitude.toDouble,
             rawLongitude.toDouble,
             sourceEpsgCode.get,
@@ -640,16 +423,14 @@ class LocationProcessor extends Processor {
           )
 
           if (reprojectedCoords.isEmpty) {
-            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED,
-              "Transformation of decimal latitude and longitude to WGS84 failed")
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, "Transformation of decimal latiude and longitude to WGS84 failed")
             None
           } else {
             //transformation of coordinates did not fail:
             assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, PASSED)
-            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERTED,
-              "Decimal latitude and longitude were converted to WGS84 (EPSG:4326)")
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERTED, "Decimal latitude and longitude were converted to WGS84 (EPSG:4326)")
             val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
-            Some(GISPoint(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code, null))
+            Some(GISPoint(reprojectedLatitude, reprojectedLongitude, GISUtil.WGS84_EPSG_Code, null))
           }
         }
       } else {
@@ -659,34 +440,34 @@ class LocationProcessor extends Processor {
     } else {
       //assume coordinates already in WGS84
       assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, "Geodetic datum assumed to be WGS84 (EPSG:4326)")
-      Some(GISPoint(rawLatitude, rawLongitude, WGS84_EPSG_Code, null))
+      Some(GISPoint(rawLatitude, rawLongitude, GISUtil.WGS84_EPSG_Code, null))
     }
   }
 
   /**
-   * Process verbatim coordinate values.
-   *
-   * @param verbatimSRS
-   * @param assertions
-   * @param decimalVerbatimLat
-   * @param decimalVerbatimLong
-   * @return
-   */
+    * Process verbatim coordinate values.
+    *
+    * @param verbatimSRS
+    * @param assertions
+    * @param decimalVerbatimLat
+    * @param decimalVerbatimLong
+    * @return
+    */
   private def processVerbatimCoordinates(verbatimSRS: String, assertions: ArrayBuffer[QualityAssertion],
-                                 decimalVerbatimLat: Option[Float], decimalVerbatimLong: Option[Float]): Option[GISPoint] = {
+                                         decimalVerbatimLat: Option[Float], decimalVerbatimLong: Option[Float]): Option[GISPoint] = {
     if (decimalVerbatimLat.get.toString.isLatitude && decimalVerbatimLong.get.toString.isLongitude) {
 
       // If a verbatim SRS is supplied, reproject coordinates to WGS 84
       if (verbatimSRS != null) {
-        val sourceEpsgCode = lookupEpsgCode(verbatimSRS)
+        val sourceEpsgCode = GridUtil.lookupEpsgCode(verbatimSRS)
         if (!sourceEpsgCode.isEmpty) {
           //calculation from verbatim did NOT fail:
           assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
-          if (sourceEpsgCode.get == WGS84_EPSG_Code) {
+          if (sourceEpsgCode.get == GISUtil.WGS84_EPSG_Code) {
             //already in WGS84, no need to reproject
             assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM,
               "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
-            Some(GISPoint(decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code, null))
+            Some(GISPoint(decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, GISUtil.WGS84_EPSG_Code, null))
           } else {
 
             val desiredNoDecimalPlaces = math.min(
@@ -694,8 +475,7 @@ class LocationProcessor extends Processor {
               getNumberOfDecimalPlacesInDouble(decimalVerbatimLong.get.toString)
             )
 
-            val reprojectedCoords = reprojectCoordinatesToWGS84(decimalVerbatimLat.get, decimalVerbatimLong.get,
-              sourceEpsgCode.get, desiredNoDecimalPlaces)
+            val reprojectedCoords = GISUtil.reprojectCoordinatesToWGS84(decimalVerbatimLat.get, decimalVerbatimLong.get, sourceEpsgCode.get, desiredNoDecimalPlaces)
             if (reprojectedCoords.isEmpty) {
               assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED,
                 "Transformation of verbatim latiude and longitude to WGS84 failed")
@@ -706,7 +486,7 @@ class LocationProcessor extends Processor {
               assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM,
                 "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
               val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
-              Some(GISPoint(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code, null))
+              Some(GISPoint(reprojectedLatitude, reprojectedLongitude, GISUtil.WGS84_EPSG_Code, null))
             }
           }
         } else {
@@ -719,11 +499,10 @@ class LocationProcessor extends Processor {
         assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
         assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM,
           "Decimal latitude and longitude were calculated using verbatimLatitude, verbatimLongitude and verbatimSRS")
-        Some(GISPoint(decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, WGS84_EPSG_Code, null))
+        Some(GISPoint(decimalVerbatimLat.get.toString, decimalVerbatimLong.get.toString, GISUtil.WGS84_EPSG_Code, null))
       } else {
         // Invalid latitude, longitude
-        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED,
-          "Could not parse verbatim latitude and longitude")
+        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, "Could not parse verbatim latitude and longitude")
         None
       }
     } else {
@@ -731,98 +510,7 @@ class LocationProcessor extends Processor {
     }
   }
 
-  /**
-   * Converts a easting northing to a decimal latitude/longitude.
-   *
-   * @param verbatimSRS
-   * @param easting
-   * @param northing
-   * @param zone
-   * @param assertions
-   * @return 3-tuple reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code
-   */
-  private def processNorthingEastingZone(verbatimSRS: String, easting: String, northing: String, zone: String,
-                                     assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
 
-    // Need a datum and a zone to get an epsg code for transforming easting/northing values
-    val epsgCodeKey = {
-      if (verbatimSRS != null) {
-        verbatimSRS.toUpperCase + "|" + zone
-      } else {
-        // Assume GDA94 / MGA zone
-        "GDA94|" + zone
-      }
-    }
-
-    if (zoneEpsgCodesMap.contains(epsgCodeKey)) {
-      val crsEpsgCode = zoneEpsgCodesMap(epsgCodeKey)
-      val eastingAsDouble = easting.toDoubleWithOption
-      val northingAsDouble = northing.toDoubleWithOption
-
-      if (!eastingAsDouble.isEmpty && !northingAsDouble.isEmpty) {
-        // Always round to 5 decimal places as easting/northing values are in metres and 0.00001 degree is approximately equal to 1m.
-        val reprojectedCoords = reprojectCoordinatesToWGS84(eastingAsDouble.get, northingAsDouble.get, crsEpsgCode, 5)
-        if (reprojectedCoords.isEmpty) {
-          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
-            "Transformation of verbatim easting and northing to WGS84 failed")
-          None
-        } else {
-          //lat and long from easting and northing did NOT fail:
-          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, PASSED)
-          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING,
-            "Decimal latitude and longitude were calculated using easting, northing and zone.")
-          val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
-          Some(GISPoint(reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code, null))
-        }
-      } else {
-        None
-      }
-    } else {
-      if (verbatimSRS == null) {
-        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
-          "Unrecognized zone GDA94 / MGA zone " + zone)
-      } else {
-        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
-          "Unrecognized zone " + verbatimSRS + " / zone " + zone)
-      }
-      None
-    }
-  }
-
-  /**
-   * Re-projects coordinates into WGS 84
-   *
-   * @param coordinate1 first coordinate. If source value is easting/northing, then this should be the easting value.
-   *                    Otherwise it should be the latitude
-   * @param coordinate2 first coordinate. If source value is easting/northing, then this should be the northing value.
-   *                    Otherwise it should be the longitude
-   * @param sourceCrsEpsgCode epsg code for the source CRS, e.g. EPSG:4202 for AGD66
-   * @param decimalPlacesToRoundTo number of decimal places to round the reprojected coordinates to
-   * @return Reprojected coordinates (latitude, longitude), or None if the operation failed.
-   */
-  private def reprojectCoordinatesToWGS84(coordinate1: Double, coordinate2: Double, sourceCrsEpsgCode: String,
-                                          decimalPlacesToRoundTo: Int): Option[(String, String)] = {
-    try {
-      val wgs84CRS = DefaultGeographicCRS.WGS84
-      val sourceCRS = CRS.decode(sourceCrsEpsgCode)
-      val transformOp = new DefaultCoordinateOperationFactory().createOperation(sourceCRS, wgs84CRS)
-      val directPosition = new GeneralDirectPosition(coordinate1, coordinate2)
-      val wgs84LatLong = transformOp.getMathTransform().transform(directPosition, null)
-
-      //NOTE - returned coordinates are longitude, latitude, despite the fact that if
-      //converting latitude and longitude values, they must be supplied as latitude, longitude.
-      //No idea why this is the case.
-      val longitude = wgs84LatLong.getOrdinate(0)
-      val latitude = wgs84LatLong.getOrdinate(1)
-
-      val roundedLongitude = Precision.round(longitude, decimalPlacesToRoundTo)
-      val roundedLatitude = Precision.round(latitude, decimalPlacesToRoundTo)
-
-      Some(roundedLatitude.toString, roundedLongitude.toString)
-    } catch {
-      case ex: Exception => None
-    }
-  }
 
   /**
    * Get the number of decimal places in a double value in string form
@@ -836,30 +524,6 @@ class LocationProcessor extends Processor {
       tokens(1).length
     } else {
       0
-    }
-  }
-
-  /**
-   * Get the EPSG code associated with a coordinate reference system string e.g. "WGS84" or "AGD66".
-   *
-   * @param crs The coordinate reference system string.
-   * @return The EPSG code associated with the CRS, or None if no matching code could be found.
-   *         If the supplied string is already a valid EPSG code, it will simply be returned.
-   */
-  private def lookupEpsgCode(crs: String): Option[String] = {
-    if (StringUtils.startsWithIgnoreCase(crs, "EPSG:")) {
-      // Do a lookup with the EPSG code to ensure that it is valid
-      try {
-        CRS.decode(crs.toUpperCase)
-        // lookup was successful so just return the EPSG code
-        Some(crs.toUpperCase)
-      } catch {
-        case ex: Exception => None
-      }
-    } else if (crsEpsgCodesMap.contains(crs.toUpperCase)) {
-      Some(crsEpsgCodesMap(crs.toUpperCase()))
-    } else {
-      None
     }
   }
 
@@ -927,7 +591,10 @@ class LocationProcessor extends Processor {
       }
     }
 
-    //test for coordinateUncertaintyInMeters
+    // If the coordinateUncertainty is still empty populate it with the default
+    // value (we don't test until now because the SDS will sometime include coordinate uncertainty)
+    // This step will pick up on default values because processed.location.coordinateUncertaintyInMeters
+    // will already be populated if a default value exists
     if (processed.location.coordinateUncertaintyInMeters == null) {
       assertions += QualityAssertion(UNCERTAINTY_NOT_SPECIFIED, "Uncertainty was not supplied")
     } else {
@@ -1051,31 +718,26 @@ class LocationProcessor extends Processor {
       assertions += QualityAssertion(MISSING_GEODETICDATUM, "Missing geodeticDatum")
     else
       assertions += QualityAssertion(MISSING_GEODETICDATUM,PASSED)
-
     //check for missing georeferencedBy
     if (raw.location.georeferencedBy == null && processed.location.georeferencedBy == null)
       assertions += QualityAssertion(MISSING_GEOREFERNCEDBY, "Missing georeferencedBy")
     else
       assertions += QualityAssertion(MISSING_GEOREFERNCEDBY, PASSED)
-
     //check for missing georeferencedProtocol
     if (raw.location.georeferenceProtocol == null && processed.location.georeferenceProtocol == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL, "Missing georeferenceProtocol")
     else
       assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL,PASSED)
-
     //check for missing georeferenceSources
     if (raw.location.georeferenceSources == null && processed.location.georeferenceSources == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES, "Missing georeferenceSources")
     else
       assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES,PASSED)
-
     //check for missing georeferenceVerificationStatus
     if (raw.location.georeferenceVerificationStatus == null && processed.location.georeferenceVerificationStatus == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS, "Missing georeferenceVerificationStatus")
     else
       assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS,PASSED)
-
     //check for missing georeferenceDate
     if (StringUtils.isBlank(raw.location.georeferencedDate) && !raw.miscProperties.containsKey("georeferencedDate")){
       assertions += QualityAssertion(MISSING_GEOREFERENCE_DATE)
@@ -1188,36 +850,28 @@ class LocationProcessor extends Processor {
     }
   }
 
-  val crsEpsgCodesMap = {
-    var valuesMap = Map[String, String]()
-    for (line <- scala.io.Source.fromURL(getClass.getResource("/crsEpsgCodes.txt"), "utf-8").getLines().toList) {
-      val values = line.split('=')
-      valuesMap += (values(0) -> values(1))
+  private def getExactSciName(raw: FullRecord): String = {
+    if (raw.classification.scientificName != null)
+      raw.classification.scientificName
+    else if (raw.classification.subspecies != null)
+      raw.classification.subspecies
+    else if (raw.classification.species != null)
+      raw.classification.species
+    else if (raw.classification.genus != null) {
+      if (raw.classification.specificEpithet != null) {
+        if (raw.classification.infraspecificEpithet != null)
+          raw.classification.genus + " " + raw.classification.specificEpithet + " " + raw.classification.infraspecificEpithet
+        else
+          raw.classification.genus + " " + raw.classification.specificEpithet
+      } else {
+        raw.classification.genus
+      }
     }
-    valuesMap
-  }
-
-  val zoneEpsgCodesMap = {
-    var valuesMap = Map[String, String]()
-    for (line <- scala.io.Source.fromURL(getClass.getResource("/zoneEpsgCodes.txt"), "utf-8").getLines().toList) {
-      val values = line.split('=')
-      valuesMap += (values(0) -> values(1))
-    }
-    valuesMap
+    else if (raw.classification.vernacularName != null) // handle the case where only a common name is provided.
+      raw.classification.vernacularName
+    else //return the name default name string which will be null
+      raw.classification.scientificName
   }
 
   def getName = FullRecordMapper.geospatialQa
-}
-
-
-case class GISPoint(latitude:String, longitude:String, datum:String, coordinateUncertaintyInMeters:String,
-                    easting:String = null, northing:String  = null, minLatitude:String = null, minLongitude:String = null, maxLatitude:String = null, maxLongitude:String = null){
-
-  def bboxString = {
-    if(minLatitude !=null && minLongitude !=null && maxLatitude !=null && maxLongitude !=null) {
-      minLatitude + "," + minLongitude + "," + maxLatitude + "," + maxLongitude
-    } else {
-      ""
-    }
-  }
 }

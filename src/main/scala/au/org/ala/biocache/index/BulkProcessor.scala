@@ -1,5 +1,6 @@
 package au.org.ala.biocache.index
 
+import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.Config
@@ -7,8 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache.cmd.Tool
 import org.apache.lucene.store.FSDirectory
 import java.io.File
-import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.index.IndexWriterConfig
+import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.index.IndexWriterConfig.OpenMode
 import org.apache.lucene.util.Version
 import org.apache.commons.io.FileUtils
@@ -96,21 +96,21 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
     if (parser.parse(args)) {
       if (validActions.contains(action)) {
-        val (query, start, end) = if (dr.isDefined){
+        val (query, startValue, endValue) = if (dr.isDefined){
           ("data_resource_uid:" + dr.get, dr.get + "|", dr.get + "|~")
         } else {
-          ("*:*", "", "")
+          ("*:*", start, end)
         }
 
         val ranges = if (keys.isEmpty){
-          calculateRanges(numThreads, query, start, end)
+          calculateRanges(numThreads, query, startValue, endValue)
         } else {
-          generateRanges(keys.get, start, end)
+          generateRanges(keys.get, startValue, endValue)
         }
 
         if (action == "range") {
           logger.info(ranges.mkString("\n"))
-        } else if (action != "range") {
+        } else {
           var counter = 0
           val threads = new ArrayBuffer[Thread]
           val columnRunners = new ArrayBuffer[ColumnReporterRunner]
@@ -138,8 +138,8 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
               } else if (action == "load-sampling") {
                 new LoadSamplingRunner(this, counter, startKey, endKey)
               } else if (action == "avro-export") {
-                new AvroExportRunner(this, counter, startKey, endKey)
-              } else if (action == "col" || action == "column-export") {
+//                new AvroExportRunner(this, counter, startKey, endKey)
+//              } else if (action == "col" || action == "column-export") {
                 if (columns.isEmpty) {
                   new ColumnReporterRunner(this, counter, startKey, endKey)
                 } else {
@@ -164,10 +164,10 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           threads.foreach { thread => thread.join }
 
           if (action == "index") {
-            logger.info("Starting the index merge....")
+            logger.info("Merging index segments")
             IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
-            logger.info("Merge complete. Waiting to see if shutdown")
-            System.exit(0)
+            logger.info("Shutting down persistence manager")
+            Config.persistenceManager.shutdown
           } else if (action == "col") {
             var allSet: Set[String] = Set()
             columnRunners.foreach(c => allSet ++= c.myset)
@@ -228,6 +228,7 @@ object IndexMergeTool extends Tool {
 
   /**
    * Merge method that wraps SOLR merge API
+ *
    * @param mergeDir
    * @param directoriesToMerge
    * @param forceMerge
@@ -249,7 +250,7 @@ object IndexMergeTool extends Tool {
 
     val mergedIndex = FSDirectory.open(mergeDirFile)
 
-    val writerConfig = (new IndexWriterConfig(Version.LUCENE_CURRENT, null))
+    val writerConfig = (new IndexWriterConfig(Version.LATEST, new StandardAnalyzer()))
       .setOpenMode(OpenMode.CREATE)
       .setRAMBufferSizeMB(rambuffer)
 

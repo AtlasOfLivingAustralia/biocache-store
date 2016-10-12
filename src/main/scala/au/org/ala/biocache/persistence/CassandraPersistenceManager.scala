@@ -14,19 +14,19 @@ import org.scale7.cassandra.pelops.pool.CommonsBackedPool
 import scala.Some
 
 /**
- * Cassandra based implementation of a persistence manager.
- * This should maintain most of the cassandra logic
- *
- * Major change: The thrift API now works with ByteBuffer instead of byte[]
- */
+  * Cassandra based implementation of a persistence manager.
+  * This should maintain most of the cassandra logic
+  *
+  * Major change: The thrift API now works with ByteBuffer instead of byte[]
+  */
 class CassandraPersistenceManager @Inject() (
-       @Named("cassandra.hosts") val host:String = "localhost",
-       @Named("cassandra.port") val port:Int = 9160,
-       @Named("cassandra.pool") val poolName:String = "biocache-store-pool",
-       @Named("cassandra.keyspace") val keyspace:String = "occ",
-       @Named("cassandra.max.connections")val maxConnections:Int= -1,
-       @Named("cassandra.max.retries") val maxRetries:Int= 3,
-       @Named("thrift.operation.timeout") val operationTimeout:Int= 4000) extends PersistenceManager {
+                                              @Named("cassandra.hosts") val host:String = "localhost",
+                                              @Named("cassandra.port") val port:Int = 9160,
+                                              @Named("cassandra.pool") val poolName:String = "biocache-store-pool",
+                                              @Named("cassandra.keyspace") val keyspace:String = "occ",
+                                              @Named("cassandra.max.connections")val maxConnections:Int= -1,
+                                              @Named("cassandra.max.retries") val maxRetries:Int= 3,
+                                              @Named("thrift.operation.timeout") val operationTimeout:Int= 4000) extends PersistenceManager {
 
   import JavaConversions._
 
@@ -56,8 +56,8 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Retrieve an array of objects, parsing the JSON stored.
-   */
+    * Retrieve an array of objects, parsing the JSON stored.
+    */
   def get(uuid:String, entityName:String) = {
     val selector = Pelops.createSelector(poolName)
     val slicePredicate = Selector.newColumnsPredicateAll(true, maxColumnLimit)
@@ -74,8 +74,8 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Retrieves a range of columns for the supplied uuid from the specified entity
-   */
+    * Retrieves a range of columns for the supplied uuid from the specified entity
+    */
   def get(uuid:String, entityName:String, startProperty:String, endProperty:String):Option[java.util.List[Column]]={
     val selector = Pelops.createSelector(poolName)
     val slicePredicate = Selector.newColumnsPredicate(startProperty,endProperty,false,maxColumnLimit)
@@ -87,10 +87,10 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Retrieves a list of columns and the last time in ms that they were modified.
-   *
-   * This will support removing columns that were not updated during a reload
-   */
+    * Retrieves a list of columns and the last time in ms that they were modified.
+    *
+    * This will support removing columns that were not updated during a reload
+    */
   def getColumnsWithTimestamps(uuid:String, entityName:String): Option[Map[String, Long]]={
     val selector = Pelops.createSelector(poolName)
     val slicePredicate = Selector.newColumnsPredicateAll(true, maxColumnLimit)
@@ -107,22 +107,22 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Retrieve an array of objects, parsing the JSON stored.
-   *
-   * We are storing rows keyed against unique id's that we don't wish to expose
-   * to users. We wish to expose a static UUID to the uses. This UUID will be
-   * indexed against thus is queryable.
-   *
-   * The performance of the index is slightly worse that lookup by key. This should
-   * be alright because the index should only be hit for reads via webapp.
-   *
-   */
+    * Retrieve an array of objects, parsing the JSON stored.
+    *
+    * We are storing rows keyed against unique id's that we don't wish to expose
+    * to users. We wish to expose a static UUID to the uses. This UUID will be
+    * indexed against thus is queryable.
+    *
+    * The performance of the index is slightly worse that lookup by key. This should
+    * be alright because the index should only be hit for reads via webapp.
+    *
+    */
   def getByIndex(uuid:String, entityName:String, idxColumn:String) : Option[Map[String,String]] =
     getFirstValuesFromIndex(entityName, idxColumn, uuid, Selector.newColumnsPredicateAll(true, maxColumnLimit))
 
   /**
-   * Retrieves a specific property value using the index as the retrieval method.
-   */
+    * Retrieves a specific property value using the index as the retrieval method.
+    */
   def getByIndex(uuid:String, entityName:String, idxColumn:String, propertyName:String) = {
     val map = getFirstValuesFromIndex(entityName, idxColumn, uuid, Selector.newColumnsPredicate(propertyName))
     if(map.isEmpty)
@@ -132,10 +132,10 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Retrieves the first record from the index that matches the value.
-   *
-   * In the use case for the biocache index there will only erve be one record for each value.
-   */
+    * Retrieves the first record from the index that matches the value.
+    *
+    * In the use case for the biocache index there will only erve be one record for each value.
+    */
   def getFirstValuesFromIndex(entityName:String, idxColumn:String, value:String, slicePredicate:SlicePredicate) : Option[Map[String,String]] ={
     val selector = Pelops.createSelector(poolName)
     //set up the index clause information
@@ -155,12 +155,12 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Retrieve the column value, handling NotFoundExceptions from cassandra thrift.
-   *
-   * NC:2013-05-10: we want to throw the exception when any other exception is received.  This is so that errors are
-   * not swallowed in the guise of being a "NotFoundException". Thus allowing us to terminate a load midcycle.
-   *
-   */
+    * Retrieve the column value, handling NotFoundExceptions from cassandra thrift.
+    *
+    * NC:2013-05-10: we want to throw the exception when any other exception is received.  This is so that errors are
+    * not swallowed in the guise of being a "NotFoundException". Thus allowing us to terminate a load midcycle.
+    *
+    */
   def get(uuid:String, entityName:String, propertyName:String) = {
     try {
       val selector = Pelops.createSelector(poolName)
@@ -173,8 +173,8 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Only retrieves the supplied fields for the record.
-   */
+    * Only retrieves the supplied fields for the record.
+    */
   def getSelected(uuid:String, entityName:String, propertyNames:Seq[String]):Option[Map[String,String]] ={
     val selector = Pelops.createSelector(poolName)
     val slicePredicate = Selector.newColumnsPredicate(propertyNames:_*)
@@ -191,60 +191,64 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Store the supplied batch of maps of properties as separate columns in cassandra.
-   */
-  def putBatch(entityName: String, batch: collection.Map[String, collection.Map[String, String]]) = {
+    * Store the supplied batch of maps of properties as separate columns in cassandra.
+    */
+  def putBatch(entityName: String, batch: collection.Map[String, Map[String, String]], removeNullFields: Boolean) = {
     val mutator = Pelops.createMutator(poolName)
     batch.foreach(uuidMap => {
       val uuid = uuidMap._1
       val keyValuePairs = uuidMap._2
       keyValuePairs.foreach( keyValue => {
-        mutator.writeColumn(entityName, uuid, mutator.newColumn(keyValue._1, keyValue._2))
+        mutator.writeColumn(entityName, Bytes.fromUTF8(uuid), mutator.newColumn(keyValue._1, keyValue._2), removeNullFields)
       })
     })
     mutator.execute(ConsistencyLevel.ONE)
   }
 
   /**
-   * Store the supplied map of properties as separate columns in cassandra.
-   */
-  def put(uuid:String, entityName:String, keyValuePairs:Map[String, String]) = {
+    * Store the supplied map of properties as separate columns in cassandra.
+    */
+  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
 
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
 
     val mutator = Pelops.createMutator(poolName)
     keyValuePairs.foreach( keyValue => {
       //NC: only add the column if the value is not null
-      if(keyValue._2!=null){
-        mutator.writeColumn(entityName, recordId, mutator.newColumn(keyValue._1, keyValue._2))
+      if (removeNullFields) {
+        mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(keyValue._1, keyValue._2), removeNullFields)
+      } else {
+        if (keyValue._2 != null) {
+          mutator.writeColumn(entityName, recordId, mutator.newColumn(keyValue._1, keyValue._2))
+        }
       }
     })
     //add the recordId to the columns if it has been generated.  This makes uuid value reads faster that ByteBuffer key conversions
     if(uuid == null){
-      mutator.writeColumn(entityName, recordId, mutator.newColumn("uuid", recordId))
+      mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn("uuid", recordId), removeNullFields)
     }
     mutator.execute(ConsistencyLevel.ONE)
     recordId
   }
 
   /**
-   * Store the supplied property value in the column
-   */
-  def put(uuid:String, entityName:String, propertyName:String, propertyValue:String) = {
+    * Store the supplied property value in the column
+    */
+  def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, removeNullFields: Boolean) = {
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
     val mutator = Pelops.createMutator(poolName)
-    mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, propertyValue))
+    mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, propertyValue), removeNullFields)
     //add the recordId to the columns if it has been generated.  This makes uuid value reads faster that ByteBuffer key conversions
     if(uuid == null){
-      mutator.writeColumn(entityName, recordId, mutator.newColumn("uuid", recordId))
+      mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn("uuid", recordId), removeNullFields)
     }
     mutator.execute(ConsistencyLevel.ONE)
     recordId
   }
 
   /**
-   * Retrieve the column value, and parse from JSON to Array
-   */
+    * Retrieve the column value, and parse from JSON to Array
+    */
   def getList[A](uuid:String, entityName:String, propertyName:String, theClass:java.lang.Class[_]): List[A] = {
     val column = getColumn(uuid, entityName, propertyName)
     if (column.isEmpty) {
@@ -256,10 +260,10 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Store arrays in a single column as JSON.
-   */
+    * Store arrays in a single column as JSON.
+    */
   //def putList(uuid:String, entityName:String, propertyName:String, newList:List[AnyRef], overwrite:Boolean) = {
-  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_], overwrite: Boolean) = {
+  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, removeNullFields: Boolean) = {
 
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
     //initialise the serialiser
@@ -268,7 +272,7 @@ class CassandraPersistenceManager @Inject() (
     if (overwrite) {
       //val json = Json.toJSON(newList)
       val json:String = Json.toJSONWithGeneric(newList)
-      mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, json))
+      mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, json), removeNullFields)
     } else {
 
       //retrieve existing values
@@ -277,7 +281,7 @@ class CassandraPersistenceManager @Inject() (
       if (column.isEmpty) {
         //write new values
         val json:String = Json.toJSONWithGeneric(newList)
-        mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, json))
+        mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, json), removeNullFields)
       } else {
         //retrieve the existing objects
         val currentJson = new String(column.get.getValue)
@@ -297,7 +301,7 @@ class CassandraPersistenceManager @Inject() (
         // check equals
         //val newJson = Json.toJSON(buffer.toList)
         val newJson:String = Json.toJSONWithGeneric(buffer.toList)
-        mutator.writeColumn(entityName, recordId, mutator.newColumn(propertyName, newJson))
+        mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, newJson), removeNullFields)
       }
     }
     mutator.execute(ConsistencyLevel.ONE)
@@ -305,15 +309,14 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Generic page over method. Individual pageOver methods should provide a slicePredicate that
-   * is used to determine the columns that are returned...
-   *
-   * We need to ignore empty rows if the SlicePredicate id for ALL columns.  This is configuration in Cassandra 0.8.8:
-   * https://issues.apache.org/jira/browse/CASSANDRA-2855
-   *
-   *
-   * @param startUuid, The uuid of the occurrence at which to start the paging
-   */
+    * Generic page over method. Individual pageOver methods should provide a slicePredicate that
+    * is used to determine the columns that are returned...
+    *
+    * We need to ignore empty rows if the SlicePredicate id for ALL columns.  This is configuration in Cassandra 0.8.8:
+    * https://issues.apache.org/jira/browse/CASSANDRA-2855
+    *
+    * @param startUuid, The uuid of the occurrence at which to start the paging
+    */
   def pageOver(entityName:String,proc:((String, Map[String,String])=>Boolean), pageSize:Int,
                slicePredicate:SlicePredicate, checkEmpty:Boolean=false,startUuid:String="",endUuid:String="") = {
 
@@ -353,8 +356,8 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Retrieve a list of records as maps of columns.
-   */
+    * Retrieve a list of records as maps of columns.
+    */
   private def getColumnsFromRowsWithRetries(entityName:String, keyRange:KeyRange, slicePredicate:SlicePredicate,
                                             cl:ConsistencyLevel, permittedRetries:Int) : java.util.Map[Bytes, java.util.List[Column]] = {
     var success = false
@@ -372,12 +375,20 @@ class CassandraPersistenceManager @Inject() (
           columnMap = new util.HashMap[Bytes, java.util.List[Column]]
         }
         case e:Exception => {
-          logger.debug("Problem retrieving data. Number of retries left:" + (permittedRetries - noOfRetries) +
+          logger.warn("Problem retrieving data. Number of retries left:" + (permittedRetries - noOfRetries) +
             ", Error: " + e.getMessage)
           Thread.sleep(20000)
           //Don't remove the pool because all requests while the reinit happens will result in NPE.
           //Pelops.removePool(poolName)
-          initialise //re-initialise
+
+          try {
+            initialise //re-initialise
+          } catch {
+            case ex:Exception => {
+              logger.warn("Problem reinitialising Cassandra connection Error: " + ex.getMessage)
+            }
+          }
+
           if (noOfRetries == permittedRetries){
             logger.error("Problem retrieving data. Number of DB connection retries exceeded. Error: " + e.getMessage, e)
             throw new RuntimeException(e)
@@ -390,17 +401,18 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Pages over all the records with the selected columns.
-   * @param columnName The names of the columns that need to be provided for processing by the proc
-   */
+    * Pages over all the records with the selected columns.
+    *
+    * @param columnName The names of the columns that need to be provided for processing by the proc
+    */
   def pageOverSelect(entityName:String, proc:((String, Map[String,String]) => Boolean), startUuid:String, endUuid:String, pageSize:Int, columnName:String*){
     val slicePredicate = Selector.newColumnsPredicate(columnName:_*)
     pageOver(entityName, proc, pageSize, slicePredicate, startUuid=startUuid, endUuid=endUuid)
   }
 
   /**
-   * Pages over the records returns the columns that fit within the startColumn and endColumn range
-   */
+    * Pages over the records returns the columns that fit within the startColumn and endColumn range
+    */
   def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String="", endUuid:String="", pageSize:Int=1000, startColumn:String="", endColumn:String=""){
     val slicePredicate = Selector.newColumnsPredicate(startColumn, endColumn, false, maxColumnLimit)
     //can't use this because we want to page of the column range too just in case the number of columns > than maxColumnLimit
@@ -459,20 +471,20 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Iterate over all occurrences, passing the objects to a function.
-   * Function returns a boolean indicating if the paging should continue.
-   *
-   * @param proc
-   * @param startUuid, The uuid of the occurrence at which to start the paging
-   */
+    * Iterate over all occurrences, passing the objects to a function.
+    * Function returns a boolean indicating if the paging should continue.
+    *
+    * @param proc
+    * @param startUuid, The uuid of the occurrence at which to start the paging
+    */
   def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean),startUuid:String="", endUuid:String="", pageSize:Int = 1000) {
     val slicePredicate = Selector.newColumnsPredicateAll(true, maxColumnLimit)
     pageOver(entityName, proc, pageSize, slicePredicate,true,startUuid=startUuid, endUuid=endUuid)
   }
 
   /**
-   * Select fields from rows and pass to the supplied function.
-   */
+    * Select fields from rows and pass to the supplied function.
+    */
   def selectRows(rowkeys:Seq[String], entityName:String, fields:Seq[String], proc:((Map[String,String])=>Unit)) {
     val selector:Selector = Pelops.createSelector(poolName)
     val slicePredicate = Selector.newColumnsPredicate(fields:_*)
@@ -494,8 +506,8 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Convert a set of cassandra columns into a key-value pair map.
-   */
+    * Convert a set of cassandra columns into a key-value pair map.
+    */
   protected def columnList2Map(columnList:java.util.List[Column]) : Map[String,String] = {
     val map = new mutable.HashMap[String, String]
     val iter = columnList.iterator()
@@ -507,13 +519,13 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Converts a set of cassandra columns to a column name to last modified map.
-   *
-   *  This will support the removal of columns that were not updated during a new load
-   *
-   *  NB Pelops provides timestamps in microseconds thus values will be /1000 and returned in milliseconds
-   *
-   */
+    * Converts a set of cassandra columns to a column name to last modified map.
+    *
+    *  This will support the removal of columns that were not updated during a new load
+    *
+    *  NB Pelops provides timestamps in microseconds thus values will be /1000 and returned in milliseconds
+    *
+    */
   protected def columnList2TimeMap(columnList:java.util.List[Column]) :Map[String,Long]={
     val map = new mutable.HashMap[String, Long]
     val iter = columnList.iterator()
@@ -525,8 +537,8 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Convienience method for accessing values.
-   */
+    * Convienience method for accessing values.
+    */
   protected def getColumn(uuid: String, columnFamily: String, columnName: String): Option[Column] = {
     try {
       val selector = Pelops.createSelector(poolName)
@@ -546,8 +558,8 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Delete the value for the supplied column
-   */
+    * Delete the value for the supplied column
+    */
   def deleteColumns(uuid:String, entityName:String, columnName:String*)={
     if(uuid != null && entityName != null && columnName != null){
       val mutator = Pelops.createMutator(poolName)
@@ -557,8 +569,8 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Removes the record for the supplied uuid from entityName.
-   */
+    * Removes the record for the supplied uuid from entityName.
+    */
   def delete(uuid:String, entityName:String) {
     if(uuid != null && entityName != null){
       val deletor = Pelops.createRowDeletor(poolName)

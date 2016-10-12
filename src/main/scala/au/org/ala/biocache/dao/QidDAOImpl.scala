@@ -46,7 +46,7 @@ class QidDAOImpl extends QidDAO {
       qid.rowKey = nextId.toString
     }
 
-    persistenceManager.put(qid.rowKey, "qid", qid.toMap.filter(_._2 != null))
+    persistenceManager.put(qid.rowKey, "qid", qid.toMap.filter(_._2 != null), false)
 
     qid
   }

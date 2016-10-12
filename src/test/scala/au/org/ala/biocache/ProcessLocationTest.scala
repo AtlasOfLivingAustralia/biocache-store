@@ -5,7 +5,7 @@ import org.apache.commons.lang.StringUtils
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.BeforeAndAfterAll
-import au.org.ala.biocache.processor.{EventProcessor, LocationProcessor}
+import au.org.ala.biocache.processor.{SensitivityProcessor, EventProcessor, LocationProcessor}
 import au.org.ala.biocache.model.FullRecord
 
 /**
@@ -116,6 +116,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
     (new EventProcessor).process("test", raw, processed)
     (new LocationProcessor).process("test", raw, processed)
+    (new SensitivityProcessor).process("test", raw, processed)
 
     expectResult("-31.9") {
       processed.location.decimalLatitude
@@ -152,6 +153,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     raw.location.stateProvince = "NSW"
     raw.location.locality = "My test locality"
     (new LocationProcessor).process("test", raw, processed)
+    (new SensitivityProcessor).process("test", raw, processed)
     expectResult(true) {
       StringUtils.isNotBlank(processed.occurrence.dataGeneralizations)
     }
@@ -178,7 +180,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     }
   }
 
-  test("Already Generalised - Crex crex - Western Australia") {
+  ignore("Already Generalised - Crex crex - Western Australia ! already generalised commented out of configuration") {
     val raw = new FullRecord
     val processed = new FullRecord
     raw.classification.setScientificName("Crex crex")

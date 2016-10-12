@@ -25,6 +25,7 @@ object Loader extends Tool {
     var forceLoad = false
     var testLoad = false
     var loadAll = false
+    var removeNullFields = false
 
     val parser = new OptionParser(help) {
       arg("data-resource-uid","The data resource to load. Supports a comma separated list. Specify 'all' to load all", {
@@ -37,6 +38,7 @@ object Loader extends Tool {
       })
       opt("fl", "force-load", "Force the (re)load of media", { forceLoad = true })
       opt("t", "test-load", "Test the (re)load of media", { testLoad = true })
+      opt("rnf", "remove-null-fields", "Remove the null/Empty fields currently exist in the atlas", { removeNullFields = true })
     }
 
     if(parser.parse(args)){
@@ -48,7 +50,7 @@ object Loader extends Tool {
           logger.info(s"Loading resource $name, uid: $uid")
           if (uid != "") {
             try {
-              l.load(uid, testLoad, forceLoad)
+              l.load(uid, testLoad, forceLoad, removeNullFields)
             } catch {
               case e:Exception => logger.error(s"Unable to load data resource with $uid. Exception message: $e.getMessage", e)
             }
@@ -60,7 +62,7 @@ object Loader extends Tool {
         val listOfResources = dataResourceUid.split(",").map(uid => uid.trim())
         val l = new Loader
         listOfResources.foreach {
-          l.load(_, testLoad, forceLoad)
+          l.load(_, testLoad, forceLoad, removeNullFields)
         }
         logger.info("Completed loading resource: " + dataResourceUid)
       }
@@ -139,7 +141,7 @@ class Loader extends DataLoader {
     drs
   }
 
-  def load(dataResourceUid: String, test:Boolean=false, forceLoad:Boolean=false) {
+  def load(dataResourceUid: String, test:Boolean=false, forceLoad:Boolean=false, removeNullFields:Boolean=false) {
     try {
       val config = retrieveConnectionParameters(dataResourceUid)
       if(config.isEmpty){
@@ -156,12 +158,12 @@ class Loader extends DataLoader {
         case "dwc" => {
           logger.info("Darwin core headed CSV loading")
           val l = new DwcCSVLoader
-          l.load(dataResourceUid, false,test,forceLoad)
+          l.load(dataResourceUid, false,test,forceLoad, removeNullFields)
         }
         case "dwca" => {
           logger.info("Darwin core archive loading")
           val l = new DwCALoader
-          l.load(dataResourceUid, false,test,forceLoad)
+          l.load(dataResourceUid, false,test,forceLoad,removeNullFields)
         }
         case "digir" => {
           logger.info("digir webservice loading")

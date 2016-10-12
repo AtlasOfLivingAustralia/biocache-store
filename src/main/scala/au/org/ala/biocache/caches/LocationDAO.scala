@@ -28,6 +28,7 @@ object LocationDAO {
     if (latitude != null && latitude.trim.length > 0 && longitude != null && longitude.trim.length > 0){
 
       val guid = getLatLongKey(latitude, longitude)
+
       val mapBuffer = new HashMap[String, String]
 
       mapBuffer += (latitudeCol -> latitude)
@@ -38,7 +39,7 @@ object LocationDAO {
       if (batch) {
         (guid -> mapBuffer.toMap)
       } else {
-        Config.persistenceManager.put(guid, columnFamily, mapBuffer.toMap)
+        Config.persistenceManager.put(guid, columnFamily, mapBuffer.toMap, false)
         null
       }
     } else {
@@ -56,7 +57,7 @@ object LocationDAO {
     var processedOK = false
     while (!processedOK && retries < 6) {
       try {
-        Config.persistenceManager.putBatch(columnFamily, batch)
+        Config.persistenceManager.putBatch(columnFamily, batch, false)
         processedOK = true
       } catch {
         case e: Exception => {
@@ -83,12 +84,13 @@ object LocationDAO {
   def storePointForSampling(latitude:String, longitude:String) : String = {
     val uuid = getLatLongKey(latitude, longitude)
     val map = Map(latitudeCol -> latitude, longitudeCol -> longitude)
-    Config.persistenceManager.put(uuid, columnFamily, map)
+    Config.persistenceManager.put(uuid, columnFamily, map, false)
     uuid
   }
 
   /**
    * Get location information for point.
+   * For geo spatial requirements we don't want to round the latitude , longitudes
    */
   def getSamplesForLatLon(latitude:String, longitude:String) : Option[(Location, collection.Map[String,String], collection.Map[String,String])] = {
 

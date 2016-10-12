@@ -15,4 +15,6 @@ object DuplicationTypes {
   val EXACT_COLLECTOR = DupType(6)     // "Occurrences had identical collectors."
   val FUZZY_COLLECTOR = DupType(7)     // The occurrences had collectors that are similar
   val MISSING_COLLECTOR = DupType(8)   // At least one of the occurrences was missing a collector
+  val EXACT_FIELD_NUMBER = DupType(9)  // Occurrences had identical field number
+  val EXACT_CATALOGUE_NUMBER = DupType(10) // Occurrences had identical catalogue number
 }

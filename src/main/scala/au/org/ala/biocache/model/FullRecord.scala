@@ -27,6 +27,8 @@ class FullRecord (
   @BeanProperty var cl:java.util.Map[String,String] = new java.util.HashMap[String,String](),        //contextual layers
   @BeanProperty var miscProperties:java.util.Map[String,String] = new java.util.HashMap[String,String](),
   @BeanProperty var queryAssertions:java.util.Map[String,String] = new java.util.HashMap[String,String](),
+  @BeanProperty var userQualityAssertion:String = "",
+  @BeanProperty var userAssertionStatus:String = "",
   @BeanProperty var locationDetermined:Boolean = false,
   @BeanProperty var defaultValuesUsed:Boolean = false,
   @BeanProperty var geospatiallyKosher:Boolean = true,
@@ -36,7 +38,8 @@ class FullRecord (
   @BeanProperty var firstLoaded:String="",
   @BeanProperty var lastModifiedTime:String = "",
   @BeanProperty var dateDeleted:String = "",
-  @BeanProperty var lastUserAssertionDate:String = "")
+  @BeanProperty var lastUserAssertionDate:String = "",
+  @JsonIgnoreProperties var rawFields:scala.collection.Map[String, String] = Map())
   extends Cloneable with CompositePOSO {
 
   def objectArray:Array[POSO] = Array(occurrence,classification,location,event,attribution,identification,measurement)
@@ -87,5 +90,14 @@ class FullRecord (
       else true
     }
     case _ => false
+  }
+
+  def getRawFields() : scala.collection.Map[String, String] = rawFields
+
+  def setRawFieldsWithMapping(rf: scala.collection.Map[String, String]) = {
+    rawFields = rf map { case (k, v) => (k.toLowerCase match {
+      case "class" | "clazz" | "classs" => "classs"
+      case _ => k
+    }, v)}
   }
 }

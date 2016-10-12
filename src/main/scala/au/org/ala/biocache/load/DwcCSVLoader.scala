@@ -1,15 +1,16 @@
 package au.org.ala.biocache.load
 
-import au.org.ala.biocache._
+import java.io.{File, FileInputStream, InputStreamReader}
+
 import au.com.bytecode.opencsv.CSVReader
-import java.io.{File,InputStreamReader, FileInputStream}
-import collection.mutable.ArrayBuffer
-import scala.Some
+import au.org.ala.biocache._
+import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.model.Versions
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
-import au.org.ala.biocache.model.Versions
-import au.org.ala.biocache.cmd.Tool
 import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Companion object for the DwcCSVLoader class
@@ -80,7 +81,7 @@ class DwcCSVLoader extends DataLoader {
     }
   }
 
-  def load(dataResourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean=false){
+  def load(dataResourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean=false, removeNullFields:Boolean=false){
     //remove the old files
     emptyTempFileStore(dataResourceUid)
     //delete the old file
@@ -101,7 +102,7 @@ class DwcCSVLoader extends DataLoader {
           logger.info("File last modified date: " + maxLastModifiedDate)
           if(fileName != null){
             val directory = new File(fileName)
-            loadDirectory(directory, dataResourceUid, config.uniqueTerms, config.connectionParams, strip, incremental || logRowKeys, testFile)
+            loadDirectory(directory, dataResourceUid, config.uniqueTerms, config.connectionParams, strip, incremental || logRowKeys, testFile,  removeNullFields)
             loaded = true
           }
         })
@@ -117,13 +118,13 @@ class DwcCSVLoader extends DataLoader {
 
   //loads all the files in the subdirectories that are not multimedia
   def loadDirectory(directory:File, dataResourceUid:String, uniqueTerms:Seq[String], params:Map[String,String],
-                    stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false){
+                    stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false, deleteIfNullValue:Boolean=false){
 
     directory.listFiles.foreach(file => {
       if(file.isFile()&& !Config.mediaStore.isMediaFile(file)) {
-        loadFile(file, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys, test)
+        loadFile(file, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys, test, deleteIfNullValue)
       } else if(file.isDirectory) {
-        loadDirectory(file, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys, test)
+        loadDirectory(file, dataResourceUid, uniqueTerms, params, stripSpaces, logRowKeys, test, deleteIfNullValue)
       } else {
         logger.warn("Unable to load as CSV: " + file.getAbsolutePath())
       }
@@ -142,7 +143,7 @@ class DwcCSVLoader extends DataLoader {
    * @param test
    */
   def loadFile(file:File, dataResourceUid:String, uniqueTerms:Seq[String], params:Map[String,String],
-               stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean = false){
+               stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean = false, deleteIfNullValue:Boolean=false){
 
     val rowKeyWriter = getRowKeyWriter(dataResourceUid, logRowKeys)
 
@@ -217,11 +218,14 @@ class DwcCSVLoader extends DataLoader {
       if (columns.length >= dwcTermHeaders.size - 1){
         val map = (dwcTermHeaders zip columns).toMap[String,String].filter( {
           case (key,value) => {
-            if(value != null){
-              val upperCased = value.trim.toUpperCase
-              upperCased != "NULL" && upperCased != "N/A" && upperCased != "\\N" && upperCased != ""
+            if(value != null ){
+              if(value.trim != ""){
+                true
+              } else {
+                deleteIfNullValue  // add the pair if the empty values will be removed
+              }
             } else {
-              false
+              deleteIfNullValue  // add the pair if the null values will be removed
             }
           }
         })
@@ -268,7 +272,7 @@ class DwcCSVLoader extends DataLoader {
               logger.info("Loading: " + filePathsInStore.mkString("; "))
               fr.occurrence.associatedMedia = filePathsInStore.mkString(";")
             }
-            load(dataResourceUid, fr, uniqueTermsValues, true, false, stripSpaces, rowKeyWriter, List())
+            load(dataResourceUid, fr, uniqueTermsValues, true, false, stripSpaces, rowKeyWriter, List(), deleteIfNullValue)
           }
 
           if (counter % 1000 == 0 && counter > 0) {

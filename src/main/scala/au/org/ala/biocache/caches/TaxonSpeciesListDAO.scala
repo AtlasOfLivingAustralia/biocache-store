@@ -133,11 +133,13 @@ object TaxonSpeciesListDAO {
         //build up the map
         while (currentLine != null) {
           val guid = currentLine(guidIdx)
-          val specieslists = guidMap.getOrElse(guid, List[String]())
-          if (specieslists.isEmpty) {
-            guidMap.put(guid, List(drUid))
-          } else {
-            guidMap.put(guid, specieslists :+ drUid)
+          if (guid.length() > 0) {
+            val specieslists = guidMap.getOrElse(guid, List[String]())
+            if (specieslists.isEmpty) {
+              guidMap.put(guid, List(drUid))
+            } else if (!specieslists.contains(drUid)) {
+              guidMap.put(guid, specieslists :+ drUid)
+            }
           }
 
           currentLine = csvReader.readNext()
@@ -187,16 +189,18 @@ object TaxonSpeciesListDAO {
           //build up the map
           while (currentLine != null) {
             val guid = currentLine(guidIdx)
-            val item = new mutable.HashMap[String, String]()
-            for (i <- 0 until columnHdrs.length) {
-              item.put(drUid + "_" + columnHdrs(i), currentLine(i))
-            }
+            if (guid.length() > 0) {
+              val item = new mutable.HashMap[String, String]()
+              for (i <- 0 until columnHdrs.length) {
+                item.put(drUid + "_" + columnHdrs(i), currentLine(i))
+              }
 
-            val items = guidMap.getOrElse(guid, mutable.HashMap[String, String]())
-            if (items.isEmpty) {
-              guidMap.put(guid, item.toMap[String, String])
-            } else {
-              guidMap.put(guid, (items ++ item).toMap[String, String])
+              val items = guidMap.getOrElse(guid, mutable.HashMap[String, String]())
+              if (items.isEmpty) {
+                guidMap.put(guid, item.toMap[String, String])
+              } else {
+                guidMap.put(guid, (items ++ item).toMap[String, String])
+              }
             }
 
             currentLine = csvReader.readNext()

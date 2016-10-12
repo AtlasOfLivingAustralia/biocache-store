@@ -404,7 +404,7 @@ object ReverseJacknifeProcessor extends Tool {
     val jackKnifeStatsMap = results.map(x => x._1 -> x._3).toMap[String, JackKnifeStats]
 
     //store the outlier stats for this taxon
-    Config.persistenceManager.put(taxonID, "outliers", "jackKnifeStats", mapper.writeValueAsString(jackKnifeStatsMap))
+    Config.persistenceManager.put(taxonID, "outliers", "jackKnifeStats", mapper.writeValueAsString(jackKnifeStatsMap), false)
 
     //recordUUID -> list of layers
     val variableResults = results.map(x => (x._1, x._2))
@@ -417,11 +417,11 @@ object ReverseJacknifeProcessor extends Tool {
     }
 
     if (!previous.isEmpty) {
-      Config.persistenceManager.put(taxonID, "outliers", "previous", previous.get)
+      Config.persistenceManager.put(taxonID, "outliers", "previous", previous.get, false)
     }
 
     //mark up records
-    Config.persistenceManager.put(taxonID, "outliers", "jackKnifeOutliers", mapper.writeValueAsString(variableResults))
+    Config.persistenceManager.put(taxonID, "outliers", "jackKnifeOutliers", mapper.writeValueAsString(variableResults), false)
 
     val recordStats = record2OutlierLayer.map(x => {
       val (sampledRecord, layerId) = (x._1, x._2)
@@ -445,9 +445,9 @@ object ReverseJacknifeProcessor extends Tool {
       val rowKey = Config.occurrenceDAO.getRowKeyFromUuid(x._1)
       if (!rowKey.isEmpty){
         val layerIds = x._2.map(_.layerId).toList
-        Config.persistenceManager.put(rowKey.get, "occ", "outlierForLayers.p", mapper.writeValueAsString(layerIds))
+        Config.persistenceManager.put(rowKey.get, "occ", "outlierForLayers.p", mapper.writeValueAsString(layerIds), false)
         Config.occurrenceDAO.addSystemAssertion(rowKey.get, QualityAssertion(AssertionCodes.DETECTED_OUTLIER, "Outlier for " + x._2.size + " layers"))
-        Config.persistenceManager.put(x._1, "occ_outliers", "jackKnife", mapper.writeValueAsString(x._2))
+        Config.persistenceManager.put(x._1, "occ_outliers", "jackKnife", mapper.writeValueAsString(x._2), false)
       } else {
         logger.debug("Row key lookup failed for : "  + x._1)
       }
@@ -511,7 +511,7 @@ object ReverseJacknifeProcessor extends Tool {
   }
 
   def storeResults(taxonID:String, record2Layers:Seq[(SampledRecord, String)] ){
-    Config.persistenceManager.put(taxonID, "outliers", "current", record2Layers.toString)
+    Config.persistenceManager.put(taxonID, "outliers", "current", record2Layers.toString, false)
   }
 
   def invertLayer2Record(layer2Record: Seq[(String, Seq[SampledRecord])]) : Seq[(SampledRecord, String)] = {

@@ -13,6 +13,7 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.AssertionCodes
+import au.org.ala.biocache.vocab.{AssertionStatus}
 import au.org.ala.biocache.util.Json
 import au.org.ala.biocache.model.QualityAssertion
 
@@ -130,7 +131,7 @@ trait IndexDAO {
   /**
    * The header values for the CSV file.
    */
-  lazy val header:List[String] = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
+  lazy val header = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
     "data_resource", "institution_uid", "institution_code", "institution_name",
     "collection_uid", "collection_code", "collection_name", "catalogue_number",
     "taxon_concept_lsid", "occurrence_date", "occurrence_date_end_dt", "occurrence_year", "occurrence_decade_i", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
@@ -144,7 +145,7 @@ trait IndexDAO {
     "sensitive", "coordinate_uncertainty", "user_id", "alau_user_id", "provenance", "subspecies_guid", "subspecies_name", "interaction", "last_assertion_date",
     "last_load_date", "last_processed_date", "modified_date", "establishment_means", "loan_number", "loan_identifier", "loan_destination",
     "loan_botanist", "loan_date", "loan_return_date", "original_name_usage", "duplicate_inst", "record_number", "first_loaded_date", "name_match_metric",
-    "life_stage", "outlier_layer", "outlier_layer_count", "taxonomic_issue", "raw_identification_qualifier", "species_habitats",
+    "life_stage", "outlier_layer", "outlier_layer_count", "taxonomic_issue", "raw_identification_qualifier", "identification_qualifier_s", "species_habitats",
     "identified_by", "identified_date", "sensitive_longitude", "sensitive_latitude", "pest_flag_s", "collectors", "duplicate_status", "duplicate_record",
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
@@ -347,10 +348,11 @@ trait IndexDAO {
 
         //Only set the geospatially kosher field if there are coordinates supplied
         val geoKosher = if (slat == "" && slon == "") "" else map.getOrElse(FullRecordMapper.geospatialDecisionColumn, "")
-        val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "") match {
-          case "true" => "true"
-          case "false" => "false"
-          case value: String => (value.length > 3).toString
+        //val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
+        val userAssertionStatus: Int = map.getOrElse(FullRecordMapper.userAssertionStatusColumn, AssertionStatus.QA_NONE.toString).toInt
+        val hasUserAss:String = userAssertionStatus match {
+          case AssertionStatus.QA_NONE => "false"
+          case _ => userAssertionStatus.toString
         }
 
         val (subspeciesGuid, subspeciesName): (String, String) = {
@@ -391,8 +393,8 @@ trait IndexDAO {
         }
         val taxonIssueArray = Json.toStringArray(taxonIssue)
         val infoWith = map.getOrElse("informationWithheld.p", "")
-        val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""
-        
+        val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""//startsWith("PEST")) "PEST" else ""
+
         var distanceOutsideExpertRange = map.getOrElse("distanceOutsideExpertRange.p", "");
         //only want valid numbers
         try {
@@ -474,6 +476,7 @@ trait IndexDAO {
           getValue("locationRemarks", map),
           getValue("occurrenceRemarks", map),
           hasUserAss,
+          //  userAssertionStatus,
           getValue("recordedBy", map),
           stateCons, //stat
           rawStateCons,
@@ -508,6 +511,7 @@ trait IndexDAO {
           outlierForLayers.length.toString,
           taxonIssueArray.mkString("|"),
           map.getOrElse("identificationQualifier", ""),
+          map.getOrElse("identificationQualifier.p", ""),
           habitats.mkString("|"),
           map.getOrElse("identifiedBy", ""),
           if (dateIdentified.isEmpty) "" else DateFormatUtils.format(dateIdentified.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),

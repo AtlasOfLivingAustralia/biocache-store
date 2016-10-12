@@ -152,7 +152,8 @@ object Sampling extends Tool with IncrementalTool {
           val (location, environmentalLayers, contextualLayers) = point.get
           Config.persistenceManager.put(guid, "occ", Map(
             "el.p" -> Json.toJSON(environmentalLayers),
-            "cl.p" -> Json.toJSON(contextualLayers))
+            "cl.p" -> Json.toJSON(contextualLayers)),
+            false
           )
         }
         counter += 1

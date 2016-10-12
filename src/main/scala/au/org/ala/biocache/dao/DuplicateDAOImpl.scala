@@ -68,6 +68,6 @@ class DuplicateDAOImpl extends DuplicateDAO {
    * Updates the last duplication detection run with the supplied date.
    */
   override def setLastDuplicationRun(date:java.util.Date) {
-    persistenceManager.put(lastRunRowKey, "duplicates", lastRunRowKey, date)
+    persistenceManager.put(lastRunRowKey, "duplicates", lastRunRowKey, date, false)
   }
 }

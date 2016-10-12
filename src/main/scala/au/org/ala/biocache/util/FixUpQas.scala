@@ -33,12 +33,12 @@ object FixUpQas {
     Config.persistenceManager.pageOverAll("queryassert", (key,map) => {
       println(key)
       val userEmail =  map.getOrElse("userName", "")
-      Config.persistenceManager.put(key, "queryassert", "userEmail", userEmail)
+      Config.persistenceManager.put(key, "queryassert", "userEmail", userEmail, false)
 
       //lookup the CAS ID for this user..
       val id = userMap.get(userEmail)
       if(!id.isEmpty){
-        Config.persistenceManager.put(key, "queryassert", "userId", id.get)
+        Config.persistenceManager.put(key, "queryassert", "userId", id.get, false)
       }
       true
     })
@@ -49,12 +49,12 @@ object FixUpQas {
       println(key)
 
       val userEmail =  map.getOrElse("userId", "")
-      Config.persistenceManager.put(key, "qa", "userEmail", userEmail)
+      Config.persistenceManager.put(key, "qa", "userEmail", userEmail, false)
 
       //lookup the CAS ID for this user..
       val id = userMap.get(userEmail)
       if(!id.isEmpty){
-        Config.persistenceManager.put(key, "qa", "userId", id.get)
+        Config.persistenceManager.put(key, "qa", "userId", id.get, false)
       }
 
       true

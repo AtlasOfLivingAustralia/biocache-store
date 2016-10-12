@@ -7,6 +7,9 @@
         </layout>
     </appender>
     <!-- Alter the logging of known libs -->
+    <category name="com.datastax">
+        <priority value="ERROR"/>
+    </category>
     <category name="au.org.ala.biocache">
         <priority value="INFO"/>
     </category>

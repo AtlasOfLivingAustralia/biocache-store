@@ -14,7 +14,7 @@ import java.io.{File, FileInputStream}
 import com.google.inject.name.Names
 import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
-import au.org.ala.biocache.persistence.{MockPersistenceManager, PostgresPersistenceManager, PersistenceManager, CassandraPersistenceManager}
+import au.org.ala.biocache.persistence._
 import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
 import scala.io.Source
 
@@ -59,8 +59,6 @@ object Config {
   //name index
   val nameIndex = getInstance(classOf[ALANameSearcher]).asInstanceOf[ALANameSearcher]
 
-  val defaultSourceCrs = configModule.properties.getProperty("default.source.crs", "EPSG:27700")
-
   val hashImageFileNames = configModule.properties.getProperty("hash.image.filenames", "false").toBoolean
 
   val solrUpdateThreads = configModule.properties.getProperty("solr.update.threads", "4").toInt
@@ -95,7 +93,7 @@ object Config {
   val obeySDSIsLoadable = configModule.properties.getProperty("obey.sds.is.loadable", "true").toBoolean
 
   /** a regex pattern for identifying guids associated with the national checklists */
-  val nationalChecklistIdentifierPattern = configModule.properties.getProperty("national.checklist.guid.pattern", """(:afd.|:apni.)""")
+  val nationalChecklistIdentifierPattern = configModule.properties.getProperty("national.checklist.guid.pattern", """biodiversity.org.au""")
 
   private var fieldsToSampleCached = Array[String]()
 
@@ -174,6 +172,8 @@ object Config {
 
   lazy val layersServiceSampling = configModule.properties.getProperty("layers.service.sampling", "true").toBoolean
 
+  lazy val layerServiceRetries = configModule.properties.getProperty("layers.service.retries", "10").toInt
+
   lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
 
   lazy val solrBatchSize = configModule.properties.getProperty("solr.batch.size", "1000").toInt
@@ -247,9 +247,8 @@ object Config {
   //load sensitive data service
   val sdsFinder:SensitiveSpeciesFinder = synchronized {
     if(sdsEnabled) {
-      logger.info("Initialising SDS lookups using  " + sdsUrl + "/sensitive-species-data.xml")
       SpatialLayerDAO
-      SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(sdsUrl + "/sensitive-species-data.xml", nameIndex)
+      SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(nameIndex)
     } else {
       null
     }
@@ -304,7 +303,7 @@ private class ConfigModule extends AbstractModule {
     properties.load(stream)
 
     //this allows the SDS to access the same config file
-    System.setProperty("app.config.file", filename)
+    System.setProperty("sds.config.file", filename)
 
     properties
   }

@@ -23,7 +23,8 @@ object Processors {
     "EVENT" -> new EventProcessor,
     "LOC" -> new LocationProcessor,
     "SENSITIVE" -> new SensitivityProcessor,
-    "TS" -> new TypeStatusProcessor
+    "TS" -> new TypeStatusProcessor,
+    "IQ" -> new IdentificationQualifierProcessor
   )
 
   //TODO A better way to do this. Maybe need to group QA failures by issue type instead of phase.

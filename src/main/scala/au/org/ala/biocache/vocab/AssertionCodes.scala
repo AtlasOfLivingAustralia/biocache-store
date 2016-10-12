@@ -2,6 +2,8 @@ package au.org.ala.biocache.vocab
 
 import au.org.ala.biocache.model.QualityAssertion
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
  * Assertion codes for records. These codes are a reflection of http://bit.ly/evMJv5
  */
@@ -112,6 +114,11 @@ object AssertionCodes {
   //verified type - this is a special code
   val VERIFIED = ErrorCode("userVerified", 50000, true, "Record Verified by collection manager", Verified)
 
+ /* val QA_OPEN_ISSUE = ErrorCode("qaStatusOpen", 50001, true, "Open issue", Verified)
+  val QA_VERIFIED = ErrorCode("qaStatusVerified", 50002, true, "Verified", Verified)
+  val QA_CORRECTED = ErrorCode("qaStatusCorrected", 50003, true, "Corrected", Verified)*/
+
+
   //this is a code user can use to flag a issue with processing
   val PROCESSING_ERROR = ErrorCode("processingError", 60000, true, "The system has incorrectly processed a record", Error)
 
@@ -163,38 +170,36 @@ object AssertionCodes {
   def isVerified(assertion:QualityAssertion) : Boolean = assertion.code == VERIFIED.code
 
   /** Is it geospatially kosher */
-  def isGeospatiallyKosher (assertions:Array[QualityAssertion]) : Boolean = assertions.filter(ass => {
-     val errorCode = AssertionCodes.all.find(errorCode => errorCode.code == ass.code )
-     if(!errorCode.isEmpty){
-       ass.code >= AssertionCodes.geospatialBounds._1 &&
-              ass.code < AssertionCodes.geospatialBounds._2 &&
-              errorCode.get.isFatal
-     } else {
-        false
-     }
-  }).isEmpty
+  def isGeospatiallyKosher (assertions:Array[QualityAssertion]) : Boolean = {
+    var assCodes = new ArrayBuffer[Int]()
+    assertions.foreach(qa => assCodes.append(qa.code))
+    AssertionCodes.isGeospatiallyKosher(assCodes.toArray)
+  }
 
-   /** Is it geospatially kosher based on a list of codes that have been asserted */
+  /** Is it geospatially kosher based on a list of codes that have been asserted
+     * Geospatially Kosher true is geospatially valid
+     * Geospatially Kosher false is geospatially suspect
+     *
+     * DECIMAL_LAT_LONG_CONVERSION_FAILED is geospatially suspect
+     * GEODETIC_DATUM_ASSUMED_WGS84 is geospatially valid
+     * */
   def isGeospatiallyKosher(assertions:Array[Int]) : Boolean = assertions.filter(qa => {
-    val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
-    !code.isEmpty && code.get.isFatal
-  }).isEmpty
+     AssertionCodes.geospatialCodes.exists(c => c.code == qa && c.isFatal)
+   //  val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
+    // !code.isEmpty && code.get.isFatal
+   }).isEmpty
 
   /** Is it taxonomically kosher */
-  def isTaxonomicallyKosher (assertions:Array[QualityAssertion]) : Boolean = assertions.filter(ass => {
-    val errorCode = AssertionCodes.all.find(errorCode => errorCode.code == ass.code )
-    if(!errorCode.isEmpty){
-      ass.code >= AssertionCodes.taxonomicBounds._1 &&
-      ass.code < AssertionCodes.taxonomicBounds._2 &&
-      errorCode.get.isFatal
-    } else {
-      false //we cant find the code, so ignore
-    }
-  }).isEmpty
+  def isTaxonomicallyKosher (assertions:Array[QualityAssertion]) : Boolean = {
+    var assCodes = new ArrayBuffer[Int]()
+    assertions.foreach(qa => assCodes.append(qa.code))
+    AssertionCodes.isTaxonomicallyKosher(assCodes.toArray)
+  }
 
   /** Is it taxonomically kosher based on a list of codes that have been asserted */
   def isTaxonomicallyKosher(assertions:Array[Int]):Boolean = assertions.filter(qa=> {
-    val code = AssertionCodes.taxonomicCodes.find(c => c.code == qa)
-    !code.isEmpty && code.get.isFatal
+    AssertionCodes.taxonomicCodes.exists(c => c.code == qa && c.isFatal)
+    //val code = AssertionCodes.taxonomicCodes.find(c => c.code == qa)
+    //!code.isEmpty && code.get.isFatal
   }).isEmpty
 }

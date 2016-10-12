@@ -8,113 +8,112 @@ import java.util.UUID
 import scala.slick.jdbc.{StaticQuery => Q}
 
 /**
- * Trait (interface) for persistence storage in the Biocache.
- * 
- * This trait is implemented for Cassandra,
- * but could also be implemented for another backend supporting basic key value pair storage and
- * allowing the selection of a set of key value pairs via a record ID.
- *
- * @author Dave Martin (David.Martin@csiro.au)
- */
+  * Trait (interface) for persistence storage in the Biocache.
+  *
+  * This trait is implemented for Cassandra,
+  * but could also be implemented for another backend supporting basic key value pair storage and
+  * allowing the selection of a set of key value pairs via a record ID.
+  *
+  * @author Dave Martin (David.Martin@csiro.au)
+  */
 trait PersistenceManager {
 
   /**
-   * Get a single property.
-   */
+    * Get a single property.
+    */
   def get(uuid:String, entityName:String, propertyName:String) : Option[String]
 
   /**
-   * Gets the supplied properties for this record
-   */
+    * Gets the supplied properties for this record
+    */
   def getSelected(uuid:String, entityName:String, propertyNames:Seq[String]):Option[Map[String,String]]
 
   /**
-   * Get a key value pair map for this record.
-   */
+    * Get a key value pair map for this record.
+    */
   def get(uuid:String, entityName:String): Option[Map[String, String]]
 
   /**
-   * Get a key value pair map for this column timestamps of this record.
-   */
+    * Get a key value pair map for this column timestamps of this record.
+    */
   def getColumnsWithTimestamps(uuid:String, entityName:String): Option[Map[String, Long]]
 
   /**
-   * Gets KVP map for a record based on a value in an index
-   */
+    * Gets KVP map for a record based on a value in an index
+    */
   def getByIndex(uuid:String, entityName:String, idxColumn:String) : Option[Map[String,String]]
 
   /**
-   * Gets a single property based on an indexed value.  Returns the value of the "first" matched record.
-   */
+    * Gets a single property based on an indexed value.  Returns the value of the "first" matched record.
+    */
   def getByIndex(uuid:String, entityName:String, idxColumn:String, propertyName:String) :Option[String]
 
   /**
-   * Retrieve an array of objects from a single column.
-   */
+    * Retrieve an array of objects from a single column.
+    */
   def getList[A](uuid: String, entityName: String, propertyName: String, theClass:java.lang.Class[_]) : List[A]
 
   /**
-   * Put a single property.
-   */
-  def put(uuid:String, entityName:String, propertyName:String, propertyValue:String) : String
+    * Put a single property.
+    */
+  def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, deleteIfNullValue: Boolean): String
 
   /**
-   * Put a set of key value pairs.
-   */
-  def put(uuid:String, entityName:String, keyValuePairs:Map[String, String]) : String
+    * Put a set of key value pairs.
+    */
+  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean): String
 
   /**
-   * Add a batch of properties.
-   */
-  def putBatch(entityName:String, batch:collection.Map[String, collection.Map[String,String]])
+    * Add a batch of properties.
+    */
+  def putBatch(entityName: String, batch: collection.Map[String, Map[String, String]], removeNullFields: Boolean)
 
   /**
-   * Store a list of the supplied object
-   * @param overwrite if true, current stored value will be replaced without a read.
-   */
-  def putList[A](uuid: String, entityName: String, propertyName: String, objectList:Seq[A], theClass:java.lang.Class[_], overwrite: Boolean) : String
+    * Store a list of the supplied object
+    * @param overwrite if true, current stored value will be replaced without a read.
+    */
+  def putList[A](uuid: String, entityName: String, propertyName: String, objectList:Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, deleteIfNullValue: Boolean) : String
 
   /**
-   * Page over all entities, passing the retrieved UUID and property map to the supplied function.
-   * Function should return false to exit paging.
-   */
+    * Page over all entities, passing the retrieved UUID and property map to the supplied function.
+    * Function should return false to exit paging.
+    */
   def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String="", endUuid:String="", pageSize:Int = 1000)
 
   /**
-   * Page over the records, retrieving the supplied columns only.
-   */
+    * Page over the records, retrieving the supplied columns only.
+    */
   def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String, endUuid:String, pageSize:Int, columnName:String*)
 
   /**
-   * Page over the records, retrieving the supplied columns range.
-   */
+    * Page over the records, retrieving the supplied columns range.
+    */
   def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String="", endUuid:String="", pageSize:Int=1000, startColumn:String="", endColumn:String="")
 
   /**
-   * Select the properties for the supplied record UUIDs
-   */
+    * Select the properties for the supplied record UUIDs
+    */
   def selectRows(uuids:Seq[String],entityName:String,propertyNames:Seq[String],proc:((Map[String,String])=>Unit))
 
   /**
-   * The column to delete.
-   */
+    * The column to delete.
+    */
   def deleteColumns(rowKey:String, entityName:String, columnName:String*)
 
   /**
-   * Delete row
-   */
+    * Delete row
+    */
   def delete(rowKey:String, entityName:String)
 
   /**
-   * Close db connections etc
-   */
+    * Close db connections etc
+    */
   def shutdown
 
   /**
-   * The field delimiter to use
-   */
+    * The field delimiter to use
+    */
   def fieldDelimiter = '.'
 }
-
 
 

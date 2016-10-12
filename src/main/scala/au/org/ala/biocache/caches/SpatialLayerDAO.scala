@@ -13,7 +13,7 @@ import scala.collection.mutable
 import scala.util.parsing.json.JSON
 
 /**
- * A DAO for access to sensitive areas.
+ * A DAO for access to spatial areas.
  */
 object SpatialLayerDAO {
 
@@ -43,21 +43,21 @@ object SpatialLayerDAO {
     //layers
     val layers = JSON.parseFull(layersJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
     logger.info("Number of layers loaded ....." + layers.size)
-    layers.foreach(layer => {
+    layers.foreach { layer =>
       idNameLookup.put(layer.getOrElse("id", -1).asInstanceOf[Double].toInt.toString(), layer.getOrElse("name", ""))
-    })
+    }
 
     //fields
     val fields = JSON.parseFull(fieldsJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
     logger.info("Number of fields loaded ....." + fields.size)
-    fields.foreach(field => {
+    fields.foreach { field =>
       nameFieldLookup.put(field.getOrElse("spid", "-1"), field.getOrElse("sname", ""))
-    })
+    }
 
     logger.info("SDS enabled ....." + Config.sdsEnabled)
 
     //load SDS layer metadata
-    if(Config.sdsEnabled){
+    if (Config.sdsEnabled) {
 
       logger.info("Loaded layers required by SDS.....")
       val sdsLayerListURL = Config.sdsUrl + "/ws/layers"
@@ -66,11 +66,11 @@ object SpatialLayerDAO {
       val sdsListJson = WebServiceLoader.getWSStringContent(sdsLayerListURL)
       sdsLayerList = JSON.parseFull(sdsListJson).getOrElse(List[String]()).asInstanceOf[List[String]]
 
-      sdsLayerList.foreach(layerID => {
+      sdsLayerList.foreach { layerID =>
         //check each layer is available on the local filesystem
         logger.info("Loading SDS layer....." + layerID)
         loadLayer(layerID, true)
-      })
+      }
     } else {
       logger.info("SDS disabled - skipping layer loading.....")
     }

@@ -17,6 +17,7 @@ object FullRecordMapper {
   val entityName = "occ"
   val qualityAssertionColumn = "qualityAssertion"
   val userQualityAssertionColumn = "userQualityAssertion"
+  val userAssertionStatusColumn = "userAssertionStatus"
   val geospatialDecisionColumn = "geospatiallyKosher"
   val taxonomicDecisionColumn = "taxonomicallyKosher"
   val userVerifiedColumn ="userVerified"
@@ -140,9 +141,14 @@ object FullRecordMapper {
     fullRecord.lastModifiedTime = fields.getOrElse(markNameBasedOnVersion("lastModifiedTime",version),"")
     fullRecord.firstLoaded = fields.getOrElse("firstLoaded","")
 
+    fullRecord.setRawFieldsWithMapping(fields)
     fields.keySet.foreach( fieldName => {
       //ascertain which term should be associated with which object
-      val fieldValue = fields.getOrElse(fieldName, "").trim
+
+      val fieldValue = fields.get(fieldName) match {
+        case Some(null) => ""
+        case _ => fields.getOrElse(fieldName, "").trim
+      }
       //only set the value if it is no null or empty string
       if (fieldValue != "") {
         fieldName match {

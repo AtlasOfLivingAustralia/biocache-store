@@ -59,7 +59,7 @@ class ExportAllSpatialSpecies {
     "point-0.01", "point-0.001", "point-0.0001", "lat_long", "raw_taxon_name", "collectors",
     "duplicate_status",
     "duplicate_record", "latitude", "longitude",
-    "el882", "el889", "el887", "el865", "el894", "coordinate_uncertainty")
+    "el882", "el889", "el887", "el865", "el894", "coordinate_uncertainty", "record_number", "catalogue_number")
 
   val query = "lat_long:* AND species_guid:*"
   val filterQueries = Array[String]()

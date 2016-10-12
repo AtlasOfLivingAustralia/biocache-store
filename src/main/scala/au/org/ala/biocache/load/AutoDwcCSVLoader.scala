@@ -76,7 +76,7 @@ class AutoDwcCSVLoader extends DataLoader {
   val loadPattern = """([\x00-\x7F\s]*dwc[\x00-\x7F\s]*.csv[\x00-\x7F\s]*)""".r
   logger.info("Load pattern in use: " + loadPattern.toString())
 
-  def load(dataResourceUid: String, includeIds: Boolean = true, forceLoad: Boolean = false) {
+  def load(dataResourceUid: String, includeIds: Boolean = true, forceLoad: Boolean = false, removeNullFields:Boolean=false) {
 
     retrieveConnectionParameters(dataResourceUid) match {
 

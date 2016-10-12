@@ -59,14 +59,14 @@ class ValidationRuleDAOImpl extends ValidationRuleDAO {
       validationRule.uuid = Config.validationRuleDAO.createOrRetrieveUuid(validationRule.rowKey)
     }
     val properties = FullRecordMapper.mapObjectToProperties(validationRule)
-    persistenceManager.put(validationRule.rowKey,entityName,properties)
+    persistenceManager.put(validationRule.rowKey, entityName, properties, false)
   }
   
   def delete(id:String, date:java.util.Date=null, physicallyRemove:Boolean=false){
     if(physicallyRemove){
       persistenceManager.delete(id, entityName)
     } else if(date != null){
-      persistenceManager.put(id, entityName, "deletedDate", date)
+      persistenceManager.put(id, entityName, "deletedDate", date, false)
     }
   }
   
