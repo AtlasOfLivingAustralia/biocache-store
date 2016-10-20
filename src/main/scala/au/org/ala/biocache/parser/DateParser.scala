@@ -133,8 +133,8 @@ object DateParser {
   }
 }
 
-case class EventDate(startDate: String, startDay: String, startMonth: String, startYear: String,
-                     endDate: String, endDay: String, endMonth: String, endYear: String, singleDate: Boolean)
+case class EventDate(parsedStartDate: Date, startDate: String, startDay: String, startMonth: String, startYear: String,
+                     pasedEndDate: Date, endDate: String, endDay: String, endMonth: String, endYear: String, singleDate: Boolean)
 
 /** Extractor for the format yyyy-MM-dd */
 object NonISODateTime {
@@ -153,7 +153,7 @@ object NonISODateTime {
       val startMonth, endMonth = DateFormatUtils.format(eventDateParsed, "MM")
       val startYear, endYear = DateFormatUtils.format(eventDateParsed, "yyyy")
 
-      Some(EventDate(startDate, startDay, startMonth, startYear, endDate, endDay,
+      Some(EventDate(eventDateParsed, startDate, startDay, startMonth, startYear, eventDateParsed, endDate, endDay,
         endMonth: String, endYear, true))
     } catch {
       case e: ParseException => None
@@ -177,7 +177,7 @@ object ISOWithMonthNameDate {
       val startMonth, endMonth = DateFormatUtils.format(eventDateParsed, "MM")
       val startYear, endYear = DateFormatUtils.format(eventDateParsed, "yyyy")
 
-      Some(EventDate(startDate, startDay, startMonth, startYear, endDate, endDay,
+      Some(EventDate(eventDateParsed, startDate, startDay, startMonth, startYear, eventDateParsed,  endDate, endDay,
         endMonth: String, endYear, true))
     } catch {
       case e: ParseException => None
@@ -200,7 +200,7 @@ object ISOSingleYear {
       val startDate, endDate = ""
       val startDay, endDay = ""
       val startMonth, endMonth = ""
-      Some(EventDate(startDate, startDay, startMonth, startYear, endDate, endDay,
+      Some(EventDate(eventDateParsed, startDate, startDay, startMonth, startYear, eventDateParsed, endDate, endDay,
         endMonth: String, endYear, false))
     } catch {
       case e: ParseException => None
@@ -229,7 +229,7 @@ class SingleDate {
       val startDate, endDate = DateFormatUtils.format(eventDateParsed, "yyyy-MM-dd")
       val startDay, endDay = DateFormatUtils.format(eventDateParsed, "dd")
       val startMonth, endMonth = DateFormatUtils.format(eventDateParsed, "MM")
-      Some(EventDate(startDate, startDay, startMonth, startYear, endDate, endDay,
+      Some(EventDate(eventDateParsed, startDate, startDay, startMonth, startYear, eventDateParsed, endDate, endDay,
         endMonth: String, endYear, true))
     } catch {
       case e: ParseException => None
@@ -261,7 +261,7 @@ object ISOMonthDate {
       val startMonth, endMonth = DateFormatUtils.format(eventDateParsed, "MM")
       val startYear, endYear = DateFormatUtils.format(eventDateParsed, "yyyy")
 
-      Some(EventDate(startDate, startDay, startMonth, startYear, endDate, endDay,
+      Some(EventDate(eventDateParsed, startDate, startDay, startMonth, startYear, eventDateParsed, endDate, endDay,
         endMonth: String, endYear, true))
     } catch {
       case e: ParseException => None
@@ -291,7 +291,7 @@ object ISODateRange {
       val startYear = DateFormatUtils.format(startDateParsed, "yyyy")
       val endYear = DateFormatUtils.format(endDateParsed, "yyyy")
 
-      Some(EventDate(startDate, startDay, startMonth, startYear, endDate, endDay,
+      Some(EventDate(startDateParsed, startDate, startDay, startMonth, startYear, endDateParsed, endDate, endDay,
         endMonth: String, endYear, startDate.equals(endDate)))
     } catch {
       case e: ParseException => None
@@ -320,8 +320,8 @@ object ISOMonthYearDateRange {
 
       val singleDate = (startMonth equals endMonth) && (startYear equals endYear)
 
-      Some(EventDate(startDate, startDay, startMonth, startYear,
-        endDate, endDay, endMonth: String, endYear, singleDate))
+      Some(EventDate(startDateParsed, startDate, startDay, startMonth, startYear,
+        endDateParsed, endDate, endDay, endMonth: String, endYear, singleDate))
     } catch {
       case e: ParseException => None
     }
@@ -346,8 +346,8 @@ object ISOMonthDateRange {
       val endMonth = DateFormatUtils.format(endDateParsed, "MM")
       val startYear, endYear = DateFormatUtils.format(startDateParsed, "yyyy")
 
-      Some(EventDate(startDate, startDay, startMonth, startYear,
-        endDate, endDay, endMonth: String, endYear, startMonth equals endMonth))
+      Some(EventDate(startDateParsed, startDate, startDay, startMonth, startYear,
+        endDateParsed, endDate, endDay, endMonth: String, endYear, startMonth equals endMonth))
     } catch {
       case e: ParseException => None
     }
@@ -375,8 +375,8 @@ object ISODateTimeRange {
       val startYear = DateFormatUtils.format(startDateParsed, "yyyy")
       val endYear = DateFormatUtils.format(endDateParsed, "yyyy")
 
-      Some(EventDate(startDate, startDay, startMonth, startYear,
-        endDate, endDay, endMonth: String, endYear, startDate.equals(endDate)))
+      Some(EventDate(startDateParsed, startDate, startDay, startMonth, startYear,
+        endDateParsed, endDate, endDay, endMonth: String, endYear, startDate.equals(endDate)))
     } catch {
       case e: ParseException => None
     }
@@ -396,8 +396,8 @@ object ISOVerboseDateTime {
       val startDay, endDay = DateFormatUtils.format(eventDateParsed, "dd")
       val startMonth, endMonth = DateFormatUtils.format(eventDateParsed, "MM")
 
-      Some(EventDate(startDate, startDay, startMonth, startYear,
-        endDate, endDay, endMonth: String, endYear, true))
+      Some(EventDate(eventDateParsed, startDate, startDay, startMonth, startYear,
+        eventDateParsed, endDate, endDay, endMonth: String, endYear, true))
 
     } catch {
       case e: ParseException => None
@@ -426,8 +426,8 @@ object ISOVerboseDateTimeRange {
       val startYear = DateFormatUtils.format(startDateParsed, "yyyy")
       val endYear = DateFormatUtils.format(endDateParsed, "yyyy")
 
-      Some(EventDate(startDate, startDay, startMonth, startYear,
-        endDate, endDay, endMonth: String, endYear, startDate.equals(endDate)))
+      Some(EventDate(startDateParsed, startDate, startDay, startMonth, startYear,
+        endDateParsed, endDate, endDay, endMonth: String, endYear, startDate.equals(endDate)))
     } catch {
       case e: ParseException => None
     }
@@ -455,8 +455,8 @@ object ISODayMonthRange {
       val startYear, endYear = DateFormatUtils.format(startDateParsed, "yyyy")
       val endDate = endYear + '-' + endMonth + '-' + endDay
 
-      Some(EventDate(startDate, startDay, startMonth, startYear,
-        endDate, endDay, endMonth: String, endYear, startDate.equals(endDate)))
+      Some(EventDate(startDateParsed, startDate, startDay, startMonth, startYear,
+        endDateParsed, endDate, endDay, endMonth: String, endYear, startDate.equals(endDate)))
     } catch {
       case e: ParseException => None
     }
@@ -482,8 +482,8 @@ object ISODayDateRange {
       val startYear, endYear = DateFormatUtils.format(startDateParsed, "yyyy")
       val endDate = endYear + '-' + endMonth + '-' + endDay
 
-      Some(EventDate(startDate, startDay, startMonth, startYear,
-        endDate, endDay, endMonth: String, endYear, startDate.equals(endDate)))
+      Some(EventDate(startDateParsed, startDate, startDay, startMonth, startYear,
+        endDateParsed, endDate, endDay, endMonth: String, endYear, startDate.equals(endDate)))
     } catch {
       case e: ParseException => None
     }
@@ -524,8 +524,8 @@ object ISOYearRange {
           parts(0)
         }
       }
-      Some(EventDate(startDate, startDay, startMonth, startYear,
-        endDate, endDay, endMonth: String, endYear, false))
+      Some(EventDate(startDateParsed, startDate, startDay, startMonth, startYear,
+        null, endDate, endDay, endMonth: String, endYear, false))
     } catch {
       case e: ParseException => None
     }

@@ -136,6 +136,7 @@ object IndexRecords extends Tool with IncrementalTool {
             checkDeleted:Boolean = false,
             pageSize:Int = 1000,
             miscIndexProperties:Seq[String] = Array[String](),
+            userProvidedTypeMiscIndexProperties :Seq[String] = Array[String](),
             callback:ObserverCallback = null,
             test:Boolean = false) {
 
@@ -160,13 +161,14 @@ object IndexRecords extends Tool with IncrementalTool {
     } else {
       logger.info("Starting to index " + startKey + " until " + endKey)
     }
-    indexRange(startKey, endKey, date, checkDeleted, miscIndexProperties = miscIndexProperties, callback = callback, test=test)
+    indexRange(startKey, endKey, date, checkDeleted, miscIndexProperties = miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, callback = callback, test=test)
     //index any remaining items before exiting
     indexer.finaliseIndex(optimise, shutdown)  
   }
 
   def indexRange(startUuid:String, endUuid:String, startDate:Option[Date]=None, checkDeleted:Boolean=false,
                  pageSize:Int = 1000, miscIndexProperties:Seq[String] = Array[String](),
+                 userProvidedTypeMiscIndexProperties :Seq[String] = Array[String](),
                  callback:ObserverCallback = null, test:Boolean =false) {
     var counter = 0
     val start = System.currentTimeMillis
@@ -178,7 +180,7 @@ object IndexRecords extends Tool with IncrementalTool {
       counter += 1
       ///convert EL and CL properties at this stage
       val shouldcommit = counter % 10000 == 0
-      indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, test=test, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
+      indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, test=test, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (counter % pageSize == 0) {
         if(callback !=null) {
           callback.progressMessage(counter)

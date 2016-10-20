@@ -459,9 +459,10 @@ object Store {
    *
    * @param dataResource the resource to index
    * @param customIndexFields the additional fields to index on top of the default set of fields
+   * @param userProvidedTypeCustomIndexFields the additional fields which type is defined by the user
    * @param callback a callback used for monitoring the process
    */
-  def index(dataResource:java.lang.String, customIndexFields:Array[String], callback:ObserverCallback = null) = {
+  def index(dataResource:java.lang.String, customIndexFields:Array[String], userProvidedTypeCustomIndexFields:Array[String], callback:ObserverCallback = null) = {
     logger.info("Indexing data resource " + dataResource)
     IndexRecords.index(None,
       None,
@@ -470,6 +471,7 @@ object Store {
       false,
       None,
       miscIndexProperties = customIndexFields,
+      userProvidedTypeMiscIndexProperties = userProvidedTypeCustomIndexFields,
       callback = callback)
     logger.info("Finished indexing data resource " + dataResource)
     logger.info("Storing custom index fields to the database....")

@@ -53,6 +53,7 @@ trait IndexDAO {
                    startDate: Option[Date] = None,
                    commit: Boolean = false,
                    miscIndexProperties: Seq[String] = Array[String](),
+                   userProvidedTypeMiscIndexProperties : Seq[String] = Array[String](),
                    test:Boolean = false,
                    batchID:String = "",
                    csvFileWriter:FileWriter = null,
