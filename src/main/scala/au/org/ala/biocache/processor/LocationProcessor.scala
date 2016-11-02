@@ -5,11 +5,6 @@ import au.org.ala.biocache._
 import scala.collection.JavaConversions
 import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.StringUtils
-import org.geotools.referencing.crs.DefaultGeographicCRS
-import org.geotools.referencing.CRS
-import org.geotools.referencing.operation.DefaultCoordinateOperationFactory
-import org.geotools.geometry.GeneralDirectPosition
-import org.apache.commons.math3.util.Precision
 import au.org.ala.biocache.caches.{SpatialLayerDAO, TaxonProfileDAO, LocationDAO}
 import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
 import au.org.ala.biocache.model._
@@ -22,7 +17,7 @@ import au.org.ala.biocache.util.{GISUtil, GISPoint, GridUtil, StringHelper}
  */
 class LocationProcessor extends Processor {
 
-  import StringHelper._, AssertionCodes._, AssertionStatus._, JavaConversions._
+  import StringHelper._, AssertionCodes._, AssertionStatus._
 
   val logger = LoggerFactory.getLogger("LocationProcessor")
 
@@ -560,7 +555,7 @@ class LocationProcessor extends Processor {
       }
     }
 
-    if (raw.location.coordinatePrecision == null){
+    if (StringUtils.isBlank(raw.location.coordinatePrecision)){
       assertions += QualityAssertion(MISSING_COORDINATEPRECISION, "Missing coordinatePrecision")
     } else {
       assertions += QualityAssertion(MISSING_COORDINATEPRECISION, PASSED)

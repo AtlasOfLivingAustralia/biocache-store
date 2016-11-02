@@ -83,13 +83,15 @@ object AttributionDAO {
       val attribution = new Attribution
       logger.info("Calling web service for " + value)
 
-      val wscontent = WebServiceLoader.getWSStringContent(Config.registryUrl+"/dataResource/"+value+".json")
+      val wscontent = WebServiceLoader.getWSStringContent(Config.registryUrl + s"/dataResource/$value.json")
 
       val wsmap = Json.toMap(wscontent)
 
       val name = wsmap.getOrElse("name","").asInstanceOf[String]
 
       val provenance = wsmap.getOrElse("provenance","").asInstanceOf[String]
+
+      val license = wsmap.getOrElse("licenseType","").asInstanceOf[String]
 
       val hints = wsmap.getOrElse("taxonomyCoverageHints", null)
       val ahints = if(hints != null){
@@ -125,6 +127,7 @@ object AttributionDAO {
       attribution.taxonomicHints = ahints
       attribution.hasMappedCollections = hasColl
       attribution.provenance = provenance
+      attribution.license = license
       if(defaultDwc != null){
         //retrieve the dwc values for the supplied values
           val map = defaultDwc.asInstanceOf[java.util.LinkedHashMap[String,String]]

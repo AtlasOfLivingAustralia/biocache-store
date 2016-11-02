@@ -86,6 +86,7 @@ last_assertion_date	date	lastUserAssertionDate	F	F		F
 last_load_date	date	lastModifiedTime	F	F		F
 last_processed_date	date	lastModifiedTime.p	F	F		F
 modified_date	date	modified.p	F	F		F
+license	string	license.p	F	F		F
 establishment_means	string	establishmentMeans.p	T	F		F
 loan_number	string	loanSequenceNumber	F	F		F
 loan_identifier	string	loanIdentifier	F	F		F

@@ -8,6 +8,7 @@ import au.org.ala.biocache.vocab.AssertionCodes._
 import au.org.ala.biocache.vocab.AssertionStatus._
 import org.apache.commons.lang.StringUtils
 import org.geotools.referencing.CRS
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions
 import scala.collection.mutable.ArrayBuffer
@@ -18,6 +19,8 @@ import scala.collection.mutable.ArrayBuffer
 object GridUtil {
 
   import StringHelper._, AssertionCodes._, AssertionStatus._, JavaConversions._
+
+  val logger = LoggerFactory.getLogger("GridUtil")
 
   //deal with the 2k OS grid ref separately
   val osGridRefNoEastingNorthing = ("""([A-Z]{2})""").r
@@ -82,6 +85,39 @@ object GridUtil {
   }
 
   /**
+   * Reduce the resolution of the supplied grid reference.
+   *
+   * @param gridReference
+   * @param uncertaintyString
+   * @return
+   */
+  def convertReferenceToResolution(gridReference:String, uncertaintyString:String) : Option[String] = {
+
+    try {
+      val gridRefs = getGridRefAsResolutions(gridReference)
+      val uncertainty = uncertaintyString.toInt
+
+      val ref = {
+        if (uncertainty > 10000) gridRefs.getOrElse("grid_ref_100000", "")
+        else if (uncertainty <= 10000 && uncertainty > 2000) gridRefs.getOrElse("grid_ref_10000", "")
+        else if (uncertainty <= 2000 && uncertainty > 1000) gridRefs.getOrElse("grid_ref_2000", "")
+        else if (uncertainty <= 1000 && uncertainty > 100) gridRefs.getOrElse("grid_ref_1000", "")
+        else if (uncertainty < 100) gridRefs.getOrElse("grid_ref_100", "")
+        else ""
+      }
+      if(ref != "")
+        Some(ref)
+      else
+        None
+    } catch {
+      case e:Exception => {
+        logger.error("Problem converting gridreference " + gridReference + " to lower resolution of " + uncertaintyString, e)
+        None
+      }
+    }
+  }
+
+  /**
     * Takes a grid reference and returns a map of grid references at different resolutions.
     * Map will look like:
     * grid_ref_100000 -> "NO"
@@ -126,7 +162,7 @@ object GridUtil {
               }
             }
 
-            if (eastingAsStr.length() >= 5 && northingAsStr.length() >= 5) {
+            if (gridSize != -1 && gridSize <= 100) {
               map.put("grid_ref_100", gr.gridLetters + eastingAsStr.substring(1, 4) + northingAsStr.substring(1, 4))
             }
           }
@@ -483,7 +519,6 @@ object GridUtil {
       None
     }
   }
-
 
   /**
     * Converts a easting northing to a decimal latitude/longitude.

@@ -52,8 +52,14 @@ trait RangeCalculator {
    */
   def calculateRanges(threads: Int, query: String = "*:*", start: String = "", end: String = ""): Array[(String, String)] = {
 
-    val firstRequest = Config.biocacheServiceUrl + "/occurrences/search?q=" + query + "&pageSize=1&facet=off&sort=row_key&dir=asc"
-    val json = JSON.parseFull(Source.fromURL(new URL(firstRequest)).mkString)
+    val json = try {
+      val firstRequest = Config.biocacheServiceUrl + "/occurrences/search?q=" + query + "&pageSize=1&facet=off&sort=row_key&dir=asc"
+      JSON.parseFull(Source.fromURL(new URL(firstRequest)).mkString)
+    } catch {
+      case e:Exception => "Problem retrieving range."
+        None
+    }
+
     if (!json.isEmpty && json.get.asInstanceOf[Map[String, Object]].getOrElse("totalRecords", 0).asInstanceOf[Double].toInt > 0) {
 
       val totalRecords = json.get.asInstanceOf[Map[String, Object]].getOrElse("totalRecords", 0).asInstanceOf[Double].toInt

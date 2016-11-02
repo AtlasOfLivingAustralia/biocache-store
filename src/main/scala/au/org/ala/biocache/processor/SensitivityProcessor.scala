@@ -5,7 +5,7 @@ import au.org.ala.biocache.caches.SpatialLayerDAO
 import au.org.ala.biocache.caches.LocationDAO
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.{Versions, QualityAssertion, FullRecord}
-import au.org.ala.biocache.util.{StringHelper, Json}
+import au.org.ala.biocache.util.{GridUtil, StringHelper, Json}
 import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes, StateProvinces}
 import au.org.ala.sds.SensitiveDataService
 import org.apache.commons.lang.StringUtils
@@ -85,6 +85,7 @@ class SensitivityProcessor extends Processor {
 
       val intersectStateProvince = layerIntersect.getOrElse(Config.stateProvinceLayerID, "")
 
+      //reset
       if(StringUtils.isBlank(intersectStateProvince)){
         val stringMatchState = StateProvinces.matchTerm(raw.location.stateProvince)
         if(!stringMatchState.isEmpty){
@@ -124,10 +125,15 @@ class SensitivityProcessor extends Processor {
         val stringMap = map.collect {
           case (key, value) if value != null => if (key == "originalSensitiveValues") {
             val osv = value.asInstanceOf[java.util.HashMap[String, String]]
-            //add the original "processed" coordinate uncertainty to the sensitive values so that it can be available if necessary
+            // add the original "processed" coordinate uncertainty to the sensitive values so that it
+            // can be available if necessary
             if (processed.location.coordinateUncertaintyInMeters != null) {
               osv.put("coordinateUncertaintyInMeters.p", processed.location.coordinateUncertaintyInMeters)
             }
+            if(raw.location.gridReference != null && raw.location.gridReference != ""){
+              osv.put("gridReference", raw.location.gridReference)
+            }
+
             //remove all the el/cl's from the original sensitive values
             SpatialLayerDAO.sdsLayerList.foreach { key => osv.remove(key) }
             val newv = Json.toJSON(osv)
@@ -139,6 +145,7 @@ class SensitivityProcessor extends Processor {
 
         //take away the values that need to be added to the processed record NOT the raw record
         val uncertainty = stringMap.get("generalisationInMetres")
+        val generalisationToApplyInMetres = stringMap.get("generalisationToApplyInMetres")
         if (!uncertainty.isEmpty) {
           //we know that we have sensitised, add the uncertainty to the currently processed uncertainty
           if (StringUtils.isNotEmpty(uncertainty.get.toString)) {
@@ -151,14 +158,35 @@ class SensitivityProcessor extends Processor {
 
             val newUncertainty = currentUncertainty + java.lang.Integer.parseInt(uncertainty.get.toString)
             processed.location.coordinateUncertaintyInMeters = newUncertainty.toString
+
           }
           processed.location.decimalLatitude = stringMap.getOrElse("decimalLatitude", "")
           processed.location.decimalLongitude = stringMap.getOrElse("decimalLongitude", "")
           processed.location.northing = ""
           processed.location.easting = ""
           processed.location.bbox = ""
-          processed.location.gridReference = ""
           stringMap -= "generalisationInMetres"
+        }
+
+        //remove other GIS references
+        if(Config.gridRefIndexingEnabled && raw.location.gridReference != null){
+
+          if (generalisationToApplyInMetres.isDefined) {
+            //reduce the quality of the grid reference
+            if (generalisationToApplyInMetres.get == null || generalisationToApplyInMetres.get == "") {
+              stringMap.put("gridReference", "")
+            } else {
+              processed.location.coordinateUncertaintyInMeters = generalisationToApplyInMetres.get
+              val generalisedRef = GridUtil.convertReferenceToResolution(raw.location.gridReference, generalisationToApplyInMetres.get)
+              if (generalisedRef.isDefined) {
+                stringMap.put("gridReference", generalisedRef.get)
+              } else {
+                stringMap.put("gridReference", "")
+              }
+            }
+          } else {
+            stringMap.put("gridReference", "")
+          }
         }
 
         processed.occurrence.informationWithheld = stringMap.getOrElse("informationWithheld", "")
@@ -174,8 +202,6 @@ class SensitivityProcessor extends Processor {
           processed.event.eventDateEnd = ""
         }
 
-        //remove other GIS references
-        stringMap.put("gridReference", "")
         stringMap.put("easting", "")
         stringMap.put("northing", "")
 

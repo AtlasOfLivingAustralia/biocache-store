@@ -150,7 +150,7 @@ trait IndexDAO {
     "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
     "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
-    "sensitive_locality", "event_id", "location_id", "dataset_name", "reproductive_condition_s") ::: Config.additionalFieldsToIndex
+    "sensitive_locality", "event_id", "location_id", "dataset_name", "reproductive_condition_s","license") ::: Config.additionalFieldsToIndex
 
   /**
    * sensitive csv header columns
@@ -546,7 +546,8 @@ trait IndexDAO {
           map.getOrElse("eventID",""),
           map.getOrElse("locationID",""),
           map.getOrElse("datasetName",""),
-          map.getOrElse("reproductiveCondition", "")
+          map.getOrElse("reproductiveCondition", ""),
+          map.getOrElse("license.p", "")
         ) ::: Config.additionalFieldsToIndex.map(field => map.getOrElse(field, ""))
       } else {
         return List()
