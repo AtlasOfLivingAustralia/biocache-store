@@ -72,20 +72,23 @@ class DiGIRLoader extends DataLoader {
 
     val response = {
       val get = new GetMethod(url + "?request=" + encodedRequest)
-
-      var counter = 0
-      var hasResponse = false
-      var response = ""
-      while (!hasResponse && counter < 3) {
-        try {
-          val status = http.executeMethod(get)
-          hasResponse = true
-          response = get.getResponseBodyAsString
-        } catch {
-          case _:Exception => println("Error in request: retrying.....")
+      try {
+        var counter = 0
+        var hasResponse = false
+        var response = ""
+        while (!hasResponse && counter < 3) {
+          try {
+            val status = http.executeMethod(get)
+            hasResponse = true
+            response = get.getResponseBodyAsString
+          } catch {
+            case _:Exception => println("Error in request: retrying.....")
+          }
         }
+        response
+      } finally {
+        get.releaseConnection()
       }
-      response
     }
 
     if (response == "") return true
