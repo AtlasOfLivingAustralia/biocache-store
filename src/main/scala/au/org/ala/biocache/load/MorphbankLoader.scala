@@ -145,8 +145,11 @@ class MorphbankLoader extends CustomWebserviceLoader {
         throw new Exception("Request failed (" + responseCode + ")")
       }
     } finally {
-      get.releaseConnection()
-      httpClient.getHttpConnectionManager.closeIdleConnections(0)
+      try {
+        get.releaseConnection()
+      } finally {
+        httpClient.getHttpConnectionManager.closeIdleConnections(0)
+      }
     }
 
     XML.loadString(xmlContent)
@@ -315,12 +318,17 @@ class MorphbankLoader extends CustomWebserviceLoader {
   def isPlaceholderImage(imageUrl: String): Boolean = {
 
     val get = new GetMethod(imageUrl)
-    httpClient.executeMethod(get)
-    val responseBytes = get.getResponseBody()
-    val md5Hex = DigestUtils.md5Hex(responseBytes)
-    get.releaseConnection()
-    httpClient.getHttpConnectionManager.closeIdleConnections(0)
-
-    md5Hex == MorphbankLoader.PLACEHOLDER_IMAGE_MD5
+    try {
+      httpClient.executeMethod(get)
+      val responseBytes = get.getResponseBody()
+      val md5Hex = DigestUtils.md5Hex(responseBytes)
+      md5Hex == MorphbankLoader.PLACEHOLDER_IMAGE_MD5
+    } finally {
+      try {
+        get.releaseConnection()
+      } finally {
+        httpClient.getHttpConnectionManager.closeIdleConnections(0)
+      }
+    }
   }
 }
