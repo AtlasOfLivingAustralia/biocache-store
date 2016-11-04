@@ -302,18 +302,24 @@ object RemoteMediaStore extends MediaStore {
     val urlStr = urlToMedia.replaceAll(" ", "%20")
     val url = new java.net.URL(urlStr)
     val in = url.openStream
-    val out = new FileOutputStream(tmpFile)
-    val buffer: Array[Byte] = new Array[Byte](1024)
-    var numRead = 0
-    while ( {
-      numRead = in.read(buffer);
-      numRead != -1
-    }) {
-      out.write(buffer, 0, numRead)
-      out.flush
+    try {
+      val out = new FileOutputStream(tmpFile)
+      try {
+        val buffer: Array[Byte] = new Array[Byte](1024)
+        var numRead = 0
+        while ( {
+          numRead = in.read(buffer);
+          numRead != -1
+        }) {
+          out.write(buffer, 0, numRead)
+          out.flush
+        }
+      } finally {
+        out.close()
+      }
+    } finally {
+      in.close()
     }
-    in.close()
-    out.close()
     if(tmpFile.getTotalSpace > 0){
       logger.debug("Temp file created: " + tmpFile.getAbsolutePath + ", file size: " + tmpFile.getTotalSpace)
       Some(tmpFile)
@@ -340,19 +346,28 @@ object RemoteMediaStore extends MediaStore {
     logger.info(s"Updating the metadata for $imageId")
     //upload an image
     val httpClient = new DefaultHttpClient()
-    val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
-    val metadata = media.metadata
-    entity.addPart("metadata",
-      new StringBody(
-        Json.toJSON(
-          metadata
+    try {
+      val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
+      val metadata = media.metadata
+      entity.addPart("metadata",
+        new StringBody(
+          Json.toJSON(
+            metadata
+          )
         )
       )
-    )
 
-    val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/updateMetadata/" + imageId)
-    httpPost.setEntity(entity)
-    val response = httpClient.execute(httpPost)
+      val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/updateMetadata/" + imageId)
+      httpPost.setEntity(entity)
+      val response = httpClient.execute(httpPost)
+      try {
+        val status = response.getStatusLine()
+      } finally {
+        response.close()
+      }
+    } finally {
+      httpClient.close()
+    }
   }
 
   /**
