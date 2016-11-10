@@ -77,15 +77,18 @@ object LoadBulkQas {
        }
        val http = new HttpClient
        val post = new PostMethod(Config.biocacheServiceUrl + "/bulk/assertions/add")
-       println(Config.biocacheServiceUrl + "/bulk/assertions/add")
-       post.addParameter("assertions",mapper.writeValueAsString(buf.toList))
-       post.addParameter("userId",userId)
-       post.addParameter("userDisplayName",userDisplayName)
-       post.addParameter("apiKey",Config.getProperty("apiKey"))
-       println(post.toString)
-       val responseCode = http.executeMethod(post)
-       println("Response: " + responseCode)
-
+       try {
+         println(Config.biocacheServiceUrl + "/bulk/assertions/add")
+         post.addParameter("assertions",mapper.writeValueAsString(buf.toList))
+         post.addParameter("userId",userId)
+         post.addParameter("userDisplayName",userDisplayName)
+         post.addParameter("apiKey",Config.getProperty("apiKey"))
+         println(post.toString)
+         val responseCode = http.executeMethod(post)
+         println("Response: " + responseCode)
+       } finally {
+         post.releaseConnection()
+       }
      } else {
        println("Need at least 3 columns to load a CSV annotations: uuid, annotation type, comment")
      }
