@@ -225,8 +225,8 @@
         <!-- DWC-A -->
         <dependency>
             <groupId>org.gbif</groupId>
-            <artifactId>dwca-reader</artifactId>
-            <version>1.21</version>
+            <artifactId>dwca-io</artifactId>
+            <version>1.27</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-io</groupId>

@@ -8,9 +8,9 @@ import au.org.ala.biocache.model.{FullRecord, Multimedia, Raw}
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import org.apache.commons.lang3.StringUtils
-import org.gbif.dwc.record.{Record, StarRecord}
+import org.gbif.dwca.record.{Record, StarRecord}
 import org.gbif.dwc.terms.{DcTerm, GbifTerm, Term}
-import org.gbif.dwc.text.ArchiveFactory
+import org.gbif.dwca.io.ArchiveFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
