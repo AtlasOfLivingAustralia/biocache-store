@@ -346,7 +346,7 @@ class DwCALoader extends DataLoader {
     if (!star.hasExtension(rowType)) {
       return List.empty
     }
-    logger.info("Found multimedia record, rowType=" + rowType + " imageBase=" + imageBase)
+    logger.info("Found multimedia record, rowType=" + rowType + " imageBase=" + imageBase + " rowTypeCount=" + star.rowTypes.size())
     val records = star.extension(rowType).asScala
     logger.info("Converted row to extension type as Scala object with size=" + records.size())
     val multimedia = new ListBuffer[Multimedia]
