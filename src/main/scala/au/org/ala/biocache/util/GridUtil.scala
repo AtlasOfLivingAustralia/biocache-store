@@ -139,11 +139,12 @@ object GridUtil {
         map.put("grid_ref_100000", gr.gridLetters)
 
           if (gridRef.length > 2) {
-            var eastingAsStr = gr.easting.toString
-            var northingAsStr = gr.northing.toString
 
-            if(eastingAsStr.length == 5) eastingAsStr = "0" + eastingAsStr
-            if(northingAsStr.length == 5) northingAsStr = "0" + northingAsStr
+            var eastingAsStr = (gr.easting.toInt % 1000000).toString
+            var northingAsStr = (gr.northing.toInt % 1000000).toString
+
+            if (eastingAsStr.length == 5) eastingAsStr = "0" + eastingAsStr
+            if (northingAsStr.length == 5) northingAsStr = "0" + northingAsStr
 
             //add grid references for 10km, and 1km
             if (eastingAsStr.length() >= 3 && northingAsStr.length() >= 3) {

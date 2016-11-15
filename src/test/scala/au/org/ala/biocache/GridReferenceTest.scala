@@ -190,4 +190,11 @@ class GridReferenceTest extends FunSuite {
     expectResult("NF8359") { map.get("grid_ref_1000") }
   }
 
+  test("HU35  at different resolutions") {
+    val map = GridUtil.getGridRefAsResolutions("HU35")
+    expectResult("HU") { map.get("grid_ref_100000") }
+    expectResult("HU35") { map.get("grid_ref_10000") }
+  }
+
+
 }
