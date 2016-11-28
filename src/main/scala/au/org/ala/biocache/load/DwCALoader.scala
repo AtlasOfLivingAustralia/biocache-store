@@ -4,6 +4,7 @@ import java.io._
 import java.net.URL
 
 import au.org.ala.biocache._
+import au.org.ala.biocache.cmd.{CMD2, NoArgsTool, Tool}
 import au.org.ala.biocache.model.{FullRecord, Multimedia, Raw}
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
@@ -36,11 +37,14 @@ import scala.collection.{JavaConversions, mutable}
  *
  * @author Dave Martin
  */
-object DwCALoader {
+object DwCALoader extends Tool {
 
   val IMAGE_TYPE = GbifTerm.Image
   val MULTIMEDIA_TYPE = GbifTerm.Multimedia
 //  val IDENTIFICATION_TYPE = GbifTerm.
+
+  def cmd = "load-dwca"
+  def desc = "Load a Darwin Core Archive"
 
   def main(args: Array[String]): Unit = {
 
