@@ -171,7 +171,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     * Writes the supplied field values to the writer.  The Writer specifies the format in which the record is
     * written.
     */
-  def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false, includeMisc:Boolean=false, miscFields:Array[String] = null) : Array[String] = {
+  def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false, includeMisc:Boolean=false, miscFields:Array[String] = null, dataToInsert:java.util.Map[String, Array[String]] = null) : Array[String] = {
     //get the codes for the qa fields that need to be included in the download
     //TODO fix this in case the value can't be found
     val mfields = fields.toBuffer
@@ -202,6 +202,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         mfields += FullRecordMapper.userAssertionStatusColumn
         addedUserQAColumn = true
       }
+    }
+    if (userAssertions.isDefined || (dataToInsert != null && dataToInsert.size > 0)) {
       if (!mfields.contains("rowKey")) {
         mfields += "rowKey"
         addedRowKey = true
@@ -230,11 +232,22 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         if (!(addedRowKey && "rowKey".equals(field)) &&
           !(addedUserQAColumn && FullRecordMapper.userQualityAssertionColumn.equals(field))) {
           // if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap))else getHackValue(field,fieldMap)
-          //Create a MS Excel compliant CSV file thus field with delimiters are quoted and embedded quotes are escaped
+          //Create a MS Excel compliant CSV file thus field with delimiters are quoted andm embedded quotes are escaped
           array += fieldValue
         }
 
       })
+
+      //add additional columns
+      if (dataToInsert != null && dataToInsert.size > 0) {
+        val data = dataToInsert.get(fieldMap.getOrElse("rowKey", ""))
+        if (data != null) {
+          data.foreach( v => {
+            array += v
+          })
+        }
+      }
+
       //now handle the QA fields
       val failedCodes = getErrorCodes(fieldMap);
       //work way through the codes and add to output

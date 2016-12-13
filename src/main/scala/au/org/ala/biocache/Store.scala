@@ -528,6 +528,10 @@ object Store {
   def writeToWriter(writer:RecordWriter,keys: Array[String], fields: Array[java.lang.String], qaFields: Array[java.lang.String], includeSensitive:Boolean, includeMisc:Boolean, miscFields: Array[java.lang.String]) : Array[java.lang.String] = {
     occurrenceDAO.writeToRecordWriter(writer, keys, fields, qaFields, includeSensitive, includeMisc, miscFields)
   }
+
+  def writeToWriter(writer:RecordWriter,keys: Array[String], fields: Array[java.lang.String], qaFields: Array[java.lang.String], includeSensitive:Boolean, includeMisc:Boolean, miscFields: Array[java.lang.String], dataToInsert: java.util.Map[String, Array[String]]) : Array[java.lang.String] = {
+    occurrenceDAO.writeToRecordWriter(writer, keys, fields, qaFields, includeSensitive, includeMisc, miscFields, dataToInsert)
+  }
   
   /**
    * Retrieve the assertion codes
