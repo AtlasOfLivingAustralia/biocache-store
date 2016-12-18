@@ -774,5 +774,7 @@ trait RecordWriter {
   def write(record:Array[String])
   /** Performs all the finishing tasks in writing the download file. */
   def finalise
+  /** Returns true if this record writer has been finalised */
+  def finalised(): Boolean
 }
 
