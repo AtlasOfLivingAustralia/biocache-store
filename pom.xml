@@ -9,7 +9,7 @@
 
     <groupId>au.org.ala</groupId>
     <artifactId>biocache-store</artifactId>
-    <version>1.8.1-SNAPSHOT</version>
+    <version>1.8.2-SNAPSHOT</version>
     <url>http://biocache.ala.org.au</url>
     <issueManagement>
         <system>GitHub</system>
@@ -26,8 +26,13 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <org.springframework.version>3.0.6.RELEASE</org.springframework.version>
         <solr.version>4.10.4</solr.version>
-        <jts.version>1.12</jts.version>
+        <jts.version>1.13</jts.version>
+        <jackson.version>2.8.4</jackson.version>
+        <gt.version>2.7.5</gt.version>
     </properties>
+    <prerequisites>
+        <maven>3.0.5</maven>
+    </prerequisites>
     <description>
         Scala implementation of biocache backend.
         This code base manages the loading, processing, sampling and indexing of occurrence records for the ALA.
@@ -120,18 +125,18 @@
         <dependency>
             <groupId>log4j</groupId>
             <artifactId>log4j</artifactId>
-            <version>1.2.16</version>
+            <version>1.2.17</version>
         </dependency>
         <!-- SL4J -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
-            <version>1.7.5</version>
+            <version>1.7.21</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.7.5</version>
+            <version>1.7.21</version>
         </dependency>
         <!-- for cmd tool -->
         <dependency>
@@ -143,7 +148,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>sds</artifactId>
-            <version>1.4-SNAPSHOT</version>
+            <version>1.3.1-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-lang</groupId>
@@ -185,7 +190,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>ala-name-matching</artifactId>
-            <version>2.4.0</version>
+            <version>2.4.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.gbif</groupId>
@@ -220,14 +225,19 @@
         <!-- DWC-A -->
         <dependency>
             <groupId>org.gbif</groupId>
-            <artifactId>dwca-reader</artifactId>
-            <version>1.21</version>
+            <artifactId>dwca-io</artifactId>
+            <version>1.28</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-io</groupId>
                     <artifactId>commons-io</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.gbif</groupId>
+            <artifactId>gbif-common</artifactId>
+            <version>0.29</version>
         </dependency>
         <!-- Google Commons -->
         <dependency>
@@ -246,17 +256,22 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.4.1</version>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.4.1.1</version>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-scala_2.10</artifactId>
-            <version>2.3.3</version>
+            <version>${jackson.version}</version>
         </dependency>
         <!-- SCALA -->
         <dependency>
@@ -283,7 +298,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.8.2</version>
+            <version>4.12</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -314,7 +329,7 @@
         <dependency>
             <groupId>com.jcraft</groupId>
             <artifactId>jsch</artifactId>
-            <version>0.1.42</version>
+            <version>0.1.54</version>
         </dependency>
         <dependency>
             <groupId>org.rev6</groupId>
@@ -414,7 +429,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.1</version>
+            <version>3.5</version>
         </dependency>
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>
@@ -432,12 +447,12 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
-            <version>1.2</version>
+            <version>1.12</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
-            <version>3.0</version>
+            <version>3.6.1</version>
         </dependency>
         <!-- Added for cassandra test -->
         <dependency>
@@ -448,7 +463,7 @@
         <dependency>
             <groupId>com.googlecode.concurrentlinkedhashmap</groupId>
             <artifactId>concurrentlinkedhashmap-lru</artifactId>
-            <version>1.1</version>
+            <version>1.4.2</version>
         </dependency>
         <dependency>
             <groupId>metadata-extractor</groupId>
@@ -476,16 +491,81 @@
             <artifactId>jai-imageio</artifactId>
             <version>1.1</version>
         </dependency>
-        <!-- geotools GML support. Other geotools libraries imported via the depenency on ala layers-store -->
+        <!-- geotools GML support -->
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-api</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-main</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-opengis</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-coverage</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-shapefile</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-graph</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-data</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-geojson</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-referencing</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-metadata</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools.xsd</groupId>
+            <artifactId>gt-xsd-core</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools.xsd</groupId>
+            <artifactId>gt-xsd-kml</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools.xsd</groupId>
+            <artifactId>gt-xsd-gml2</artifactId>
+            <version>${gt.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.geotools.xsd</groupId>
             <artifactId>gt-xsd-gml3</artifactId>
-            <version>2.7.5</version>
+            <version>${gt.version}</version>
         </dependency>
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-epsg-hsql</artifactId>
-            <version>2.7.5</version>
+            <version>${gt.version}</version>
         </dependency>
         <!-- htmlunit to help with screen scraping -->
         <dependency>
@@ -496,7 +576,7 @@
         <dependency>
             <groupId>org.gbif.crawler</groupId>
             <artifactId>crawler</artifactId>
-            <version>0.20</version>
+            <version>0.27</version>
         </dependency>
     </dependencies>
     <organization>
@@ -511,12 +591,62 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.1</version>
+                    <version>3.5.1</version>
                 </plugin>
                 <plugin>
                     <groupId>com.github.koraktor</groupId>
                     <artifactId>mavanagaiata</artifactId>
-                    <version>0.7.0</version>
+                    <version>0.7.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.scala-tools</groupId>
+                    <artifactId>maven-scala-plugin</artifactId>
+                    <version>2.15.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.0.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <version>2.5.3</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>2.10</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>2.6</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.0.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>2.8.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>2.5.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.0.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>2.19.1</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -529,6 +659,16 @@
             </plugin>
         </plugins>
     </reporting>
+    <repositories>
+        <repository>
+            <id>osgeo</id>
+            <name>Open Source Geospatial Foundation Repository</name>
+            <url>http://download.osgeo.org/webdav/geotools/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
     <profiles>
         <profile>
             <id>default</id>
@@ -536,151 +676,147 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <build>
-                <plugins>
-                    <plugin>
-                        <groupId>com.github.koraktor</groupId>
-                        <artifactId>mavanagaiata</artifactId>
-                        <version>0.3.1</version>
-                        <executions>
-                            <execution>
-                                <id>git-commit</id>
-                                <phase>validate</phase>
-                                <goals>
-                                    <goal>commit</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.scala-tools</groupId>
-                        <artifactId>maven-scala-plugin</artifactId>
-                        <version>2.15.2</version>
-                        <executions>
-                            <execution>
-                                <id>scala-compile-first</id>
-                                <phase>process-resources</phase>
-                                <goals>
-                                    <goal>add-source</goal>
-                                    <goal>compile</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>scala-test-compile</id>
-                                <phase>process-test-resources</phase>
-                                <goals>
-                                    <goal>testCompile</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                        <configuration>
-                            <checkMultipleScalaVersions>false</checkMultipleScalaVersions>
-                            <scalaVersion>${scala.version}</scalaVersion>
-                            <args>
-                                <arg>-target:jvm-1.6</arg>
-                                <arg>-deprecation</arg>
-                                <arg>-nowarn</arg>
-                            </args>
-                            <jvmArgs>
-                                <jvmArg>-Xmx2G</jvmArg>
-                            </jvmArgs>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-dependency-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>copy-dependencies</id>
-                                <phase>prepare-package</phase>
-                                <goals>
-                                    <goal>copy-dependencies</goal>
-                                </goals>
-                                <configuration>
-                                    <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                                    <overWriteReleases>false</overWriteReleases>
-                                    <overWriteSnapshots>false</overWriteSnapshots>
-                                    <overWriteIfNewer>true</overWriteIfNewer>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-jar-plugin</artifactId>
-                        <version>2.4</version>
-                        <configuration>
-                            <archive>
-                                <manifest>
-                                    <addClasspath>true</addClasspath>
-                                    <classpathPrefix>lib/</classpathPrefix>
-                                    <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
-                                </manifest>
-                                <manifestEntries>
-                                    <gitCommitID>${mavanagaiata.commit.id}</gitCommitID>
-                                    <gitCommitAuthor>${mavanagaiata.commit.author.name}</gitCommitAuthor>
-                                    <gitCommitAuthor>${mvngit.commit.author.name}</gitCommitAuthor>
-                                    <gitCommitAuthorEmail>${mvngit.commit.author.email}</gitCommitAuthorEmail>
-                                    <gitCommitter>${mavanagaiata.commit.committer.name}</gitCommitter>
-                                    <gitCommitterEmail>${mavanagaiata.commit.committer.email}</gitCommitterEmail>
-                                    <gitCommitSummary>${mavanagaiata.commit.abbrev}</gitCommitSummary>
-                                    <buildTimestamp>${maven.build.timestamp}</buildTimestamp>
-                                    <sha1>${mavanagaiata.commit.sha}</sha1>
-                                    <Implementation-Version>${mvngit.commit.id}</Implementation-Version>
-                                    <Implementation-Title>Biocache</Implementation-Title>
-                                    <Comment>Manages the loading, processing, sampling and indexing of occurrence records.</Comment>
-                                    <Implementation-Vendor>Atlas of Living Australia</Implementation-Vendor>
-                                    <Implementation-Vendor-Id>au.org.ala</Implementation-Vendor-Id>
-                                </manifestEntries>
-                            </archive>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <configuration>
-                            <compilerArgument>-Xlint:all</compilerArgument>
-                            <showWarnings>true</showWarnings>
-                            <showDeprecation>true</showDeprecation>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <phase>compile</phase>
-                                <goals>
-                                    <goal>compile</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-release-plugin</artifactId>
-                        <version>2.5</version>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-assembly-plugin</artifactId>
-                        <configuration>
-                            <descriptors>
-                                <descriptor>src/assembly/assembly.xml</descriptor>
-                            </descriptors>
-                            <archive>
-                                <manifest>
-                                    <addClasspath>true</addClasspath>
-                                    <classpathPrefix>lib/</classpathPrefix>
-                                    <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
-                                </manifest>
-                            </archive>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>single</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
+            <plugins>
+                <plugin>
+                    <groupId>com.github.koraktor</groupId>
+                    <artifactId>mavanagaiata</artifactId>
+                    <executions>
+                        <execution>
+                            <id>git-commit</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>commit</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.scala-tools</groupId>
+                    <artifactId>maven-scala-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>scala-compile-first</id>
+                            <phase>process-resources</phase>
+                            <goals>
+                                <goal>add-source</goal>
+                                <goal>compile</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>scala-test-compile</id>
+                            <phase>process-test-resources</phase>
+                            <goals>
+                                <goal>testCompile</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <checkMultipleScalaVersions>false</checkMultipleScalaVersions>
+                        <scalaVersion>${scala.version}</scalaVersion>
+                        <args>
+                            <arg>-target:jvm-1.6</arg>
+                            <arg>-deprecation</arg>
+                            <arg>-nowarn</arg>
+                        </args>
+                        <jvmArgs>
+                            <jvmArg>-Xmx2G</jvmArg>
+                        </jvmArgs>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>copy-dependencies</id>
+                            <phase>prepare-package</phase>
+                            <goals>
+                                <goal>copy-dependencies</goal>
+                            </goals>
+                            <configuration>
+                                <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                                <overWriteReleases>false</overWriteReleases>
+                                <overWriteSnapshots>false</overWriteSnapshots>
+                                <overWriteIfNewer>true</overWriteIfNewer>
+                            </configuration>
+                        </execution>
+                      </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <configuration>
+                        <archive>
+                            <manifest>
+                                <addClasspath>true</addClasspath>
+                                <classpathPrefix>lib/</classpathPrefix>
+                                <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
+                            </manifest>
+                            <manifestEntries>
+                                <gitCommitID>${mavanagaiata.commit.id}</gitCommitID>
+                                <gitCommitAuthor>${mavanagaiata.commit.author.name}</gitCommitAuthor>
+                                <gitCommitAuthor>${mvngit.commit.author.name}</gitCommitAuthor>
+                                <gitCommitAuthorEmail>${mvngit.commit.author.email}</gitCommitAuthorEmail>
+                                <gitCommitter>${mavanagaiata.commit.committer.name}</gitCommitter>
+                                <gitCommitterEmail>${mavanagaiata.commit.committer.email}</gitCommitterEmail>
+                                <gitCommitSummary>${mavanagaiata.commit.abbrev}</gitCommitSummary>
+                                <buildTimestamp>${maven.build.timestamp}</buildTimestamp>
+                                <sha1>${mavanagaiata.commit.sha}</sha1>
+                                <Implementation-Version>${mvngit.commit.id}</Implementation-Version>
+                                <Implementation-Title>Biocache</Implementation-Title>
+                                <Comment>Manages the loading, processing, sampling and indexing of occurrence records.</Comment>
+                                <Implementation-Vendor>Atlas of Living Australia</Implementation-Vendor>
+                                <Implementation-Vendor-Id>au.org.ala</Implementation-Vendor-Id>
+                            </manifestEntries>
+                        </archive>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <compilerArgument>-Xlint:all</compilerArgument>
+                        <showWarnings>true</showWarnings>
+                        <showDeprecation>true</showDeprecation>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <phase>compile</phase>
+                            <goals>
+                                <goal>compile</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <configuration>
+                        <descriptors>
+                            <descriptor>src/assembly/assembly.xml</descriptor>
+                        </descriptors>
+                        <archive>
+                            <manifest>
+                                <addClasspath>true</addClasspath>
+                                <classpathPrefix>lib/</classpathPrefix>
+                                <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
+                            </manifest>
+                        </archive>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>single</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+        </plugins>
             </build>
         </profile>
         <profile>
@@ -691,7 +827,6 @@
                     <plugin>
                         <groupId>org.scala-tools</groupId>
                         <artifactId>maven-scala-plugin</artifactId>
-                        <version>2.15.2</version>
                         <executions>
                             <execution>
                                 <id>scala-compile-first</id>
@@ -725,7 +860,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-jar-plugin</artifactId>
-                        <version>2.4</version>
                         <configuration>
                             <archive>
                                 <manifest>

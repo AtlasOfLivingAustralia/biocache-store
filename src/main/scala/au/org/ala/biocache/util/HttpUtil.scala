@@ -15,33 +15,49 @@ object HttpUtil {
 
   def postBody(url:String, contentType:String, stringBody:String ) : (Int, String) = {
     val httpClient = new DefaultHttpClient()
-    val httpPost = new HttpPost(url)
-    val stringEntity = new StringEntity(stringBody)
-    stringEntity.setContentType(contentType)
-    stringEntity.setContentEncoding("UTF-8")
-    httpPost.setEntity(new StringEntity(stringBody, "UTF-8"))
-    val response = httpClient.execute(httpPost)
-    val result = response.getStatusLine()
-    val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-    logger.debug("Response code: " + result.getStatusCode)
-    (result.getStatusCode, responseBody)
+    try {
+      val httpPost = new HttpPost(url)
+      val stringEntity = new StringEntity(stringBody)
+      stringEntity.setContentType(contentType)
+      stringEntity.setContentEncoding("UTF-8")
+      httpPost.setEntity(new StringEntity(stringBody, "UTF-8"))
+      val response = httpClient.execute(httpPost)
+      try {
+        val result = response.getStatusLine()
+        val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+        logger.debug("Response code: " + result.getStatusCode)
+        (result.getStatusCode, responseBody)
+      } finally {
+        response.close()
+      }      
+    } finally {
+      httpClient.close()
+    }
   }
 
   def uploadFileWithJson(url:String, file:File, contentType:String, json:String) : (Int, String) = {
 
     //upload an image
     val httpClient = new DefaultHttpClient()
-    val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
-    val fileBody = new FileBody(file, contentType)
-    entity.addPart("image", fileBody)
-    entity.addPart("metadata", new StringBody(json))
+    try {
+      val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
+      val fileBody = new FileBody(file, contentType)
+      entity.addPart("image", fileBody)
+      entity.addPart("metadata", new StringBody(json))
 
-    val httpPost = new HttpPost(url)
-    httpPost.setEntity(entity)
-    val response = httpClient.execute(httpPost)
-    val result = response.getStatusLine()
-    logger.debug("Response code: " + result.getStatusCode)
-    val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-    (result.getStatusCode, responseBody)
+      val httpPost = new HttpPost(url)
+      httpPost.setEntity(entity)
+      val response = httpClient.execute(httpPost)
+      try {
+        val result = response.getStatusLine()
+        logger.debug("Response code: " + result.getStatusCode)
+        val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+        (result.getStatusCode, responseBody)
+      } finally {
+        response.close()
+      }      
+    } finally {
+      httpClient.close()
+    }
   }
 }

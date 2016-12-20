@@ -169,22 +169,26 @@ class LayersStore ( layersStoreUrl: String) {
   }
 
   def samplingStatus(statusUrl: String) : (Int, String, Boolean) = {
+    val httpClient = new DefaultHttpClient()
     try {
-      val httpClient = new DefaultHttpClient()
       val httpGet = new HttpGet(statusUrl)
       val response = httpClient.execute(httpGet)
-      val result = response.getStatusLine()
-      val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-      logger.debug("Response code: " + result.getStatusCode)
-      val json = Json.toMap(responseBody)
+      try {
+        val result = response.getStatusLine()
+        val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+        logger.debug("Response code: " + result.getStatusCode)
+        val json = Json.toMap(responseBody)
 
-      val status = json.get("status").get
-      if (status.equals("error") || status.equals("cancelled")) {
-        (result.getStatusCode, responseBody, false)
-      } else if (status.equals("finished")) {
-        (result.getStatusCode, responseBody, false)
-      } else {
-        (result.getStatusCode, responseBody, true)
+        val status = json.get("status").get
+        if (status.equals("error") || status.equals("cancelled")) {
+          (result.getStatusCode, responseBody, false)
+        } else if (status.equals("finished")) {
+          (result.getStatusCode, responseBody, false)
+        } else {
+          (result.getStatusCode, responseBody, true)
+        }
+      } finally {
+        response.close()
       }
     } catch {
       case ex:ConnectException => {
@@ -195,6 +199,8 @@ class LayersStore ( layersStoreUrl: String) {
         logger.debug("Exception connecting to " + statusUrl, ex)
         (HttpStatus.SC_INTERNAL_SERVER_ERROR, null, false)
       }
+    } finally {
+      httpClient.close()
     }
   }
 }

@@ -459,9 +459,10 @@ object Store {
    *
    * @param dataResource the resource to index
    * @param customIndexFields the additional fields to index on top of the default set of fields
+   * @param userProvidedTypeCustomIndexFields the additional fields which type is defined by the user
    * @param callback a callback used for monitoring the process
    */
-  def index(dataResource:java.lang.String, customIndexFields:Array[String], callback:ObserverCallback = null) = {
+  def index(dataResource:java.lang.String, customIndexFields:Array[String], userProvidedTypeCustomIndexFields:Array[String], callback:ObserverCallback = null) = {
     logger.info("Indexing data resource " + dataResource)
     IndexRecords.index(None,
       None,
@@ -470,6 +471,7 @@ object Store {
       false,
       None,
       miscIndexProperties = customIndexFields,
+      userProvidedTypeMiscIndexProperties = userProvidedTypeCustomIndexFields,
       callback = callback)
     logger.info("Finished indexing data resource " + dataResource)
     logger.info("Storing custom index fields to the database....")
@@ -525,6 +527,10 @@ object Store {
 
   def writeToWriter(writer:RecordWriter,keys: Array[String], fields: Array[java.lang.String], qaFields: Array[java.lang.String], includeSensitive:Boolean, includeMisc:Boolean, miscFields: Array[java.lang.String]) : Array[java.lang.String] = {
     occurrenceDAO.writeToRecordWriter(writer, keys, fields, qaFields, includeSensitive, includeMisc, miscFields)
+  }
+
+  def writeToWriter(writer:RecordWriter,keys: Array[String], fields: Array[java.lang.String], qaFields: Array[java.lang.String], includeSensitive:Boolean, includeMisc:Boolean, miscFields: Array[java.lang.String], dataToInsert: java.util.Map[String, Array[String]]) : Array[java.lang.String] = {
+    occurrenceDAO.writeToRecordWriter(writer, keys, fields, qaFields, includeSensitive, includeMisc, miscFields, dataToInsert)
   }
   
   /**
@@ -768,5 +774,7 @@ trait RecordWriter {
   def write(record:Array[String])
   /** Performs all the finishing tasks in writing the download file. */
   def finalise
+  /** Returns true if this record writer has been finalised */
+  def finalised(): Boolean
 }
 

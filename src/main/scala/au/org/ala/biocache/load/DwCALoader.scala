@@ -4,13 +4,14 @@ import java.io._
 import java.net.URL
 
 import au.org.ala.biocache._
+import au.org.ala.biocache.cmd.{CMD2, NoArgsTool, Tool}
 import au.org.ala.biocache.model.{FullRecord, Multimedia, Raw}
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import org.apache.commons.lang3.StringUtils
-import org.gbif.dwc.record.{Record, StarRecord}
+import org.gbif.dwca.record.{Record, StarRecord}
 import org.gbif.dwc.terms.{DcTerm, GbifTerm, Term}
-import org.gbif.dwc.text.ArchiveFactory
+import org.gbif.dwca.io.ArchiveFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
@@ -36,11 +37,14 @@ import scala.collection.{JavaConversions, mutable}
  *
  * @author Dave Martin
  */
-object DwCALoader {
+object DwCALoader extends Tool {
 
   val IMAGE_TYPE = GbifTerm.Image
   val MULTIMEDIA_TYPE = GbifTerm.Multimedia
 //  val IDENTIFICATION_TYPE = GbifTerm.
+
+  def cmd = "load-dwca"
+  def desc = "Load a Darwin Core Archive"
 
   def main(args: Array[String]): Unit = {
 
@@ -353,7 +357,7 @@ class DwCALoader extends DataLoader {
       val metadata = terms.map { term => term -> row.value(term) }.toMap[Term, String]
       locateMultimedia(row, imageBase) match {
         case Some(location) => multimedia.add(Multimedia.create(location, metadata))
-        case None => logger.debug("No location found for row")
+        case None => logger.info("No location found for multimedia typed row: " + row)
       }
     }
     multimedia

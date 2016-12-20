@@ -53,6 +53,7 @@ trait IndexDAO {
                    startDate: Option[Date] = None,
                    commit: Boolean = false,
                    miscIndexProperties: Seq[String] = Array[String](),
+                   userProvidedTypeMiscIndexProperties : Seq[String] = Array[String](),
                    test:Boolean = false,
                    batchID:String = "",
                    csvFileWriter:FileWriter = null,
@@ -305,13 +306,25 @@ trait IndexDAO {
         }
         val sconservation = getValue("stateConservation.p", map)
         var stateCons = if (sconservation != "") sconservation.split(",")(0) else ""
-        val rawStateCons = if (sconservation != "") sconservation.split(",")(1) else ""
+        val rawStateCons = if (sconservation != "") {
+          val sconversations = sconservation.split(",")
+          if (sconversations.length > 1)
+            sconversations(1)
+          else
+            ""
+        } else ""
 
         if (stateCons == "null") stateCons = rawStateCons
 
         val cconservation = getValue("countryConservation.p", map)
         var countryCons = if (cconservation != "") cconservation.split(",")(0) else ""
-        val rawCountryCons = if (cconservation != "") cconservation.split(",")(1) else ""
+        val rawCountryCons = if (cconservation != "") {
+          val cconservations = cconservation.split(",")
+          if (cconservations.length > 1)
+            cconservations(1)
+          else
+            ""
+        } else ""
 
         if (countryCons == "null") countryCons = rawCountryCons
 

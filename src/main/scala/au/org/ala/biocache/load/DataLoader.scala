@@ -482,6 +482,7 @@ trait DataLoader {
       val (file, isZipped, isGzipped) = {
         if (url.endsWith(".zip") || (contentDisp != null && contentDisp.endsWith(""".zip""""))){
           val f = new File(temporaryFileStore + File.separatorChar + resourceUid + ".zip")
+          logger.info("Creating file: " + f.getAbsolutePath)
           f.createNewFile()
           (f, true, false)
         } else if (url.endsWith(".gz") || (contentDisp != null && contentDisp.endsWith(""".gz""""))){

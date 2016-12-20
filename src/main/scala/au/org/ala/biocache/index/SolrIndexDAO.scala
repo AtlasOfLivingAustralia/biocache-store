@@ -57,6 +57,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   val fieldSuffix = """([A-Za-z_\-0.9]*)"""
   val doublePattern = (fieldSuffix + """_d""").r
   val intPattern = (fieldSuffix + """_i""").r
+  val datePattern = (fieldSuffix + """_dt""").r
 
   lazy val BATCH_SIZE = Config.solrBatchSize
   lazy val HARD_COMMIT_SIZE = Config.solrHardCommitSize
@@ -353,6 +354,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                             startDate: Option[Date] = None,
                             commit: Boolean = false,
                             miscIndexProperties: Seq[String] = Array[String](),
+                            userProvidedTypeMiscIndexProperties : Seq[String] = Array[String](),
                             test:Boolean = false,
                             batchID:String = "",
                             csvFileWriter:FileWriter = null,
@@ -404,10 +406,69 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                     doc.addField(it, v.get.toString())
                   }
                 }
+
+                case it if it.endsWith("_dt")  => {
+                  val v = map.get(it.take(it.length-3))
+                  if (v.isDefined && StringUtils.isNotBlank(it)) {
+                    try {
+                      val dateValue = DateParser.parseDate(v.get.toString())
+                      if(!dateValue.isEmpty) {
+                        doc.addField(it, dateValue.get.parsedStartDate)
+                      } else {
+                        logger.error("Unable to convert value to date " + v + " for " + guid)
+                      }
+                    }
+                    catch {
+                      case e:Exception => logger.error("Unable to convert value to date " + v + " for " + guid, e)
+                    }
+                  }
+                }
+
                 case _ => {
                   val v = map.get(prop)
                   if(v.isDefined){
                     doc.addField(prop + "_s", v.get.toString())
+                  }
+                }
+              }
+            })
+          }
+        }
+
+        if (!userProvidedTypeMiscIndexProperties.isEmpty) {
+          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+          if (unparsedJson != "") {
+            val map = Json.toMap(unparsedJson)
+            userProvidedTypeMiscIndexProperties.foreach(prop => {
+              prop match {
+                case it if it.endsWith("_i") || it.endsWith("_d") || it.endsWith("_s") => {
+                  val v = map.get(it)
+                  if(v.isDefined && StringUtils.isNotBlank(it)){
+                    doc.addField(it, v.get.toString())
+                  }
+                }
+
+                case it if it.endsWith("_dt")  => {
+                  val v = map.get(it)
+                  if (v.isDefined && StringUtils.isNotBlank(it)) {
+                    try {
+                      val dateValue = DateParser.parseDate(v.get.toString())
+                      if(!dateValue.isEmpty) {
+                        doc.addField(it, dateValue.get.parsedStartDate)
+                      } else {
+                        logger.error("Unable to convert value to date " + v + " for " + guid)
+                      }
+                    }
+                    catch {
+                      case e:Exception => logger.error("Unable to convert value to date " + v + " for " + guid, e)
+                    }
+                  }
+                }
+
+                case _ => {
+                  val v = map.get(prop)
+                  if(v.isDefined){
+                    doc.addField(prop, v.get.toString())
                   }
                 }
               }
@@ -460,6 +521,23 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                     }
                   }
                 }
+                case datePattern(field) => {
+                  val fvalue = map.getOrElse(field, "").toString()
+                  if (fvalue.size > 0) {
+                    try {
+                      val dateValue = DateParser.parseDate(fvalue)
+                      if(!dateValue.isEmpty) {
+                        doc.addField(value, dateValue.get.parsedStartDate)
+                      } else {
+                        logger.error("Unable to convert value to date " + fvalue + " for " + guid)
+                      }
+                    }
+                    catch {
+                      case e:Exception => logger.error("Unable to convert value to date " + fvalue + " for " + guid, e)
+                    }
+                  }
+                }
+
                 case _ => {
                   //remove the suffix
                   val item = if (value.contains("_")) value.substring(0, value.lastIndexOf("_")) else value

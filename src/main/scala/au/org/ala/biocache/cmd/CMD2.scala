@@ -208,6 +208,7 @@ object CMD2 {
     DownloadMedia,
     DuplicationDetection,
     DwCACreator,
+    DwCALoader,
     DwcCSVLoader,
     DebugRecord,
     ExpertDistributionOutlierTool,
