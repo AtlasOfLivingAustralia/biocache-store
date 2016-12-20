@@ -97,13 +97,28 @@ object GridUtil {
       val gridRefs = getGridRefAsResolutions(gridReference)
       val uncertainty = uncertaintyString.toInt
 
+      val gridRefSeq = Array(
+        gridRefs.getOrElse("grid_ref_100000", ""),
+        gridRefs.getOrElse("grid_ref_10000", ""),
+        gridRefs.getOrElse("grid_ref_2000", ""),
+        gridRefs.getOrElse("grid_ref_1000", ""),
+        gridRefs.getOrElse("grid_ref_100", "")
+      )
+
       val ref = {
-        if (uncertainty > 10000) gridRefs.getOrElse("grid_ref_100000", "")
-        else if (uncertainty <= 10000 && uncertainty > 2000) gridRefs.getOrElse("grid_ref_10000", "")
-        else if (uncertainty <= 2000 && uncertainty > 1000) gridRefs.getOrElse("grid_ref_2000", "")
-        else if (uncertainty <= 1000 && uncertainty > 100) gridRefs.getOrElse("grid_ref_1000", "")
-        else if (uncertainty < 100) gridRefs.getOrElse("grid_ref_100", "")
-        else ""
+        if (uncertainty > 10000) {
+          getBestValue(gridRefSeq, 0)
+        } else if (uncertainty <= 10000 && uncertainty > 2000) {
+          getBestValue(gridRefSeq, 1)
+        } else if (uncertainty <= 2000 && uncertainty > 1000) {
+          getBestValue(gridRefSeq, 2)
+        } else if (uncertainty <= 1000 && uncertainty > 100) {
+          getBestValue(gridRefSeq, 3)
+        } else if (uncertainty < 100) {
+          getBestValue(gridRefSeq, 4)
+        } else {
+          ""
+        }
       }
       if(ref != "")
         Some(ref)
@@ -111,10 +126,23 @@ object GridUtil {
         None
     } catch {
       case e:Exception => {
-        logger.error("Problem converting gridreference " + gridReference + " to lower resolution of " + uncertaintyString, e)
+        logger.error("Problem converting grid reference " + gridReference + " to lower resolution of " + uncertaintyString, e)
         None
       }
     }
+  }
+
+
+  def getBestValue(values: Seq[String], preferredIndex:Int): String ={
+
+    var counter = preferredIndex
+    while(counter>=0){
+      if(values(counter) != ""){
+        return values(counter)
+      }
+      counter = counter -1
+    }
+    ""
   }
 
   /**
@@ -163,7 +191,7 @@ object GridUtil {
               }
             }
 
-            if (gridSize != -1 && gridSize <= 100) {
+            if (gridSize != -1 && gridSize <= 100 && eastingAsStr.length > 4) {
               map.put("grid_ref_100", gr.gridLetters + eastingAsStr.substring(1, 4) + northingAsStr.substring(1, 4))
             }
           }
