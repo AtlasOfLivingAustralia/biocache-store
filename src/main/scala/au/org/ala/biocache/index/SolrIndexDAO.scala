@@ -4,7 +4,7 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.slf4j.LoggerFactory
 import org.apache.solr.core.CoreContainer
-import org.apache.solr.client.solrj.{StreamingResponseCallback, SolrQuery, SolrServer}
+import org.apache.solr.client.solrj.{SolrClient, StreamingResponseCallback, SolrQuery, SolrServer}
 import au.org.ala.biocache.dao.OccurrenceDAO
 import org.apache.solr.common.{SolrDocument, SolrInputDocument}
 import java.io.{FileWriter, OutputStream, File}
@@ -45,7 +45,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   }
 
   var cc: CoreContainer = _
-  var solrServer: SolrServer = _
+  var solrServer: SolrClient = _
   var cloudServer: org.apache.solr.client.solrj.impl.CloudSolrServer = _
   var solrConfigPath: String = ""
 
@@ -78,12 +78,12 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           solrServer = cloudServer
         } else if (solrConfigPath != "") {
           logger.info("Initialising embedded SOLR server.....")
-          cc = CoreContainer.createAndLoad(solrHome, new File(solrHome+"/solr.xml"))
+          cc = CoreContainer.createAndLoad(new File(solrHome+"/solr.xml").toPath)
           solrServer = new EmbeddedSolrServer(cc, "biocache")
         } else {
           logger.info("Initialising embedded SOLR server.....")
           System.setProperty("solr.solr.home", solrHome)
-          cc = CoreContainer.createAndLoad(solrHome,new File(solrHome + "/solr.xml"))//new CoreContainer(solrHome)
+          cc = CoreContainer.createAndLoad(new File(solrHome + "/solr.xml").toPath)//new CoreContainer(solrHome)
           solrServer = new EmbeddedSolrServer(cc, "biocache")
         }
       } else {
@@ -201,7 +201,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
       if (sortField.isDefined) {
         val dir = sortDir.getOrElse("asc")
-        q.setSortField(sortField.get, if (dir == "asc") {
+        q.setSort(sortField.get, if (dir == "asc") {
           org.apache.solr.client.solrj.SolrQuery.ORDER.asc
         } else {
           org.apache.solr.client.solrj.SolrQuery.ORDER.desc
@@ -775,7 +775,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     init
     val solrQuery = new SolrQuery();
-    solrQuery.setQueryType("standard");
     // Facets
     solrQuery.setFacet(true)
     solrQuery.addFacetField("row_key")
@@ -810,7 +809,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     init
     val solrQuery = new SolrQuery();
-    solrQuery.setQueryType("standard");
     // Facets
     solrQuery.setFacet(true)
     solrQuery.addFacetField("row_key")
@@ -837,7 +835,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   def getDistinctValues(query: String, field: String, max: Int): Option[List[String]] = {
     init
     val solrQuery = new SolrQuery();
-    solrQuery.setQueryType("standard");
     // Facets
     solrQuery.setFacet(true)
     solrQuery.addFacetField(field)
@@ -886,7 +883,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     var continue = true
 
     val solrQuery = new SolrQuery()
-      .setQueryType("standard")
       .setFacet(false)
       .setFields(field)
       .setQuery(query)

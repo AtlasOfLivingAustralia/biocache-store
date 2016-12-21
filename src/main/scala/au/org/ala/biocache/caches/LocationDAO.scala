@@ -57,7 +57,7 @@ object LocationDAO {
     var processedOK = false
     while (!processedOK && retries < 6) {
       try {
-        Config.persistenceManager.putBatch(columnFamily, batch, false)
+        Config.persistenceManager.putBatch(columnFamily, batch.toMap, false)
         processedOK = true
       } catch {
         case e: Exception => {

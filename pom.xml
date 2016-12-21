@@ -244,17 +244,17 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-queries</artifactId>
-            <version>5.5.2</version>
+            <version>${solr.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-codecs</artifactId>
-            <version>5.5.2</version>
+            <version>${solr.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-backward-codecs</artifactId>
-            <version>5.5.2</version>
+            <version>${solr.version}</version>
         </dependency>
         <!-- DWC-A -->
         <dependency>
@@ -428,11 +428,6 @@
                     <artifactId>wstx-asl</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-codecs</artifactId>
-            <version>${solr.version}</version>
         </dependency>
         <!--
            The following dependency is required for a SOLR embedded service only

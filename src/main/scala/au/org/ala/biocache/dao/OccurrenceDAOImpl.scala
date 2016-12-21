@@ -436,7 +436,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     },startKey,endKey, pageSize)
   }
 
-  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4, localNodeIP:String): Int = {
+  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4): Int = {
     persistenceManager.pageOverLocal(entityName, (guid, map) => {
       //retrieve all versions
       val raw = FullRecordMapper.createFullRecord(guid, map, Versions.RAW)
@@ -569,7 +569,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     val properties = FullRecordMapper.fullRecord2Map(fullRecord, version)
 
     if (!assertions.isEmpty) {
-      properties ++= convertAssertionsToMap(rowKey,assertions.get, fullRecord.userVerified)
+      properties ++= convertAssertionsToMap(rowKey,assertions.get)
       updateSystemAssertions(rowKey, assertions.get)
     }
 
