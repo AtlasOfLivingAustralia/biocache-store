@@ -588,7 +588,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           * TODO refactor so that additional indexing is pluggable without core changes.
           */
         if(Config.gridRefIndexingEnabled){
-          val bboxString = map.getOrElse("bbox.p", "")
+          val bboxString = getParsedValue("bbox", map)
           if(bboxString != ""){
             val bbox = bboxString.split(",")
             doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
@@ -597,11 +597,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
             doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
           }
 
-          val easting = map.getOrElse("easting.p", "")
+          val easting = getParsedValue("easting", map)
           if(easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting).toInt)
-          val northing = map.getOrElse("northing.p", "")
+          val northing = getParsedValue("northing", map)
           if(northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing).toInt)
-          val gridRef = map.getOrElse("gridReference", "")
+          val gridRef = getValue("gridReference", map)
           if(gridRef != "") {
             doc.addField("grid_ref", gridRef)
             val map = GridUtil.getGridRefAsResolutions(gridRef)
@@ -611,7 +611,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         /** UK NBN **/
 
         // user if userQA = true
-        val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
+        val hasUserAssertions = getValue(FullRecordMapper.userQualityAssertionColumn, map)
         if (!"".equals(hasUserAssertions)) {
           val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(guid)
           assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
@@ -631,28 +631,28 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.addField("suitable_modelling", suitableForModelling.toString)
 
         //index the available el and cl's - more efficient to use the supplied map than using the old way
-        val els = Json.toStringMap(map.getOrElse("el.p", "{}"))
+        val els = Json.toStringMap(getParsedValue("el", map))
         els.foreach {
           case (key, value) => doc.addField(key, value)
         }
-        val cls = Json.toStringMap(map.getOrElse("cl.p", "{}"))
+        val cls = Json.toStringMap(getParsedValue("cl", map))
         cls.foreach {
           case (key, value) => doc.addField(key, value)
         }
 
         //index the additional species information - ie species groups
-        val lft = map.get("left.p")
-        val rgt = map.get("right.p")
-        if(lft.isDefined && rgt.isDefined){
+        val lft = getParsedValue("left", map)
+        val rgt = getParsedValue("right", map)
+        if(lft != "" && rgt != ""){
 
           // add the species groups
-          val sgs = SpeciesGroups.getSpeciesGroups(lft.get, rgt.get)
+          val sgs = SpeciesGroups.getSpeciesGroups(lft, rgt)
           if(sgs.isDefined){
             sgs.get.foreach{v:String => doc.addField("species_group", v)}
           }
 
           // add the species subgroups
-          val ssgs = SpeciesGroups.getSpeciesSubGroups(lft.get, rgt.get)
+          val ssgs = SpeciesGroups.getSpeciesSubGroups(lft, rgt)
           if(ssgs.isDefined){
             ssgs.get.foreach{v:String => doc.addField("species_subgroup", v)}
           }
@@ -753,14 +753,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     for (i <- 0 to header.length - 1) {
       val values = doc.getFieldValues(header.get(i))
       if (values != null && values.size() > 0) {
-        var it = values.iterator();
+        val it = values.iterator()
         fileWriter.write(it.next().toString)
         while (it.hasNext) {
           fileWriter.write("|")
           fileWriter.write(it.next().toString)
         }
       }
-      fileWriter.write("\t");
+      fileWriter.write("\t")
     }
   }
 
@@ -774,7 +774,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   override def getUUIDsForQuery(query: String, limit: Int = 1000): Option[List[String]] = {
 
     init
-    val solrQuery = new SolrQuery();
+    val solrQuery = new SolrQuery()
     // Facets
     solrQuery.setFacet(true)
     solrQuery.addFacetField("row_key")

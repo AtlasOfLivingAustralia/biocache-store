@@ -179,9 +179,20 @@ object IndexRecords extends Tool with IncrementalTool {
       counter += 1
       ///convert EL and CL properties at this stage
       val shouldcommit = counter % 10000 == 0
-      indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, test=test, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
+
+      indexer.indexFromMap(guid,
+        map,
+        startDate=startDate,
+        commit=shouldcommit,
+        miscIndexProperties=miscIndexProperties,
+        userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties,
+        test=test,
+        csvFileWriter = csvFileWriter,
+        csvFileWriterSensitive = csvFileWriterSensitive
+      )
+
       if (counter % pageSize == 0) {
-        if(callback !=null) {
+        if(callback != null) {
           callback.progressMessage(counter)
         }
         finishTime = System.currentTimeMillis

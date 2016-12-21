@@ -455,9 +455,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    */
   def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean),
                                       condition:(Map[String,String]=>Boolean),columnsToRetrieve:Array[String],
-                                      startKey:String="", endKey:String="", pageSize: Int = 1000){
-    val columns = columnsToRetrieve ++ Array("uuid","rowKey")
-    persistenceManager.pageOverSelect(entityName, (guid, map)=>{
+                                      startKey:String = "", endKey:String = "", pageSize: Int = 1000){
+    val columns = columnsToRetrieve ++ Array("uuid", "rowKey")
+    persistenceManager.pageOverSelect(entityName, (guid, map) => {
       //val deleted = map.getOrElse(FullRecordMapper.deletedColumn,"false")
       //if(deleted.equals("false")){
       if(condition(map)){
@@ -474,7 +474,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         }
       }
       true
-    }, startKey, endKey,pageSize, columns: _*)
+    }, startKey, endKey, pageSize, columns: _*)
   }
 
   /**

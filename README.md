@@ -24,6 +24,12 @@ To skip the tests during the build, run ```mvn install -DskipTests=true```.
 For a list of releases [click here](https://github.com/AtlasOfLivingAustralia/biocache-store/releases)
 For a list of built releases, see [here](http://nexus.ala.org.au/#nexus-search;quick~biocache-store)
 
+## Version 2.x
+
+We are currently working on version 2.x of this code base  that makes use of cassandra 3.x and SOLR 5.x with SOLR cloud support.
+See the 
+
+
 
 ## Acknowledgements
 YourKit is kindly supporting open source projects with its full-featured Java Profiler. YourKit, LLC is the creator of innovative and intelligent tools for profiling Java and .NET applications.

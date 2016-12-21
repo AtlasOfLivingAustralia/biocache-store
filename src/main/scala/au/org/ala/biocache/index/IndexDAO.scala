@@ -7,15 +7,12 @@ import java.util.Date
 import org.apache.commons.lang.time.DateFormatUtils
 import java.io.{File, FileWriter, OutputStream}
 import scala.util.parsing.json.JSON
-import au.org.ala.biocache.processor.Processors
 import au.org.ala.biocache.dao.OccurrenceDAO
 import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.vocab.{AssertionStatus}
 import au.org.ala.biocache.util.Json
-import au.org.ala.biocache.model.QualityAssertion
 
 /**
  * All Index implementations need to extend this trait.
@@ -87,12 +84,27 @@ trait IndexDAO {
    */
   def finaliseIndex(optimise: Boolean = false, shutdown: Boolean = true)
 
-  def getValue(field: String, map: scala.collection.Map[String, String]): String = map.getOrElse(field, "")
+  def getValue(field: String, map: scala.collection.Map[String, String]): String = map.getOrElse(field.toLowerCase, "")
 
-  def getValue(field: String, map: scala.collection.Map[String, String], checkParsed: Boolean): String = {
+  def getValue(field: String, map: scala.collection.Map[String, String], default:String): String = map.getOrElse(field.toLowerCase, default)
+
+  def getParsedValue(field: String, map: scala.collection.Map[String, String]): String = getValue(field + Config.persistenceManager.fieldDelimiter + "p", map)
+
+  def getParsedValue(field: String, map: scala.collection.Map[String, String], default:String): String = {
+    val value = getValue(field + Config.persistenceManager.fieldDelimiter + "p", map)
+    if(value == ""){
+      default
+    } else {
+      value
+    }
+  }
+
+  def hasParsedValue(field: String, map: scala.collection.Map[String, String]): Boolean = getValue(field + Config.persistenceManager.fieldDelimiter + "p", map) != ""
+
+  def getValue(field: String, map: scala.collection.Map[String, String], default:String  = "", checkParsed: Boolean): String = {
     val value = getValue(field, map)
     if (value == "" && checkParsed) {
-      getValue(field + ".p", map)
+      getValue(field + Config.persistenceManager.fieldDelimiter + "p", map, default)
     } else {
       value
     }
@@ -171,7 +183,7 @@ trait IndexDAO {
       } else if (map.contains("genus")) {
         var tmp: String = map.get("genus").get
         if (map.contains("specificEpithet") || map.contains("species")) {
-          tmp = tmp + " " + map.getOrElse("specificEpithet", map.getOrElse("species", ""))
+          tmp = tmp + " " + map.getOrElse("specificEpithet", getValue("species", map))
           if (map.contains("infraspecificEpithet") || map.contains("subspecies"))
             tmp = tmp + " " + map.getOrElse("infraspecificEpithet", map.getOrElse("subspecies", ""))
         }
@@ -196,14 +208,14 @@ trait IndexDAO {
       val deleted = map.getOrElse(FullRecordMapper.deletedColumn, "false")
       //only add it to the index is it is not deleted & not a blank record
       if (!deleted.equals("true") && map.size > 1) {
-        var slat = getValue("decimalLatitude.p", map)
-        var slon = getValue("decimalLongitude.p", map)
+        var slat = getParsedValue("decimalLatitude", map)
+        var slon = getParsedValue("decimalLongitude", map)
         var latlon = ""
-        val sciName = getValue("scientificName.p", map)
-        val taxonConceptId = getValue("taxonConceptID.p", map)
-        val vernacularName = getValue("vernacularName.p", map).trim
-        val kingdom = getValue("kingdom.p", map)
-        val family = getValue("family.p", map)
+        val sciName = getParsedValue("scientificName", map)
+        val taxonConceptId = getParsedValue("taxonConceptID", map)
+        val vernacularName = getParsedValue("vernacularName", map).trim
+        val kingdom = getParsedValue("kingdom", map)
+        val family = getParsedValue("family", map)
         val images = {
           val simages = getValue("images", map)
           if (!simages.isEmpty)
@@ -227,33 +239,30 @@ trait IndexDAO {
           }
         }
         val speciesGroup = {
-          val sspeciesGroup = getValue("speciesGroups.p", map)
+          val sspeciesGroup = getParsedValue("speciesGroups", map)
           if (sspeciesGroup.length > 0)
             Json.toStringArray(sspeciesGroup)
           else
             Array[String]()
         }
         val interactions = {
-          if (map.contains("interactions.p"))
-            Json.toStringArray(map.get("interactions.p").get)
+          if (hasParsedValue("interactions", map))
+            Json.toStringArray(getParsedValue("interactions", map))
           else
             Array[String]()
         }
         val dataHubUids = {
-          val sdatahubs = getValue("dataHubUid", map, true)
+          val sdatahubs = getValue("dataHubUid", map, checkParsed=true)
           if (sdatahubs.length > 0)
             Json.toStringArray(sdatahubs)
           else
             Array[String]()
         }
-        val habitats = {
-          val shab = map.getOrElse("speciesHabitats.p", "[]")
-          Json.toStringArray(shab)
-        }
+        val habitats = Json.toStringArray(getParsedValue("speciesHabitats", map, "[]"))
 
-        var eventDate = getValue("eventDate.p", map)
-        var eventDateEnd = getValue("eventDateEnd.p", map)
-        var occurrenceYear = getValue("year.p", map)
+        var eventDate = getParsedValue("eventDate", map)
+        var eventDateEnd = getParsedValue("eventDateEnd", map)
+        var occurrenceYear = getParsedValue("year", map)
         var occurrenceDecade = ""
         if (occurrenceYear.length == 4) {
           occurrenceYear += "-01-01T00:00:00Z"
@@ -292,9 +301,9 @@ trait IndexDAO {
         }
         //get sensitive values map
         val sensitiveMap = {
-          if (shouldIncludeSensitiveValue(map.getOrElse("dataResourceUid", "")) && map.contains("originalSensitiveValues")) {
+          if (shouldIncludeSensitiveValue(getValue("dataResourceUid", map)) && map.contains("originalSensitiveValues")) {
             try {
-              val osv = map.getOrElse("originalSensitiveValues", "{}")
+              val osv = getValue("originalSensitiveValues", map, "{}")
               val parsed = JSON.parseFull(osv)
               parsed.get.asInstanceOf[Map[String, String]]
             } catch {
@@ -304,7 +313,7 @@ trait IndexDAO {
             Map[String, String]()
           }
         }
-        val sconservation = getValue("stateConservation.p", map)
+        val sconservation = getParsedValue("stateConservation", map)
         var stateCons = if (sconservation != "") sconservation.split(",")(0) else ""
         val rawStateCons = if (sconservation != "") {
           val sconversations = sconservation.split(",")
@@ -316,7 +325,7 @@ trait IndexDAO {
 
         if (stateCons == "null") stateCons = rawStateCons
 
-        val cconservation = getValue("countryConservation.p", map)
+        val cconservation = getParsedValue("countryConservation", map)
         var countryCons = if (cconservation != "") cconservation.split(",")(0) else ""
         val rawCountryCons = if (cconservation != "") {
           val cconservations = cconservation.split(",")
@@ -329,7 +338,7 @@ trait IndexDAO {
         if (countryCons == "null") countryCons = rawCountryCons
 
         val sensitive: String = {
-          val dataGen = map.getOrElse("dataGeneralizations.p", "")
+          val dataGen = getParsedValue("dataGeneralizations", map)
           if (dataGen.contains("already generalised"))
             "alreadyGeneralised"
           else if (dataGen != "")
@@ -339,7 +348,7 @@ trait IndexDAO {
         }
 
         val outlierForLayers: Array[String] = {
-          val outlierForLayerStr = getValue("outlierForLayers.p", map)
+          val outlierForLayerStr = getParsedValue("outlierForLayers", map)
           if (outlierForLayerStr != "") {
             try {
               Json.toStringArray(outlierForLayerStr)
@@ -351,7 +360,7 @@ trait IndexDAO {
         }
 
         val dupTypes: Array[String] = {
-          val s = map.getOrElse("duplicationType.p", "[]")
+          val s = getParsedValue("duplicationType", map, "[]")
           try {
             Json.toStringArray(s)
           } catch {
@@ -369,9 +378,9 @@ trait IndexDAO {
         }
 
         val (subspeciesGuid, subspeciesName): (String, String) = {
-          if (map.contains("taxonRankID.p")) {
+          if (hasParsedValue("taxonRankID", map)) {
             try {
-              if (java.lang.Integer.parseInt(map.getOrElse("taxonRankID.p", "")) > 7000)
+              if (java.lang.Integer.parseInt(getParsedValue("taxonRankID", map, "")) > 7000)
                 (taxonConceptId, sciName)
               else
                 ("", "")
@@ -385,7 +394,7 @@ trait IndexDAO {
 
         val lastLoaded = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn, map))
 
-        val lastProcessed = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn + ".p", map))
+        val lastProcessed = DateParser.parseStringToDate(getParsedValue(FullRecordMapper.alaModifiedColumn, map))
 
         val lastUserAssertion = DateParser.parseStringToDate(map.getOrElse(FullRecordMapper.lastUserAssertionDateColumn, ""))
 
@@ -395,9 +404,9 @@ trait IndexDAO {
 
         val loanReturnDate = DateParser.parseStringToDate(map.getOrElse("loanReturnDate", ""))
 
-        val dateIdentified = DateParser.parseStringToDate(map.getOrElse("dateIdentified.p", ""))
+        val dateIdentified = DateParser.parseStringToDate(getParsedValue("dateIdentified", map))
 
-        val modifiedDate = DateParser.parseStringToDate(map.getOrElse("modified.p", ""))
+        val modifiedDate = DateParser.parseStringToDate(getParsedValue("modified", map))
 
         var taxonIssue = map.getOrElse("taxonomicIssue.p", "[]")
         if(!taxonIssue.startsWith("[")){
@@ -405,10 +414,10 @@ trait IndexDAO {
           taxonIssue = "[]"
         }
         val taxonIssueArray = Json.toStringArray(taxonIssue)
-        val infoWith = map.getOrElse("informationWithheld.p", "")
+        val infoWith = getParsedValue("informationWithheld", map)
         val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""//startsWith("PEST")) "PEST" else ""
 
-        var distanceOutsideExpertRange = map.getOrElse("distanceOutsideExpertRange.p", "");
+        var distanceOutsideExpertRange = getParsedValue("distanceOutsideExpertRange", map)
         //only want valid numbers
         try {
           distanceOutsideExpertRange.toDouble
@@ -417,22 +426,22 @@ trait IndexDAO {
         }
 
         //the returned list needs to match up with the CSV header
-        return List(
+        return List[String](
           getValue("uuid", map),
           getValue("rowKey", map),
           getValue("occurrenceID", map),
           dataHubUids.mkString("|"),
-          getValue("dataHub.p", map),
-          getValue("dataProviderUid", map, true),
-          getValue("dataProviderName", map, true),
-          getValue("dataResourceUid", map, true),
-          getValue("dataResourceName", map, true),
-          getValue("institutionUid.p", map),
+          getParsedValue("dataHub", map),
+          getValue("dataProviderUid", map, checkParsed=true),
+          getValue("dataProviderName", map, checkParsed=true),
+          getValue("dataResourceUid", map, checkParsed=true),
+          getValue("dataResourceName", map, checkParsed=true),
+          getParsedValue("institutionUid", map),
           getValue("institutionCode", map),
-          getValue("institutionName.p", map),
-          getValue("collectionUid.p", map),
+          getParsedValue("institutionName", map),
+          getParsedValue("collectionUid", map),
           getValue("collectionCode", map),
-          getValue("collectionName.p", map),
+          getParsedValue("collectionName", map),
           getValue("catalogNumber", map),
           taxonConceptId,
           if (eventDate != "") eventDate + "T00:00:00Z" else "",
@@ -443,8 +452,8 @@ trait IndexDAO {
           vernacularName,
           sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family,
           vernacularName + "|" + sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family,
-          getValue("taxonRank.p", map),
-          getValue("taxonRankID.p", map),
+          getParsedValue("taxonRank", map),
+          getParsedValue("taxonRankID", map),
           getRawScientificName(map),
           getValue("vernacularName", map),
           //if (!images.isEmpty && images(0) != "") "Multimedia" else "None",
@@ -453,20 +462,20 @@ trait IndexDAO {
           images.mkString("|"),
           speciesGroup.mkString("|"),
           getValue("countryCode", map),
-          getValue("country.p", map),
-          getValue("left.p", map),
-          getValue("right.p", map),
+          getParsedValue("country", map),
+          getParsedValue("left", map),
+          getParsedValue("right", map),
           kingdom,
-          getValue("phylum.p", map),
-          getValue("classs.p", map),
-          getValue("order.p", map),
+          getParsedValue("phylum", map),
+          getParsedValue("classs", map),
+          getParsedValue("order", map),
           family,
-          getValue("genus.p", map),
-          map.getOrElse("genusID.p", ""),
-          getValue("species.p", map),
-          getValue("speciesID.p", map),
-          map.getOrElse("stateProvince.p", ""),
-          getValue("lga.p", map),
+          getParsedValue("genus", map),
+          getParsedValue("genusID", map),
+          getParsedValue("species", map),
+          getParsedValue("speciesID", map),
+          getParsedValue("stateProvince", map),
+          getParsedValue("lga", map),
           slat,
           slon,
           latlon,
@@ -476,11 +485,11 @@ trait IndexDAO {
           getLatLongStringStep(lat, lon, "#.##", 0.02),
           getLatLongString(lat, lon, "#.###"),
           getLatLongString(lat, lon, "#.####"),
-          getValue("year.p", map),
-          getValue("month.p", map),
-          getValue("basisOfRecord.p", map),
+          getParsedValue("year", map),
+          getParsedValue("month", map),
+          getParsedValue("basisOfRecord", map),
           getValue("basisOfRecord", map),
-          getValue("typeStatus.p", map),
+          getParsedValue("typeStatus", map),
           getValue("typeStatus", map),
           getValue(FullRecordMapper.taxonomicDecisionColumn, map),
           geoKosher,
@@ -496,10 +505,10 @@ trait IndexDAO {
           countryCons,
           rawCountryCons,
           sensitive,
-          getValue("coordinateUncertaintyInMeters.p", map),
+          getParsedValue("coordinateUncertaintyInMeters", map),
           map.getOrElse("userId", ""),
           map.getOrElse("userId", ""),
-          map.getOrElse("provenance.p", ""),
+          getParsedValue("provenance", map),
           subspeciesGuid,
           subspeciesName,
           interactions.mkString("|"),
@@ -507,7 +516,7 @@ trait IndexDAO {
           if (lastLoaded.isEmpty) "2010-11-1T00:00:00Z" else DateFormatUtils.format(lastLoaded.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (lastProcessed.isEmpty) "" else DateFormatUtils.format(lastProcessed.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (modifiedDate.isEmpty) "" else DateFormatUtils.format(modifiedDate.get,"yyy-MM-dd'T'HH:mm:ss'Z'"),
-          map.getOrElse("establishmentMeans.p", "").replaceAll("; ", "|"),
+          getParsedValue("establishmentMeans", map).replaceAll("; ", "|"),
           map.getOrElse("loanSequenceNumber", ""),
           map.getOrElse("loanIdentifier", ""),
           map.getOrElse("loanDestination", ""),
@@ -518,49 +527,49 @@ trait IndexDAO {
           map.getOrElse("duplicates", ""), //.replaceAll(",","|"),
           map.getOrElse("recordNumber", ""),
           if (firstLoadDate.isEmpty) "" else DateFormatUtils.format(firstLoadDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
-          map.getOrElse("nameMatchMetric.p", ""),
+          getParsedValue("nameMatchMetric", map),
           map.getOrElse("phenology", ""), //TODO make this a controlled vocab that gets mapped during processing...
           outlierForLayers.mkString("|"),
           outlierForLayers.length.toString,
           taxonIssueArray.mkString("|"),
-          map.getOrElse("identificationQualifier", ""),
-          map.getOrElse("identificationQualifier.p", ""),
+          getValue("identificationQualifier", map),
+          getParsedValue("identificationQualifier", map),
           habitats.mkString("|"),
-          map.getOrElse("identifiedBy", ""),
+          getValue("identifiedBy", map),
           if (dateIdentified.isEmpty) "" else DateFormatUtils.format(dateIdentified.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           sensitiveMap.getOrElse("decimalLongitude", ""),
           sensitiveMap.getOrElse("decimalLatitude", ""),
           pest_tmp,
-          map.getOrElse("recordedBy.p", ""),
-          map.getOrElse("duplicationStatus.p", ""),
-          map.getOrElse("associatedOccurrences.p", ""),
+          getParsedValue("recordedBy", map),
+          getParsedValue("duplicationStatus", map),
+          getParsedValue("associatedOccurrences", map),
           dupTypes.mkString("|"),
-          sensitiveMap.getOrElse("coordinateUncertaintyInMeters.p", ""),
+          getParsedValue("coordinateUncertaintyInMeters", sensitiveMap),
           distanceOutsideExpertRange,
-          map.getOrElse("verbatimElevation.p", ""),
-          map.getOrElse("minimumElevationInMeters.p", ""),
-          map.getOrElse("maximumElevationInMeters.p", ""),
-          map.getOrElse("verbatimDepth.p", ""),
-          map.getOrElse("minimumDepthInMeters.p", ""),
-          map.getOrElse("maximumDepthInMeters.p", ""),
-          map.getOrElse("nameParseType.p",""),
-          map.getOrElse("occurrenceStatus.p",""),
-          map.getOrElse("occurrenceDetails",""),
-          map.getOrElse("photographer",""),
-          map.getOrElse("rights",""),
-          map.getOrElse("georeferenceVerificationStatus",""),
-          map.getOrElse("occurrenceStatus", ""),
-          map.getOrElse("locality",""),
-          map.getOrElse("decimalLatitude",""),
-          map.getOrElse("decimalLongitude",""),
-          map.getOrElse("geodeticDatum",""),
-          map.getOrElse("sex",""),
-          sensitiveMap.getOrElse("locality", ""),
-          map.getOrElse("eventID",""),
-          map.getOrElse("locationID",""),
-          map.getOrElse("datasetName",""),
-          map.getOrElse("reproductiveCondition", ""),
-          map.getOrElse("license.p", "")
+          getParsedValue("verbatimElevation", map),
+          getParsedValue("minimumElevationInMeters", map),
+          getParsedValue("maximumElevationInMeters", map),
+          getParsedValue("verbatimDepth", map),
+          getParsedValue("minimumDepthInMeters", map),
+          getParsedValue("maximumDepthInMeters", map),
+          getParsedValue("nameParseType", map),
+          getParsedValue("occurrenceStatus", map),
+          getValue("occurrenceDetails", map),
+          getValue("photographer", map),
+          getValue("rights", map),
+          getValue("georeferenceVerificationStatus", map),
+          getValue("occurrenceStatus", map),
+          getValue("locality", map),
+          getValue("decimalLatitude", map),
+          getValue("decimalLongitude", map),
+          getValue("geodeticDatum", map),
+          getValue("sex", map),
+          getValue("locality", sensitiveMap),
+          getValue("eventID", map),
+          getValue("locationID", map),
+          getValue("datasetName", map),
+          getValue("reproductiveCondition", map),
+          getParsedValue("license", map)
         ) ::: Config.additionalFieldsToIndex.map(field => map.getOrElse(field, ""))
       } else {
         return List()
