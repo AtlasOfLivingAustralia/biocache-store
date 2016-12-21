@@ -25,8 +25,9 @@
         <scala.version>2.10.4</scala.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <org.springframework.version>3.0.6.RELEASE</org.springframework.version>
-        <solr.version>5.5.2</solr.version>
+        <solr.version>5.5.3</solr.version>
         <jts.version>1.12</jts.version>
+        <cassandra.version>3.1.2</cassandra.version>
     </properties>
     <description>
         Scala implementation of biocache backend.
@@ -45,17 +46,17 @@
         <dependency>
             <groupId>com.datastax.cassandra</groupId>
             <artifactId>cassandra-driver-core</artifactId>
-            <version>3.0.2</version>
+            <version>${cassandra.version}</version>
         </dependency>
         <dependency>
             <groupId>com.datastax.cassandra</groupId>
             <artifactId>cassandra-driver-mapping</artifactId>
-            <version>3.0.2</version>
+            <version>${cassandra.version}</version>
         </dependency>
         <dependency>
             <groupId>com.datastax.cassandra</groupId>
             <artifactId>cassandra-driver-extras</artifactId>
-            <version>3.0.2</version>
+            <version>${cassandra.version}</version>
         </dependency>
 
         <dependency>
@@ -203,7 +204,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>ala-name-matching</artifactId>
-            <version>2.4.0</version>
+            <version>3.0-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.gbif</groupId>
