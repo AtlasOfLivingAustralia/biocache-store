@@ -72,25 +72,25 @@ object ProcessRecords extends Tool with IncrementalTool {
         rowKeyFile = retrievedRowKeyFile.getOrElse("")
       }
 
-      if(abortIfNotRowKeyFile && (rowKeyFile=="" || !(new File(rowKeyFile).exists()))){
+      if(abortIfNotRowKeyFile && (rowKeyFile == "" || !(new File(rowKeyFile).exists()))){
         logger.warn("No rowkey file was found for this processing. Aborting.")
       } else {
         if (rowKeyFile != "") {
           //process the row key file
           processFileOfRowKeys(new java.io.File(rowKeyFile), threads)
         } else {
-          logger.info("Processing " + dataResourceUid.getOrElse("") + " from " + startUuid + "to " + endUuid + " with " + threads + "actors")
+          logger.info("Processing " + dataResourceUid.getOrElse("") + " from " + startUuid.getOrElse("*") + " to " + endUuid.getOrElse("*") + " with " + threads + " actors")
           processRecords(threads, startUuid, dataResourceUid, checkDeleted, lastKey = endUuid)
         }
       }
     }
     //shutdown the persistence
-    persistenceManager.shutdown
+//    persistenceManager.shutdown
   }
 
   def getProcessedTotal(pool:Array[Actor]):Int = {
     var size = 0
-    for(i<-0 to pool.length-1){
+    for(i <- 0 to pool.length - 1){
       size += pool(i).asInstanceOf[Consumer].processedRecords
     }
     size

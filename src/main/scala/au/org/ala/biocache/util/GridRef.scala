@@ -1,7 +1,7 @@
 package au.org.ala.biocache.util
 
 /**
-  * Created by mar759 on 8/08/2016.
+  * Case class representing a grid reference.
   */
 case class GridRef(
   val gridLetters:String,

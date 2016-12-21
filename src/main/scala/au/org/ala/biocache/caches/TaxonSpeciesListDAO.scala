@@ -25,7 +25,6 @@ object TaxonSpeciesListDAO {
 
   private var speciesListColumnsMap:Map[String, Map[String, String]] = _
 
-
   def main(args:Array[String]): Unit = {
 
     val map = TaxonSpeciesListDAO.buildTaxonListMap

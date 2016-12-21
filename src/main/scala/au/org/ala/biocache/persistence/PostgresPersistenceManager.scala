@@ -212,5 +212,5 @@ class PostgresPersistenceManager() extends PersistenceManager {
     */
    def shutdown: Unit = {}
 
-  def createSecondaryIndex(entityName:String, indexFieldName:String, threads:Int) = throw new RuntimeException("Not implemented")
+   def createSecondaryIndex(entityName:String, indexFieldName:String, threads:Int) = throw new RuntimeException("Not implemented")
  }

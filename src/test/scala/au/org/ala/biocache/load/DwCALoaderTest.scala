@@ -19,7 +19,7 @@ import java.net.URL
 
 import au.org.ala.biocache.ConfigFunSuite
 import org.gbif.dwc.terms.{DcTerm, DwcTerm}
-import org.gbif.dwc.text.ArchiveFactory
+import org.gbif.dwca.io.ArchiveFactory
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 

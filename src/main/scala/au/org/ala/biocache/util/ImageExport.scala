@@ -52,7 +52,7 @@ object ImageExport extends Tool {
       }
       csvWriter.flush
       csvWriter.close
-      pm.shutdown
+//      pm.shutdown
     }
   }
 

@@ -1,7 +1,7 @@
 package au.org.ala.biocache.outliers
 import java.net.URL
 import au.com.bytecode.opencsv.CSVReader
-import org.ala.layers.intersect.Grid
+import au.org.ala.layers.intersect.Grid
 import au.org.ala.biocache.Config
 import collection.mutable.{ArrayBuffer, ListBuffer}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -158,7 +158,7 @@ object ReverseJacknifeProcessor extends Tool {
     logger.debug("Shutting down indexing...")
     Config.indexDAO.shutdown
     logger.debug("Shutting down cassandra connection...")
-    Config.persistenceManager.shutdown
+//    Config.persistenceManager.shutdown
     logger.debug("Finished.")
   }
 

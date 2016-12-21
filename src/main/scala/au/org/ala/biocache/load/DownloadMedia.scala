@@ -28,7 +28,7 @@ object DownloadMedia extends Tool {
       else if (rowKey != "") processRecord(rowKey)
       else parser.showUsage
     }
-    Config.persistenceManager.shutdown
+//    Config.persistenceManager.shutdown
   }
 
   /**

@@ -45,8 +45,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    */
   def getMapFromIndex(value:String):Option[Map[String,String]]={
     persistenceManager.getByIndex(value, entityName, "uuid") match {
-     case None => persistenceManager.getByIndex(value, entityName, "portalId")  //legacy record ID
-     case Some(map) => Some(map)
+      case None => persistenceManager.getByIndex(value, entityName, "portalId")  //legacy record ID
+      case Some(map) => Some(map)
     }
   }
 
@@ -171,7 +171,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    * Writes the supplied field values to the writer.  The Writer specifies the format in which the record is
    * written.
    */
-  def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false, includeMisc:Boolean=false, miscFields:Array[String] = null) : Array[String] = {
+  def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false, includeMisc:Boolean=false, miscFields:Array[String] = null, dataToInsert:java.util.Map[String, Array[String]] = null) : Array[String] = {
     //get the codes for the qa fields that need to be included in the download
     //TODO fix this in case the value can't be found
     val mfields = fields.toBuffer
@@ -202,6 +202,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         mfields += FullRecordMapper.userAssertionStatusColumn
         addedUserQAColumn = true
       }
+    }
+    if (userAssertions.isDefined || (dataToInsert != null && dataToInsert.size > 0)) {
       if (!mfields.contains("rowKey")) {
         mfields += "rowKey"
         addedRowKey = true
@@ -230,16 +232,27 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         if (!(addedRowKey && "rowKey".equals(field)) &&
           !(addedUserQAColumn && FullRecordMapper.userQualityAssertionColumn.equals(field))) {
           // if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap))else getHackValue(field,fieldMap)
-          //Create a MS Excel compliant CSV file thus field with delimiters are quoted and embedded quotes are escaped
+          //Create a MS Excel compliant CSV file thus field with delimiters are quoted andm embedded quotes are escaped
           array += fieldValue
         }
 
       })
+
+      //add additional columns
+      if (dataToInsert != null && dataToInsert.size > 0) {
+        val data = dataToInsert.get(fieldMap.getOrElse("rowKey", ""))
+        if (data != null) {
+          data.foreach( v => {
+            array += v
+          })
+        }
+      }
+
       //now handle the QA fields
       val failedCodes = getErrorCodes(fieldMap);
       //work way through the codes and add to output
       codes.foreach(code => {
-          array += (failedCodes.contains(code)).toString
+        array += (failedCodes.contains(code)).toString
       })
       //include all misc fields
       if (includeMisc) {
@@ -293,7 +306,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
           case a if clpattern.findFirstIn(a).nonEmpty => clMap.getOrElse(a, "")
           case _ => if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap))else getHackValue(field,fieldMap)
         }
-         // if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap))else getHackValue(field,fieldMap)
+        // if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap))else getHackValue(field,fieldMap)
         //Create a MS Excel compliant CSV file thus field with delimiters are quoted and embedded quotes are escaped
 
         if (fieldValue.contains(fieldDelimiter) || fieldValue.contains(recordDelimiter) || fieldValue.contains("\""))
@@ -306,8 +319,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val failedCodes = getErrorCodes(fieldMap)
       //work way through the codes and add to output
       codes.foreach(code => {
-          outputStream.write((failedCodes.contains(code)).toString.getBytes)
-          outputStream.write(fieldDelimiter.getBytes)
+        outputStream.write((failedCodes.contains(code)).toString.getBytes)
+        outputStream.write(fieldDelimiter.getBytes)
       })
       outputStream.write(recordDelimiter.getBytes)
     })
@@ -423,7 +436,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     },startKey,endKey, pageSize)
   }
 
-  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4): Int = {
+  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4, localNodeIP:String): Int = {
     persistenceManager.pageOverLocal(entityName, (guid, map) => {
       //retrieve all versions
       val raw = FullRecordMapper.createFullRecord(guid, map, Versions.RAW)
@@ -432,7 +445,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       proc(Some(raw, processed))
     }, threads, Array())
   }
-
 
   /**
    * Iterate over the undeleted occurrences. Prevents overhead of processing records that are deleted. Also it is quicker to get a smaller
@@ -601,7 +613,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         || !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")
       ){
         //only add the assertions if they have changed since the last time or the number of records to persist >1
-        propertiesToPersist ++= convertAssertionsToMap(rowKey,assertions.get,newRecord.userVerified)
+        propertiesToPersist ++= convertAssertionsToMap(rowKey,assertions.get)
         updateSystemAssertions(rowKey, assertions.get)
       }
     }
@@ -658,7 +670,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         //only add  the assertions if they are different OR the properties to persist contain more than the last modified time stamp
         if ((oldRecord.assertions.toSet != newRecord.assertions.toSet) || !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")) {
           //only add the assertions if they have changed since the last time or the number of records to persist >1
-          propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get, newRecord.userVerified)
+          propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get)
           updateSystemAssertions(rowKey, assertions.get)
         }
       }
@@ -684,22 +696,40 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   def doesListContainCode(list:List[QualityAssertion], code:Int) = !list.filter(ua => ua.code ==code).isEmpty
 
   /**
-   * Convert the assertions to a map
-   */
-  def convertAssertionsToMap(rowKey:String, systemAssertions: Map[String,Array[QualityAssertion]], verified:Boolean): Map[String, String] = {
+    * Convert the assertions to a map
+    */
+  def convertAssertionsToMap(rowKey:String, systemAssertions: Map[String,Array[QualityAssertion]]): Map[String, String] = {
     //if supplied, update the assertions
     val properties = new collection.mutable.ListMap[String, String]
 
+    val userAssertions = getUserAssertions(rowKey)
+
+    // Updating system assertion, pass in false
+    val (userAssertionStatus, trueUserAssertions) = getCombinedUserStatus(false, userAssertions)
+
+    val verified = if (userAssertionStatus == AssertionStatus.QA_VERIFIED || userAssertionStatus == AssertionStatus.QA_CORRECTED) true else false
+
+    val falseUserAssertions = userAssertions.filter(qa => qa.code != AssertionCodes.VERIFIED.code &&
+      AssertionStatus.isUserAssertionType(qa.qaStatus) &&
+      !trueUserAssertions.exists(a => a.code == qa.code))
+
     if(verified){
-        //kosher fields are always set to true for verified BUT we still want to store and report the QA's that failed
+      //kosher fields are always set to true for verified BUT we still want to store and report the QA's that failed
+      var listErrorCodes = new ArrayBuffer[Int]()
+      trueUserAssertions.foreach { qa: QualityAssertion => listErrorCodes.append(qa.code) }
+
+      if (AssertionCodes.isGeospatiallyKosher(listErrorCodes.toArray)) {
         properties += (FullRecordMapper.geospatialDecisionColumn -> "true")
+      }
+      if (AssertionCodes.isTaxonomicallyKosher(listErrorCodes.toArray)) {
         properties += (FullRecordMapper.taxonomicDecisionColumn -> "true")
+      }
+
     }
 
-    val userAssertions = getUserAssertions(rowKey)
-    val falseUserAssertions = userAssertions.filter(qa => qa.qaStatus == 1)//userAssertions.filter(a => !a.problemAsserted)
+    // val falseUserAssertions = userAssertions.filter(qa => qa.qaStatus == 1)//userAssertions.filter(a => !a.problemAsserted)
     //true user assertions are assertions that have not been proven false by another user
-    val trueUserAssertions = userAssertions.filter(a => a.qaStatus == 0 && !doesListContainCode(falseUserAssertions,a.code))
+    //  val trueUserAssertions = userAssertions.filter(a => a.qaStatus == 0 && !doesListContainCode(falseUserAssertions,a.code))
 
     //for each qa type get the list of QA's that failed
     val assertionsDeleted = ListBuffer[QualityAssertion]() // stores the assertions that should not be considered for the kosher fields
@@ -725,11 +755,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
           case "class" => a.code >= AssertionCodes.taxonomicBounds._1 && a.code < AssertionCodes.taxonomicBounds._2
           case "event" => a.code >= AssertionCodes.temporalBounds._1 && a.code < AssertionCodes.temporalBounds._2
           case _       => false
-      })
-      val extraAssertions = ListBuffer[QualityAssertion]()
+        })
       ua2Add.foreach(qa =>if(!failedass.contains(qa.code)){
         failedass.add(qa.code)
-        extraAssertions += qa
       })
 
       properties += (FullRecordMapper.markAsQualityAssertion(name) -> Json.toJSONWithGeneric(failedass.toList))
@@ -970,9 +998,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     * qaStatus: AssertionStatus.QA_OPEN_ISSUE, AssertionStatus.QA_VERIFIED, AssertionStatus:QA_CORRECTED
     *
     */
-  private def getCombinedUserStatus(currentAssertion: QualityAssertion, userAssertions: List[QualityAssertion]): (Int, ArrayBuffer[QualityAssertion]) = {
+  private def getCombinedUserStatus(bVerified: Boolean, userAssertions: List[QualityAssertion]): (Int, ArrayBuffer[QualityAssertion]) = {
 
-   // val openAssertions = new ArrayBuffer[QualityAssertion]()
+    // val openAssertions = new ArrayBuffer[QualityAssertion]()
 
     // Filter off only verified records
     val verifiedAssertions = userAssertions.filter(qa => qa.code == AssertionCodes.VERIFIED.code)
@@ -994,18 +1022,19 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     assertions.foreach { qa: QualityAssertion => if (!latestVerifiedList.exists(p => p.relatedUuid equals (qa.uuid))) combinedUserAssertions.append(qa) }
 
     // Default user assertion to none. This will be overwritten later if user assertion is found
-   var userAssertionStatus = AssertionStatus.QA_NONE
+    var userAssertionStatus = AssertionStatus.QA_NONE
 
     // However if it's verified assertion, default to latest verified qa Status, which could be Verified, Corrected or Open Issue
     // Use maxBy referenceRowKey rather than currentAssertion in case currentAssertion is the record that is to be deleted
-    if (AssertionCodes.isVerified(currentAssertion)) {
-        if (!latestVerifiedList.isEmpty) {
-          userAssertionStatus = latestVerifiedList.maxBy(_.referenceRowKey).qaStatus
-        } else {
-          // assuming that there no more verified records but there are still user assertion records
-          userAssertionStatus = AssertionStatus.QA_UNCONFIRMED
-        }
-  //    userAssertionStatus = currentAssertion.qaStatus
+    //    if (AssertionCodes.isVerified(currentAssertion)) {
+    if (bVerified) {
+      if (!latestVerifiedList.isEmpty) {
+        userAssertionStatus = latestVerifiedList.maxBy(_.referenceRowKey).qaStatus
+      } else {
+        // assuming that there no more verified records but there are still user assertion records
+        userAssertionStatus = AssertionStatus.QA_UNCONFIRMED
+      }
+      //    userAssertionStatus = currentAssertion.qaStatus
     } else {
       // if it is not verified and it is a user assertion that is deleted we shouldn't ignore the latest status in verified list
       if (!latestVerifiedList.isEmpty) {
@@ -1025,9 +1054,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
 
     // Combined User Assertions contains unverified assertions or verified assertions that are still open issue
-  //  if (combinedUserAssertions.size > 0) {
-  //    combinedUserAssertions.foreach(qa => openAssertions.append(qa))
-  //  }
+    //  if (combinedUserAssertions.size > 0) {
+    //    combinedUserAssertions.foreach(qa => openAssertions.append(qa))
+    //  }
 
     logger.debug("Overall assertion Status: " + userAssertionStatus)
 
@@ -1041,7 +1070,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     logger.debug("Updating the assertion status for : " + rowKey)
 
-    val (userAssertionStatus, remainingAssertions) = getCombinedUserStatus(assertion, userAssertions)
+    val bVerified = AssertionCodes.isVerified(assertion)
+
+    val (userAssertionStatus, remainingAssertions) = getCombinedUserStatus(bVerified, userAssertions)
 
     // default to the assertion which is to be evaluated
     var actualAssertion = assertion
@@ -1067,10 +1098,10 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     val assertionName = actualAssertion.name
     val assertions = (remainingAssertions).filter { _.name equals assertionName }
 
-  //if the a user assertion has been set for the supplied QA we will set the status bases on user assertions
+    //if the a user assertion has been set for the supplied QA we will set the status bases on user assertions
     if (!assertions.isEmpty) {
-    //if a single user has decided that there is NO QA issue this takes precidence
-    //val negativeAssertion = assertions.find(qa => !qa.problemAsserted)
+      //if a single user has decided that there is NO QA issue this takes precidence
+      //val negativeAssertion = assertions.find(qa => !qa.problemAsserted)
       //val negativeAssertion = assertions.find(qa => qa.qaStatus == 1)
 
       //if (!negativeAssertion.isEmpty) {
@@ -1110,17 +1141,18 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     //need to update the user assertion flag in the occurrence record
 
     properties += (FullRecordMapper.userAssertionStatusColumn -> userAssertionStatus.toString)
-  //  properties += (FullRecordMapper.userQualityAssertionColumn -> remainingAssertions.toList.toString())
+    //  properties += (FullRecordMapper.userQualityAssertionColumn -> remainingAssertions.toList.toString())
 
-  //  properties += (FullRecordMapper.userQualityAssertionColumn -> (userAssertions.size>0).toString)
+    //  properties += (FullRecordMapper.userQualityAssertionColumn -> (userAssertions.size>0).toString)
     if (AssertionCodes.isVerified(assertion)) {
 
       if (AssertionCodes.isGeospatiallyKosher(listErrorCodes.toArray)) {
         properties += (FullRecordMapper.geospatialDecisionColumn -> "true")
-      } else if (AssertionCodes.isTaxonomicallyKosher(listErrorCodes.toArray)) {
+      }
+      if (AssertionCodes.isTaxonomicallyKosher(listErrorCodes.toArray)) {
         properties += (FullRecordMapper.taxonomicDecisionColumn -> "true")
       }
-   } else if(phase == FullRecordMapper.geospatialQa){
+    } else if(phase == FullRecordMapper.geospatialQa){
       properties += (FullRecordMapper.geospatialDecisionColumn -> AssertionCodes.isGeospatiallyKosher(listErrorCodes.toArray).toString)
     } else if(phase == FullRecordMapper.taxonomicalQa){
       properties += (FullRecordMapper.taxonomicDecisionColumn -> AssertionCodes.isTaxonomicallyKosher(listErrorCodes.toArray).toString)
@@ -1192,6 +1224,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
     }
   }
+
   /**
    * Deletes a record from the data store optionally removing from the index and logging it.
    *

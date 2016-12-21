@@ -60,7 +60,7 @@ object AutoDwcCSVLoader {
       } catch {
         case e: Exception => e.printStackTrace
       } finally {
-        l.pm.shutdown
+//        l.pm.shutdown
         Console.flush()
         Console.err.flush()
         sys.exit(0)

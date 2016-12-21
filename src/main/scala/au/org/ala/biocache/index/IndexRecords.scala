@@ -74,8 +74,8 @@ object IndexRecords extends Tool with IncrementalTool {
         intOpt("ps", "pageSize", "The page size for indexing", {v:Int => pageSize = v })
         opt("if", "file-uuids-to-index","Absolute file path to fle containing UUIDs to index", {v:String => uuidFile = v})
         opt("rf", "file-rowkeys-to-index","Absolute file path to fle containing rowkeys to index", {v:String => rowKeyFile = v})
-        intOpt("t","threads","Number of threads to index from",{v:Int => threads = v})
-        opt("test", "test the speed of creating the index the minus the actual SOLR indexing costs",{test = true})
+        intOpt("t","threads","Number of threads to index from", {v:Int => threads = v})
+        opt("test", "test the speed of creating the index the minus the actual SOLR indexing costs", {test = true} )
         opt("crk", "check for row key file",{ checkRowKeyFile = true })
         opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
     }
@@ -107,7 +107,6 @@ object IndexRecords extends Tool with IncrementalTool {
         }
         //shut down pelops and index to allow normal exit
         indexer.shutdown
-        persistenceManager.shutdown
       }
     }
   }
@@ -136,6 +135,7 @@ object IndexRecords extends Tool with IncrementalTool {
             checkDeleted:Boolean = false,
             pageSize:Int = 1000,
             miscIndexProperties:Seq[String] = Array[String](),
+            userProvidedTypeMiscIndexProperties :Seq[String] = Array[String](),
             callback:ObserverCallback = null,
             test:Boolean = false) {
 
@@ -160,25 +160,26 @@ object IndexRecords extends Tool with IncrementalTool {
     } else {
       logger.info("Starting to index " + startKey + " until " + endKey)
     }
-    indexRange(startKey, endKey, date, checkDeleted, miscIndexProperties = miscIndexProperties, callback = callback, test=test)
+    indexRange(startKey, endKey, date, checkDeleted, miscIndexProperties = miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, callback = callback, test=test)
     //index any remaining items before exiting
     indexer.finaliseIndex(optimise, shutdown)  
   }
 
   def indexRange(startUuid:String, endUuid:String, startDate:Option[Date]=None, checkDeleted:Boolean=false,
                  pageSize:Int = 1000, miscIndexProperties:Seq[String] = Array[String](),
+                 userProvidedTypeMiscIndexProperties :Seq[String] = Array[String](),
                  callback:ObserverCallback = null, test:Boolean =false) {
     var counter = 0
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
-    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
+    val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
     performPaging( (guid, map) => {
       counter += 1
       ///convert EL and CL properties at this stage
       val shouldcommit = counter % 10000 == 0
-      indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, test=test, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
+      indexer.indexFromMap(guid, map, startDate=startDate, commit=shouldcommit, miscIndexProperties=miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, test=test, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (counter % pageSize == 0) {
         if(callback !=null) {
           callback.progressMessage(counter)
@@ -227,8 +228,8 @@ object IndexRecords extends Tool with IncrementalTool {
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
-    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
+    val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
     rowKeys.foreach(rowKey=>{
       counter += 1
       val map = persistenceManager.get(rowKey, "occ")
@@ -259,9 +260,9 @@ object IndexRecords extends Tool with IncrementalTool {
       var counter = 0
       var startTime = System.currentTimeMillis
       var finishTime = System.currentTimeMillis
-      var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+      val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
       csvFileWriterList :+ csvFileWriter
-      var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
+      val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
       csvFileWriterList :+ csvFileWriterSensitive
       indexer.init
       val p = new StringFileWriterConsumer(queue, ids, csvFileWriter, csvFileWriterSensitive, { (rowKey, csvFileWriter, csvFileWriterSensitive) =>

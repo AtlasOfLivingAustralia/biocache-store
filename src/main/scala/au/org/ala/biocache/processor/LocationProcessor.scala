@@ -1,69 +1,33 @@
 package au.org.ala.biocache.processor
 
-import java.util
-
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache._
-import au.org.ala.sds.SensitiveDataService
 import scala.collection.JavaConversions
 import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.StringUtils
-import org.geotools.referencing.crs.DefaultGeographicCRS
-import org.geotools.referencing.CRS
-import org.geotools.referencing.operation.DefaultCoordinateOperationFactory
-import org.geotools.geometry.GeneralDirectPosition
-import org.apache.commons.math3.util.Precision
-import au.org.ala.biocache.caches.{SensitiveAreaDAO, TaxonProfileDAO, LocationDAO}
+import au.org.ala.biocache.caches.{SpatialLayerDAO, TaxonProfileDAO, LocationDAO}
 import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab._
-import au.org.ala.biocache.util.{GISUtil, GridUtil, Json, StringHelper}
+import au.org.ala.biocache.util.{GISUtil, GISPoint, GridUtil, StringHelper}
 
 /**
  * Processor of location information.
  */
 class LocationProcessor extends Processor {
 
-  import StringHelper._
-  import AssertionCodes._
-  import AssertionStatus._
-  import JavaConversions._
-  import au.org.ala.sds.util._
+  import StringHelper._, AssertionCodes._, AssertionStatus._
 
   val logger = LoggerFactory.getLogger("LocationProcessor")
 
-
-  //This is being initialised here because it may take some time to load all the XML records...
-  val sds = new SensitiveDataService()
-
-  lazy val crsEpsgCodesMap = {
-    var valuesMap = Map[String, String]()
-    for (line <- scala.io.Source.fromURL(getClass.getResource("/crsEpsgCodes.txt"), "utf-8").getLines().toList) {
-      val values = line.split('=')
-      valuesMap += (values(0) -> values(1))
-    }
-    valuesMap
-  }
-
-  lazy val zoneEpsgCodesMap = {
-    var valuesMap = Map[String, String]()
-    for (line <- scala.io.Source.fromURL(getClass.getResource("/zoneEpsgCodes.txt"), "utf-8").getLines().toList) {
-      val values = line.split('=')
-      valuesMap += (values(0) -> values(1))
-    }
-    valuesMap
-  }
-
   /**
-   * Process geospatial details.
-   *
-   * We will need to parse a variety of formats. Bryn was going to find some regular
-   * expressions/test cases he has used previously...
+   * Process geospatial details of the record. This step parses coordinates and cordinate precision values.
+   * It performs a large number of tests on the supplied geospatial information.
    */
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
 
-    logger.debug("Processing location for guid: " + guid)
+    logger.debug(s"Processing location for guid: $guid")
 
     //retrieve the point
     val assertions = new ArrayBuffer[QualityAssertion]
@@ -77,29 +41,23 @@ class LocationProcessor extends Processor {
     //Continue processing location if a processed longitude and latitude exists
     if (processed.location.decimalLatitude != null && processed.location.decimalLongitude != null) {
 
+      //store the point for downstream processing
+      LocationDAO.storePointForSampling(processed.location.decimalLatitude, processed.location.decimalLongitude)
+
       //validate the coordinate values
       validateCoordinatesValues(raw, processed, assertions)
 
       //validate coordinate accuracy (coordinateUncertaintyInMeters) and coordinatePrecision (precision - A. Chapman)
       checkCoordinateUncertainty(raw, processed, assertions)
-    }
-
-    //sensitise the coordinates if necessary.  Do this last so that habitat checks
-    // etc are performed on originally supplied coordinates
-    if(Config.sdsEnabled){
-      processSensitivity(raw, processed)
-    }
-
-    //more checks
-    if (processed.location.decimalLatitude != null && processed.location.decimalLongitude != null) {
 
       //intersect values with sensitive areas
-      val intersectValues = SensitiveAreaDAO.intersect(processed.location.decimalLongitude, processed.location.decimalLatitude)
+      val intersectValues = SpatialLayerDAO.intersect(processed.location.decimalLongitude, processed.location.decimalLatitude)
 
       //add state province, country, LGA
       processed.location.stateProvince = intersectValues.getOrElse(Config.stateProvinceLayerID, null)
       processed.location.lga  = intersectValues.getOrElse(Config.localGovLayerID, null)
       processed.location.country = intersectValues.getOrElse(Config.countriesLayerID, null)
+
       if (processed.location.country == null && processed.location.stateProvince != null) {
         processed.location.country = Config.defaultCountry
       }
@@ -121,17 +79,7 @@ class LocationProcessor extends Processor {
       addConservationStatus(raw, processed)
 
       //check marine/non-marine
-      checkForHabitatMismatch(raw, processed, assertions)
-    }
-
-    //add point sampling
-    val point = LocationDAO.getByLatLon(processed.location.decimalLatitude, processed.location.decimalLongitude)
-    if (!point.isEmpty) {
-      val (location, environmentalLayers, contextualLayers) = point.get
-      processed.locationDetermined = true
-      //add state information
-      processed.el = environmentalLayers
-      processed.cl = contextualLayers
+      checkForBiomeMismatch(raw, processed, assertions)
     }
 
     //create flag if no location info was supplied for this record
@@ -186,10 +134,6 @@ class LocationProcessor extends Processor {
       val stateTerm = StateProvinces.matchTerm(raw.location.stateProvince)
       if (!stateTerm.isEmpty) {
         processed.location.stateProvince = stateTerm.get.canonical
-        //now check for sensitivity based on state
-        if(Config.sdsEnabled) {
-          processSensitivity(raw, processed)
-        }
         processed.location.country = StateProvinceToCountry.map.getOrElse(processed.location.stateProvince, "")
       }
     }
@@ -204,7 +148,7 @@ class LocationProcessor extends Processor {
     }
 
     //Try the country code
-    if( processed.location.country == null && raw.location.countryCode != null){
+    if (processed.location.country == null && raw.location.countryCode != null){
       val countryCodeTerm = Countries.matchTerm(raw.location.countryCode)
       if (!countryCodeTerm.isEmpty) {
         processed.location.country = countryCodeTerm.get.canonical
@@ -260,7 +204,7 @@ class LocationProcessor extends Processor {
         if (min > max) {
           processed.location.minimumDepthInMeters = max.toString
           processed.location.maximumDepthInMeters = min.toString
-          assertions += QualityAssertion(MIN_MAX_DEPTH_REVERSED, "The minimum, " + min + ", and maximum, " + max + ", depths have been transposed.")
+          assertions += QualityAssertion(MIN_MAX_DEPTH_REVERSED, s"The minimum, $min and maximum, $max depths have been transposed.")
         } else {
           processed.location.minimumDepthInMeters = min.toString
           processed.location.maximumDepthInMeters = max.toString
@@ -279,7 +223,7 @@ class LocationProcessor extends Processor {
         if (min > max) {
           processed.location.minimumElevationInMeters = max.toString
           processed.location.maximumElevationInMeters = min.toString
-          assertions += QualityAssertion(MIN_MAX_ALTITUDE_REVERSED, "The minimum, " + min + ", and maximum, " + max + ", elevations have been transposed.")
+          assertions += QualityAssertion(MIN_MAX_ALTITUDE_REVERSED, s"The minimum, $min, and maximum, $max, elevations have been transposed.")
         } else {
           processed.location.minimumElevationInMeters = min.toString
           processed.location.maximumElevationInMeters = max.toString
@@ -371,7 +315,7 @@ class LocationProcessor extends Processor {
           processed.location.decimalLongitude = gisPoint.longitude
           processed.location.geodeticDatum = gisPoint.datum
           processed.location.coordinateUncertaintyInMeters = gisPoint.coordinateUncertaintyInMeters
-          processed.location.bbox = gisPoint.minLatitude + "," + gisPoint.minLongitude + "," + gisPoint.maxLatitude + "," + gisPoint.maxLongitude
+          processed.location.bbox = gisPoint.bboxString
           processed.location.northing = gisPoint.northing
           processed.location.easting = gisPoint.easting
         }
@@ -423,7 +367,7 @@ class LocationProcessor extends Processor {
           None
         }
       } else if (easting != null && northing != null && zone != null) {
-        processNorthingEastingZone(verbatimSRS, easting, northing, zone, assertions)
+        GridUtil.processNorthingEastingZone(verbatimSRS, easting, northing, zone, assertions)
       } else if ( gridReference != null) {
         val result = GridUtil.processGridReference(gridReference)
         if(!result.isEmpty){
@@ -455,7 +399,7 @@ class LocationProcessor extends Processor {
     if (rawGeodeticDatum != null) {
       //no assumptions about the datum is being made:
       assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, PASSED)
-      val sourceEpsgCode = lookupEpsgCode(rawGeodeticDatum)
+      val sourceEpsgCode = GridUtil.lookupEpsgCode(rawGeodeticDatum)
       if (!sourceEpsgCode.isEmpty) {
         //datum is recognised so pass the test:
         assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, PASSED)
@@ -496,21 +440,21 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Process verbatim coordinate values.
-   *
-   * @param verbatimSRS
-   * @param assertions
-   * @param decimalVerbatimLat
-   * @param decimalVerbatimLong
-   * @return
-   */
+    * Process verbatim coordinate values.
+    *
+    * @param verbatimSRS
+    * @param assertions
+    * @param decimalVerbatimLat
+    * @param decimalVerbatimLong
+    * @return
+    */
   private def processVerbatimCoordinates(verbatimSRS: String, assertions: ArrayBuffer[QualityAssertion],
-                                 decimalVerbatimLat: Option[Float], decimalVerbatimLong: Option[Float]): Option[GISPoint] = {
+                                         decimalVerbatimLat: Option[Float], decimalVerbatimLong: Option[Float]): Option[GISPoint] = {
     if (decimalVerbatimLat.get.toString.isLatitude && decimalVerbatimLong.get.toString.isLongitude) {
 
       // If a verbatim SRS is supplied, reproject coordinates to WGS 84
       if (verbatimSRS != null) {
-        val sourceEpsgCode = lookupEpsgCode(verbatimSRS)
+        val sourceEpsgCode = GridUtil.lookupEpsgCode(verbatimSRS)
         if (!sourceEpsgCode.isEmpty) {
           //calculation from verbatim did NOT fail:
           assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, PASSED)
@@ -561,63 +505,7 @@ class LocationProcessor extends Processor {
     }
   }
 
-  /**
-   * Converts a easting northing to a decimal latitude/longitude.
-   *
-   * @param verbatimSRS
-   * @param easting
-   * @param northing
-   * @param zone
-   * @param assertions
-    * @return 3-tuple reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code
-   */
-  private def processNorthingEastingZone(verbatimSRS: String, easting: String, northing: String, zone: String,
-                                     assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
 
-    // Need a datum and a zone to get an epsg code for transforming easting/northing values
-    val epsgCodeKey = {
-      if (verbatimSRS != null) {
-        verbatimSRS.toUpperCase + "|" + zone
-      } else {
-        // Assume GDA94 / MGA zone
-        "GDA94|" + zone
-      }
-    }
-
-    if (zoneEpsgCodesMap.contains(epsgCodeKey)) {
-      val crsEpsgCode = zoneEpsgCodesMap(epsgCodeKey)
-      val eastingAsDouble = easting.toDoubleWithOption
-      val northingAsDouble = northing.toDoubleWithOption
-
-      if (!eastingAsDouble.isEmpty && !northingAsDouble.isEmpty) {
-        // Always round to 5 decimal places as easting/northing values are in metres and 0.00001 degree is approximately equal to 1m.
-        val reprojectedCoords = GISUtil.reprojectCoordinatesToWGS84(eastingAsDouble.get, northingAsDouble.get, crsEpsgCode, 5)
-        if (reprojectedCoords.isEmpty) {
-          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
-            "Transformation of verbatim easting and northing to WGS84 failed")
-          None
-        } else {
-          //lat and long from easting and northing did NOT fail:
-          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, PASSED)
-          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING,
-            "Decimal latitude and longitude were calculated using easting, northing and zone.")
-          val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
-          Some(GISPoint(reprojectedLatitude, reprojectedLongitude, GISUtil.WGS84_EPSG_Code, null))
-        }
-      } else {
-        None
-      }
-    } else {
-      if (verbatimSRS == null) {
-        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
-          "Unrecognized zone GDA94 / MGA zone " + zone)
-      } else {
-        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
-          "Unrecognized zone " + verbatimSRS + " / zone " + zone)
-      }
-      None
-    }
-  }
 
   /**
    * Get the number of decimal places in a double value in string form
@@ -634,36 +522,11 @@ class LocationProcessor extends Processor {
     }
   }
 
-  /**
-   * Get the EPSG code associated with a coordinate reference system string e.g. "WGS84" or "AGD66".
-    *
-    * @param crs The coordinate reference system string.
-   * @return The EPSG code associated with the CRS, or None if no matching code could be found.
-   *         If the supplied string is already a valid EPSG code, it will simply be returned.
-   */
-  private def lookupEpsgCode(crs: String): Option[String] = {
-    if (StringUtils.startsWithIgnoreCase(crs, "EPSG:")) {
-      // Do a lookup with the EPSG code to ensure that it is valid
-      try {
-        CRS.decode(crs.toUpperCase)
-        // lookup was successful so just return the EPSG code
-        Some(crs.toUpperCase)
-      } catch {
-        case ex: Exception => None
-      }
-    } else if (crsEpsgCodesMap.contains(crs.toUpperCase)) {
-      Some(crsEpsgCodesMap(crs.toUpperCase()))
-    } else {
-      None
-    }
-  }
-
   private def checkCoordinateUncertainty(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //validate coordinate accuracy (coordinateUncertaintyInMeters) and coordinatePrecision (precision - A. Chapman)
     var checkedPrecision =false
     if (raw.location.coordinateUncertaintyInMeters != null && raw.location.coordinateUncertaintyInMeters.length > 0) {
       //parse it into a numeric number in metres
-      //TODO should this be a whole number??
       val parsedResult = DistanceRangeParser.parse(raw.location.coordinateUncertaintyInMeters)
       if (!parsedResult.isEmpty) {
         val (parsedValue, rawUnit) = parsedResult.get
@@ -682,7 +545,6 @@ class LocationProcessor extends Processor {
     } else {
       //check to see if the uncertainty has incorrectly been put in the precision
       if (raw.location.coordinatePrecision != null) {
-        //TODO work out what sort of custom parsing is necessary
         val value = raw.location.coordinatePrecision.toFloatWithOption
         if (!value.isEmpty && value.get > 1) {
           processed.location.coordinateUncertaintyInMeters = value.get.toInt.toString
@@ -692,7 +554,8 @@ class LocationProcessor extends Processor {
         }
       }
     }
-    if (raw.location.coordinatePrecision == null){
+
+    if (StringUtils.isBlank(raw.location.coordinatePrecision)){
       assertions += QualityAssertion(MISSING_COORDINATEPRECISION, "Missing coordinatePrecision")
     } else {
       assertions += QualityAssertion(MISSING_COORDINATEPRECISION, PASSED)
@@ -729,7 +592,7 @@ class LocationProcessor extends Processor {
     // will already be populated if a default value exists
     if (processed.location.coordinateUncertaintyInMeters == null) {
       assertions += QualityAssertion(UNCERTAINTY_NOT_SPECIFIED, "Uncertainty was not supplied")
-    } else{
+    } else {
       assertions += QualityAssertion(UNCERTAINTY_NOT_SPECIFIED, PASSED)
     }
   }
@@ -741,7 +604,7 @@ class LocationProcessor extends Processor {
    * @param processed
    * @param assertions
    */
-  private def checkForHabitatMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
+  private def checkForBiomeMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
     if (processed.location.biome == null) {
       assertions += QualityAssertion(COORDINATE_HABITAT_MISMATCH, 2)
@@ -769,7 +632,7 @@ class LocationProcessor extends Processor {
       val validHabitat = HabitatMap.areTermsCompatible(habitatFromPoint, habitatsForSpecies)
       if (!validHabitat.isEmpty) {
         if (!validHabitat.get) {
-          logger.debug("[QualityAssertion] ******** Habitats incompatible for ROWKEY: " + raw.rowKey + ", processed:"
+          logger.debug("[QualityAssertion] ******** Biomes incompatible for ROWKEY: " + raw.rowKey + ", processed:"
             + processed.location.biome + ", retrieved:" + habitatsAsString
             + ", http://maps.google.com/?ll=" + processed.location.decimalLatitude + ","
             + processed.location.decimalLongitude)
@@ -982,148 +845,6 @@ class LocationProcessor extends Processor {
     }
   }
 
-  /**
-   * Run sensitive data checks and modify the data appropriately.
-   *
-   * It allows for Pest sensitivity to be reported in the "informationWithheld" field.
-   * Rework will be necessary when we work out the best way to handle these.
-   */
-  private def processSensitivity(raw: FullRecord, processed: FullRecord) : Unit = {
-
-    //needs to be performed for all records whether or not they are in Australia
-    //get a map representation of the raw record...
-    /************** SDS check ************/
-    logger.debug("Starting SDS check")
-    val rawMap = scala.collection.mutable.Map[String, String]()
-    raw.objectArray.foreach { poso =>
-      val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
-      rawMap.putAll(map)
-    }
-
-    if(!processed.location.decimalLongitude.toDoubleWithOption.isEmpty && !processed.location.decimalLatitude.toDoubleWithOption.isEmpty){
-      //do a dynamic lookup for the layers required for the SDS
-      val layerIntersect = SensitiveAreaDAO.intersect(processed.location.decimalLongitude.toDouble,
-        processed.location.decimalLatitude.toDouble)
-
-      GeoLocationHelper.getGeospatialLayers.foreach { key =>
-        rawMap.put(key, layerIntersect.getOrElse(key, "n/a"))
-      }
-
-      val intersectStateProvince = layerIntersect.getOrElse(Config.stateProvinceLayerID, "")
-
-      if(StringUtils.isBlank(intersectStateProvince)){
-        val stringMatchState = StateProvinces.matchTerm(raw.location.stateProvince)
-        if(!stringMatchState.isEmpty){
-          rawMap.put("stateProvince", stringMatchState.get.canonical)
-        }
-      } else {
-        rawMap.put("stateProvince", intersectStateProvince)
-      }
-    }
-
-    //put the processed event date components in to allow for correct date applications of the rules
-    if(processed.event.day != null)
-      rawMap("day") = processed.event.day
-    if(processed.event.month != null)
-      rawMap("month") = processed.event.month
-    if(processed.event.year != null)
-      rawMap("year") = processed.event.year
-
-    val exact = getExactSciName(raw)
-    //now get the ValidationOutcome from the Sensitive Data Service
-    val outcome = sds.testMapDetails(Config.sdsFinder, rawMap, exact, processed.classification.taxonConceptID)
-
-    logger.debug("SDS outcome: " + outcome)
-
-    /************** SDS check end ************/
-
-    if (outcome != null && outcome.isValid && outcome.isSensitive) {
-
-      if (outcome.getResult != null) {
-
-        val map: scala.collection.mutable.Map[String, Object] = outcome.getResult
-
-        //convert it to a string string map
-        val stringMap = map.collect({
-          case (key, value) if value != null => if (key == "originalSensitiveValues") {
-            val osv = value.asInstanceOf[java.util.HashMap[String, String]]
-            //add the original "processed" coordinate uncertainty to the sensitive values so that it can be available if necessary
-            if (processed.location.coordinateUncertaintyInMeters != null) {
-              osv.put("coordinateUncertaintyInMeters.p", processed.location.coordinateUncertaintyInMeters)
-            }
-            //remove all the el/cl's from the original sensitive values
-            au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(key => osv.remove(key))
-            val newv = Json.toJSON(osv)
-            (key -> newv)
-          } else {
-            (key -> value.toString)
-          }
-        })
-
-        //take away the values that need to be added to the processed record NOT the raw record
-        val uncertainty = stringMap.get("generalisationInMetres")
-        if (!uncertainty.isEmpty) {
-          //we know that we have sensitised, add the uncertainty to the currently processed uncertainty
-          if (StringUtils.isNotEmpty(uncertainty.get.toString)) {
-
-            val currentUncertainty = if (StringUtils.isNotEmpty(processed.location.coordinateUncertaintyInMeters)) {
-              java.lang.Float.parseFloat(processed.location.coordinateUncertaintyInMeters)
-            } else {
-              0
-            }
-
-            val newUncertainty = currentUncertainty + java.lang.Integer.parseInt(uncertainty.get.toString)
-            processed.location.coordinateUncertaintyInMeters = newUncertainty.toString
-          }
-          processed.location.decimalLatitude = stringMap.getOrElse("decimalLatitude", "")
-          processed.location.decimalLongitude = stringMap.getOrElse("decimalLongitude", "")
-          stringMap -= "generalisationInMetres"
-        }
-
-        processed.occurrence.informationWithheld = stringMap.getOrElse("informationWithheld", "")
-        processed.occurrence.dataGeneralizations = stringMap.getOrElse("dataGeneralizations", "")
-        stringMap -= "informationWithheld"
-        stringMap -= "dataGeneralizations"
-
-        //remove the day from the values if present
-        raw.event.day = ""
-        processed.event.day = ""
-        processed.event.eventDate = ""
-        if (processed.event.eventDateEnd != null) processed.event.eventDateEnd = ""
-
-        //update the raw record with whatever is left in the stringMap - change to use DAO method...
-        if(StringUtils.isNotBlank(raw.rowKey)){
-          Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap, false)
-        }
-
-      } else if(!outcome.isLoadable() && Config.obeySDSIsLoadable){
-          logger.warn("SDS isLoadable status is currently not being used. Would apply to: " + processed.uuid)
-//        //remove all event information
-//        raw.event.clearAllProperties
-//        raw.location.clearAllProperties
-//        Config.persistenceManager.put(raw.rowKey, "occ", raw.location.toMap(true))
-//        Config.persistenceManager.put(raw.rowKey, "occ", raw.event.toMap(true))
-//
-//        processed.event.clearAllProperties
-//        processed.location.clearAllProperties
-      }
-
-      if(outcome.getReport().getMessages() != null){
-        var infoMessage = ""
-        outcome.getReport().getMessages().foreach(message => {
-          infoMessage += message.getCategory() + "\t" + message.getMessageText() + "\n"
-        })
-        processed.occurrence.informationWithheld = infoMessage
-      }
-    } else {
-      //Species is NOT sensitive
-      //if the raw record has originalSensitive values we need to re-initialise the value
-      if (StringUtils.isNotBlank(raw.rowKey) && raw.occurrence.originalSensitiveValues != null && !raw.occurrence.originalSensitiveValues.isEmpty) {
-        Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""), false)
-      }
-    }
-  }
-
   private def getExactSciName(raw: FullRecord): String = {
     if (raw.classification.scientificName != null)
       raw.classification.scientificName
@@ -1149,7 +870,3 @@ class LocationProcessor extends Processor {
 
   def getName = FullRecordMapper.geospatialQa
 }
-
-
-case class GISPoint(latitude:String, longitude:String, datum:String, coordinateUncertaintyInMeters:String,
-                    easting:String = null, northing:String  = null, minLatitude:String = null, minLongitude:String = null, maxLatitude:String = null, maxLongitude:String = null)

@@ -22,6 +22,7 @@ object Processors {
     "BOR" -> new BasisOfRecordProcessor,
     "EVENT" -> new EventProcessor,
     "LOC" -> new LocationProcessor,
+    "SENSITIVE" -> new SensitivityProcessor,
     "TS" -> new TypeStatusProcessor,
     "IQ" -> new IdentificationQualifierProcessor
   )

@@ -40,27 +40,19 @@ trait OccurrenceDAO extends DAO {
 
   def createOrRetrieveUuid(uniqueID: String): (String, Boolean)
 
-  def writeToStream(outputStream: OutputStream, fieldDelimiter: String, recordDelimiter: String, rowKeys: Array[String],
-                    fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false): Unit
+  def writeToStream(outputStream: OutputStream, fieldDelimiter: String, recordDelimiter: String, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false): Unit
 
-  def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String],
-                          includeSensitive:Boolean=false, includeMisc:Boolean=false,
-                          miscFields:Array[String]=null): Array[String]
+  def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false, includeMisc:Boolean=false, miscFields:Array[String]=null, dataToInsert:java.util.Map[String, Array[String]] = null): Array[String]
 
-  def pageOverAllVersions(proc: ((Option[Array[FullRecord]]) => Boolean), startKey:String="", endKey:String="",
-                          pageSize: Int = 1000): Unit
+  def pageOverAllVersions(proc: ((Option[Array[FullRecord]]) => Boolean),startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
 
-  def pageOverAll(version: Version, proc: ((Option[FullRecord]) => Boolean), startKey:String="", endKey:String="",
-                  pageSize: Int = 1000): Unit
+  def pageOverAll(version: Version, proc: ((Option[FullRecord]) => Boolean),startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
 
-  def pageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), startKey:String="", endKey:String="",
-                           pageSize: Int = 1000): Unit
+  def pageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean),startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
 
   def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4) : Int
 
-  def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean),
-                                      condition:(Map[String,String]=>Boolean), columnsToRetrieve:Array[String],
-                                      startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
+  def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), condition:(Map[String,String]=>Boolean),columnsToRetrieve:Array[String],startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
 
   def addRawOccurrence(fullRecord: FullRecord,removeNullFields:Boolean): Unit
 
@@ -68,22 +60,19 @@ trait OccurrenceDAO extends DAO {
 
   def updateOccurrence(rowKey: String, fullRecord: FullRecord, version: Version): Unit
 
-  def updateOccurrence(rowKey: String, fullRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]],
-                       version: Version): Unit
+  def updateOccurrence(rowKey: String, fullRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]], version: Version): Unit
 
-  def updateOccurrence(rowKey: String, oldRecord: FullRecord, updatedRecord: FullRecord,
-                       assertions: Option[Map[String,Array[QualityAssertion]]], version: Version)
+  def updateOccurrence(rowKey: String, oldRecord: FullRecord, updatedRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]], version: Version)
 
   def updateOccurrenceBatch(batches: List[Map[String, Object]])
 
   def updateOccurrence(rowKey: String, anObject: AnyRef, version: Version): Unit
 
-  def addSystemAssertion(rowKey: String, qualityAssertion: QualityAssertion, replaceExistCode:Boolean=false,
-                         checkExisting:Boolean=true): Unit
+  def addSystemAssertion(rowKey: String, qualityAssertion: QualityAssertion, replaceExistCode:Boolean=false, checkExisting:Boolean=true): Unit
 
   def removeSystemAssertion(rowKey: String, errorCode:ErrorCode) : Unit
 
-  def updateSystemAssertions(rowKey: String, qualityAssertions: Map[String, Array[QualityAssertion]]): Unit
+  def updateSystemAssertions(rowKey: String, qualityAssertions: Map[String,Array[QualityAssertion]]): Unit
 
   def getSystemAssertions(rowKey: String): List[QualityAssertion]
 
@@ -93,10 +82,9 @@ trait OccurrenceDAO extends DAO {
 
   def getUserIdsForAssertions(rowKey: String) : Set[String]
 
-  def deleteUserAssertion(rowKey: String, assertionUuid: String) : Boolean
+  def deleteUserAssertion(rowKey: String, assertionUuid: String): Boolean
 
-  def updateAssertionStatus(rowKey: String, assertion: QualityAssertion, systemAssertions: List[QualityAssertion],
-                            userAssertions: List[QualityAssertion])
+  def updateAssertionStatus(rowKey: String, assertion: QualityAssertion, systemAssertions: List[QualityAssertion], userAssertions: List[QualityAssertion])
 
   def reIndex(rowKey: String)
 

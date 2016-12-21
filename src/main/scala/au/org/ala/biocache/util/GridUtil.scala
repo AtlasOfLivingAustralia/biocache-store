@@ -3,14 +3,24 @@ package au.org.ala.biocache.util
 import java.util
 
 import au.org.ala.biocache.model.QualityAssertion
-import au.org.ala.biocache.processor.GISPoint
+import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes}
+import au.org.ala.biocache.vocab.AssertionCodes._
+import au.org.ala.biocache.vocab.AssertionStatus._
+import org.apache.commons.lang.StringUtils
+import org.geotools.referencing.CRS
+import org.slf4j.LoggerFactory
 
+import scala.collection.JavaConversions
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * Utilities for parsing OS and Irish grid references.
+  * Utilities for parsing UK Ordnance survey British and Irish grid references.
   */
 object GridUtil {
+
+  import StringHelper._, AssertionCodes._, AssertionStatus._, JavaConversions._
+
+  val logger = LoggerFactory.getLogger("GridUtil")
 
   //deal with the 2k OS grid ref separately
   val osGridRefNoEastingNorthing = ("""([A-Z]{2})""").r
@@ -33,6 +43,23 @@ object GridUtil {
   val IRISH_CRS = "EPSG:29902"
   val OSGB_CRS = "EPSG:27700"
 
+  lazy val crsEpsgCodesMap = {
+    var valuesMap = Map[String, String]()
+    for (line <- scala.io.Source.fromURL(getClass.getResource("/crsEpsgCodes.txt"), "utf-8").getLines().toList) {
+      val values = line.split('=')
+      valuesMap += (values(0) -> values(1))
+    }
+    valuesMap
+  }
+
+  lazy val zoneEpsgCodesMap = {
+    var valuesMap = Map[String, String]()
+    for (line <- scala.io.Source.fromURL(getClass.getResource("/zoneEpsgCodes.txt"), "utf-8").getLines().toList) {
+      val values = line.split('=')
+      valuesMap += (values(0) -> values(1))
+    }
+    valuesMap
+  }
   /**
     * Derive a value from the grid reference accuracy for coordinateUncertaintyInMeters.
     *
@@ -42,6 +69,7 @@ object GridUtil {
     */
   def getCoordinateUncertaintyFromGridRef(noOfNumericalDigits:Int, noOfSecondaryAlphaChars:Int) : Option[Int] = {
     val accuracy = noOfNumericalDigits match {
+      case 10 => 1
       case 8 => 10
       case 6 => 100
       case 4 => 1000
@@ -57,7 +85,73 @@ object GridUtil {
   }
 
   /**
+   * Reduce the resolution of the supplied grid reference.
+   *
+   * @param gridReference
+   * @param uncertaintyString
+   * @return
+   */
+  def convertReferenceToResolution(gridReference:String, uncertaintyString:String) : Option[String] = {
+
+    try {
+      val gridRefs = getGridRefAsResolutions(gridReference)
+      val uncertainty = uncertaintyString.toInt
+
+      val gridRefSeq = Array(
+        gridRefs.getOrElse("grid_ref_100000", ""),
+        gridRefs.getOrElse("grid_ref_10000", ""),
+        gridRefs.getOrElse("grid_ref_2000", ""),
+        gridRefs.getOrElse("grid_ref_1000", ""),
+        gridRefs.getOrElse("grid_ref_100", "")
+      )
+
+      val ref = {
+        if (uncertainty > 10000) {
+          getBestValue(gridRefSeq, 0)
+        } else if (uncertainty <= 10000 && uncertainty > 2000) {
+          getBestValue(gridRefSeq, 1)
+        } else if (uncertainty <= 2000 && uncertainty > 1000) {
+          getBestValue(gridRefSeq, 2)
+        } else if (uncertainty <= 1000 && uncertainty > 100) {
+          getBestValue(gridRefSeq, 3)
+        } else if (uncertainty < 100) {
+          getBestValue(gridRefSeq, 4)
+        } else {
+          ""
+        }
+      }
+      if(ref != "")
+        Some(ref)
+      else
+        None
+    } catch {
+      case e:Exception => {
+        logger.error("Problem converting grid reference " + gridReference + " to lower resolution of " + uncertaintyString, e)
+        None
+      }
+    }
+  }
+
+
+  def getBestValue(values: Seq[String], preferredIndex:Int): String ={
+
+    var counter = preferredIndex
+    while(counter>=0){
+      if(values(counter) != ""){
+        return values(counter)
+      }
+      counter = counter -1
+    }
+    ""
+  }
+
+  /**
     * Takes a grid reference and returns a map of grid references at different resolutions.
+    * Map will look like:
+    * grid_ref_100000 -> "NO"
+    * grid_ref_10000 -> "NO11"
+    * grid_ref_1000 -> "NO1212"
+    * grid_ref_100 -> "NO123123"
     *
     * @param gridRef
     * @return
@@ -70,16 +164,15 @@ object GridUtil {
       case Some(gr) => {
 
         val gridSize = gr.coordinateUncertainty.getOrElse(-1)
-
-
         map.put("grid_ref_100000", gr.gridLetters)
 
           if (gridRef.length > 2) {
-            var eastingAsStr = gr.easting.toString
-            var northingAsStr = gr.northing.toString
 
-            if(eastingAsStr.length == 5) eastingAsStr = "0" + eastingAsStr
-            if(northingAsStr.length == 5) northingAsStr = "0" + northingAsStr
+            var eastingAsStr = (gr.easting.toInt % 1000000).toString
+            var northingAsStr = (gr.northing.toInt % 1000000).toString
+
+            if (eastingAsStr.length == 5) eastingAsStr = "0" + eastingAsStr
+            if (northingAsStr.length == 5) northingAsStr = "0" + northingAsStr
 
             //add grid references for 10km, and 1km
             if (eastingAsStr.length() >= 3 && northingAsStr.length() >= 3) {
@@ -98,7 +191,7 @@ object GridUtil {
               }
             }
 
-            if (eastingAsStr.length() >= 5 && northingAsStr.length() >= 5) {
+            if (gridSize != -1 && gridSize <= 100 && eastingAsStr.length > 4) {
               map.put("grid_ref_100", gr.gridLetters + eastingAsStr.substring(1, 4) + northingAsStr.substring(1, 4))
             }
           }
@@ -429,6 +522,88 @@ object GridUtil {
         }
       }
       case None => None
+    }
+  }
+
+  /**
+    * Get the EPSG code associated with a coordinate reference system string e.g. "WGS84" or "AGD66".
+    *
+    * @param crs The coordinate reference system string.
+    * @return The EPSG code associated with the CRS, or None if no matching code could be found.
+    *         If the supplied string is already a valid EPSG code, it will simply be returned.
+    */
+   def lookupEpsgCode(crs: String): Option[String] = {
+    if (StringUtils.startsWithIgnoreCase(crs, "EPSG:")) {
+      // Do a lookup with the EPSG code to ensure that it is valid
+      try {
+        CRS.decode(crs.toUpperCase)
+        // lookup was successful so just return the EPSG code
+        Some(crs.toUpperCase)
+      } catch {
+        case ex: Exception => None
+      }
+    } else if (crsEpsgCodesMap.contains(crs.toUpperCase)) {
+      Some(crsEpsgCodesMap(crs.toUpperCase()))
+    } else {
+      None
+    }
+  }
+
+  /**
+    * Converts a easting northing to a decimal latitude/longitude.
+    *
+    * @param verbatimSRS
+    * @param easting
+    * @param northing
+    * @param zone
+    * @param assertions
+    * @return 3-tuple reprojectedLatitude, reprojectedLongitude, WGS84_EPSG_Code
+    */
+  def processNorthingEastingZone(verbatimSRS: String, easting: String, northing: String, zone: String,
+                                         assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
+
+    // Need a datum and a zone to get an epsg code for transforming easting/northing values
+    val epsgCodeKey = {
+      if (verbatimSRS != null) {
+        verbatimSRS.toUpperCase + "|" + zone
+      } else {
+        // Assume GDA94 / MGA zone
+        "GDA94|" + zone
+      }
+    }
+
+    if (zoneEpsgCodesMap.contains(epsgCodeKey)) {
+      val crsEpsgCode = zoneEpsgCodesMap(epsgCodeKey)
+      val eastingAsDouble = easting.toDoubleWithOption
+      val northingAsDouble = northing.toDoubleWithOption
+
+      if (!eastingAsDouble.isEmpty && !northingAsDouble.isEmpty) {
+        // Always round to 5 decimal places as easting/northing values are in metres and 0.00001 degree is approximately equal to 1m.
+        val reprojectedCoords = GISUtil.reprojectCoordinatesToWGS84(eastingAsDouble.get, northingAsDouble.get, crsEpsgCode, 5)
+        if (reprojectedCoords.isEmpty) {
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
+            "Transformation of verbatim easting and northing to WGS84 failed")
+          None
+        } else {
+          //lat and long from easting and northing did NOT fail:
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED, PASSED)
+          assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_EASTING_NORTHING,
+            "Decimal latitude and longitude were calculated using easting, northing and zone.")
+          val (reprojectedLatitude, reprojectedLongitude) = reprojectedCoords.get
+          Some(GISPoint(reprojectedLatitude, reprojectedLongitude, GISUtil.WGS84_EPSG_Code, null))
+        }
+      } else {
+        None
+      }
+    } else {
+      if (verbatimSRS == null) {
+        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
+          "Unrecognized zone GDA94 / MGA zone " + zone)
+      } else {
+        assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED,
+          "Unrecognized zone " + verbatimSRS + " / zone " + zone)
+      }
+      None
     }
   }
 }

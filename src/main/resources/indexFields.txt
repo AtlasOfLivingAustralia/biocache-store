@@ -86,6 +86,7 @@ last_assertion_date	date	lastUserAssertionDate	F	F		F
 last_load_date	date	lastModifiedTime	F	F		F
 last_processed_date	date	lastModifiedTime.p	F	F		F
 modified_date	date	modified.p	F	F		F
+license	string	license.p	F	F		F
 establishment_means	string	establishmentMeans.p	T	F		F
 loan_number	string	loanSequenceNumber	F	F		F
 loan_identifier	string	loanIdentifier	F	F		F
@@ -154,12 +155,14 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	acceptedNameUsageID	F	F	F	F
 	string	associatedMedia	T	T	F	F
 	string	associatedOccurrences	T	T	F	F
+	string	associatedOrganisms	F	F	F	F
 	string	associatedReferences	T	T	F	F
 	string	associatedSequences	T	T	F	F
 	string	associatedTaxa	T	T	F	F
 	string	attr.qa	T	T	F	F
 	string	austConservation.p	F	F	F	F
 	string	australianHerbariumRegion	F	F	F	F
+	string	bed	F	F	F	F
 	string	behavior	F	F	F	F
 	string	bibliographicCitation	F	F	F	F
 	string	bor.qa	T	T	F	F
@@ -196,6 +199,11 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	duplicatesOriginalInstitutionID	F	F	F	F
 	string	duplicatesOriginalUnitID	F	F	F	F
 	string	dynamicProperties	F	F	F	F
+	string	earliestAgeOrLowestStage	F	F	F	F
+	string	earliestEonOrLowestEonothem	F	F	F	F
+	string	earliestEpochOrLowestSeries	F	F	F	F
+	string	earliestEraOrLowestErathem	F	F	F	F
+	string	earliestPeriodOrLowestSystem	F	F	F	F
 	string	easting	F	F	F	F
 	string	endDayOfYear	F	F	F	F
 	string	establishmentMeans	F	F	F	F
@@ -210,10 +218,12 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	footprintSpatialFit	F	F	F	F
 	string	footprintSRS	F	F	F	F
 	string	footprintWKT	F	F	F	F
+	string	formation	F	F	F	F
 	string	generalisedLocality	F	F	F	F
 	string	generalisedMeters	F	F	F	F
 	string	genus	F	F	F	F
 	string	geodeticDatum.p	F	F	F	F
+	string	geologicalContextID	F	F	F	F
 	string	georeferencedBy	F	F	F	F
 	string	georeferencedBy.p	F	F	F	F
 	string	georeferencedDate	F	F	F	F
@@ -227,11 +237,13 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	georeferenceVerificationStatus.p	F	F	F	F
 	string	geospatialIssue	F	F	F	F
 geospatial_kosher	string	geospatiallyKosher	F	F	F	F
+	string	group	F	F	F	F
 	string	habitat	F	F	F	F
 	string	habitat.p	F	F	F	F
 	string	higherClassification	F	F	F	F
 	string	higherGeography	F	F	F	F
 	string	higherGeographyID	F	F	F	F
+	string	highestBiostratigraphicZone	F	F	F	F
 	string	ibra	F	F	F	F
 	string	ibra.p	F	F	F	F
 	string	ibraSubregion	F	F	F	F
@@ -259,18 +271,35 @@ geospatial_kosher	string	geospatiallyKosher	F	F	F	F
 	string	kingdom	F	F	F	F
 	string	kingdomID.p	F	F	F	F
 	string	language	F	F	F	F
+	string	latestAgeOrHighestStage	F	F	F	F
+	string	latestEonOrHighestEonothem	F	F	F	F
+	string	latestEpochOrHighestSeries	F	F	F	F
+	string	latestEraOrHighestErathem	F	F	F	F
+	string	latestPeriodOrHighestSystem	F	F	F	F
+	string	latestEonOrHighestEonothem	F	F	F	F
+	string	license	F	F	F	F
 	string	lifeStage	F	F	F	F
+	string	lithostratigraphicTerms	F	F	F	F
 	string	loc.qa	T	T	F	F
 	string	locality.p	F	F	F	F
 	string	locationAccordingTo	F	F	F	F
 	string	locationDetermined	F	F	F	F
 	string	locationRemarks	F	F	F	F
+	string	lowestBiostratigraphicZone	F	F	F	F
+	string	materialSampleID	F	F	F	F
 	string	maximumDepthInMeters	F	F	F	F
 	string	maximumDistanceAboveSurfaceInMeters	F	F	F	F
 	string	maximumElevationInMeters	F	F	F	F
+	string	measurementAccuracy	F	F	F	F
+	string	measurementDeterminedBy	F	F	F	F
+	string	measurementDeterminedDate	F	F	F	F
+	string	measurementID	F	F	F	F
+	string	measurementMethod	F	F	F	F
+	string	measurementRemarks	F	F	F	F
 	string	measurementType	F	F	F	F
 	string	measurementUnit	F	F	F	F
 	string	measurementValue	F	F	F	F
+	string	member	F	F	F	F
 	string	minimumDepthInMeters	F	F	F	F
 	string	minimumDistanceAboveSurfaceInMeters	F	F	F	F
 	string	minimumElevationInMeters	F	F	F	F
@@ -284,6 +313,7 @@ geospatial_kosher	string	geospatiallyKosher	F	F	F	F
 	string	nameParseType.p	F	F	F	F
 	string	namePublishedIn	F	F	F	F
 	string	namePublishedInID	F	F	F	F
+	string	namePublishedInYear	F	F	F	F
 	string	naturalOccurrence	F	F	F	F
 	string	nearNamedPlaceRelationTo	F	F	F	F
 	string	nomenclaturalCode	F	F	F	F
@@ -296,11 +326,19 @@ geospatial_kosher	string	geospatiallyKosher	F	F	F	F
 	string	offline.qa	T	T	F	F
 	string	order	F	F	F	F
 	string	orderID.p	F	F	F	F
+	string	organismID	F	F	F	F
+	string	organismName	F	F	F	F
+	string	organismQuantity	F	F	F	F
+	string	organismQuantityType	F	F	F	F
+	string	organismRemarks	F	F	F	F
+	string	organismScope	F	F	F	F
 	string	originalNameUsageID	F	F	F	F
 	string	originalSensitiveValues	F	F	F	F
 	string	otherCatalogNumbers	F	F	F	F
 	string	ownerInstitutionCode	F	F	F	F
+	string	parentEventID	F	F	F	F
 	string	parentNameUsage	F	F	F	F
+	string	parentNameUsageID	F	F	F	F
 	string	photoPageUrl	F	F	F	F
 	string	phylum	F	F	F	F
 	string	phylumID.p	F	F	F	F
@@ -310,10 +348,20 @@ geospatial_kosher	string	geospatiallyKosher	F	F	F	F
 	string	preparations	F	F	F	F
 	string	previousIdentifications	F	F	F	F
 	string	queryAssertions.p	T	T	F	F
+	string	references	F	F	F	F
+	string	relatedResourceID	F	F	F	F
+	string	relationshipAccordingTo	F	F	F	F
+	string	relationshipEstablishedDate	F	F	F	F
+	string	relationshipOfResource	F	F	F	F
+	string	relationshipRemarks	F	F	F	F
+	string	resourceID	F	F	F	F
+	string	resourceRelationshipID	F	F	F	F
 	string	rightsholder	F	F	F	F
 	string	samplingEffort	F	F	F	F
 	string	samplingProtocol	F	F	F	F
 	string	samplingProtocol.p	F	F	F	F
+	string	sampleSizeUnit	F	F	F	F
+	string	sampleSizeValue	F	F	F	F
 	string	scientificNameAddendum	F	F	F	F
 	string	scientificNameAuthorship	F	F	F	F
 	string	scientificNameID	F	F	F	F

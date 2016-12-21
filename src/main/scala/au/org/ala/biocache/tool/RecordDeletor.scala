@@ -18,7 +18,7 @@ trait RecordDeletor {
   def deleteFromIndex
 
   def close {
-    pm.shutdown
+//    pm.shutdown
     indexer.shutdown
   }
 }

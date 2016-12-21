@@ -81,7 +81,7 @@ class MockPersistenceManager extends PersistenceManager {
     uuid
   }
 
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]], deleteIfNullValue: Boolean) =
+  def putBatch(entityName: String, batch: collection.Map[String, Map[String, String]], deleteIfNullValue: Boolean) =
     throw new RuntimeException("not implemented yet")
 
   def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass: Class[_], overwrite: Boolean, deleteIfNullValue: Boolean) = {

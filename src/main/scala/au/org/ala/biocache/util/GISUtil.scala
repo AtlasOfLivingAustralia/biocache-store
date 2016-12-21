@@ -7,7 +7,7 @@ import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.geotools.referencing.operation.DefaultCoordinateOperationFactory
 
 /**
-  * Created by mar759 on 8/08/2016.
+  * GIS Utilities.
   */
 object GISUtil {
 

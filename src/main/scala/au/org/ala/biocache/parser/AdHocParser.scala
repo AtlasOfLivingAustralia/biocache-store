@@ -2,21 +2,15 @@ package au.org.ala.biocache.parser
 
 import au.org.ala.biocache.cmd.CMD2
 import au.org.ala.biocache.util._
-import scala.Some
 import au.com.bytecode.opencsv.{CSVReader, CSVWriter}
 import java.io.{File, StringReader, OutputStream, OutputStreamWriter}
 import au.org.ala.biocache.vocab._
 import scala.collection.mutable.ListBuffer
-import au.org.ala.biocache.model.{MeasurementUnit, QualityAssertion, Versions}
+import au.org.ala.biocache.model.{MeasurementUnit, Versions}
 import au.org.ala.biocache.load.FullRecordMapper
-import scala.beans.BeanProperty
 import au.org.ala.names.model.LinnaeanRankClassification
 import au.org.ala.biocache.Config
 import au.org.ala.names.search.HomonymException
-import au.org.ala.biocache.parser.EventDate
-import scala.Some
-import au.org.ala.biocache.parser.ProcessedValue
-import au.org.ala.biocache.parser.ParsedRecord
 import au.org.ala.biocache.processor.{LocationProcessor, RecordProcessor}
 
 /**

@@ -76,12 +76,12 @@ trait PersistenceManager {
   def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String="", endRowkey:String="", pageSize:Int = 1000)
 
   /**
-    * Page over the records that are local to this node.
-    * @param entityName
-    * @param proc
-    * @param threads
-    * @return
-    */
+   * Page over the records that are local to this node.
+   * @param entityName
+   * @param proc
+   * @param threads
+   * @return
+   */
   def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String]) : Int
 
   /**

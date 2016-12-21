@@ -62,6 +62,7 @@ class AttributionProcessor extends Processor {
         processed.attribution.dataHubUid = dataResource.get.dataHubUid
         processed.attribution.dataResourceUid = dataResource.get.dataResourceUid
         processed.attribution.provenance = dataResource.get.provenance
+        processed.attribution.license = dataResource.get.license
         //only add the taxonomic hints if they were not populated by the collection
         if (processed.attribution.taxonomicHints == null) {
           processed.attribution.taxonomicHints = dataResource.get.taxonomicHints

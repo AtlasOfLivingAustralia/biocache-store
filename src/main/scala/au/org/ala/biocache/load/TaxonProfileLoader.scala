@@ -9,7 +9,7 @@ import java.io.{BufferedOutputStream, FileOutputStream, File}
 import au.org.ala.biocache.cmd.NoArgsTool
 import au.org.ala.biocache.util.Json
 import org.gbif.dwc.terms.{DwcTerm, GbifTerm}
-import org.gbif.dwc.text.{Archive, ArchiveFactory}
+import org.gbif.dwca.io.{Archive, ArchiveFactory}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}

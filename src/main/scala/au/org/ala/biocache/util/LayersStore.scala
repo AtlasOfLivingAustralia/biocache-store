@@ -6,8 +6,8 @@ import java.util
 
 import au.org.ala.biocache.Config
 import net.sf.json.JSONArray
-import org.ala.layers.dao.IntersectCallback
-import org.ala.layers.dto.IntersectionFile
+import au.org.ala.layers.dao.IntersectCallback
+import au.org.ala.layers.dto.IntersectionFile
 import org.apache.commons.httpclient.HttpStatus
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.DefaultHttpClient
@@ -57,8 +57,12 @@ class LayersStore ( layersStoreUrl: String) {
       respBody = r._2
       retry = r._3
 
-      if (respCode != HttpStatus.SC_OK)
+      if (respCode != HttpStatus.SC_OK) {
         logger.warn("Problem getting sampling status: " + r + " retries=" + retries)
+        
+        //count down retries if status is not OK
+        retries -= 1
+      } 
       if (callback != null) {
         if (respCode != HttpStatus.SC_OK) {
           callback.progressMessage("Problem getting status: " + respCode + "/" + HttpStatus.getStatusText(respCode))
@@ -87,7 +91,6 @@ class LayersStore ( layersStoreUrl: String) {
           }
         }
       }
-      retries -= 1
     }
 
     if (retries <= 0 || respBody == null) {
@@ -166,22 +169,26 @@ class LayersStore ( layersStoreUrl: String) {
   }
 
   def samplingStatus(statusUrl: String) : (Int, String, Boolean) = {
+    val httpClient = new DefaultHttpClient()
     try {
-      val httpClient = new DefaultHttpClient()
       val httpGet = new HttpGet(statusUrl)
       val response = httpClient.execute(httpGet)
-      val result = response.getStatusLine()
-      val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-      logger.debug("Response code: " + result.getStatusCode)
-      val json = Json.toMap(responseBody)
+      try {
+        val result = response.getStatusLine()
+        val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+        logger.debug("Response code: " + result.getStatusCode)
+        val json = Json.toMap(responseBody)
 
-      val status = json.get("status").get
-      if (status.equals("error") || status.equals("cancelled")) {
-        (result.getStatusCode, responseBody, false)
-      } else if (status.equals("finished")) {
-        (result.getStatusCode, responseBody, false)
-      } else {
-        (result.getStatusCode, responseBody, true)
+        val status = json.get("status").get
+        if (status.equals("error") || status.equals("cancelled")) {
+          (result.getStatusCode, responseBody, false)
+        } else if (status.equals("finished")) {
+          (result.getStatusCode, responseBody, false)
+        } else {
+          (result.getStatusCode, responseBody, true)
+        }
+      } finally {
+        response.close()
       }
     } catch {
       case ex:ConnectException => {
@@ -192,6 +199,8 @@ class LayersStore ( layersStoreUrl: String) {
         logger.debug("Exception connecting to " + statusUrl, ex)
         (HttpStatus.SC_INTERNAL_SERVER_ERROR, null, false)
       }
+    } finally {
+      httpClient.close()
     }
   }
 }

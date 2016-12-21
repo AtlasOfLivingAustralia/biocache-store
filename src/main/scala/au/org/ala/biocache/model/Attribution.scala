@@ -22,10 +22,11 @@ class Attribution (
   @BeanProperty var collectionName:String,
   @BeanProperty var citation:String,
   @BeanProperty var provenance:String,
+  @BeanProperty var license:String,
   @JsonIgnore var taxonomicHints:Array[String],
   @JsonIgnore var defaultDwcValues:Map[String,String])
   extends Cloneable with POSO {
-  def this() = this(null,null,null,null,null,null,null,null,null,null,null, null, null, null)
+  def this() = this(null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
   override def clone : Attribution = super.clone.asInstanceOf[Attribution]
   override def toString = ToStringBuilder.reflectionToString(this)
   // stores whether or not the data resource has collections associated with it

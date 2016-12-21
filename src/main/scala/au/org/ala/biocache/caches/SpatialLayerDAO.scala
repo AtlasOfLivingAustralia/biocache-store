@@ -3,11 +3,9 @@ package au.org.ala.biocache.caches
 import java.io.File
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.model.{FullRecord, Versions}
-import au.org.ala.sds.SensitiveDataService
-import au.org.ala.sds.validation.ValidationOutcome
-import org.ala.layers.intersect.SimpleShapeFile
+import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.util.StringHelper
+import au.org.ala.layers.intersect.SimpleShapeFile
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
@@ -15,23 +13,19 @@ import scala.collection.mutable
 import scala.util.parsing.json.JSON
 
 /**
- * A DAO for access to sensitive areas.
+ * A DAO for access to spatial areas.
  */
-object SensitiveAreaDAO {
+object SpatialLayerDAO {
 
-  import scala.collection.JavaConversions._
-  import au.org.ala.biocache.util.StringHelper._
+  import StringHelper._
 
-  val logger = LoggerFactory.getLogger("SensitiveAreaDAO")
-  private val lru = new org.apache.commons.collections.map.LRUMap(10000)
-  private val lock : AnyRef = new Object()
-
-  lazy val sdsFinder = Config.sdsFinder
-  val sds = new SensitiveDataService()
+  val logger = LoggerFactory.getLogger("SpatialLayerDAO")
 
   val idNameLookup = new mutable.HashMap[String, String]()
   val nameFieldLookup = new mutable.HashMap[String, String]()
   val loadedShapeFiles = new mutable.HashMap[String, SimpleShapeFile]()
+
+  var sdsLayerList:List[String] = List()
 
   init
 
@@ -49,25 +43,34 @@ object SensitiveAreaDAO {
     //layers
     val layers = JSON.parseFull(layersJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
     logger.info("Number of layers loaded ....." + layers.size)
-    layers.foreach(layer => {
+    layers.foreach { layer =>
       idNameLookup.put(layer.getOrElse("id", -1).asInstanceOf[Double].toInt.toString(), layer.getOrElse("name", ""))
-    })
+    }
 
     //fields
     val fields = JSON.parseFull(fieldsJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
     logger.info("Number of fields loaded ....." + fields.size)
-    fields.foreach(field => {
+    fields.foreach { field =>
       nameFieldLookup.put(field.getOrElse("spid", "-1"), field.getOrElse("sname", ""))
-    })
+    }
 
-    logger.info("Loaded layers required by SDS.....")
+    logger.info("SDS enabled ....." + Config.sdsEnabled)
+
     //load SDS layer metadata
-    if(Config.sdsEnabled){
-      au.org.ala.sds.util.GeoLocationHelper.getGeospatialLayers.foreach(layerID => {
+    if (Config.sdsEnabled) {
+
+      logger.info("Loaded layers required by SDS.....")
+      val sdsLayerListURL = Config.sdsUrl + "/ws/layers"
+      logger.info("Retrieving list from " + sdsLayerListURL)
+
+      val sdsListJson = WebServiceLoader.getWSStringContent(sdsLayerListURL)
+      sdsLayerList = JSON.parseFull(sdsListJson).getOrElse(List[String]()).asInstanceOf[List[String]]
+
+      sdsLayerList.foreach { layerID =>
         //check each layer is available on the local filesystem
         logger.info("Loading SDS layer....." + layerID)
         loadLayer(layerID, true)
-      })
+      }
     } else {
       logger.info("SDS disabled - skipping layer loading.....")
     }
@@ -114,7 +117,7 @@ object SensitiveAreaDAO {
    * @param decimalLatitude
    * @return
    */
-  def intersect(decimalLongitude:String, decimalLatitude:String) : Map[String, String] = {
+  def intersect(decimalLongitude:String, decimalLatitude:String) : collection.Map[String, String] = {
     val optLong = decimalLongitude.toDoubleWithOption
     val optLat = decimalLatitude.toDoubleWithOption
     if(!optLong.isEmpty && !optLong.isEmpty){
@@ -123,43 +126,44 @@ object SensitiveAreaDAO {
       Map[String,String]()
     }
   }
-  
+
   /**
-   * Do a point intersect lookup for SDS layers.
+    * Do a point intersect lookup for layers.
+    *
+    * @param fr
+    * @return
+    */
+  def intersect(fr:FullRecord) : collection.Map[String, String] = {
+
+    if(fr.location.decimalLongitude == null || fr.location.decimalLatitude == null){
+      return Map[String,String]()
+    }
+
+    intersect(fr.location.decimalLongitude.toDouble,
+      fr.location.decimalLatitude.toDouble)
+  }
+
+  /**
+   * Do a point intersect lookup for the configured layers.
    *
    * @param decimalLongitude
    * @param decimalLatitude
    * @return
    */
-  def intersect(decimalLongitude:Double, decimalLatitude:Double) : Map[String, String] = {
+  def intersect(decimalLongitude:Double, decimalLatitude:Double) : collection.Map[String, String] = {
 
     if(decimalLongitude == null || decimalLatitude == null){
       return Map[String,String]()
     }
 
-    val guid = getLatLongKey(decimalLongitude, decimalLatitude)
-
-    //retrieve from cache
-    val lookup = lock.synchronized { lru.get(guid) }
-
-    if(lookup != null){
-      lookup.asInstanceOf[Map[String,String]]
-    } else {
-      val intersects = new mutable.HashMap[String ,String]()
-      loadedShapeFiles.foreach { case (layerID, shp) =>
-        val intersectValue = shp.intersect(decimalLongitude, decimalLatitude)
-        if(intersectValue != null) {
-          intersects.put(layerID, intersectValue)
-        }
+    val intersects = new mutable.HashMap[String ,String]()
+    loadedShapeFiles.foreach { case (layerID, shp) =>
+      val intersectValue = shp.intersect(decimalLongitude, decimalLatitude)
+      if(intersectValue != null) {
+        intersects.put(layerID, intersectValue)
       }
-      val intersectMap = intersects.toMap
-      lock.synchronized { lru.put(guid, intersectMap) }
-      intersectMap
     }
-  }
-
-  def add(decimalLongitude:Double, decimalLatitude:Double, intersectValues:Map[String,String]): Unit = {
-    lock.synchronized { lru.put(getLatLongKey(decimalLongitude, decimalLatitude), intersectValues) }
+    intersects
   }
 
   private def getLatLongKey(longitude:Double, latitude:Double) : String = {

@@ -84,41 +84,45 @@ class BiocaseLoader extends DataLoader {
     val retryPolicy = new LimitedRetryPolicy(5, 2, 5, 2)
     val requestHandler = new BiocaseScientificNameRangeRequestHandler(config)
     val client = HttpCrawlClientProvider.newHttpCrawlClient(endpoint.getPort)
-    val crawler = Crawler.newInstance(strategy, requestHandler, new BiocaseResponseHandler(), client, retryPolicy, NoLockFactory.getLock)
+    try {
+      val crawler = Crawler.newInstance(strategy, requestHandler, new BiocaseResponseHandler(), client, retryPolicy, NoLockFactory.getLock)
 
-    val emit = (record: Map[String, String], multimedia: Seq[Multimedia]) => {
-      val fr = FullRecordMapper.createFullRecord("", record, Versions.RAW)
-      if (test) {
-        // log something sensible to give confidence that records are interpreted properly
-        LOG.info("Record: occurrenceID[{}], scientificName[{}], decimalLatitude[{}], decimalLongitude[{}]",
-          fr.getOccurrence.getOccurrenceID, fr.getClassification.getScientificName,
-          fr.getLocation.getDecimalLatitude, fr.getLocation.getDecimalLongitude);
+      val emit = (record: Map[String, String], multimedia: Seq[Multimedia]) => {
+        val fr = FullRecordMapper.createFullRecord("", record, Versions.RAW)
+        if (test) {
+          // log something sensible to give confidence that records are interpreted properly
+          LOG.info("Record: occurrenceID[{}], scientificName[{}], decimalLatitude[{}], decimalLongitude[{}]",
+            fr.getOccurrence.getOccurrenceID, fr.getClassification.getScientificName,
+            fr.getLocation.getDecimalLatitude, fr.getLocation.getDecimalLongitude);
 
-        multimedia.foreach { media =>
-          LOG.info("MediaItem: location[{}], created[{}], description[{}]",
-            media.location,
-            media.metadata.get(DcTerm.created.simpleName()),
-            media.metadata.get(DcTerm.description.simpleName())
-          )
-        }
-      } else {
-        if (load(dataResourceUid, fr, List(fr.getOccurrence.getOccurrenceID), multimedia)) {
-          LOG.debug("Successfully inserted: {}", fr.getOccurrence.getOccurrenceID);
+          multimedia.foreach { media =>
+            LOG.info("MediaItem: location[{}], created[{}], description[{}]",
+              media.location,
+              media.metadata.get(DcTerm.created.simpleName()),
+              media.metadata.get(DcTerm.description.simpleName())
+            )
+          }
         } else {
-          LOG.error("Error inserting record");
-        };
+          if (load(dataResourceUid, fr, List(fr.getOccurrence.getOccurrenceID), multimedia)) {
+            LOG.debug("Successfully inserted: {}", fr.getOccurrence.getOccurrenceID);
+          } else {
+            LOG.error("Error inserting record");
+          };
+        }
       }
+
+      // add the logging listener to aid diagnostics during operation
+      crawler.addListener(new LoggingCrawlListener(config, null, null, 0, null).asInstanceOf[org.gbif.crawler.CrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]]])
+
+      // add the listener which is responsible for emitting data into the biocache itself (i.e. the cassandra loading)
+      crawler.addListener(new AlaBiocacheListener(emit).asInstanceOf[org.gbif.crawler.CrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]]])
+
+      crawler.crawl()
+
+      LOG.info("Finished crawling")
+    } finally {
+      client.shutdown()
     }
-
-    // add the logging listener to aid diagnostics during operation
-    crawler.addListener(new LoggingCrawlListener(config, null, null, 0, null).asInstanceOf[org.gbif.crawler.CrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]]])
-
-    // add the listener which is responsible for emitting data into the biocache itself (i.e. the cassandra loading)
-    crawler.addListener(new AlaBiocacheListener(emit).asInstanceOf[org.gbif.crawler.CrawlListener[ScientificNameRangeCrawlContext, String, java.util.List[java.lang.Byte]]])
-
-    crawler.crawl()
-
-    LOG.info("Finished crawling")
   }
 }
 

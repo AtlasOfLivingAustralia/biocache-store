@@ -41,7 +41,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var action = ""
     var start, end = ""
     var dr: Option[String] = None
-    val validActions = List("range", "process", "index", "col", "repair", "datum", "load-sampling")
+    val validActions = List("range", "process", "index", "col", "repair", "datum", "load-sampling", "avro-export")
     var forceMerge = true
     var mergeSegments = 1
     var deleteSources = false
@@ -115,7 +115,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           val threads = new ArrayBuffer[Thread]
           val columnRunners = new ArrayBuffer[ColumnReporterRunner]
           val solrDirs = new ArrayBuffer[String]
-          ranges.foreach({ case (startKey, endKey)  => {
+          ranges.foreach { case (startKey, endKey)  =>
             logger.info("start: " + startKey + ", end key: " + endKey)
 
             val ir = {
@@ -137,7 +137,9 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
                 new ProcessRecordsRunner(this, counter, startKey, endKey)
               } else if (action == "load-sampling") {
                 new LoadSamplingRunner(this, counter, startKey, endKey)
-              } else if (action == "col" || action == "column-export") {
+              } else if (action == "avro-export") {
+//                new AvroExportRunner(this, counter, startKey, endKey)
+//              } else if (action == "col" || action == "column-export") {
                 if (columns.isEmpty) {
                   new ColumnReporterRunner(this, counter, startKey, endKey)
                 } else {
@@ -147,17 +149,19 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
                 new Thread()
               }
             }
+
             val t = new Thread(ir)
             t.start
             threads += t
+
             if (ir.isInstanceOf[ColumnReporterRunner]) {
               columnRunners += ir.asInstanceOf[ColumnReporterRunner]
             }
             counter += 1
-          }})
+          }
 
           //wait for threads to complete and merge all indexes
-          threads.foreach(thread => thread.join)
+          threads.foreach { thread => thread.join }
 
           if (action == "index") {
             logger.info("Merging index segments")
@@ -244,14 +248,14 @@ object IndexMergeTool extends Tool {
       FileUtils.forceMkdir(mergeDirFile)
     }
 
-    val mergedIndex = FSDirectory.open(mergeDirFile.toPath)
+    val mergedIndex = FSDirectory.open(mergeDirFile)
 
-    val writerConfig = (new IndexWriterConfig(new StandardAnalyzer()))
+    val writerConfig = (new IndexWriterConfig(Version.LATEST, new StandardAnalyzer()))
       .setOpenMode(OpenMode.CREATE)
       .setRAMBufferSizeMB(rambuffer)
 
     val writer = new IndexWriter(mergedIndex, writerConfig)
-    val indexes = directoriesToMerge.map(dir => FSDirectory.open(new File(dir).toPath))
+    val indexes = directoriesToMerge.map(dir => FSDirectory.open(new File(dir)))
 
     logger.info("Adding indexes...")
     writer.addIndexes(indexes:_*)

@@ -205,12 +205,11 @@ class CassandraPersistenceManager @Inject() (
   }
 
   /**
-   * Store the supplied map of properties as separate columns in cassandra.
-   * FIXME where is this used
-   */
-  def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
+    * Store the supplied map of properties as separate columns in cassandra.
+    */
+  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
 
-    val recordId = { if(rowkey != null) rowkey else UUID.randomUUID.toString }
+    val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
 
     val mutator = Pelops.createMutator(poolName)
     keyValuePairs.foreach( keyValue => {
@@ -218,13 +217,13 @@ class CassandraPersistenceManager @Inject() (
       if (removeNullFields) {
         mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(keyValue._1, keyValue._2), removeNullFields)
       } else {
-          if (keyValue._2 != null) {
-            mutator.writeColumn(entityName, recordId, mutator.newColumn(keyValue._1, keyValue._2))
-          }
+        if (keyValue._2 != null) {
+          mutator.writeColumn(entityName, recordId, mutator.newColumn(keyValue._1, keyValue._2))
+        }
       }
     })
     //add the recordId to the columns if it has been generated.  This makes uuid value reads faster that ByteBuffer key conversions
-    if(rowkey == null){
+    if(uuid == null){
       mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn("uuid", recordId), removeNullFields)
     }
     mutator.execute(ConsistencyLevel.ONE)
@@ -374,12 +373,20 @@ class CassandraPersistenceManager @Inject() (
           columnMap = new util.HashMap[Bytes, java.util.List[Column]]
         }
         case e:Exception => {
-          logger.debug("Problem retrieving data. Number of retries left:" + (permittedRetries - noOfRetries) +
+          logger.warn("Problem retrieving data. Number of retries left:" + (permittedRetries - noOfRetries) +
             ", Error: " + e.getMessage)
           Thread.sleep(20000)
           //Don't remove the pool because all requests while the reinit happens will result in NPE.
           //Pelops.removePool(poolName)
-          initialise //re-initialise
+
+          try {
+            initialise //re-initialise
+          } catch {
+            case ex:Exception => {
+              logger.warn("Problem reinitialising Cassandra connection Error: " + ex.getMessage)
+            }
+          }
+
           if (noOfRetries == permittedRetries){
             logger.error("Problem retrieving data. Number of DB connection retries exceeded. Error: " + e.getMessage, e)
             throw new RuntimeException(e)
