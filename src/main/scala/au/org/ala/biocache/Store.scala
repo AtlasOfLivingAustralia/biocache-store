@@ -126,26 +126,21 @@ object Store {
   /**
    * Iterate over records, passing the records to the supplied consumer.
    */
-  def pageOverAll(version: Version, consumer: OccurrenceConsumer, startKey: String, pageSize: Int) {
-    val skey = if (startKey == null) {
-      ""
-    } else {
-      startKey
-    }
-    occurrenceDAO.pageOverAll(version, fullRecord => consumer.consume(fullRecord.get), skey, "", pageSize)
+  def pageOverAll(version: Version, consumer: OccurrenceConsumer, dataResourceUID: String, pageSize: Int) {
+    occurrenceDAO.pageOverAll(version, fullRecord => consumer.consume(fullRecord.get), dataResourceUID, pageSize)
   }
 
   /**
    * Page over all versions of the record, handing off to the OccurrenceVersionConsumer.
    */
-  def pageOverAllVersions(consumer: OccurrenceVersionConsumer, startKey: String, pageSize: Int) {
+  def pageOverAllVersions(consumer: OccurrenceVersionConsumer, dataResourceUID: String, pageSize: Int) {
     occurrenceDAO.pageOverAllVersions(fullRecordVersion => {
       if (!fullRecordVersion.isEmpty) {
         consumer.consume(fullRecordVersion.get)
       } else {
         true
       }
-    }, startKey, "", pageSize)
+    }, dataResourceUID, pageSize)
   }
 
   /**
@@ -673,7 +668,7 @@ object Store {
    * @param customIndexFields
    */
   def storeCustomIndexFields(tempUid:String, customIndexFields:Array[String]){
-    Config.persistenceManager.put(tempUid, "upload", "customIndexFields", Json.toJSON(customIndexFields.map(v=> if(v.endsWith("_i") || v.endsWith("_d")) v else v + "_s")), false)
+    Config.persistenceManager.put(tempUid, "upload", "customIndexFields", Json.toJSON(customIndexFields.map(v=> if(v.endsWith("_i") || v.endsWith("_d")) v else v + "_s")), true, false)
   }
 
   /**
@@ -698,7 +693,7 @@ object Store {
    * @param customChartOptions
    */
   def storeCustomChartOptions(tempUid:String, customChartOptions:String) : Unit = {
-    Config.persistenceManager.put(tempUid, "upload", "customChartOptions", customChartOptions, false)
+    Config.persistenceManager.put(tempUid, "upload", "customChartOptions", customChartOptions, true, false)
   }
 
   /**
@@ -724,7 +719,7 @@ object Store {
    * @param customChartOptions
    */
   def storeLayerOptions(tempUid:String, customChartOptions:String) : String =
-    Config.persistenceManager.put(tempUid, "upload", "layerOptions", customChartOptions, false)
+    Config.persistenceManager.put(tempUid, "upload", "layerOptions", customChartOptions, true, false)
 
   /**
    * Retrieve custom index fields.

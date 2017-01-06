@@ -31,7 +31,7 @@ class PagingTests extends FunSuite {
         } else {
             true
         }
-      }, pageSize=10
+      }, "", pageSize=10
     )
     persistenceManager.shutdown
   }
@@ -54,7 +54,7 @@ class PagingTests extends FunSuite {
         } else {
             true
         }
-      }, pageSize=10
+      }, "", pageSize=10
     )
     persistenceManager.shutdown
   }

@@ -49,31 +49,42 @@ trait PersistenceManager {
   def getList[A](rowkey: String, entityName: String, propertyName: String, theClass:java.lang.Class[_]) : List[A]
 
   /**
-   * Put a single property.
-   */
-  def put(rowkey: String, entityName: String, propertyName: String, propertyValue: String, deleteIfNullValue: Boolean): String
+    * Put a single property.
+    */
+  def put(rowkey: String, entityName: String, propertyName: String, propertyValue: String, newRecord:Boolean, deleteIfNullValue: Boolean): String
 
   /**
    * Put a set of key value pairs.
    */
-  def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean): String
+  def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean): String
 
   /**
    * Add a batch of properties.
    */
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]], removeNullFields: Boolean)
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean)
 
   /**
    * Store a list of the supplied object
    * @param overwrite if true, current stored value will be replaced without a read.
    */
-  def putList[A](rowkey: String, entityName: String, propertyName: String, objectList:Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, deleteIfNullValue: Boolean) : String
+  def putList[A](rowkey: String, entityName: String, propertyName: String, objectList:Seq[A], theClass:java.lang.Class[_], newRecord:Boolean, overwrite: Boolean, deleteIfNullValue: Boolean) : String
 
   /**
    * Page over all entities, passing the retrieved rowkey and property map to the supplied function.
    * Function should return false to exit paging.
    */
   def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String="", endRowkey:String="", pageSize:Int = 1000)
+
+  /**
+   * Page over all records using an indexed field
+   *
+   * @param entityName
+   * @param proc
+   * @param indexedField
+   * @param indexedFieldValue
+   * @param pageSize
+   */
+  def pageOverIndexedField(entityName:String, proc:((String, Map[String, String]) => Boolean), indexedField:String="", indexedFieldValue:String = "", pageSize:Int = 1000)
 
   /**
    * Page over the records that are local to this node.
@@ -87,12 +98,19 @@ trait PersistenceManager {
   /**
    * Page over the records, retrieving the supplied columns only.
    */
-  def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String, endRowkey:String, pageSize:Int, columnName:String*)
+  def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), indexedField:String, indexedFieldValue:String, pageSize:Int, columnName:String*)
 
   /**
    * Page over the records, retrieving the supplied columns range.
    */
   def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String="", endRowkey:String="", pageSize:Int=1000, startColumn:String="", endColumn:String="")
+
+  /**
+   * Whether range queries are supported by this persistence manager
+   *
+   * @return
+   */
+  def rangesSupported = false
 
   /**
    * Select the properties for the supplied record rowkeys
@@ -120,8 +138,8 @@ trait PersistenceManager {
   def fieldDelimiter = '.'
 
   /**
-    * The field delimiter to use
-    */
+   * The field delimiter to use
+   */
   def caseInsensitiveFields = false
 
   /**

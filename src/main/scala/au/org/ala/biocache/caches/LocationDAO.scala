@@ -39,7 +39,7 @@ object LocationDAO {
       if (batch) {
         (guid -> mapBuffer.toMap)
       } else {
-        Config.persistenceManager.put(guid, columnFamily, mapBuffer.toMap, false)
+        Config.persistenceManager.put(guid, columnFamily, mapBuffer.toMap, true, false)
         null
       }
     } else {
@@ -57,7 +57,7 @@ object LocationDAO {
     var processedOK = false
     while (!processedOK && retries < 6) {
       try {
-        Config.persistenceManager.putBatch(columnFamily, batch.toMap, false)
+        Config.persistenceManager.putBatch(columnFamily, batch.toMap, true, false)
         processedOK = true
       } catch {
         case e: Exception => {
@@ -84,7 +84,7 @@ object LocationDAO {
   def storePointForSampling(latitude:String, longitude:String) : String = {
     val uuid = getLatLongKey(latitude, longitude)
     val map = Map(latitudeCol -> latitude, longitudeCol -> longitude)
-    Config.persistenceManager.put(uuid, columnFamily, map, false)
+    Config.persistenceManager.put(uuid, columnFamily, map, true, false)
     uuid
   }
 

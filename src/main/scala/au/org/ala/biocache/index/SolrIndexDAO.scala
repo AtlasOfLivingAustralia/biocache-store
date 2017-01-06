@@ -276,7 +276,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       solrServer.commit
       currentCommitSize = 0
       logger.info("Performing index commit....done")
-      logger.info(printNumDocumentsInIndex)
       currentBatch.clear
     }
     //clear the cache for the SpeciesLIst
@@ -902,9 +901,9 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     }
   }
 
-  def printNumDocumentsInIndex(): String = {
+  def printNumDocumentsInIndex =
     ">>>> Document count of index: " + solrServer.query(new SolrQuery("*:*")).getResults().getNumFound()
-  }
+
 
   class AddDocThread(queue: ArrayBlockingQueue[java.util.List[SolrInputDocument]], id: Int) extends Thread {
 

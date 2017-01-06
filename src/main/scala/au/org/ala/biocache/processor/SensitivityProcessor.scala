@@ -207,7 +207,7 @@ class SensitivityProcessor extends Processor {
 
         //update the raw record with whatever is left in the stringMap - change to use DAO method...
         if(StringUtils.isNotBlank(raw.rowKey)){
-          Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap, false)
+          Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap, false, false)
           LocationDAO.storePointForSampling(processed.location.decimalLatitude, processed.location.decimalLongitude)
         }
 
@@ -228,7 +228,7 @@ class SensitivityProcessor extends Processor {
       if (StringUtils.isNotBlank(raw.rowKey) &&
         raw.occurrence.originalSensitiveValues != null &&
         !raw.occurrence.originalSensitiveValues.isEmpty) {
-        Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""), false)
+        Config.persistenceManager.put(raw.rowKey, "occ", raw.occurrence.originalSensitiveValues + ("originalSensitiveValues" -> ""), false, false)
       }
     }
 

@@ -202,10 +202,10 @@ object ProcessRecords extends Tool with IncrementalTool {
     }
   }
 
-  def performPaging(proc: (Option[(FullRecord, FullRecord)] => Boolean), startKey:String="", endKey:String="", pageSize: Int = 1000){
+  def performPaging(proc: (Option[(FullRecord, FullRecord)] => Boolean), dataResourceUID:String="", pageSize: Int = 1000){
     occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
       proc(rawAndProcessed)
-    }, startKey, endKey)
+    }, dataResourceUID)
   }
 
   /**
@@ -214,20 +214,11 @@ object ProcessRecords extends Tool with IncrementalTool {
   def processRecords(threads: Int, firstKey:Option[String], dr: Option[String], checkDeleted:Boolean=false,
                      callback:ObserverCallback = null, lastKey:Option[String]=None): Unit = {
 
-    val endUuid = if (lastKey.isDefined) lastKey.get else if(dr.isEmpty) "" else dr.get +"|~"
-
-    val startUuid = {
-	    if(firstKey.isEmpty && !dr.isEmpty) {
-	        dr.get +"|"
-	    } else {
-	       firstKey.getOrElse("")
-	    }
-    }
     var ids = 0
     // it is loading a record for the first time when callback exists
     val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids,callback != null); ids +=1; p.start }
 
-    logger.info("Starting with " + startUuid +" ending with " + endUuid)
+    logger.info("Processing " + dr.getOrElse("all records"))
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -235,7 +226,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     logger.debug("Initialised actors...")
 
     var count = 0
-    var guid = "";
+    var guid = ""
     //use this variable to evenly distribute the actors work load
     var batches = 0
 
@@ -279,7 +270,7 @@ object ProcessRecords extends Tool with IncrementalTool {
         startTime = System.currentTimeMillis
       }
       true //indicate to continue
-    }, startUuid, endUuid)
+    }, dr.getOrElse(""))
 
     logger.info("Last row key processed: " + guid)
     //add the remaining records from the buff
@@ -287,7 +278,7 @@ object ProcessRecords extends Tool with IncrementalTool {
       pool(0).asInstanceOf[Consumer] ! buff.toArray
       batches+=1
     }
-    logger.info("Finished.")
+    logger.info(s"Finished. Records processed: $count")
     //kill the actors
     pool.foreach(actor => actor ! "exit")
 

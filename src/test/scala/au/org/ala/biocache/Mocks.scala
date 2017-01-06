@@ -28,7 +28,7 @@ class TestConfigModule extends com.google.inject.AbstractModule {
     } catch {
       case e: Exception => e.printStackTrace()
     }
-    bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(com.google.inject.Scopes.SINGLETON)
+//    bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(com.google.inject.Scopes.SINGLETON)
     //        println("Using Test Config")
   }
 }
@@ -38,8 +38,8 @@ object TestMocks {
 
   def main(args: Array[String]) {
     val m = new MockPersistenceManager
-    m.put("test-uuid", "occ", "dave", "daveValue", false)
-    m.put("12.12|12.43", "loc", "ibra", "Australian Alps", false)
+    m.put("test-uuid", "occ", "dave", "daveValue", true, false)
+    m.put("12.12|12.43", "loc", "ibra", "Australian Alps", true, false)
     println(m.get("test-uuid", "occ", "dave"))
     println(m.get("12.12|12.43", "loc", "dave"))
     println(m.get("12.12|12.43sss", "loc", "dave"))

@@ -76,8 +76,8 @@ object DownloadMedia extends Tool {
       }
     })
     //update the processed.occurrence.images
-    Config.persistenceManager.put(raw.rowKey, "occ", "associatedMedia", mediaStorePaths.toArray.mkString(";"), false)
-    Config.persistenceManager.put(raw.rowKey, "occ", "images.p", Json.toJSON(mediaStorePaths.toArray), false)
+    Config.persistenceManager.put(raw.rowKey, "occ", "associatedMedia", mediaStorePaths.toArray.mkString(";"), false, false)
+    Config.persistenceManager.put(raw.rowKey, "occ", "images" + Config.persistenceManager.fieldDelimiter + "p", Json.toJSON(mediaStorePaths.toArray), false, false)
   }
 
   /**
@@ -109,6 +109,6 @@ object DownloadMedia extends Tool {
           }
         }
         true
-      }, dr + "|", dr + "|~")
+      }, dr)
     }
 }

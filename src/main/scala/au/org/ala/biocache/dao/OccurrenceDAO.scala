@@ -24,11 +24,11 @@ trait OccurrenceDAO extends DAO {
 
   def getByRowKey(rowKey: String) : Option[FullRecord] = getByRowKey(rowKey, false)
 
-  def getByRowKey(rowKey: String, includeSensitive:Boolean) :Option[FullRecord]
+  def getByRowKey(rowKey: String, includeSensitive:Boolean) : Option[FullRecord]
 
   def getAllVersionsByRowKey(rowKey:String, includeSensitive:Boolean=false) : Option[Array[FullRecord]]
 
-  def getRawProcessedByRowKey(rowKey:String) :Option[Array[FullRecord]]
+  def getRawProcessedByRowKey(rowKey:String) : Option[Array[FullRecord]]
 
   def getAllVersionsByUuid(uuid: String, includeSenstive:Boolean=false): Option[Array[FullRecord]]
 
@@ -44,15 +44,16 @@ trait OccurrenceDAO extends DAO {
 
   def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false, includeMisc:Boolean=false, miscFields:Array[String]=null, dataToInsert:java.util.Map[String, Array[String]] = null): Array[String]
 
-  def pageOverAllVersions(proc: ((Option[Array[FullRecord]]) => Boolean),startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
+  def pageOverAllVersions(proc: ((Option[Array[FullRecord]]) => Boolean), dataResourceUID:String, pageSize: Int = 1000): Unit
 
-  def pageOverAll(version: Version, proc: ((Option[FullRecord]) => Boolean),startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
+  def pageOverAll(version: Version, proc: ((Option[FullRecord]) => Boolean), dataResourceUID:String, pageSize: Int = 1000): Unit
 
-  def pageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean),startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
+  def pageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), dataResourceUID:String, pageSize: Int = 1000): Unit
 
   def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4) : Int
 
-  def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), condition:(Map[String,String]=>Boolean),columnsToRetrieve:Array[String],startKey:String="", endKey:String="", pageSize: Int = 1000): Unit
+  def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), condition:(Map[String,String]=>Boolean), columnsToRetrieve:Array[String],
+                                      dataResourceUID:String="", pageSize: Int = 1000): Unit
 
   def addRawOccurrence(fullRecord: FullRecord,removeNullFields:Boolean): Unit
 

@@ -140,19 +140,18 @@ object Sampling extends Tool with IncrementalTool {
    * This single threaded and slow.
    */
   def loadSamplingIntoOccurrences(dataResourceUid:String): Unit = {
-    val startKey = dataResourceUid + "|"
-    val endKey = dataResourceUid + "|~"
-    logger.info(s"Starting loading from $startKey to $endKey")
+    logger.info(s"Starting loading sampling for $dataResourceUid")
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
-      val lat = map.getOrElse("decimalLatitude.p", "")
-      val lon = map.getOrElse("decimalLongitude.p", "")
+      val lat = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
+      val lon = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter +  "p", "")
       if(lat != null && lon != null){
         val point = LocationDAO.getSamplesForLatLon(lat, lon)
         if(!point.isEmpty){
           val (location, environmentalLayers, contextualLayers) = point.get
           Config.persistenceManager.put(guid, "occ", Map(
-            "el.p" -> Json.toJSON(environmentalLayers),
-            "cl.p" -> Json.toJSON(contextualLayers)),
+            "el" + Config.persistenceManager.fieldDelimiter + "p" -> Json.toJSON(environmentalLayers),
+            "cl" + Config.persistenceManager.fieldDelimiter + "p" -> Json.toJSON(contextualLayers)),
+            false,
             false
           )
         }
@@ -162,7 +161,7 @@ object Sampling extends Tool with IncrementalTool {
         }
       }
       true
-    }, startKey, endKey, 1000, "decimalLatitude.p", "decimalLongitude.p" )
+    }, "dataResourceUID", dataResourceUid, 1000, "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p" )
   }
 
   def sampleDataResource(dataResourceUid: String, callback:IntersectCallback = null, singleLayerName: String = "") {
@@ -261,8 +260,8 @@ class Sampling {
     }
 
     //add the processed values
-    val processedDecimalLatitude = map.getOrElse("decimalLatitude.p", "")
-    val processedDecimalLongitude = map.getOrElse("decimalLongitude.p", "")
+    val processedDecimalLatitude = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
+    val processedDecimalLongitude = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p", "")
     if (processedDecimalLatitude != "" && processedDecimalLongitude != "") {
       coordinates += (processedDecimalLongitude + "," + processedDecimalLatitude)
     }
@@ -323,52 +322,14 @@ class Sampling {
    * and write them to file.
    */
   def getDistinctCoordinatesForResourceThreaded(numThreads: Int, locFilePath: String, dataResourceUid: String = "") {
+
     logger.info("Creating distinct list of coordinates....")
-    var passed = 0
 
-    val startUuid: String = {
-      if (dataResourceUid == "") ""
-      else dataResourceUid + "|"
-    }
-    val endUuid: String = {
-      if (dataResourceUid == "") ""
-      else dataResourceUid + "|~"
-    }
-
-    val (query, start, end) = if (dataResourceUid != "") {
-      ("data_resource_uid:" + dataResourceUid, dataResourceUid + "|", dataResourceUid + "|~")
-    } else {
-      ("*:*", "", "")
-    }
-
-    val ranges = calculateRanges(numThreads, query, start, end)
-
-    var counter = 0
-    val threads = new ArrayBuffer[LocColumnExporter]
-    val solrDirs = new ArrayBuffer[String]
-    ranges.foreach { case (startKey, endKey) =>
-      logger.info("start: " + startKey + ", end key: " + endKey)
-
-      val t = new LocColumnExporter(counter, startKey, endKey, handleRecordMap)
-
-      t.start
-      threads += t
-      counter += 1
-    }
-
-    //wait for threads to complete and merge all indexes
-    threads.foreach(thread => thread.join)
-
-    var coordinates: Set[String] = Set()
-    threads.foreach(t => {
-      coordinates ++= t.coordinates
-      t.coordinates.clear()
-    })
-    logger.info("All unique coordinates size: " + coordinates.size)
-
+    val lce = new LocColumnExporter(counter, dataResourceUid, handleRecordMap)
+    lce.run
     try {
       val fw = new FileWriter(locFilePath)
-      coordinates.foreach(c => {
+      lce.coordinates.foreach(c => {
         fw.write(c)
         fw.write("\n")
       })
@@ -377,6 +338,63 @@ class Sampling {
     } catch {
       case e:Exception =>  logger.error(e.getMessage,e)
     }
+
+//
+
+//    val startUuid: String = {
+//      if (dataResourceUid == "") ""
+//      else dataResourceUid + "|"
+//    }
+//    val endUuid: String = {
+//      if (dataResourceUid == "") ""
+//      else dataResourceUid + "|~"
+//    }
+
+//    val (query, start, end) = if (dataResourceUid != "") {
+//      ("data_resource_uid:" + dataResourceUid, dataResourceUid + "|", dataResourceUid + "|~")
+//    } else {
+//      ("*:*", "", "")
+//    }
+
+//    val ranges = calculateRanges(numThreads, query, start, end)
+
+//    val ranges = Array((startUuid, endUuid))
+//  val ranges = Array((startUuid, endUuid))
+
+//    var counter = 0
+//    val threads = new ArrayBuffer[LocColumnExporter]
+//    val solrDirs = new ArrayBuffer[String]
+//    ranges.foreach { case (startKey, endKey) =>
+//      logger.info("start: " + startKey + ", end key: " + endKey)
+//
+//      val t = new LocColumnExporter(counter, dataResourceUid, handleRecordMap)
+//
+//      t.start
+//      threads += t
+//      counter += 1
+//    }
+//
+//    //wait for threads to complete and merge all indexes
+//    threads.foreach(thread => thread.join)
+//
+//    var coordinates: Set[String] = Set()
+//    threads.foreach(t => {
+//      coordinates ++= t.coordinates
+//      t.coordinates.clear()
+//    })
+//    logger.info("All unique coordinates size: " + coordinates.size)
+
+//    try {
+//      val fw = new FileWriter(locFilePath)
+//      coordinates.foreach(c => {
+//        fw.write(c)
+//        fw.write("\n")
+//      })
+//      fw.flush
+//      fw.close
+//    } catch {
+//      case e:Exception =>  logger.error(e.getMessage,e)
+//    }
   }
 
   /**
@@ -457,11 +475,7 @@ class Sampling {
         })
       }
     }
-
-
-
   }
-
 
   private def processBatch(writer: CSVWriter, points: Array[Array[Double]], fields: Array[String], callback:IntersectCallback=null): Unit = {
 
@@ -606,10 +620,8 @@ class Sampling {
  * A location coordinates set builder that can be used in a threaded manner 
  *
  * @param threadId
- * @param startKey
- * @param endKey
  */
-class LocColumnExporter(threadId: Int, startKey: String, endKey: String, handleRecordMap: (Map[String, String], HashSet[String], LocationProcessor) => Unit) extends Thread {
+class LocColumnExporter(threadId: Int, dataResourceUid:String, handleRecordMap: (Map[String, String], HashSet[String], LocationProcessor) => Unit) extends Thread {
 
   val logger = LoggerFactory.getLogger("LocColumnExporter")
 
@@ -621,26 +633,32 @@ class LocColumnExporter(threadId: Int, startKey: String, endKey: String, handleR
       logger.info("unique coordinates start thread: " + threadId)
 
       val start = System.currentTimeMillis
-      var startTime = System.currentTimeMillis
-      var finishTime = System.currentTimeMillis
       var counter = 0
       val lp = new LocationProcessor
-      Config.persistenceManager.pageOverSelect("occ", (key, map) => {
+
+      Config.persistenceManager.pageOverSelect("occ", (uuid, map) => {
         handleRecordMap(map, coordinates, lp)
 
         if (counter % 100000 == 0 && counter > 0) {
-          logger.info("records counter: " + counter + ", thread: " + threadId + ", unique count:" + coordinates.size)
+          logger.info(s"records counter: $counter thread: $threadId, unique count: $coordinates.size")
         }
         counter += 1
         Integer.MAX_VALUE > counter
-      }, startKey, endKey, 1000, "decimalLatitude", "decimalLongitude", "decimalLatitude.p", "decimalLongitude.p",
-        "verbatimLatitude", "verbatimLongitude", "originalDecimalLatitude", "originalDecimalLongitude",
+
+      },"","", 1000, "decimalLatitude",
+        "decimalLongitude",
+        "decimalLatitude"  + Config.persistenceManager.fieldDelimiter + "p",
+        "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p",
+        "verbatimLatitude",
+        "verbatimLongitude",
+        "originalDecimalLatitude",
+        "originalDecimalLongitude",
         "originalSensitiveValues")
 
       val fin = System.currentTimeMillis
       logger.info("[Unique Coordinate Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
     } catch {
-      case e: Exception => logger.error("Error reading points for thread: " + threadId)
+      case e: Exception => logger.error("Error reading points for thread: " + threadId, e)
     }
   }
 }

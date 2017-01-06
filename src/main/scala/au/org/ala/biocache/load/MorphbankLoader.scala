@@ -166,11 +166,11 @@ class MorphbankLoader extends CustomWebserviceLoader {
 
     // If we are reprocessing the specimen, remove any previously loaded image urls from the associated media field -
     // this field will be completely repopulated.
-    pm.put(createUniqueID(dataResourceUid, uniqueTermsValues), MorphbankLoader.OCC_NAMESPACE, MorphbankLoader.ASSOCIATED_MEDIA_DWC_KEY, "", false)
+    pm.put(createUniqueID(dataResourceUid, uniqueTermsValues), MorphbankLoader.OCC_NAMESPACE, MorphbankLoader.ASSOCIATED_MEDIA_DWC_KEY, "",  true, false)
 
     // clear out CatalogNumber field if it has not been populated.
     if (!mappedValues.contains(MorphbankLoader.CATALOG_NUMBER_DWC_KEY)) {
-      pm.put(createUniqueID(dataResourceUid, uniqueTermsValues), MorphbankLoader.OCC_NAMESPACE, MorphbankLoader.CATALOG_NUMBER_DWC_KEY, "", false)
+      pm.put(createUniqueID(dataResourceUid, uniqueTermsValues), MorphbankLoader.OCC_NAMESPACE, MorphbankLoader.CATALOG_NUMBER_DWC_KEY, "", true, false)
     }
 
     val fr = FullRecordMapper.createFullRecord("", mappedValues, Versions.RAW)

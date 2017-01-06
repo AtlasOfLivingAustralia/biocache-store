@@ -71,7 +71,7 @@ object LoadMediaReferences extends Tool {
                   "sounds"
                 }
                 if (!dryRun) {
-                  Config.persistenceManager.put(rowKey, "occ", column, Json.toJSON(mediaBuffer.toArray), false)
+                  Config.persistenceManager.put(rowKey, "occ", column, Json.toJSON(mediaBuffer.toArray), false, false)
                 } else {
                   val buffSize = mediaBuffer.size
                   println(s"DRYRUN : $currentUuid, size: $buffSize rowKey: '$rowKey', current mime: $currentMime, $column : " + Json.toJSON(mediaBuffer.toArray))

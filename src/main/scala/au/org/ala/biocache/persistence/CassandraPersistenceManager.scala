@@ -25,7 +25,7 @@ class CassandraPersistenceManager @Inject() (
        @Named("cassandra.keyspace") val keyspace:String = "occ",
        @Named("cassandra.max.connections")val maxConnections:Int= -1,
        @Named("cassandra.max.retries") val maxRetries:Int= 3,
-       @Named("thrift.operation.timeout") val operationTimeout:Int= 4000) extends PersistenceManager {
+       @Named("thrift.operation.timeout") val operationTimeout:Int= 4000) /*extends PersistenceManager*/ {
 
   import JavaConversions._
 
@@ -192,7 +192,7 @@ class CassandraPersistenceManager @Inject() (
   /**
    * Store the supplied batch of maps of properties as separate columns in cassandra.
    */
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]], removeNullFields: Boolean) = {
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean) = {
     val mutator = Pelops.createMutator(poolName)
     batch.foreach(uuidMap => {
       val uuid = uuidMap._1
@@ -207,7 +207,7 @@ class CassandraPersistenceManager @Inject() (
   /**
     * Store the supplied map of properties as separate columns in cassandra.
     */
-  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
+  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String],  newRecord:Boolean, removeNullFields: Boolean) = {
 
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
 
@@ -233,7 +233,7 @@ class CassandraPersistenceManager @Inject() (
   /**
    * Store the supplied property value in the column
    */
-  def put(rowkey: String, entityName: String, propertyName: String, propertyValue: String, removeNullFields: Boolean) = {
+  def put(rowkey: String, entityName: String, propertyName: String, propertyValue: String, newRecord:Boolean, removeNullFields: Boolean) = {
     val recordId = { if(rowkey != null) rowkey else UUID.randomUUID.toString }
     val mutator = Pelops.createMutator(poolName)
     mutator.writeColumn(entityName, Bytes.fromUTF8(recordId), mutator.newColumn(propertyName, propertyValue), removeNullFields)
@@ -261,7 +261,7 @@ class CassandraPersistenceManager @Inject() (
   /**
    * Store arrays in a single column as JSON.
    */
-  def putList[A](rowkey: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, removeNullFields: Boolean) = {
+  def putList[A](rowkey: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_], newRecord:Boolean, overwrite: Boolean, removeNullFields: Boolean) = {
 
     val recordId = { if(rowkey != null) rowkey else UUID.randomUUID.toString }
     //initialise the serialiser

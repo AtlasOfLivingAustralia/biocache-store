@@ -31,7 +31,7 @@ object RenameColumns {
 
       for (key <- values.keySet) {
         if (map.contains(key)) {
-          persistenceManager.put(guid, entity, values.get(key).get, map.get(key).get, false)
+          persistenceManager.put(guid, entity, values.get(key).get, map.get(key).get, false, false)
           persistenceManager.deleteColumns(guid, entity, key)
         }
       }

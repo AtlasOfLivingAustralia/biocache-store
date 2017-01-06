@@ -7,7 +7,7 @@ import au.org.ala.biocache.dao.{OccurrenceDAOImpl, OccurrenceDAO}
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import org.slf4j.LoggerFactory
 
-class MockPersistenceManager extends PersistenceManager {
+class MockPersistenceManager /*extends PersistenceManager*/ {
 
   val logger = LoggerFactory.getLogger("MockPersistenceManager")
 
@@ -65,7 +65,7 @@ class MockPersistenceManager extends PersistenceManager {
     }
   }
 
-  def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, deleteIfNullValue: Boolean) = {
+  def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, newRecord:Boolean, deleteIfNullValue: Boolean) = {
     logger.debug(s"Put for $uuid -  $entityName - $propertyName -  $propertyValue")
     val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
     val recordMap = entityMap.getOrElseUpdate(uuid, HashMap[String, String]())
@@ -73,7 +73,7 @@ class MockPersistenceManager extends PersistenceManager {
     uuid
   }
 
-  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], deleteIfNullValue: Boolean) = {
+  def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, deleteIfNullValue: Boolean) = {
     logger.debug(s"Put for $uuid -  $entityName - $keyValuePairs")
     val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
     val recordMap = entityMap.getOrElse(uuid, HashMap[String, String]())
@@ -81,10 +81,10 @@ class MockPersistenceManager extends PersistenceManager {
     uuid
   }
 
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]], removeNullFields: Boolean) =
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean) =
     throw new RuntimeException("not implemented yet")
 
-  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass: Class[_], overwrite: Boolean, deleteIfNullValue: Boolean) = {
+  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass: Class[_], newRecord:Boolean, overwrite: Boolean, deleteIfNullValue: Boolean) = {
     logger.debug(s"PutList for $uuid -  $entityName - $propertyName - $newList - $theClass")
     val recordId = {
       if (uuid != null) uuid else UUID.randomUUID.toString

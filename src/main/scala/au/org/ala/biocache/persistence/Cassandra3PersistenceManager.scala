@@ -13,6 +13,7 @@ import com.google.common.collect.MapMaker
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.inject.Inject
 import com.google.inject.name.Named
+import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
 import scala.collection.{JavaConversions}
@@ -65,13 +66,13 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * Retrieve the a list of key value pairs for the supplied UUID.
     *
-    * @param uuid
+    * @param rowKey
     * @param entityName
     * @return
     */
-  def get(uuid:String, entityName:String) : Option[Map[String, String]] = {
+  def get(rowKey:String, entityName:String) : Option[Map[String, String]] = {
     val stmt = getPreparedStmt(s"SELECT * FROM $entityName where rowkey = ? ALLOW FILTERING")
-    val boundStatement = stmt bind uuid
+    val boundStatement = stmt bind rowKey
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
     if (rows.hasNext()) {
@@ -231,30 +232,39 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * Store the supplied batch of maps of properties as separate columns in cassandra.
     */
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]], removeNullFields: Boolean) = {
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean) = {
     batch.keySet.foreach { rowkey =>
       val map = batch.get(rowkey)
       if(!map.isEmpty) {
-        put(rowkey, entityName, map.get, removeNullFields)
+        put(rowkey, entityName, map.get, newRecord, removeNullFields)
       }
     }
   }
 
   /**
-    * Store the supplied map of properties as separate columns in cassandra.
-    */
-  def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], removeNullFields: Boolean) = {
+   * Store the supplied map of properties as separate columns in cassandra.
+   */
+  def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean) = {
 
     try {
 
-      val keyValuePairsToUse = if(keyValuePairs.containsKey("rowkey") || keyValuePairs.containsKey("rowKey")){
-        keyValuePairs.-("rowKey").-("rowkey")
-      } else {
-        keyValuePairs
+      val keyValuePairsToUse = collection.mutable.Map(keyValuePairs.toSeq: _*)
+
+      if(keyValuePairsToUse.containsKey("rowkey") || keyValuePairsToUse.containsKey("rowKey")){
+        keyValuePairsToUse.remove("rowKey")
+        keyValuePairsToUse.remove("rowkey") //cassandra 3 is case insensitive, and returns columns lower case
+      }
+
+      //TEMPORARY WORKAROUND  - for clustered key issue with cassandra 3
+      if (entityName == "occ" && !keyValuePairsToUse.contains("dataResourceUid")) {
+        val dataResourceUid = rowkey.split("\\|")(0)
+        keyValuePairsToUse.put("dataResourceUid", dataResourceUid)
       }
 
       val placeHolders = ",?" * keyValuePairsToUse.size
-      val sql = s"INSERT INTO $entityName (rowkey," + keyValuePairsToUse.keySet.mkString(",") + ") VALUES (?" + placeHolders + ")"
+
+      val sql =
+          s"INSERT INTO $entityName (rowkey," + keyValuePairsToUse.keySet.mkString(",") + ") VALUES (?" + placeHolders + ")"
 
       val statement = getPreparedStmt(sql)
 
@@ -277,27 +287,40 @@ class Cassandra3PersistenceManager  @Inject() (
   }
 
   /**
-    * Store the supplied property value in the column
-    */
-  def put(uuid: String, entityName: String, propertyName: String, propertyValue: String, removeNullFields: Boolean) = {
-    val insertCQL = s"INSERT INTO $entityName (rowkey, $propertyName) VALUES (?,?)"
+   * Store the supplied property value in the column
+   */
+  def put(rowKey: String, entityName: String, propertyName: String, propertyValue: String, newRecord:Boolean, removeNullFields: Boolean) = {
+    val insertCQL = {
+      if(entityName == "occ"){
+        s"INSERT INTO $entityName (rowkey, dataresourceuid, $propertyName) VALUES (?,?,?)"
+      } else {
+        s"INSERT INTO $entityName (rowkey, $propertyName) VALUES (?,?)"
+      }
+    }
     val statement = getPreparedStmt(insertCQL)
-    val boundStatement = statement.bind(uuid, propertyValue)
+    //FIXME a hack to factor out
+    val boundStatement = if(entityName == "occ"){
+      val dataResourceUid = rowKey.split("\\|")(0)
+      statement.bind(rowKey, dataResourceUid, propertyValue)
+    } else {
+      statement.bind(rowKey, propertyValue)
+    }
     val future = session.execute(boundStatement)
-    uuid
+    rowKey
   }
 
   /**
     * Store arrays in a single column as JSON.
     */
-  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_], overwrite: Boolean, removeNullFields: Boolean) = {
+  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_],
+                 newRecord: Boolean, overwrite: Boolean, removeNullFields: Boolean) = {
 
     val recordId = { if(uuid != null) uuid else UUID.randomUUID.toString }
 
     if (overwrite) {
       //val json = Json.toJSON(newList)
       val json:String = Json.toJSONWithGeneric(newList)
-      put(uuid, entityName, propertyName, json, removeNullFields)
+      put(uuid, entityName, propertyName, json, newRecord, removeNullFields)
 
     } else {
 
@@ -307,7 +330,7 @@ class Cassandra3PersistenceManager  @Inject() (
       if (column.isEmpty) {
         //write new values
         val json:String = Json.toJSONWithGeneric(newList)
-        put(uuid, entityName, propertyName, json, removeNullFields)
+        put(uuid, entityName, propertyName, json, newRecord, removeNullFields)
       } else {
         //retrieve the existing objects
         val currentList = Json.toListWithGeneric(column.get, theClass)
@@ -326,7 +349,7 @@ class Cassandra3PersistenceManager  @Inject() (
         // check equals
         //val newJson = Json.toJSON(buffer.toList)
         val newJson:String = Json.toJSONWithGeneric(buffer.toList)
-        put(uuid, entityName, propertyName, newJson, removeNullFields)
+        put(uuid, entityName, propertyName, newJson, newRecord, removeNullFields)
       }
     }
     recordId
@@ -337,17 +360,23 @@ class Cassandra3PersistenceManager  @Inject() (
     *
     * @param columnName The names of the columns that need to be provided for processing by the proc
     */
-  def pageOverSelect(entityName:String, proc:((String, Map[String,String]) => Boolean), startUuid:String, endUuid:String, pageSize:Int, columnName:String*){
-
+  def pageOverSelect(entityName:String, proc:((String, Map[String,String]) => Boolean), indexedField:String,
+                     indexedFieldValue:String, pageSize:Int, columnName:String*){
 
     val columnsString = "rowkey," + columnName.mkString(",")
 
     logger.debug("Start: Testing paging over all")
 
-    //page through the data
-    val stmt: Statement = new SimpleStatement(s"SELECT $columnsString FROM $entityName")
-    stmt.setFetchSize(1000)
-    val rs: ResultSet = session.execute(stmt)
+    val columns = Array(columnName:_*).mkString(",")
+
+    //get token value
+    val pagingQuery = if(StringUtils.isNotEmpty(indexedFieldValue)) {
+      s"SELECT rowkey,$columns FROM $entityName where $indexedField = '$indexedFieldValue' allow filtering"
+    } else {
+      s"SELECT rowkey,$columns FROM $entityName"
+    }
+
+    val rs: ResultSet = session.execute(pagingQuery)
     val rows: util.Iterator[Row] = rs.iterator
     var counter: Int = 0
     val start: Long = System.currentTimeMillis
@@ -356,10 +385,10 @@ class Cassandra3PersistenceManager  @Inject() (
       val rowkey = row.getString("rowkey")
       counter += 1
       val map = new util.HashMap[String, String]()
-      row.getColumnDefinitions.foreach { defin =>
-        val value = row.getString(defin.getName)
+      columnName.foreach { name =>
+        val value = row.getString(name)
         if(value != null){
-          map.put(defin.getName, value)
+          map.put(name, value)
         }
       }
 
@@ -370,13 +399,19 @@ class Cassandra3PersistenceManager  @Inject() (
     }
     //get token ranges....
     //iterate through each token range....
-    logger.debug("End: Testing paging over all")
+    logger.info(s"Finished: Testing paging over all. Records paged over: $counter")
+  }
+
+  private def getTokenValue(rowkey:String, entityName:String) : Long = {
+    val tokenQuery = s"SELECT token(?) FROM $entityName"
+    val rs: ResultSet = session.execute(tokenQuery, rowkey)
+    rs.iterator().next().getLong(0)
   }
 
   /**
     * Pages over the records returns the columns that fit within the startColumn and endColumn range
     */
-  def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String="", endUuid:String="", pageSize:Int=1000, startColumn:String="", endColumn:String="") : Unit =
+  def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String = "", endUuid:String = "", pageSize:Int=1000, startColumn:String="", endColumn:String = "") : Unit =
     throw new RuntimeException("No supported")
 
   /**
@@ -389,15 +424,32 @@ class Cassandra3PersistenceManager  @Inject() (
   def pageOverAll(entityName:String, proc:((String, Map[String, String]) => Boolean),
                   startUuid:String = "", endUuid:String = "", pageSize:Int = 1000) = {
 
+    throw new RuntimeException("Range paging not supported with cassandra 3...")
+  }
+
+  /**
+    * Iterate over all occurrences, passing the objects to a function.
+    * Function returns a boolean indicating if the paging should continue.
+    *
+    * @param proc
+    * @param indexedField the indexed field to page over.
+    */
+  def pageOverIndexedField(entityName:String, proc:((String, Map[String, String]) => Boolean),
+                           indexedField:String="", indexedFieldValue:String = "", pageSize:Int = 1000) = {
+
     logger.debug("Start: Testing paging over all")
 
-    //page through the data
-    val stmt: Statement = new SimpleStatement(s"SELECT * FROM $entityName")
-    stmt.setFetchSize(1000)
-    val rs: ResultSet = session.execute(stmt)
+    import JavaConversions._
+
+    val pagingQuery = s"SELECT * FROM $entityName where $indexedField = '$indexedFieldValue' allow filtering"
+
+//    val params = new java.util.HashMap[String, AnyRef]
+//    params.put("indexedFieldValue", indexedFieldValue)
+
+    val rs: ResultSet = session.execute(pagingQuery)
     val rows: util.Iterator[Row] = rs.iterator
-    var counter: Int = 0
-    val start: Long = System.currentTimeMillis
+    var counter = 0
+    val start = System.currentTimeMillis
     while (rows.hasNext) {
       val row = rows.next
       val rowkey = row.getString("rowkey")
@@ -410,8 +462,12 @@ class Cassandra3PersistenceManager  @Inject() (
         }
       }
 
-      val currentTime: Long = System.currentTimeMillis
-      logger.debug(row.getString(0) + " - records read: " + counter + ".  Records per sec: " + (counter.toFloat) / ((currentTime - start).toFloat / 1000f) + "  Time taken: " + ((currentTime - start) / 1000))
+      val currentTime = System.currentTimeMillis
+      val currentRowKey = row.getString(0)
+      val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
+      val timeInSec = (currentTime - start) / 1000
+
+      logger.debug(s"$currentRowKey - records read: $counter.  Records per sec: $recordsPerSec,  Time taken: $timeInSec")
 
       proc(rowkey, map.toMap)
     }
@@ -420,9 +476,11 @@ class Cassandra3PersistenceManager  @Inject() (
     logger.debug("End: Testing paging over all")
   }
 
+
   /***
+   * Page over all the records in this local node.
    *
-    * @param entityName
+   * @param entityName
    * @param proc
    * @param threads
    */
@@ -463,7 +521,11 @@ class Cassandra3PersistenceManager  @Inject() (
 
             logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
 
-            val stmt = new SimpleStatement("SELECT " + columnsString + " FROM occ where token(rowkey) > " + tokenRanges(tokenRangeIdx).getStart() + " and token(rowkey) < " + tokenRanges(tokenRangeIdx).getEnd())
+            val startToken = tokenRanges(tokenRangeIdx).getStart()
+            val endToken =  tokenRanges(tokenRangeIdx).getEnd()
+
+            val stmt = new SimpleStatement(s"SELECT $columnsString FROM occ where token(rowkey) > $startToken and token(rowkey) < $endToken")
+
             stmt.setFetchSize(1000)
             val rs = session.execute(stmt)
             val rows = rs.iterator()
@@ -475,19 +537,21 @@ class Cassandra3PersistenceManager  @Inject() (
               val map = new util.HashMap[String, String]()
               row.getColumnDefinitions.foreach { defin =>
                 val value = row.getString(defin.getName)
-                if(value != null){
+                if (value != null){
                   map.put(defin.getName, value)
                 }
               }
 
               proc(rowkey, map.toMap)
 
-              counter +=1
+              counter += 1
               if (counter % 10000 == 0) {
                 val currentTime = System.currentTimeMillis()
-                logger.info("[Token range : " + tokenRangeIdx + "] " + row.getString(0) + " records read: " + counter + ", records per sec: " +
-                  ( counter.toFloat) / ( (currentTime - start).toFloat / 1000f) + "  Time taken: " +
-                  ((currentTime - start) / 1000) + " seconds")
+                val currentRowkey = row.getString(0)
+                val recordsPerSec = ( counter.toFloat) / ( (currentTime - start).toFloat / 1000f)
+                val totalTimeInSec = ((currentTime - start) / 1000)
+                logger.info(s"[Token range : $tokenRangeIdx] $currentRowkey - records read: $counter " +
+                  s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds")
               }
             }
             return counter
@@ -495,6 +559,7 @@ class Cassandra3PersistenceManager  @Inject() (
         }
       callables.add(scanTask)
     }
+
     logger.info("Starting threads...")
     val futures: util.List[Future[Int]] = es.invokeAll(callables)
     logger.info("All threads have completed paging")
@@ -567,7 +632,7 @@ class Cassandra3PersistenceManager  @Inject() (
     pageOverLocal(entityName, (guid, map) => {
       //insert into secondary index
       map.get("uuid") match {
-        case Some(uuid) => put(uuid, entityName + "_" + indexField, "value", guid, false)
+        case Some(uuid) => put(uuid, entityName + "_" + indexField, "value", guid, true, false)
         case None => println(s"Record with guid: $guid missing $indexField value")
       }
       counter += 1
@@ -582,4 +647,6 @@ class Cassandra3PersistenceManager  @Inject() (
 
     counter
   }
+
+
 }

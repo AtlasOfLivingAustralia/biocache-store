@@ -112,7 +112,7 @@ class DwCALoader extends DataLoader {
         val strip = dataResourceConfig.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
         var loaded = false
         var maxLastModifiedDate:java.util.Date = null
-        dataResourceConfig.urls.foreach(url => {
+        dataResourceConfig.urls.foreach { url =>
           //download
           val (fileName,date) = downloadArchive(url,resourceUid, if(forceLoad) None else dataResourceConfig.dateLastChecked)
           if(maxLastModifiedDate == null || date.after(maxLastModifiedDate)){
@@ -121,10 +121,10 @@ class DwCALoader extends DataLoader {
           logger.info("File last modified date: " + maxLastModifiedDate)
           if(fileName != null){
             //load the DWC file
-            loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental,testFile, removeNullFields)
+            loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental, testFile, removeNullFields)
             loaded = true
           }
-        })
+        }
         //now update the last checked and if necessary data currency dates
         if(!testFile){
           updateLastChecked(resourceUid, if(loaded) Some(maxLastModifiedDate) else None)
@@ -259,7 +259,7 @@ class DwCALoader extends DataLoader {
       //lookup the column
       val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, star, uniqueTerms, None)
       if(mappedProps.isDefined && uniqueID.isDefined){
-        Config.persistenceManager.put(uniqueID.get, "occ", mappedProps.get, removeNullFields)
+        Config.persistenceManager.put(uniqueID.get, "occ", mappedProps.get, isNew, removeNullFields)
       }
 
       //add the record uuid to the map

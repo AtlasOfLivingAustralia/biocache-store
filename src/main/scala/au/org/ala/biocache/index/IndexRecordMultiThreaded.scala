@@ -264,7 +264,7 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
       }
     } ++ empty
     //revise the properties in the db
-    Config.persistenceManager.put(guid, "occ", map, false)
+    Config.persistenceManager.put(guid, "occ", map, false, false)
 
     //check to see if there is a tool QA and remove one
     val dupQA = list.filter(_.code == AssertionCodes.INFERRED_DUPLICATE_RECORD.code)
@@ -272,7 +272,7 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
     if (dupQA.size > 1) {
       val newList: List[QualityAssertion] = list.diff(dupQA) ++ List(dupQA(0))
       //println("Original size " + list.length + "  new size =" + newList.length)
-      Config.persistenceManager.putList(guid, "occ", FullRecordMapper.qualityAssertionColumn, newList, classOf[QualityAssertion], true, false)
+      Config.persistenceManager.putList(guid, "occ", FullRecordMapper.qualityAssertionColumn, newList, classOf[QualityAssertion], false, true, false)
     }
 
     (gk, tk)
@@ -419,7 +419,7 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
  * @param startKey
  * @param endKey
  */
-class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
+class LoadSamplingRunner(centralCounter: Counter, threadId: Int, dataResourceUID: String) extends Runnable {
 
   val logger = LoggerFactory.getLogger("LoadSamplingRunner")
   var ids = 0
@@ -429,17 +429,17 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
   def run {
     var counter = 0
     val start = System.currentTimeMillis
-    logger.info("Starting thread " + threadId + " from " + startKey + " to " + endKey)
+    logger.info("Starting thread " + threadId + " for " + dataResourceUID)
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
-      val lat = map.getOrElse("decimalLatitude.p","")
-      val lon = map.getOrElse("decimalLongitude.p","")
+      val lat = map.getOrElse("decimalLatitude" +Config.persistenceManager.fieldDelimiter+ "p","")
+      val lon = map.getOrElse("decimalLongitude" +Config.persistenceManager.fieldDelimiter + "p" ,"")
       if(lat != null && lon != null){
         val point = LocationDAO.getSamplesForLatLon(lat, lon)
         if(!point.isEmpty){
           val (location, environmentalLayers, contextualLayers) = point.get
           Config.persistenceManager.put(guid, "occ", Map(
-                      "el.p" -> Json.toJSON(environmentalLayers),
-                      "cl.p" -> Json.toJSON(contextualLayers)), false)
+                      "el" + Config.persistenceManager.fieldDelimiter+ "p" -> Json.toJSON(environmentalLayers),
+                      "cl" + Config.persistenceManager.fieldDelimiter+ "p" -> Json.toJSON(contextualLayers)), false, false)
         }
         counter += 1
         if(counter % 10000 == 0){
@@ -447,7 +447,7 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
         }
       }
       true
-    }, startKey, endKey, 1000, "decimalLatitude.p", "decimalLongitude.p" )
+    }, "dataResourceUID", dataResourceUID, 1000, "decimalLatitude" + Config.persistenceManager.fieldDelimiter+ "p", "decimalLongitude" +Config.persistenceManager.fieldDelimiter+"p" )
     val fin = System.currentTimeMillis
     logger.info("[LoadSamplingRunner Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
     logger.info("Finished.")
@@ -459,10 +459,8 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
  *
  * @param centralCounter
  * @param threadId
- * @param startKey
- * @param endKey
  */
-class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
+class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, dataResourceUID: String) extends Runnable {
   val logger = LoggerFactory.getLogger("ProcessRecordsRunner")
   val processor = new RecordProcessor
   var ids = 0
@@ -476,7 +474,7 @@ class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Str
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     //var buff = new ArrayBuffer[(FullRecord,FullRecord)]
-    println("Starting thread " + threadId + " from " + startKey + " to " + endKey)
+    println("Starting thread " + threadId + " for " + dataResourceUID)
     val batches = new scala.collection.mutable.ListBuffer[Map[String, Object]]
     val batchSize = 200
     Config.occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
@@ -495,7 +493,7 @@ class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Str
         startTime = System.currentTimeMillis
       }
       true
-    }, startKey, endKey, 1000)
+    }, dataResourceUID, 1000)
     if (batches.length > 0) {
       processor.writeProcessBatch(batches.toList)
     }

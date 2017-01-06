@@ -41,7 +41,7 @@ object AttributionDAO {
   def add(institutionCode:String, collectionCode:String, attribution:Attribution){
     val guid = institutionCode.toUpperCase  + "|" + collectionCode.toUpperCase
     val map = FullRecordMapper.mapObjectToProperties(attribution)
-    persistenceManager.put(guid, columnFamily, map, false)
+    persistenceManager.put(guid, columnFamily, map, true, false)
   }
 
   /**

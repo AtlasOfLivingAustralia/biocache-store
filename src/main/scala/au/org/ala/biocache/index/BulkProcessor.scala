@@ -94,89 +94,87 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
       })
     }
 
-    if (parser.parse(args)) {
-      if (validActions.contains(action)) {
-        val (query, startValue, endValue) = if (dr.isDefined){
-          ("data_resource_uid:" + dr.get, dr.get + "|", dr.get + "|~")
-        } else {
-          ("*:*", start, end)
-        }
-
-        val ranges = if (keys.isEmpty){
-          calculateRanges(numThreads, query, startValue, endValue)
-        } else {
-          generateRanges(keys.get, startValue, endValue)
-        }
-
-        if (action == "range") {
-          logger.info(ranges.mkString("\n"))
-        } else {
-          var counter = 0
-          val threads = new ArrayBuffer[Thread]
-          val columnRunners = new ArrayBuffer[ColumnReporterRunner]
-          val solrDirs = new ArrayBuffer[String]
-          ranges.foreach { case (startKey, endKey)  =>
-            logger.info("start: " + startKey + ", end key: " + endKey)
-
-            val ir = {
-              if (action == "datum") {
-                new DatumRecordsRunner(this, counter, startKey, endKey)
-              } else if (action == "repair") {
-                new RepairRecordsRunner(this, counter, startKey, endKey)
-              } else if (action == "index") {
-                solrDirs += (dirPrefix + "/solr-create/biocache-thread-" + counter + "/data/index")
-                new IndexRunner(this,
-                  counter,
-                  startKey,
-                  endKey,
-                  dirPrefix + "/solr-template/biocache/conf",
-                  dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf",
-                  pageSize
-                )
-              } else if (action == "process") {
-                new ProcessRecordsRunner(this, counter, startKey, endKey)
-              } else if (action == "load-sampling") {
-                new LoadSamplingRunner(this, counter, startKey, endKey)
-              } else if (action == "avro-export") {
-//                new AvroExportRunner(this, counter, startKey, endKey)
-//              } else if (action == "col" || action == "column-export") {
-                if (columns.isEmpty) {
-                  new ColumnReporterRunner(this, counter, startKey, endKey)
-                } else {
-                  new ColumnExporter(this, counter, startKey, endKey, columns.get.toList, includeRowkey, charSeparator)
-                }
-              } else {
-                new Thread()
-              }
-            }
-
-            val t = new Thread(ir)
-            t.start
-            threads += t
-
-            if (ir.isInstanceOf[ColumnReporterRunner]) {
-              columnRunners += ir.asInstanceOf[ColumnReporterRunner]
-            }
-            counter += 1
-          }
-
-          //wait for threads to complete and merge all indexes
-          threads.foreach { thread => thread.join }
-
-          if (action == "index") {
-            logger.info("Merging index segments")
-            IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
-            logger.info("Shutting down persistence manager")
-            Config.persistenceManager.shutdown
-          } else if (action == "col") {
-            var allSet: Set[String] = Set()
-            columnRunners.foreach(c => allSet ++= c.myset)
-            allSet = allSet.filterNot(it => it.endsWith(".p") || it.endsWith(".qa"))
-            logger.info("All set: " + allSet)
-          }
-        }
-      }
-    }
+//    if (parser.parse(args)) {
+//      if (validActions.contains(action)) {
+//        val query = if (dr.isDefined){
+//          "data_resource_uid:" + dr.get
+//        } else {
+//          "*:*"
+//        }
+//
+//        val ranges = if (keys.isEmpty){
+//          calculateRanges(numThreads, query)
+//        } else {
+//          generateRanges(keys.get)
+//        }
+//
+//        if (action == "range") {
+//          logger.info(ranges.mkString("\n"))
+//        } else {
+//          var counter = 0
+//          val threads = new ArrayBuffer[Thread]
+//          val columnRunners = new ArrayBuffer[ColumnReporterRunner]
+//          val solrDirs = new ArrayBuffer[String]
+//          ranges.foreach { case (startKey, endKey)  =>
+//            logger.info("start: " + startKey + ", end key: " + endKey)
+//
+//            val ir = {
+//              if (action == "datum") {
+//                new DatumRecordsRunner(this, counter, startKey, endKey)
+//              } else if (action == "repair") {
+//                new RepairRecordsRunner(this, counter, startKey, endKey)
+//              } else if (action == "index") {
+//                solrDirs += (dirPrefix + "/solr-create/biocache-thread-" + counter + "/data/index")
+//                new IndexRunner(this,
+//                  counter,
+//                  startKey,
+//                  endKey,
+//                  dirPrefix + "/solr-template/biocache/conf",
+//                  dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf",
+//                  pageSize
+//                )
+//              } else if (action == "process") {
+//                new ProcessRecordsRunner(this, counter, dr.getOrElse(""))
+//              } else if (action == "load-sampling") {
+//                new LoadSamplingRunner(this, counter, dr.getOrElse(""))
+//              } else if (action == "avro-export") {
+//                if (columns.isEmpty) {
+//                  new ColumnReporterRunner(this, counter, startKey, endKey)
+//                } else {
+//                  new ColumnExporter(this, counter, startKey, endKey, columns.get.toList, includeRowkey, charSeparator)
+//                }
+//              } else {
+//                new Thread()
+//              }
+//            }
+//
+//            val t = new Thread(ir)
+//            t.start
+//            threads += t
+//
+//            if (ir.isInstanceOf[ColumnReporterRunner]) {
+//              columnRunners += ir.asInstanceOf[ColumnReporterRunner]
+//            }
+//            counter += 1
+//          }
+//
+//          //wait for threads to complete and merge all indexes
+//          threads.foreach { thread => thread.join }
+//
+//          if (action == "index") {
+//            logger.info("Merging index segments")
+//            IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
+//            logger.info("Shutting down persistence manager")
+//            Config.persistenceManager.shutdown
+//          } else if (action == "col") {
+//            var allSet: Set[String] = Set()
+//            columnRunners.foreach(c => allSet ++= c.myset)
+//            allSet = allSet.filterNot(it => it.endsWith(".p") || it.endsWith(".qa"))
+//            logger.info("All set: " + allSet)
+//          }
+//        }
+//      }
+//    }
   }
 }
 

@@ -26,13 +26,13 @@ object FullRecordMapper {
   val alaModifiedColumn = "lastModifiedTime"
   val dateDeletedColumn ="dateDeleted"
   val lastUserAssertionDateColumn ="lastUserAssertionDate"
-  val environmentalLayersColumn = "el.p"
-  val contextualLayersColumn = "cl.p"
+  val environmentalLayersColumn = "el" + Config.persistenceManager.fieldDelimiter + "p"
+  val contextualLayersColumn = "cl"  + Config.persistenceManager.fieldDelimiter + "p"
   val deletedColumn = "deleted"
   val miscPropertiesColumn = "miscProperties"
   val geospatialQa = "loc"
   val taxonomicalQa = "class"
-  val queryAssertionColumn = "queryAssertions.p"
+  val queryAssertionColumn = "queryAssertions"  + Config.persistenceManager.fieldDelimiter + "p"
 
   val qaFields = Processors.processorMap.values.map(processor=> markAsQualityAssertion(processor.asInstanceOf[Processor].getName))
 

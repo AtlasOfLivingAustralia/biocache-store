@@ -475,7 +475,7 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
               Config.occurrenceDAO.addSystemAssertion(rowKey, QualityAssertion(AssertionCodes.SPECIES_OUTSIDE_EXPERT_RANGE, roundedDistance + " metres outside of expert distribution range"), replaceExistCode=true)
 
               // Record distance against record
-              Config.persistenceManager.put(rowKey, "occ", Map("distanceOutsideExpertRange.p" -> roundedDistance.toString()), false)
+              Config.persistenceManager.put(rowKey, "occ", Map("distanceOutsideExpertRange.p" -> roundedDistance.toString()), false, false)
             }
 
             newOutlierRowKeys += rowKey
@@ -526,7 +526,7 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
 
       // Store row keys for the LSID in the distribution_outliers column family
       val newRowKeysJson = Json.toJSON(newOutlierRowKeys.toList)
-      Config.persistenceManager.put(lsid, "distribution_outliers", ExpertDistributionOutlierTool.DISTRIBUTION_OUTLIERS_COLUMN_FAMILY_KEY, newRowKeysJson, false)
+      Config.persistenceManager.put(lsid, "distribution_outliers", ExpertDistributionOutlierTool.DISTRIBUTION_OUTLIERS_COLUMN_FAMILY_KEY, newRowKeysJson, true, false)
       logger.info("Number of records: "+ recordsMap.size + " outlier count: " +newOutlierRowKeys.size + " passed records: " + passedRowKeys.size)
 
       //now mark all the records that have passed

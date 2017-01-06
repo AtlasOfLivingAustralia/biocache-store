@@ -154,18 +154,17 @@ object IndexRecords extends Tool with IncrementalTool {
       logger.info("Indexing will be restricted to records changed after " + date.get)
     }
 
-    val endKey = if(dataResource.isEmpty || endUuid.isDefined) endUuid.getOrElse("") else dataResource.get +"|~"
-    if(startKey == ""){
+    if(dataResource.isEmpty){
       logger.info("Starting full index")
     } else {
-      logger.info("Starting to index " + startKey + " until " + endKey)
+      logger.info("Starting to index " + dataResource.get)
     }
-    indexRange(startKey, endKey, date, checkDeleted, miscIndexProperties = miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, callback = callback, test=test)
+    indexRange(dataResource.getOrElse(""), date, checkDeleted, miscIndexProperties = miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, callback = callback, test=test)
     //index any remaining items before exiting
     indexer.finaliseIndex(optimise, shutdown)  
   }
 
-  def indexRange(startUuid:String, endUuid:String, startDate:Option[Date]=None, checkDeleted:Boolean=false,
+  def indexRange(dataResourceUID:String, startDate:Option[Date]=None, checkDeleted:Boolean=false,
                  pageSize:Int = 1000, miscIndexProperties:Seq[String] = Array[String](),
                  userProvidedTypeMiscIndexProperties :Seq[String] = Array[String](),
                  callback:ObserverCallback = null, test:Boolean =false) {
@@ -201,7 +200,7 @@ object IndexRecords extends Tool with IncrementalTool {
         startTime = System.currentTimeMillis
       }
       true
-    }, startUuid, endUuid, checkDeleted = checkDeleted, pageSize = pageSize)
+    }, dataResourceUID, checkDeleted = checkDeleted, pageSize = pageSize)
 
     if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
     if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
@@ -213,8 +212,7 @@ object IndexRecords extends Tool with IncrementalTool {
   /**
    * Page over records function
    */
-  def performPaging(proc: ((String, Map[String, String]) => Boolean), startKey: String = "",
-                    endKey: String = "", pageSize: Int = 1000, checkDeleted: Boolean = false) {
+  def performPaging(proc: ((String, Map[String, String]) => Boolean), dataResourceUID:String,  pageSize: Int = 1000, checkDeleted: Boolean = false) {
     if (checkDeleted) {
       persistenceManager.pageOverSelect("occ", (guid, map) => {
         if (map.getOrElse(FullRecordMapper.deletedColumn, "false").equals("false")) {
@@ -224,11 +222,11 @@ object IndexRecords extends Tool with IncrementalTool {
           }
         }
         true
-      }, startKey, endKey, pageSize, "uuid", "rowKey", FullRecordMapper.deletedColumn)
+      }, "dataResourceUID", dataResourceUID, pageSize, "uuid", "rowKey", FullRecordMapper.deletedColumn)
     } else {
-      persistenceManager.pageOverAll("occ", (guid, map) => {
+      persistenceManager.pageOverIndexedField("occ", (guid, map) => {
         proc(guid, map)
-      }, startKey, endKey, pageSize)
+      }, "dataResourceUID", dataResourceUID, pageSize)
     }
   }
 
