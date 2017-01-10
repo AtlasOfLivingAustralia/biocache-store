@@ -145,6 +145,8 @@ object GridUtil {
     ""
   }
 
+  private def padWithZeros(ref:String, pad:Int) = ("0" *  (pad - ref.length)) + ref
+
   /**
     * Takes a grid reference and returns a map of grid references at different resolutions.
     * Map will look like:
@@ -168,31 +170,28 @@ object GridUtil {
 
           if (gridRef.length > 2) {
 
-            var eastingAsStr = (gr.easting.toInt % 1000000).toString
-            var northingAsStr = (gr.northing.toInt % 1000000).toString
-
-            if (eastingAsStr.length == 5) eastingAsStr = "0" + eastingAsStr
-            if (northingAsStr.length == 5) northingAsStr = "0" + northingAsStr
+            val eastingAsStr = padWithZeros((gr.easting.toInt % 100000).toString, 5)
+            val northingAsStr = padWithZeros((gr.northing.toInt % 100000).toString, 5)
 
             //add grid references for 10km, and 1km
-            if (eastingAsStr.length() >= 3 && northingAsStr.length() >= 3) {
-              map.put("grid_ref_10000", gr.gridLetters + eastingAsStr.substring(1, 2) + northingAsStr.substring(1, 2))
+            if (eastingAsStr.length() >= 2 && northingAsStr.length() >= 2) {
+              map.put("grid_ref_10000", gr.gridLetters + eastingAsStr.substring(0, 1) + northingAsStr.substring(0, 1))
             }
-            if (eastingAsStr.length() >= 4 && northingAsStr.length() >= 4) {
-              val eastingWithin10km = eastingAsStr.substring(2, 3).toInt
-              val northingWithin10km = northingAsStr.substring(2, 3).toInt
+            if (eastingAsStr.length() >= 3 && northingAsStr.length() >= 3) {
+              val eastingWithin10km = eastingAsStr.substring(1, 2).toInt
+              val northingWithin10km = northingAsStr.substring(1, 2).toInt
               val tetrad = tetradLetters((eastingWithin10km / 2) * 5 + (northingWithin10km /2))
 
               if(gridSize != -1 && gridSize <= 2000){
-                map.put("grid_ref_2000", gr.gridLetters + eastingAsStr.substring(1, 2) + northingAsStr.substring(1, 2) + tetrad)
+                map.put("grid_ref_2000", gr.gridLetters + eastingAsStr.substring(0, 1) + northingAsStr.substring(0, 1) + tetrad)
               }
               if(gridSize != -1 && gridSize <= 1000) {
-                map.put("grid_ref_1000", gr.gridLetters + eastingAsStr.substring(1, 3) + northingAsStr.substring(1, 3))
+                map.put("grid_ref_1000", gr.gridLetters + eastingAsStr.substring(0, 2) + northingAsStr.substring(0, 2))
               }
             }
 
-            if (gridSize != -1 && gridSize <= 100 && eastingAsStr.length > 4) {
-              map.put("grid_ref_100", gr.gridLetters + eastingAsStr.substring(1, 4) + northingAsStr.substring(1, 4))
+            if (gridSize != -1 && gridSize <= 100 && eastingAsStr.length > 3) {
+              map.put("grid_ref_100", gr.gridLetters + eastingAsStr.substring(0, 3) + northingAsStr.substring(0, 3))
             }
           }
       }
