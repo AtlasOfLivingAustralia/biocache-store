@@ -35,17 +35,29 @@ class ProcessLocalRecords {
 
     val processor = new RecordProcessor
     val start = System.currentTimeMillis()
+    var lastLog = System.currentTimeMillis()
+    var updateCount = 0
 
     val total = Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
       if(!record.isEmpty){
         val raw = record.get._1
         val (processed, assertions) = processor.processRecord(raw)
-        Config.occurrenceDAO.updateOccurrence(raw.getRowKey, processed, Versions.PROCESSED)
+        Config.occurrenceDAO.updateOccurrence(raw.rowKey, processed, Versions.PROCESSED)
+        updateCount += 1
+        if(updateCount % 1000 == 0){
+          val end = System.currentTimeMillis()
+          val timeInSecs = ((end-lastLog).toFloat / 1000f  )
+          val recordsPerSec = Math.round(1000f/timeInSecs)
+          logger.info(s"Total records processed : $updateCount. Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
+          lastLog = end
+        }
       }
       true
     }, threads)
 
     val end = System.currentTimeMillis()
-    logger.info("Total records processed : " + total + " in " + ((end-start).toFloat / 60f /60f) + " minutes")
+    val timeInMinutes = ((end-start).toFloat / 100f / 60f / 60f)
+    val timeInSecs = ((end-start).toFloat / 1000f  )
+    logger.info(s"Total records processed : $updateCount in $timeInSecs seconds (or $timeInMinutes minutes)")
   }
 }

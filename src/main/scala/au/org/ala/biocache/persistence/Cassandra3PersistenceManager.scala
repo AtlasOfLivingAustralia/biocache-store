@@ -10,7 +10,7 @@ import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{DCAwareRoundRobinPolicy, TokenAwarePolicy}
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import com.google.common.collect.MapMaker
-import com.google.common.util.concurrent.MoreExecutors
+import com.google.common.util.concurrent.{AsyncFunction, ListenableFuture, Futures, MoreExecutors}
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang3.StringUtils
@@ -486,28 +486,16 @@ class Cassandra3PersistenceManager  @Inject() (
    */
   def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
 
-    val metadata = cluster.getMetadata
-    val allHosts = metadata.getAllHosts
-    val localHost = {
-      var localhost:Host = null
-      allHosts.foreach { host =>
-        if (host.getAddress().getHostAddress() == Config.localNodeIp) {
-          localhost = host
-        }
-      }
-      localhost
-    }
 
-    logger.debug("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
+    //paging threads, processing threads
 
-    val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges(keyspace, localHost)).toArray(new Array[TokenRange](0))
-    for (tokenRange <- tokenRanges) {
-      logger.debug("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
-    }
+    //retrieve token ranges for local node
+    val tokenRanges: Array[TokenRange] = getTokenRangesForLocalNode
 
     val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
     val callables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
 
+    //generate a set of callable tasks, each with their own token range...
     for (tokenRangeIdx <- 0 until tokenRanges.length){
 
       val scanTask = new Callable[Int]{
@@ -542,6 +530,7 @@ class Cassandra3PersistenceManager  @Inject() (
                 }
               }
 
+              //processing - does this want to be on a separate thread ??
               proc(rowkey, map.toMap)
 
               counter += 1
@@ -560,7 +549,7 @@ class Cassandra3PersistenceManager  @Inject() (
       callables.add(scanTask)
     }
 
-    logger.info("Starting threads...")
+    logger.info("Starting threads...number of callables " + callables.size())
     val futures: util.List[Future[Int]] = es.invokeAll(callables)
     logger.info("All threads have completed paging")
 
@@ -570,6 +559,136 @@ class Cassandra3PersistenceManager  @Inject() (
       grandTotal += count
     }
     grandTotal
+  }
+
+  /***
+    * Page over all the records in this local node.
+    *
+    * @param entityName
+    * @param proc
+    * @param threads
+    */
+  def pageOverLocalAsync(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
+
+    //retrieve token ranges for local node
+    val tokenRanges: Array[TokenRange] = getTokenRangesForLocalNode
+
+    //threads for paging
+    val pagingExecutors = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(4).asInstanceOf[ThreadPoolExecutor])
+
+    //threads for processing
+    val processingExecutors = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(4).asInstanceOf[ThreadPoolExecutor])
+
+    //paging callables
+    val pagingCallables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
+
+    //generate a set of callable tasks, each with their own token range...
+    for (tokenRangeIdx <- 0 until tokenRanges.length){
+
+      val scanTask = new Callable[Int]{
+        def call() : Int = {
+
+          val columnsString = if(columns.length > 0){
+            columns.mkString(",")
+          } else {
+            "*"
+          }
+
+          logger.info("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
+
+          val startToken = tokenRanges(tokenRangeIdx).getStart()
+          val endToken =  tokenRanges(tokenRangeIdx).getEnd()
+
+          val stmt = new SimpleStatement(s"SELECT $columnsString FROM occ where token(rowkey) > $startToken and token(rowkey) < $endToken")
+
+          val future: ListenableFuture[ResultSet] = Futures.transform(session.executeAsync(stmt), iterate(tokenRangeIdx, 1, proc), processingExecutors)
+
+          while(!future.isDone){
+            Thread.sleep(1000)
+          }
+          0
+        }
+      }
+      pagingCallables.add(scanTask)
+    }
+
+    logger.info("Starting threads...")
+    val futures: util.List[Future[Int]] = pagingExecutors.invokeAll(pagingCallables)
+    logger.info("All threads have completed paging")
+
+    var grandTotal: Int = 0
+    for (f <- futures) {
+      val count:Int = f.get.asInstanceOf[Int]
+      grandTotal += count
+    }
+    grandTotal
+  }
+
+   def iterate(tokenRange:Int, page: Int, proc:((String, Map[String, String]) => Boolean)): AsyncFunction[ResultSet, ResultSet] = new AsyncFunction[ResultSet, ResultSet]() {
+
+      @throws(classOf[Exception])
+      def apply(rs: ResultSet): ListenableFuture[ResultSet] = {
+
+        logger.info(s"Iterating over token range $tokenRange")
+        var remainingInPage = rs.getAvailableWithoutFetching
+        var count = 0
+        var lastUUID: String = ""
+        import scala.collection.JavaConversions._
+
+        rs.iterator().takeWhile { _ =>
+          remainingInPage > 0
+        }.foreach { row =>
+          count += 1
+          lastUUID = row.getString(0)
+          val rowkey = row.getString("rowkey")
+          val map = new util.HashMap[String, String]()
+          row.getColumnDefinitions.foreach { defin =>
+            val value = row.getString(defin.getName)
+            if (value != null){
+              map.put(defin.getName, value)
+            }
+          }
+
+          //processing - does this want to be on a separate thread ??
+          proc(rowkey, map.toMap)
+
+          remainingInPage = remainingInPage - 1
+        }
+
+//        println(s"[Token range $tokenRange] Done page $page, records $records, last UUID $lastUUID")
+//        println(count)
+        val wasLastPage = rs.getExecutionInfo.getPagingState == null
+        if (wasLastPage) {
+//          System.out.println("Done iterating")
+          return Futures.immediateFuture(rs)
+        }
+        else {
+          val future: ListenableFuture[ResultSet] = rs.fetchMoreResults
+          return Futures.transform(future, iterate(tokenRange, page + 1, proc))
+        }
+      }
+  }
+
+  def getTokenRangesForLocalNode: Array[TokenRange] = {
+    val metadata = cluster.getMetadata
+    val allHosts = metadata.getAllHosts
+    val localHost = {
+      var localhost: Host = null
+      allHosts.foreach { host =>
+        if (host.getAddress().getHostAddress() == Config.localNodeIp) {
+          localhost = host
+        }
+      }
+      localhost
+    }
+
+    logger.debug("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
+
+    val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges(keyspace, localHost)).toArray(new Array[TokenRange](0))
+    for (tokenRange <- tokenRanges) {
+      logger.debug("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+    }
+    tokenRanges
   }
 
   private def unwrapTokenRanges(wrappedRanges: util.Set[TokenRange]) : util.Set[TokenRange] = {

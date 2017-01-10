@@ -232,6 +232,7 @@ object CMD2 {
     Loader,
     OptimiseIndex,
     ProcessAll,
+    ProcessLocalRecords,
     ProcessSingleRecord,
     ProcessUuids,
     ProcessRecords,

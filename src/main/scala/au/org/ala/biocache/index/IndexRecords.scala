@@ -239,17 +239,17 @@ object IndexRecords extends Tool with IncrementalTool {
     var finishTime = System.currentTimeMillis
     val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
     val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
-    rowKeys.foreach(rowKey=>{
+    rowKeys.foreach { rowKey =>
       counter += 1
       val map = persistenceManager.get(rowKey, "occ")
       val shouldcommit = counter % 10000 == 0
-      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit=shouldcommit, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
+      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit = shouldcommit, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
       if (counter % 100 == 0) {
         finishTime = System.currentTimeMillis
         logger.debug(counter + " >> Last key : " + rowKey + ", records per sec: " + 100f / (((finishTime - startTime).toFloat) / 1000f))
         startTime = System.currentTimeMillis
       }
-    })
+    }
     if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
     if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
     indexer.finaliseIndex(false, false)  //commit but don't optimise or shutdown

@@ -161,7 +161,7 @@ class RecordProcessor {
       assertions += (processor.getName -> processor.process(raw.rowKey, raw, processed))
     })
 
-    //store the occurrence
+    //return the processed version and assertions
     (processed, assertions.toMap)
   }
 

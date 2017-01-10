@@ -476,7 +476,7 @@ trait DataLoader {
       //handle the situation where the files name is not supplied in the URL but in the Content-Disposition
       val contentDisp = urlConnection.getHeaderField("Content-Disposition")
       if(contentDisp != null){
-          logger.info(" Content-Disposition: " + contentDisp)
+          logger.info("Content-Disposition: " + contentDisp)
       }
       val in = urlConnection.getInputStream()
       val (file, isZipped, isGzipped) = {

@@ -181,7 +181,7 @@ object ClassificationDAO {
                 cl.getClasss + " " + cl.getOrder + " " + cl.getFamily)
             }
           } else {
-            logger.warn("Recursively unable to locate a synonym for " + cl)
+            logger.warn("Recursively unable to locate a synonym for " + cl.scientificName)
           }
         }
         lock.synchronized { lru.put(hash, result) }
