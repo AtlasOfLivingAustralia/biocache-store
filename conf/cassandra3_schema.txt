@@ -2,10 +2,9 @@ CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replicatio
   use occ;
 
   CREATE TABLE occ_uuid (
-    uuid varchar,
     rowkey varchar,
-    dataresourceuid varchar,
-    PRIMARY KEY (uuid)
+    value varchar,
+    PRIMARY KEY (rowkey)
   );
 
   DROP TABLE occ;
@@ -106,7 +105,7 @@ CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replicatio
       familyID_p varchar,
       fieldNotes varchar,
       fieldNumber varchar,
-      firstLoaded timestamp,
+      firstLoaded varchar,
       footprintSpatialFit varchar,
       footprintSRS varchar,
       footprintWKT varchar,
@@ -326,6 +325,7 @@ CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replicatio
       cl_p varchar,
     PRIMARY KEY (rowkey, dataresourceuid)
   );
+
 
 CREATE TABLE loc (
   rowkey varchar,

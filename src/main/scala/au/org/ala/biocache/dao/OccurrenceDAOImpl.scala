@@ -499,7 +499,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     persistenceManager.put(fr.rowKey, entityName, properties.toMap, true, deleteIfNullValue)
 
     //store a secondary index value
-    persistenceManager.put(fr.uuid, entityName + "_uuid", "rowKey", fr.rowKey, true, false)
+    persistenceManager.put(fr.uuid, entityName + "_uuid", "value", fr.rowKey, true, false)
   }
 
   /**
@@ -521,7 +521,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         }
       }
       batch.put(fr.rowKey, properties.toMap)
-      batchSecondaryIndex.put(fr.uuid, Map("uuid" -> fr.uuid, "rowkey" -> fr.rowKey))
+      batchSecondaryIndex.put(fr.uuid, Map("value" -> fr.rowKey))
     }
     //commit
     persistenceManager.putBatch(entityName, batch.toMap, true, removeNullFields)
