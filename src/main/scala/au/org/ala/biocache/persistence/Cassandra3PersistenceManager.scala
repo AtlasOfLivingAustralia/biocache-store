@@ -694,13 +694,21 @@ class Cassandra3PersistenceManager  @Inject() (
       val tokenRangesForThisNode = new Array[TokenRange](tokenRangesPerNode)
       val startAtRange = Config.nodeNumber * tokenRangesPerNode
 
+      logger.info(s"#######  tokenRanges " + tokenRanges.size)
+      logger.info(s"#######  tokenRangesPerNode $tokenRangesPerNode")
       logger.info(s"#######  Starting at range $startAtRange")
 
-      tokenRangesSorted.copyToArray(tokenRangesForThisNode, Config.nodeNumber * tokenRangesPerNode)
+      val startIdx = Config.nodeNumber * tokenRangesPerNode
+      val endIdx = startIdx + tokenRangesPerNode
+
+      (startIdx to endIdx).foreach { idx:Int =>
+        tokenRangesForThisNode(idx % tokenRangesPerNode) = tokenRangesSorted(idx)
+      }
 
       for (tokenRange <- tokenRangesForThisNode) {
         logger.info("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
       }
+
       tokenRangesForThisNode
     } else {
       for (tokenRange <- tokenRanges) {
