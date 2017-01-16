@@ -188,6 +188,14 @@ object Config {
 
   val localNodeIp = configModule.properties.getProperty("local.node.ip", "127.0.0.1")
 
+  /** Whether or not full replication is in use in the cassandra cluster */
+  val usingFullReplication = configModule.properties.getProperty("using.full.replication", "true").toBoolean
+
+  /** The node number  */
+  val nodeNumber = configModule.properties.getProperty("node.number", "0").toInt
+
+  val clusterSize = configModule.properties.getProperty("cluster.size", "1").toInt
+
   def getProperty(prop:String) = configModule.properties.getProperty(prop)
 
   private def getProperty(prop:String, default:String) = configModule.properties.getProperty(prop,default)

@@ -670,6 +670,7 @@ class Cassandra3PersistenceManager  @Inject() (
   }
 
   def getTokenRangesForLocalNode: Array[TokenRange] = {
+
     val metadata = cluster.getMetadata
     val allHosts = metadata.getAllHosts
     val localHost = {
@@ -682,13 +683,31 @@ class Cassandra3PersistenceManager  @Inject() (
       localhost
     }
 
-    logger.debug("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
+    logger.info("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
 
     val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges(keyspace, localHost)).toArray(new Array[TokenRange](0))
-    for (tokenRange <- tokenRanges) {
-      logger.debug("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+
+    if(Config.usingFullReplication){
+      logger.info("#######  Using full replication, so splitting token ranges based on node number " + Config.nodeNumber)
+      val tokenRangesSorted = tokenRanges.sorted
+      val tokenRangesPerNode = tokenRangesSorted.size / Config.clusterSize
+      val tokenRangesForThisNode = new Array[TokenRange](tokenRangesPerNode)
+      val startAtRange = Config.nodeNumber * tokenRangesPerNode
+
+      logger.info(s"#######  Starting at range $startAtRange")
+
+      tokenRangesSorted.copyToArray(tokenRangesForThisNode, Config.nodeNumber * tokenRangesPerNode)
+
+      for (tokenRange <- tokenRangesForThisNode) {
+        logger.info("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+      }
+      tokenRangesForThisNode
+    } else {
+      for (tokenRange <- tokenRanges) {
+        logger.debug("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+      }
+      tokenRanges
     }
-    tokenRanges
   }
 
   private def unwrapTokenRanges(wrappedRanges: util.Set[TokenRange]) : util.Set[TokenRange] = {
