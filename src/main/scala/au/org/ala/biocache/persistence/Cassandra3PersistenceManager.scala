@@ -699,7 +699,7 @@ class Cassandra3PersistenceManager  @Inject() (
       logger.info(s"#######  Starting at range $startAtRange")
 
       val startIdx = Config.nodeNumber * tokenRangesPerNode
-      val endIdx = startIdx + tokenRangesPerNode
+      val endIdx = startIdx + tokenRangesPerNode - 1
 
       (startIdx to endIdx).foreach { idx:Int =>
         tokenRangesForThisNode(idx % tokenRangesPerNode) = tokenRangesSorted(idx)
