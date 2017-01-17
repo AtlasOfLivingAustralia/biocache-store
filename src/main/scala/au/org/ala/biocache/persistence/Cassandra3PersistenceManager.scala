@@ -513,7 +513,7 @@ class Cassandra3PersistenceManager  @Inject() (
             val endToken =  tokenRanges(tokenRangeIdx).getEnd()
 
             val stmt = new SimpleStatement(s"SELECT $columnsString FROM occ where token(rowkey) > $startToken and token(rowkey) < $endToken")
-            stmt.setSerialConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
+//            stmt.setSerialConsistencyLevel(ConsistencyLevel.ONE)
             stmt.setFetchSize(1000)
             val rs = session.execute(stmt)
             val rows = rs.iterator()
