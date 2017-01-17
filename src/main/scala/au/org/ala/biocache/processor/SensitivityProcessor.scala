@@ -57,7 +57,7 @@ class SensitivityProcessor extends Processor {
 
     //needs to be performed for all records whether or not they are in Australia
     //get a map representation of the raw record...
-    val rawMap = scala.collection.mutable.Map[String, String]()
+    val rawMap = new java.util.HashMap[String,String]()
     raw.objectArray.foreach { poso =>
       val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
       rawMap.putAll(map)
