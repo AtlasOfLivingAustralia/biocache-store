@@ -43,16 +43,15 @@ object ProcessUuids extends Tool {
         records = Config.occurrenceDAO.getAllVersionsByUuid(uuid)
       }
       if (!records.isEmpty) {
-        logger.info("Processing record.....")
+        logger.info("Processing record: " + uuid)
         processor.processRecord(records.get(0), records.get(1))
         val processedRecord = Config.occurrenceDAO.getByRowKey(records.get(1).rowKey, Processed)
         val objectMapper = new ObjectMapper
-        if (!processedRecord.isEmpty)
-          logger.info(objectMapper.writeValueAsString(processedRecord.get))
-        else
-          logger.info("Record not found")
+        if (processedRecord.isEmpty) {
+          logger.info("Record not found: " + uuid)
+        }
       } else {
-        logger.info("UUID or row key not stored....")
+        logger.info("UUID or row key not stored: " + uuid)
       }
     })
     print("\n\nSupply a Row Key for a record: ")
