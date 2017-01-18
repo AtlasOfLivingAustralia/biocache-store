@@ -6,9 +6,9 @@
     <fileSets>
         <fileSet>
             <directory>${project.build.directory}/appassembler/</directory>
-            <outputDirectory>${project.build.directory}</outputDirectory>
+            <outputDirectory>/</outputDirectory>
             <includes>
-                <include>**/*</include>
+                <include>/**</include>
             </includes>
         </fileSet>
     </fileSets>
