@@ -9,7 +9,7 @@ import au.org.ala.biocache.dao.OccurrenceDAO
 import org.apache.solr.common.{SolrDocument, SolrInputDocument}
 import java.io.{FileWriter, OutputStream, File}
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
-import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrServer}
+import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrClient, CloudSolrClient, ConcurrentUpdateSolrServer}
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.common.params.{MapSolrParams, ModifiableSolrParams}
 import java.util.Date
@@ -46,7 +46,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   var cc: CoreContainer = _
   var solrServer: SolrClient = _
-  var cloudServer: org.apache.solr.client.solrj.impl.CloudSolrServer = _
+  var cloudServer: CloudSolrClient = _
   var solrConfigPath: String = ""
 
   @Inject
@@ -73,22 +73,22 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       if(!solrHome.startsWith("http://")){
         if(solrHome.contains(":")) {
           //assume that it represents a SolrCloud
-          cloudServer = new org.apache.solr.client.solrj.impl.CloudSolrServer(solrHome)
+          cloudServer = new CloudSolrClient(solrHome)
           cloudServer.setDefaultCollection("biocache1")
           solrServer = cloudServer
         } else if (solrConfigPath != "") {
           logger.info("Initialising embedded SOLR server.....")
-          cc = CoreContainer.createAndLoad(new File(solrHome+"/solr.xml").toPath)
+          cc = CoreContainer.createAndLoad(new File(solrHome).toPath)
           solrServer = new EmbeddedSolrServer(cc, "biocache")
         } else {
           logger.info("Initialising embedded SOLR server.....")
           System.setProperty("solr.solr.home", solrHome)
-          cc = CoreContainer.createAndLoad(new File(solrHome + "/solr.xml").toPath)//new CoreContainer(solrHome)
+          cc = CoreContainer.createAndLoad(new File(solrHome).toPath)//new CoreContainer(solrHome)
           solrServer = new EmbeddedSolrServer(cc, "biocache")
         }
       } else {
         logger.info("Initialising connection to SOLR server.....")
-        solrServer = new ConcurrentUpdateSolrServer(solrHome, BATCH_SIZE, Config.solrUpdateThreads)
+        solrServer = new ConcurrentUpdateSolrClient(solrHome, BATCH_SIZE, Config.solrUpdateThreads)
         logger.info("Initialising connection to SOLR server - done.")
       }
     }

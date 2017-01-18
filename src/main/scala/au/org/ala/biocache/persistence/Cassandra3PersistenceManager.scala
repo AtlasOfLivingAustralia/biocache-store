@@ -565,7 +565,7 @@ class Cassandra3PersistenceManager  @Inject() (
           val startToken = tokenRanges(tokenRangeIdx).getStart()
           val endToken =  tokenRanges(tokenRangeIdx).getEnd()
 
-          val stmt = new SimpleStatement(s"SELECT $columnsString FROM occ where token(rowkey) > $startToken and token(rowkey) < $endToken")
+          val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) < $endToken")
           stmt.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
           stmt.setFetchSize(1000)
 
@@ -694,7 +694,7 @@ class Cassandra3PersistenceManager  @Inject() (
           val startToken = tokenRanges(tokenRangeIdx).getStart()
           val endToken =  tokenRanges(tokenRangeIdx).getEnd()
 
-          val stmt = new SimpleStatement(s"SELECT $columnsString FROM occ where token(rowkey) > $startToken and token(rowkey) < $endToken")
+          val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) < $endToken")
 
           val future: ListenableFuture[ResultSet] = Futures.transform(session.executeAsync(stmt), iterate(tokenRangeIdx, 1, proc), processingExecutors)
 

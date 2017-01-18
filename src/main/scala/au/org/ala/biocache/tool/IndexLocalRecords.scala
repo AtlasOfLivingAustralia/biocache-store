@@ -21,17 +21,17 @@ object IndexLocalRecords  extends Tool {
 
   def main(args:Array[String]){
 
-    var threads:Int = 1
-    var address:String = "127.0.0.1"
+    var threads = 1
+    var address = "127.0.0.1"
     var solrHome = "/data/solr/"
-    var solrConfigXmlPath =  solrHome + "/biocache/conf/solrconfig.xml"
+    var solrConfigXmlPath = solrHome + "/biocache/conf/solrconfig.xml"
     var zkc = ""
     val parser = new OptionParser(help) {
-      opt("local-ip", "local-ip-node", "The address", {v:String => address = v } )
-      opt("zkc", "zk-config",  "Zookeeper instance host:port to retrieve SOLR configuration from", {v:String => zkc = v })
+      opt("local-ip", "local-ip-node", "The address", { v:String => address = v } )
+      opt("zkc", "zk-config",  "Zookeeper instance host:port to retrieve SOLR configuration from", { v:String => zkc = v })
       opt("sh", "solr-home",  "SOLR home directory on the file system or the zookeeper host:port if rewriting directly to SOLR cloud instance", {v:String => solrHome = v })
-      opt("sc", "solr-config-path",  "SOLR Config XML file path", {v:String => solrConfigXmlPath = v })
-      intOpt("t", "no-of-threads", "The number of threads to use", {v:Int => threads = v } )
+      opt("sc", "solr-config-path",  "SOLR Config XML file path", { v:String => solrConfigXmlPath = v })
+      intOpt("t", "no-of-threads", "The number of threads to use", { v:Int => threads = v } )
     }
     if(parser.parse(args)){
       val ilr = new IndexLocalRecords()
