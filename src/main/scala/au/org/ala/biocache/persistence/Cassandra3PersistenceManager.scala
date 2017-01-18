@@ -511,7 +511,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
           val MAX_QUERY_RETRIES = 5
           var retryCount = 0
-          var needToRetry = false
+          var needToRetry = true
           var hasNext = false
           while(retryCount < MAX_QUERY_RETRIES && needToRetry){
             try {
@@ -533,7 +533,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
           val MAX_QUERY_RETRIES = 5
           var retryCount = 0
-          var needToRetry = false
+          var needToRetry = true
           var row:Row = null
           while(retryCount < MAX_QUERY_RETRIES && needToRetry){
             try {
@@ -571,7 +571,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
           val rs = {
             var retryCount = 0
-            var needToRetry = false
+            var needToRetry = true
             var success:ResultSet = null
             while(retryCount < MAX_QUERY_RETRIES && needToRetry){
               try {
