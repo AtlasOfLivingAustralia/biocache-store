@@ -3,29 +3,14 @@
     <formats>
         <format>zip</format>
     </formats>
-    <includeBaseDirectory>false</includeBaseDirectory>
-    <dependencySets>
-        <dependencySet>
-            <useProjectArtifact>true</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <scope>runtime</scope>
-            <fileMode>0755</fileMode>
-            <directoryMode>0755</directoryMode>
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.directory}/appassembler/</directory>
+            <outputDirectory>${project.build.directory}</outputDirectory>
             <includes>
-                <include>au.org.ala:biocache-store</include>
+                <include>**/*</include>
             </includes>
-        </dependencySet>
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <scope>runtime</scope>
-            <fileMode>0644</fileMode>
-            <directoryMode>0755</directoryMode>
-            <outputDirectory>lib</outputDirectory>
-            <includes></includes>
-        </dependencySet>
-    </dependencySets>
+        </fileSet>
+    </fileSets>
 </assembly>
 
