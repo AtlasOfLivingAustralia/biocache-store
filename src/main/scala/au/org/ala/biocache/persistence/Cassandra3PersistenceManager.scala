@@ -486,46 +486,123 @@ class Cassandra3PersistenceManager  @Inject() (
    */
   def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
 
+    val MAX_QUERY_RETRIES = 5
 
     //paging threads, processing threads
 
     //retrieve token ranges for local node
     val tokenRanges: Array[TokenRange] = getTokenRangesForLocalNode
+//
+    val startRange = {
+      System.getProperty("startAtTokenRange", "0").toInt
+    }
+    logger.info(s"Starting at token range $startRange")
+
 
     val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
     val callables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
 
     //generate a set of callable tasks, each with their own token range...
-    for (tokenRangeIdx <- 0 until tokenRanges.length){
+    for (tokenRangeIdx <- startRange until tokenRanges.length){
 
       val scanTask = new Callable[Int]{
+
+        def hasNextWithRetries(rows:Iterator[Row]) : Boolean = {
+
+          val MAX_QUERY_RETRIES = 5
+          var retryCount = 0
+          var needToRetry = false
+          var hasNext = false
+          while(retryCount < MAX_QUERY_RETRIES && needToRetry){
+            try {
+              hasNext = rows.hasNext
+              needToRetry = false
+            } catch {
+              case e:Exception => {
+                logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+                retryCount = retryCount + 1
+                needToRetry = true
+                Thread.sleep(5000)
+              }
+            }
+          }
+          hasNext
+        }
+
+        def getNextWithRetries(rows:Iterator[Row]) : Row = {
+
+          val MAX_QUERY_RETRIES = 5
+          var retryCount = 0
+          var needToRetry = false
+          var row:Row = null
+          while(retryCount < MAX_QUERY_RETRIES && needToRetry){
+            try {
+              row = rows.next()
+              needToRetry = false
+            } catch {
+              case e:Exception => {
+                logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+                retryCount = retryCount + 1
+                needToRetry = true
+                Thread.sleep(5000)
+              }
+            }
+          }
+          row
+        }
+
         def call() : Int = {
 
-            val columnsString = if(columns.length > 0){
-              columns.mkString(",")
-            } else {
-              "*"
+          val columnsString = if(columns.length > 0){
+            columns.mkString(",")
+          } else {
+            "*"
+          }
+
+          logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
+
+          var counter = 0
+          val startToken = tokenRanges(tokenRangeIdx).getStart()
+          val endToken =  tokenRanges(tokenRangeIdx).getEnd()
+
+          val stmt = new SimpleStatement(s"SELECT $columnsString FROM occ where token(rowkey) > $startToken and token(rowkey) < $endToken")
+          stmt.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
+          stmt.setFetchSize(1000)
+
+          val rs = {
+            var retryCount = 0
+            var needToRetry = false
+            var success:ResultSet = null
+            while(retryCount < MAX_QUERY_RETRIES && needToRetry){
+              try {
+                success = session.execute(stmt)
+                needToRetry = false
+              } catch {
+                case e:Exception => {
+                  logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+                  retryCount = retryCount + 1
+                  needToRetry = true
+                  Thread.sleep(5000)
+                }
+              }
             }
+            success
+          }
 
-            logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
+          if(rs != null) {
 
-            val startToken = tokenRanges(tokenRangeIdx).getStart()
-            val endToken =  tokenRanges(tokenRangeIdx).getEnd()
-
-            val stmt = new SimpleStatement(s"SELECT $columnsString FROM occ where token(rowkey) > $startToken and token(rowkey) < $endToken")
-            stmt.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
-            stmt.setFetchSize(1000)
-            val rs = session.execute(stmt)
             val rows = rs.iterator()
-            var counter = 0
+
             val start = System.currentTimeMillis()
-            while (rows.hasNext()) {
-              val row = rows.next()
+
+            //need retries
+            while (hasNextWithRetries(rows)) {
+              val row = getNextWithRetries(rows)
               val rowkey = row.getString("rowkey")
               val map = new util.HashMap[String, String]()
               row.getColumnDefinitions.foreach { defin =>
                 val value = row.getString(defin.getName)
-                if (value != null){
+                if (value != null) {
                   map.put(defin.getName, value)
                 }
               }
@@ -537,15 +614,16 @@ class Cassandra3PersistenceManager  @Inject() (
               if (counter % 10000 == 0) {
                 val currentTime = System.currentTimeMillis()
                 val currentRowkey = row.getString(0)
-                val recordsPerSec = ( counter.toFloat) / ( (currentTime - start).toFloat / 1000f)
+                val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
                 val totalTimeInSec = ((currentTime - start) / 1000)
                 logger.info(s"[Token range : $tokenRangeIdx] $currentRowkey - records read: $counter " +
                   s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds")
               }
             }
-            return counter
           }
+          counter
         }
+      }
       callables.add(scanTask)
     }
 
@@ -560,6 +638,8 @@ class Cassandra3PersistenceManager  @Inject() (
     }
     grandTotal
   }
+
+
 
   /***
     * Page over all the records in this local node.
