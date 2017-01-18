@@ -1,6 +1,7 @@
 package au.org.ala.biocache.tool
 
 import java.io.{FileWriter, File}
+import java.util.concurrent.ConcurrentLinkedQueue
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.caches.LocationDAO
@@ -55,21 +56,25 @@ class SampleLocalRecords {
 
     val locFilePath = workingDir + "/loc-local.txt"
     val fw = new FileWriter(locFilePath)
+    val queue = new ConcurrentLinkedQueue[String]()
 
     //export from loc table to file
     Config.persistenceManager.pageOverLocal("loc", (key, map) => {
       val lat = map.getOrElse("lat", "")
       val lon = map.getOrElse("lon", "")
       if(lat != "" && lon != ""){
-        fw.write(lon)
-        fw.write(",")
-        fw.write(lat)
-        fw.write("\n")
-        fw.flush
+        queue.add(lon+"," + lat + "\n")
       }
       true
     }, threads, Array("rowkey", "lat", "lon"))
 
+    val iter = queue.iterator()
+
+    while (iter.hasNext){
+      fw.write(iter.next())
+    }
+
+    fw.flush
     fw.close
 
     //run sampling
