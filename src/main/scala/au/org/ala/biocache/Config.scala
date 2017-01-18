@@ -186,6 +186,8 @@ object Config {
 
   val loadSpeciesLists = configModule.properties.getProperty("include.species.lists", "false").toBoolean
 
+  val useAsyncPaging =  configModule.properties.getProperty("cassandra.async.paging.enabled", "false").toBoolean
+
   val localNodeIp = configModule.properties.getProperty("local.node.ip", "127.0.0.1")
 
   /** Whether or not full replication is in use in the cassandra cluster */

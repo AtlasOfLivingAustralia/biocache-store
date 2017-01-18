@@ -484,7 +484,7 @@ class Cassandra3PersistenceManager  @Inject() (
    * @param proc
    * @param threads
    */
-  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
+  private def pageOverLocalNotAsync(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
 
     val MAX_QUERY_RETRIES = 5
 
@@ -639,7 +639,22 @@ class Cassandra3PersistenceManager  @Inject() (
     grandTotal
   }
 
-
+  /**
+    * Page over data local to the cassandra instance.
+    *
+    * @param entityName
+    * @param proc
+    * @param threads
+    * @param columns
+    * @return
+    */
+  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
+    if(Config.useAsyncPaging){
+      pageOverLocalAsync(entityName, proc, threads, columns)
+    } else {
+      pageOverLocalNotAsync(entityName, proc, threads, columns)
+    }
+  }
 
   /***
     * Page over all the records in this local node.
@@ -648,7 +663,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * @param proc
     * @param threads
     */
-  def pageOverLocalAsync(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
+  private def pageOverLocalAsync(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
 
     //retrieve token ranges for local node
     val tokenRanges: Array[TokenRange] = getTokenRangesForLocalNode
