@@ -89,6 +89,8 @@ object ClassificationDAO {
       //attempt 1: search via taxonConceptID if provided
       val idnsr = if(cl.taxonConceptID != null) {
         nameIndex.searchForRecordByLsid(cl.taxonConceptID)
+      } else if (cl.taxonID != null) {
+        nameIndex.searchForRecordByLsid(cl.taxonID)
       } else {
         null
       }
