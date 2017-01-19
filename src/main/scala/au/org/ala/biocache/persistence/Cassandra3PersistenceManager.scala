@@ -275,7 +275,7 @@ class Cassandra3PersistenceManager  @Inject() (
         val values = Array(rowkey) ++ keyValuePairsToUse.values.toArray[String]
         statement.bind(values: _*)
       }
-      val future = session.execute(boundStatement)
+      val future = session.executeAsync(boundStatement)
       rowkey
     } catch {
       case e:Exception => {
