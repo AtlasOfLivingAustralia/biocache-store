@@ -275,7 +275,7 @@ class Cassandra3PersistenceManager  @Inject() (
         val values = Array(rowkey) ++ keyValuePairsToUse.values.toArray[String]
         statement.bind(values: _*)
       }
-      val future = session.executeAsync(boundStatement)
+      val future = session.execute(boundStatement)
       rowkey
     } catch {
       case e:Exception => {
@@ -786,7 +786,13 @@ class Cassandra3PersistenceManager  @Inject() (
       val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges()).toArray(new Array[TokenRange](0))
 
       logger.info("#######  Using full replication, so splitting token ranges based on node number " + Config.nodeNumber)
+      logger.info("#######  Total number of token ranges for cluster " + tokenRanges.length)
       val tokenRangesSorted = tokenRanges.sorted
+
+      for (tokenRange <- tokenRangesSorted) {
+        logger.info("#######  Token ranges for this node - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+      }
+
       val tokenRangesPerNode = tokenRangesSorted.size / Config.clusterSize
       val tokenRangesForThisNode = new Array[TokenRange](tokenRangesPerNode)
       val startAtRange = Config.nodeNumber * tokenRangesPerNode
@@ -798,12 +804,14 @@ class Cassandra3PersistenceManager  @Inject() (
       val startIdx = Config.nodeNumber * tokenRangesPerNode
       val endIdx = startIdx + tokenRangesPerNode - 1
 
+      logger.info(s"#######  Index range $startIdx to $endIdx")
+
       (startIdx to endIdx).foreach { idx:Int =>
         tokenRangesForThisNode(idx % tokenRangesPerNode) = tokenRangesSorted(idx)
       }
 
       for (tokenRange <- tokenRangesForThisNode) {
-        logger.info("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+        logger.info("#######  Token ranges for this node - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
       }
 
       tokenRangesForThisNode
