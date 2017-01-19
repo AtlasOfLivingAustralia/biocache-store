@@ -45,7 +45,9 @@ object ClassificationDAO {
     val hash = {
       if(cl.vernacularName == null || cl.scientificName != null || cl.specificEpithet != null
         || cl.infraspecificEpithet != null || cl.kingdom != null || cl.phylum != null
-        || cl.classs != null || cl.order != null || cl.family !=null  || cl.genus!=null){
+        || cl.classs != null || cl.order != null || cl.family !=null  || cl.genus!=null
+        || cl.taxonConceptID != null || cl.taxonID != null
+      ){
         Array(cl.kingdom,cl.phylum,cl.classs,cl.order,cl.family,cl.genus,cl.species,cl.specificEpithet,
           cl.subspecies,cl.infraspecificEpithet,cl.scientificName,cl.taxonRank,cl.taxonConceptID,cl.taxonID).reduceLeft(_+"|"+_)
       } else {
@@ -86,7 +88,7 @@ object ClassificationDAO {
       cachedObject.asInstanceOf[Option[MetricsResultDTO]]
     } else {
 
-      //attempt 1: search via taxonConceptID if provided
+      //attempt 1: search via taxonConceptID or taxonID if provided
       val idnsr = if(cl.taxonConceptID != null) {
         nameIndex.searchForRecordByLsid(cl.taxonConceptID)
       } else if (cl.taxonID != null) {
