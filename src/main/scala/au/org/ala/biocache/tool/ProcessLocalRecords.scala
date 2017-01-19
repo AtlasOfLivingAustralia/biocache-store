@@ -41,6 +41,7 @@ class ProcessLocalRecords {
     val total = Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
       if(!record.isEmpty){
         val raw = record.get._1
+        val rowkey = raw.rowKey
         val (processed, assertions) = processor.processRecord(raw)
         Config.occurrenceDAO.updateOccurrence(raw.rowKey, processed, Versions.PROCESSED)
         updateCount += 1
@@ -48,7 +49,7 @@ class ProcessLocalRecords {
           val end = System.currentTimeMillis()
           val timeInSecs = ((end-lastLog).toFloat / 1000f  )
           val recordsPerSec = Math.round(1000f/timeInSecs)
-          logger.info(s"Total records processed : $updateCount. Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
+          logger.info(s"Total processed : $updateCount. Last rowkey: $rowkey  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
           lastLog = end
         }
       }
