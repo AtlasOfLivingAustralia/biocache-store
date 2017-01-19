@@ -577,6 +577,17 @@
             <groupId>org.gbif.crawler</groupId>
             <artifactId>crawler</artifactId>
             <version>0.27</version>
+            <exclusions>
+            	<!-- We use Log4j-1.2 as our slf4j logger -->
+            	<exclusion>
+            		<groupId>ch.qos.logback</groupId>
+            		<artifactId>logback-classic</artifactId>
+            	</exclusion>
+            	<exclusion>
+            		<groupId>ch.qos.logback</groupId>
+            		<artifactId>logback-core</artifactId>
+            	</exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
     <organization>
@@ -781,6 +792,7 @@
                         <includeConfigurationDirectoryInClasspath>true</includeConfigurationDirectoryInClasspath>
                         <projectArtifactFirstInClassPath>true</projectArtifactFirstInClassPath>
                         <configurationDirectory>etc</configurationDirectory>
+			<copyConfigurationDirectory>true</copyConfigurationDirectory>
                         <programs>
                             <program>
                                 <id>biocache</id>
@@ -791,7 +803,7 @@
                                     <extraArguments>
                                         <extraArgument>$BIOCACHE_OPTS</extraArgument>
                                         <extraArgument>-Dfile.encoding=UTF8</extraArgument>
-                                        <extraArgument>-Dlog4j.configuration=etc/log4j.xml</extraArgument>
+                                        <extraArgument>-Dlog4j.configuration=log4j.xml</extraArgument>
                                         <extraArgument>-Dactors.corePoolSize=8</extraArgument>
                                         <extraArgument>-Dactors.maxPoolSize=16</extraArgument>
                                         <extraArgument>-Dactors.minPoolSize=8</extraArgument>
