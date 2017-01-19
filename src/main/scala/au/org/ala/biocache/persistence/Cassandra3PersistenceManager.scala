@@ -780,9 +780,11 @@ class Cassandra3PersistenceManager  @Inject() (
 
     logger.info("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
 
-    val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges(keyspace, localHost)).toArray(new Array[TokenRange](0))
 
     if(Config.usingFullReplication){
+
+      val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges()).toArray(new Array[TokenRange](0))
+
       logger.info("#######  Using full replication, so splitting token ranges based on node number " + Config.nodeNumber)
       val tokenRangesSorted = tokenRanges.sorted
       val tokenRangesPerNode = tokenRangesSorted.size / Config.clusterSize
@@ -806,6 +808,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
       tokenRangesForThisNode
     } else {
+      val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges(keyspace, localHost)).toArray(new Array[TokenRange](0))
       for (tokenRange <- tokenRanges) {
         logger.debug("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
       }
