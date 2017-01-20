@@ -127,6 +127,7 @@ trait DataLoader {
 
     //optional config params for custom services
     val customParams = protocol.asInstanceOf[String].toLowerCase match {
+      // Only current data resource using this is dr710
       case "customwebservice" => {
         val params = connectionParameters.getOrElse("params", "").asInstanceOf[String]
         JSON.parseFull(params).getOrElse(Map[String, String]()).asInstanceOf[Map[String, String]]
