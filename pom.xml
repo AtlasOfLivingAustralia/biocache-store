@@ -29,6 +29,9 @@
         <jts.version>1.13</jts.version>
         <jackson.version>2.8.4</jackson.version>
         <gt.version>2.7.5</gt.version>
+        <!-- Small defaults which are overridden on command line using -DinitialMemorySize=12g, for example -->
+        <initialMemorySize>4g</initialMemorySize>
+        <maximumMemorySize>4g</maximumMemorySize>
     </properties>
     <prerequisites>
         <maven>3.0.5</maven>
@@ -798,8 +801,8 @@
                                 <id>biocache</id>
                                 <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
                                 <jvmSettings>
-                                    <initialMemorySize>8g</initialMemorySize>
-                                    <maxMemorySize>8g</maxMemorySize>
+                                    <initialMemorySize>${initialMemorySize}</initialMemorySize>
+                                    <maxMemorySize>${maximumMemorySize}</maxMemorySize>
                                     <extraArguments>
                                         <extraArgument>$BIOCACHE_OPTS</extraArgument>
                                         <extraArgument>-Dfile.encoding=UTF8</extraArgument>
