@@ -74,7 +74,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         if(solrHome.contains(":")) {
           //assume that it represents a SolrCloud
           cloudServer = new CloudSolrClient(solrHome)
-          cloudServer.setDefaultCollection("biocache1")
+          cloudServer.setDefaultCollection("biocache")
           solrServer = cloudServer
         } else if (solrConfigPath != "") {
           logger.info("Initialising embedded SOLR server.....")
@@ -319,7 +319,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   def shouldIndex(map: scala.collection.Map[String, String], startDate: Option[Date]): Boolean = {
     if (!startDate.isEmpty) {
       val lastLoaded = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn, map))
-      val lastProcessed = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn + ".p", map))
+      val lastProcessed = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn + Config.persistenceManager.fieldDelimiter + "p", map))
       return startDate.get.before(lastProcessed.getOrElse(startDate.get)) || startDate.get.before(lastLoaded.getOrElse(startDate.get))
     }
     true
@@ -394,7 +394,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         //add the misc properties here....
         //NC 2013-04-23: Change this code to support data types in misc fields.
         if (!miscIndexProperties.isEmpty) {
-          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+          val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
             miscIndexProperties.foreach(prop => {
@@ -435,7 +435,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         }
 
         if (!userProvidedTypeMiscIndexProperties.isEmpty) {
-          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+          val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
             userProvidedTypeMiscIndexProperties.foreach(prop => {
@@ -477,7 +477,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
         //add additional fields to index
         if (!Config.additionalFieldsToIndex.isEmpty) {
-          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+          val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
             Config.additionalFieldsToIndex.foreach(prop => {
@@ -490,7 +490,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         }
 
         if (!arrDefaultMiscFields.isEmpty) {
-          val unparsedJson = map.getOrElse(FullRecordMapper.miscPropertiesColumn, "")
+          val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
             arrDefaultMiscFields.foreach(value => {
@@ -552,7 +552,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
         //now index the System QA assertions
         //NC 2013-08-01: It is very inefficient to make a JSONArray of QualityAssertions We will parse the raw string instead.
-        val qaJson  = map.getOrElse(FullRecordMapper.qualityAssertionColumn, "[]")
+        val qaJson  = getValue(FullRecordMapper.qualityAssertionColumn, map, "[]")
         val(qa, status) = extractPassAndFailed(qaJson)
         var sa = false
         status.foreach { case (test, status) =>
@@ -577,9 +577,13 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.addField("system_assertions", sa)
 
         //load the species lists that are configured for the matched guid.
-        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p",""))
-        speciesLists.foreach { v =>
-          doc.addField("species_list_uid", v)
+        val taxonConceptID = getParsedValue("taxonConceptID", map)
+
+        if(taxonConceptID != "") {
+          val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(taxonConceptID)
+          speciesLists.foreach { v =>
+            doc.addField("species_list_uid", v)
+          }
         }
 
         /**
@@ -616,7 +620,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
         }
 
-        val queryAssertions = Json.toStringMap(map.getOrElse(FullRecordMapper.queryAssertionColumn, "{}"))
+        val queryAssertions = Json.toStringMap(getValue( FullRecordMapper.queryAssertionColumn, map, "{}"))
         var suitableForModelling = true
         queryAssertions.foreach {
           case (key, value) => {

@@ -176,20 +176,36 @@ trait IndexDAO {
    * TODO Factor this out of indexing logic, and have a separate field in cassandra that stores this.
    * TODO Construction of this field can then happen as part of the processing.
    */
-  def getRawScientificName(map: scala.collection.Map[String, String]): String = {
+  def getRawScientificName(map: scala.collection.Map[String, String]) : String = {
     val scientificName: String = {
-      if (map.contains("scientificName")) {
-        map.get("scientificName").get
-      } else if (map.contains("genus")) {
-        var tmp: String = map.get("genus").get
-        if (map.contains("specificEpithet") || map.contains("species")) {
-          tmp = tmp + " " + map.getOrElse("specificEpithet", getValue("species", map))
-          if (map.contains("infraspecificEpithet") || map.contains("subspecies"))
-            tmp = tmp + " " + map.getOrElse("infraspecificEpithet", map.getOrElse("subspecies", ""))
+
+      val sciName = getValue("scientificName", map, "")
+      val genus = getValue("genus", map, "")
+      val family = getValue("family", map, "")
+
+      if (sciName != "") {
+        sciName
+      } else if (genus != "") {
+        var tmp = getValue("genus", map, "")
+        val specificEpithet = getValue("specificEpithet", map, "")
+        val species = getValue("species", map, "")
+        val infraspecificEpithet = getValue("infraspecificEpithet", map, "")
+        val subspecies = getValue("subspecies", map, "")
+
+        if (specificEpithet != "" || species != "") {
+          if (specificEpithet != "")
+            tmp = tmp + " " + specificEpithet
+          else
+            tmp = tmp + " " + species
+
+          if (infraspecificEpithet != "")
+            tmp = tmp + " " + infraspecificEpithet
+          else
+            tmp = tmp + " " + subspecies
         }
         tmp
       } else {
-        map.getOrElse("family", "")
+        family
       }
     }
     scientificName
@@ -205,7 +221,7 @@ trait IndexDAO {
 
     try {
       //get the lat lon values so that we can determine all the point values
-      val deleted = map.getOrElse(FullRecordMapper.deletedColumn, "false")
+      val deleted = getValue(FullRecordMapper.deletedColumn, map, "false")
       //only add it to the index is it is not deleted & not a blank record
       if (!deleted.equals("true") && map.size > 1) {
         var slat = getParsedValue("decimalLatitude", map)
@@ -369,9 +385,9 @@ trait IndexDAO {
         }
 
         //Only set the geospatially kosher field if there are coordinates supplied
-        val geoKosher = if (slat == "" && slon == "") "" else map.getOrElse(FullRecordMapper.geospatialDecisionColumn, "")
+        val geoKosher = if (slat == "" && slon == "") "" else getValue(FullRecordMapper.geospatialDecisionColumn, map, "")
         //val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
-        val userAssertionStatus: Int = map.getOrElse(FullRecordMapper.userAssertionStatusColumn, AssertionStatus.QA_NONE.toString).toInt
+        val userAssertionStatus: Int = getValue(FullRecordMapper.userAssertionStatusColumn, map, AssertionStatus.QA_NONE.toString).toInt
         val hasUserAss:String = userAssertionStatus match {
           case AssertionStatus.QA_NONE => "false"
           case _ => userAssertionStatus.toString
@@ -396,19 +412,19 @@ trait IndexDAO {
 
         val lastProcessed = DateParser.parseStringToDate(getParsedValue(FullRecordMapper.alaModifiedColumn, map))
 
-        val lastUserAssertion = DateParser.parseStringToDate(map.getOrElse(FullRecordMapper.lastUserAssertionDateColumn, ""))
+        val lastUserAssertion = DateParser.parseStringToDate(getValue(FullRecordMapper.lastUserAssertionDateColumn, map, ""))
 
         val firstLoadDate = DateParser.parseStringToDate(getValue("firstLoaded", map))
 
-        val loanDate = DateParser.parseStringToDate(map.getOrElse("loanDate", ""))
+        val loanDate = DateParser.parseStringToDate(getValue("loanDate",  map, ""))
 
-        val loanReturnDate = DateParser.parseStringToDate(map.getOrElse("loanReturnDate", ""))
+        val loanReturnDate = DateParser.parseStringToDate(getValue("loanReturnDate", map, ""))
 
         val dateIdentified = DateParser.parseStringToDate(getParsedValue("dateIdentified", map))
 
         val modifiedDate = DateParser.parseStringToDate(getParsedValue("modified", map))
 
-        var taxonIssue = map.getOrElse("taxonomicIssue.p", "[]")
+        var taxonIssue = getParsedValue("taxonomicIssue", map, "[]")
         if(!taxonIssue.startsWith("[")){
           logger.warn("WARNING " + map.getOrElse("rowKey","") +" does not have an updated taxonIssue: " + guid)
           taxonIssue = "[]"
@@ -506,8 +522,8 @@ trait IndexDAO {
           rawCountryCons,
           sensitive,
           getParsedValue("coordinateUncertaintyInMeters", map),
-          map.getOrElse("userId", ""),
-          map.getOrElse("userId", ""),
+          getValue("userId", map, ""),
+          getValue("userId", map, ""),
           getParsedValue("provenance", map),
           subspeciesGuid,
           subspeciesName,
@@ -517,18 +533,18 @@ trait IndexDAO {
           if (lastProcessed.isEmpty) "" else DateFormatUtils.format(lastProcessed.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (modifiedDate.isEmpty) "" else DateFormatUtils.format(modifiedDate.get,"yyy-MM-dd'T'HH:mm:ss'Z'"),
           getParsedValue("establishmentMeans", map).replaceAll("; ", "|"),
-          map.getOrElse("loanSequenceNumber", ""),
-          map.getOrElse("loanIdentifier", ""),
-          map.getOrElse("loanDestination", ""),
-          map.getOrElse("loanForBotanist", ""),
+          getValue("loanSequenceNumber", map, ""),
+          getValue("loanIdentifier", map, ""),
+          getValue("loanDestination", map, ""),
+          getValue("loanForBotanist", map, ""),
           if (loanDate.isEmpty) "" else DateFormatUtils.format(loanDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           if (loanReturnDate.isEmpty) "" else DateFormatUtils.format(loanReturnDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
-          map.getOrElse("originalNameUsage", map.getOrElse("typifiedName", "")),
-          map.getOrElse("duplicates", ""), //.replaceAll(",","|"),
-          map.getOrElse("recordNumber", ""),
+          getValue("originalNameUsage", map, getValue("typifiedName", map, "")),
+          getValue("duplicates", map, ""), //.replaceAll(",","|"),
+          getValue("recordNumber", map, ""),
           if (firstLoadDate.isEmpty) "" else DateFormatUtils.format(firstLoadDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"),
           getParsedValue("nameMatchMetric", map),
-          map.getOrElse("phenology", ""), //TODO make this a controlled vocab that gets mapped during processing...
+          getValue("phenology", map, ""),
           outlierForLayers.mkString("|"),
           outlierForLayers.length.toString,
           taxonIssueArray.mkString("|"),
@@ -570,7 +586,7 @@ trait IndexDAO {
           getValue("datasetName", map),
           getValue("reproductiveCondition", map),
           getParsedValue("license", map)
-        ) ::: Config.additionalFieldsToIndex.map(field => map.getOrElse(field, ""))
+        ) ::: Config.additionalFieldsToIndex.map(field => getValue(field, map, ""))
       } else {
         return List()
       }
@@ -598,46 +614,46 @@ trait IndexDAO {
  */
 case class IndexField(fieldName: String, dataType: String, sourceField: String, multi: Boolean = false, storeAsArray: Boolean = false, extraField: Option[String] = None, isMiscProperty: Boolean = false) {
 
-  def getValuesForIndex(map: Map[String, String]): (String, Option[Array[String]]) = {
-
-    //get the source value. Cater for the situation where we get the parsed value if raw doesn't exist
-    val sourceValue: String = if (sourceField.contains(",")) {
-      //There are multiple fields that supply the source for the field
-      val fields = sourceField.split(",")
-      fields.foldLeft("")((concat, value) => concat + "|" + map.getOrElse(value, ""))
-    } else {
-      map.getOrElse(sourceField, if (extraField.isDefined) map.getOrElse(extraField.get, "") else "")
-    }
-
-    dataType match {
-      case "date" => {
-        val date = DateParser.parseStringToDate(sourceValue)
-        if (date.isDefined)
-          return (fieldName, Some(Array(DateFormatUtils.format(date.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))))
-      }
-      case "double" => {
-        //needs to be a valid double
-        try {
-          java.lang.Double.parseDouble(sourceValue)
-          return (fieldName, Some(Array(sourceValue)))
-        } catch {
-          case _:Exception => (fieldName, None)
-        }
-      }
-      case _ => {
-        if (sourceValue.length > 0) {
-          if (multi && storeAsArray) {
-            val array = Json.toStringArray(sourceValue)
-            return (fieldName, Some(array))
-          }
-          if (multi) {
-            return (fieldName, Some(sourceValue.split(",")))
-          }
-        }
-      }
-    }
-    (fieldName, None)
-  }
+//  def getValuesForIndex(map: Map[String, String]): (String, Option[Array[String]]) = {
+//
+//    //get the source value. Cater for the situation where we get the parsed value if raw doesn't exist
+//    val sourceValue: String = if (sourceField.contains(",")) {
+//      //There are multiple fields that supply the source for the field
+//      val fields = sourceField.split(",")
+//      fields.foldLeft("")((concat, value) => concat + "|" + map.getOrElse(value, ""))
+//    } else {
+//      map.getOrElse(sourceField, if (extraField.isDefined) map.getOrElse(extraField.get, "") else "")
+//    }
+//
+//    dataType match {
+//      case "date" => {
+//        val date = DateParser.parseStringToDate(sourceValue)
+//        if (date.isDefined)
+//          return (fieldName, Some(Array(DateFormatUtils.format(date.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))))
+//      }
+//      case "double" => {
+//        //needs to be a valid double
+//        try {
+//          java.lang.Double.parseDouble(sourceValue)
+//          return (fieldName, Some(Array(sourceValue)))
+//        } catch {
+//          case _:Exception => (fieldName, None)
+//        }
+//      }
+//      case _ => {
+//        if (sourceValue.length > 0) {
+//          if (multi && storeAsArray) {
+//            val array = Json.toStringArray(sourceValue)
+//            return (fieldName, Some(array))
+//          }
+//          if (multi) {
+//            return (fieldName, Some(sourceValue.split(",")))
+//          }
+//        }
+//      }
+//    }
+//    (fieldName, None)
+//  }
 }
 
 object IndexFields {
