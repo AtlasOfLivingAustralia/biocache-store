@@ -4,7 +4,7 @@ import java.io.File
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
-import au.org.ala.biocache.index.SolrIndexDAO
+import au.org.ala.biocache.index.{SolrIndexDAO}
 import au.org.ala.biocache.util.OptionParser
 import org.apache.commons.io.FileUtils
 import org.apache.curator.framework.CuratorFrameworkFactory
@@ -12,9 +12,9 @@ import org.apache.curator.retry.RetryOneTime
 import org.slf4j.LoggerFactory
 
 /**
-  * Created by mar759 on 31/07/2016.
+  * A tool for indexing the local records of a node.
   */
-object IndexLocalRecords  extends Tool {
+object IndexLocalRecords extends Tool {
 
   def cmd = "index-local-node"
   def desc = "Index all records on a local node"
@@ -22,56 +22,72 @@ object IndexLocalRecords  extends Tool {
   def main(args:Array[String]){
 
     var threads = 1
-    var address = "127.0.0.1"
     var solrHome = "/data/solr/"
     var solrConfigXmlPath = solrHome + "/biocache/conf/solrconfig.xml"
-    var zkc = ""
+    var zkc = Config.zookeeperAddress
+    var optimise = false
+    var optimiseOnly = false
     val parser = new OptionParser(help) {
-      opt("local-ip", "local-ip-node", "The address", { v:String => address = v } )
       opt("zkc", "zk-config",  "Zookeeper instance host:port to retrieve SOLR configuration from", { v:String => zkc = v })
       opt("sh", "solr-home",  "SOLR home directory on the file system or the zookeeper host:port if rewriting directly to SOLR cloud instance", {v:String => solrHome = v })
       opt("sc", "solr-config-path",  "SOLR Config XML file path", { v:String => solrConfigXmlPath = v })
       intOpt("t", "no-of-threads", "The number of threads to use", { v:Int => threads = v } )
+      opt("optimise", "Optimise the new index once writing has completed", { optimise = true })
+      opt("optimise-only", "Optimise the new index once writing has completed", {
+        optimise = true
+        optimiseOnly = true
+      })
     }
     if(parser.parse(args)){
       val ilr = new IndexLocalRecords()
       if(zkc != ""){
         ilr.getZookeeperConfig(zkc)
       }
-      ilr.indexRecords(threads, address, solrHome, solrConfigXmlPath)
+      ilr.indexRecords(threads, solrHome, solrConfigXmlPath, optimise, optimiseOnly)
     }
   }
 }
 
 /**
-  * Created by mar759 on 29/07/2016.
+  * A class for local records indexing.
   */
 class IndexLocalRecords {
 
   val logger = LoggerFactory.getLogger("IndexLocalRecords")
 
-  def indexRecords(threads: Int, address: String, solrHome:String, solrConfigXmlPath:String): Unit = {
+  def indexRecords(threads: Int, solrHome:String, solrConfigXmlPath:String, optimise:Boolean, optimiseOnly:Boolean): Unit = {
 
     val start = System.currentTimeMillis()
     val indexer = new SolrIndexDAO(solrHome, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
     indexer.solrConfigPath = solrConfigXmlPath
 
-    val total = Config.persistenceManager.pageOverLocal("occ", (guid, map) => {
-      try {
-        indexer.indexFromMap(guid, map)
-      } catch {
-        case e:Exception => {
-          logger.error("Problem indexing record: " + guid + " - "  + e.getMessage())
-          logger.error("Problem indexing record: " + guid + " - "  + e.getMessage(), e)
+    if(!optimiseOnly) {
+      val total = Config.persistenceManager.pageOverLocal("occ", (guid, map) => {
+        try {
+          indexer.indexFromMap(guid, map)
+        } catch {
+          case e: Exception => {
+            logger.error("Problem indexing record: " + guid + " - " + e.getMessage())
+            logger.error("Problem indexing record: " + guid + " - " + e.getMessage(), e)
+          }
         }
-      }
-      true
-    }, threads, Array())
+        true
+      }, threads, Array())
 
-    val end = System.currentTimeMillis()
-    logger.info("Total records indexed : " + total + " in " + ((end-start).toFloat / 1000f / 60f) + " minutes")
+      val end = System.currentTimeMillis()
+      logger.info("Total records indexed : " + total + " in " + ((end - start).toFloat / 1000f / 60f) + " minutes")
 
-    indexer.commit()
+      indexer.commit()
+    }
+
+    if(optimise){
+      logger.info("Optimising index....")
+      indexer.optimise
+      logger.info("Optimising complete.")
+    } else {
+      logger.info("Optimisation skipped....")
+    }
+
     indexer.shutdown
 
     Config.persistenceManager.shutdown
@@ -110,5 +126,3 @@ class IndexLocalRecords {
     FileUtils.writeStringToFile(new File("/data/solr/biocache/core.properties"), "name=biocache\nconfig=solrconfig.xml\nschema=schema.xml\ndataDir=data")
   }
 }
-
-
