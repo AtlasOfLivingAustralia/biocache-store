@@ -25,17 +25,20 @@ object ProcessLocalRecords extends Tool {
 }
 
 /**
-  * Created by mar759 on 29/07/2016.
+  * A class for processing local records for this node.
   */
 class ProcessLocalRecords {
 
   val logger = LoggerFactory.getLogger("ProcessLocalRecords")
 
-  def processRecords(threads:Int): Unit = {
+  def processRecords(threads:Int) : Unit = {
 
     val processor = new RecordProcessor
     val start = System.currentTimeMillis()
     var lastLog = System.currentTimeMillis()
+
+    //note this update count isnt threadsafe, so its inaccurate
+    //its been left in to give a general idea of performance
     var updateCount = 0
 
     val total = Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
@@ -59,6 +62,6 @@ class ProcessLocalRecords {
     val end = System.currentTimeMillis()
     val timeInMinutes = ((end-start).toFloat / 100f / 60f / 60f)
     val timeInSecs = ((end-start).toFloat / 1000f  )
-    logger.info(s"Total records processed : $updateCount in $timeInSecs seconds (or $timeInMinutes minutes)")
+    logger.info(s"Total records processed : $total in $timeInSecs seconds (or $timeInMinutes minutes)")
   }
 }
