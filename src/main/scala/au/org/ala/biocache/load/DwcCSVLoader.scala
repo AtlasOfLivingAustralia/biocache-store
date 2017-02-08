@@ -71,7 +71,7 @@ object DwcCSVLoader extends Tool {
  */
 class DwcCSVLoader extends DataLoader {
 
-  def loadLocalFile(dataResourceUid:String, filePath:String,logRowKeys:Boolean=false, testFile:Boolean=false){
+  def loadLocalFile(dataResourceUid:String, filePath:String, logRowKeys:Boolean=false, testFile:Boolean=false){
     retrieveConnectionParameters(dataResourceUid) match {
       case None => logger.error("Unable to retrieve connection details for " + dataResourceUid)
       case Some(config) =>
@@ -94,8 +94,8 @@ class DwcCSVLoader extends DataLoader {
         val incremental = config.connectionParams.getOrElse("incremental",false).asInstanceOf[Boolean]
         var loaded = false
         var maxLastModifiedDate:java.util.Date = null
-        config.urls.foreach(url => {
-          val (fileName, date) = downloadArchive(url, dataResourceUid, if(forceLoad)None else config.dateLastChecked)
+        config.urls.foreach { url =>
+          val (fileName, date) = downloadArchive(url, dataResourceUid, if(forceLoad) None else config.dateLastChecked)
           if(maxLastModifiedDate == null || date.after(maxLastModifiedDate)) {
             maxLastModifiedDate = date
           }
@@ -105,7 +105,7 @@ class DwcCSVLoader extends DataLoader {
             loadDirectory(directory, dataResourceUid, config.uniqueTerms, config.connectionParams, strip, incremental || logRowKeys, testFile,  removeNullFields)
             loaded = true
           }
-        })
+        }
         //now update the last checked and if necessary data currency dates
         if(!testFile){
           updateLastChecked(dataResourceUid, if(loaded) Some(maxLastModifiedDate) else None)
@@ -158,18 +158,10 @@ class DwcCSVLoader extends DataLoader {
 
     logger.info("Using CSV reader with the following settings quotes: " + quotechar + " separator: " + separator + " escape: " + escape)
     //match the column headers to dwc terms
-    val dwcTermHeaders = {
-      val headerLine = reader.readNext
-      if(headerLine != null){
-        val columnHeaders = headerLine.map(t => t.replace(" ", "").trim).toList
-        DwC.retrieveCanonicals(columnHeaders)
-      } else {
-        null
-      }
-    }
+    val dwcTermHeaders = mapHeadersToDwC(reader)
 
     if(dwcTermHeaders == null){
-      logger.warn("No content in file.")
+      logger.warn("No headers or content in file.")
       return
     }
 
@@ -201,7 +193,7 @@ class DwcCSVLoader extends DataLoader {
     logger.info("The current institution codes for the data resource: " + institutionCodes)
     logger.info("The current collection codes for the data resource: " + collectionCodes)
 
-    val newCollCodes =new scala.collection.mutable.HashSet[String]
+    val newCollCodes = new scala.collection.mutable.HashSet[String]
     val newInstCodes = new scala.collection.mutable.HashSet[String]
 
     var counter = 1
@@ -216,7 +208,9 @@ class DwcCSVLoader extends DataLoader {
 
       val columns = currentLine.toList
       if (columns.length >= dwcTermHeaders.size - 1){
-        val map = (dwcTermHeaders zip columns).toMap[String,String].filter( {
+
+        //create the map of properties
+        val map = (dwcTermHeaders zip columns).toMap[String,String].filter {
           case (key,value) => {
             if(value != null ){
               if(value.trim != ""){
@@ -228,10 +222,10 @@ class DwcCSVLoader extends DataLoader {
               deleteIfNullValue  // add the pair if the null values will be removed
             }
           }
-        })
+        }
 
         //only continue if there is at least one non-null unique term
-        if(uniqueTerms.find(t => map.getOrElse(t,"").length > 0).isDefined || uniqueTerms.length == 0){
+        if(uniqueTerms.find(t => map.getOrElse(t, "").length > 0).isDefined || uniqueTerms.length == 0){
 
           val uniqueTermsValues = uniqueTerms.map(t => map.getOrElse(t,""))
 
@@ -245,12 +239,15 @@ class DwcCSVLoader extends DataLoader {
           }
 
           if(!test){
-            val fr = FullRecordMapper.createFullRecord("", map, Versions.RAW)
+
+            val mapToUse = meddle(map)
+
+            val fr = FullRecordMapper.createFullRecord("", mapToUse, Versions.RAW)
 
             if (fr.occurrence.associatedMedia != null){
               //check for full resolvable http paths
               val filesToImport = fr.occurrence.associatedMedia.split(";")
-              val filePathsInStore = filesToImport.map(name => {
+              val filePathsInStore = filesToImport.map { name =>
                 //if the file name isnt a HTTP URL construct file absolute file paths
                 val fileName = name.trim();
                 if(!fileName.startsWith("http://") && !fileName.startsWith("https://") && !fileName.startsWith("ftp://")  && !fileName.startsWith("ftps://")  && !fileName.startsWith("file://")){
@@ -260,15 +257,15 @@ class DwcCSVLoader extends DataLoader {
                   //do multiple formats exist? check for files of the same name, different extension
                   val directory = file.getParentFile
                   val differentFormats = directory.listFiles(new SameNameDifferentExtensionFilter(fileName))
-                  differentFormats.foreach(file => {
+                  differentFormats.foreach { file =>
                     filePathBuffer += "file:///" + file.getParent + File.separator + file.getName
-                  })
+                  }
 
                   filePathBuffer.toArray[String]
                 } else {
                   Array(fileName)
                 }
-              }).flatten
+              }.flatten
               logger.info("Loading: " + filePathsInStore.mkString("; "))
               fr.occurrence.associatedMedia = filePathsInStore.mkString(";")
             }
@@ -315,5 +312,28 @@ class DwcCSVLoader extends DataLoader {
       logger.info("There are " + counter + " records in the file. The number of NEW records: " + newCount)
     }
     logger.info("Load finished for " + file.getName())
+  }
+
+  /**
+   *
+   *
+   * @param map
+   * @return
+   */
+  def meddle(map:Map[String, String]) = map
+
+  /**
+   *
+   * @param reader
+   * @return
+   */
+  def mapHeadersToDwC(reader: CSVReader): Seq[String] = {
+    val headerLine = reader.readNext
+    if (headerLine != null) {
+      val columnHeaders = headerLine.map(t => t.replace(" ", "").trim).toList
+      DwC.retrieveCanonicals(columnHeaders)
+    } else {
+      null
+    }
   }
 }
