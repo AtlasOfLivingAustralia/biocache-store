@@ -98,7 +98,7 @@ trait PersistenceManager {
   /**
    * Page over the records, retrieving the supplied columns only.
    */
-  def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), indexedField:String, indexedFieldValue:String, pageSize:Int, columnName:String*)
+  def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), indexedField:String, indexedFieldValue:String, pageSize:Int, columnName:String*) : Int
 
   /**
    * Page over the records, retrieving the supplied columns range.

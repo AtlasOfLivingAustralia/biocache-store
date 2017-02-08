@@ -1,16 +1,18 @@
 package au.org.ala.biocache.persistence
 
 import java.util
-import java.util.UUID
+import java.util.{Arrays, UUID}
 import java.util.concurrent._
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.Json
 import com.datastax.driver.core._
-import com.datastax.driver.core.policies.{DCAwareRoundRobinPolicy, TokenAwarePolicy}
+import com.datastax.driver.core.exceptions.DriverException
+import com.datastax.driver.core.policies.RetryPolicy.RetryDecision
+import com.datastax.driver.core.policies.{DowngradingConsistencyRetryPolicy, RetryPolicy, DCAwareRoundRobinPolicy, TokenAwarePolicy}
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import com.google.common.collect.MapMaker
-import com.google.common.util.concurrent.{AsyncFunction, ListenableFuture, Futures, MoreExecutors}
+import com.google.common.util.concurrent._
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang3.StringUtils
@@ -26,7 +28,11 @@ class Cassandra3PersistenceManager  @Inject() (
                   @Named("cassandra.hosts") val host:String = "localhost",
                   @Named("cassandra.port") val port:Int = 9160,
                   @Named("cassandra.pool") val poolName:String = "biocache-store-pool",
-                  @Named("cassandra.keyspace") val keyspace:String = "occ") extends PersistenceManager {
+                  @Named("cassandra.keyspace") val keyspace:String = "occ",
+                  @Named("cassandra.async.updates.enabled") val useAsyncUpdates:Boolean = false,
+                  @Named("cassandra.async.updates.threads") val useAsyncUpdatesThreads:Int = 4,
+                  @Named("cassandra.async.paging.enabled") val useAsyncPaging:Boolean = false
+                                              ) extends PersistenceManager {
 
   import JavaConversions._
 
@@ -36,23 +42,37 @@ class Cassandra3PersistenceManager  @Inject() (
     val hosts = host.split(",")
     val builder = Cluster.builder()
     hosts.foreach { builder.addContactPoint(_)}
+    builder.withRetryPolicy(new CustomRetryPolicy(10, 10, 10))
     builder.build()
+  }
+
+  val updateThreadService = if (useAsyncUpdates) {
+    logger.info("Async updates enabled. Starting thread pool")
+    MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(useAsyncUpdatesThreads).asInstanceOf[ThreadPoolExecutor])
+  } else {
+    logger.info("Async updates disabled. Not starting thread pool")
+    null
   }
 
   val session = cluster.connect(keyspace)
 
-  val policy = new TokenAwarePolicy(DCAwareRoundRobinPolicy.builder.build)
+//  val policy = new TokenAwarePolicy(DCAwareRoundRobinPolicy.builder.build)
 
   val map = new MapMaker().weakValues().makeMap[String, PreparedStatement]()
 
   private def getPreparedStmt(query:String) : PreparedStatement = {
-    if(map.containsKey(query)){
-      return map.get(query)
+
+    val lookup = map.get(query.toLowerCase)
+
+    if(lookup != null){
+      return lookup
     } else {
       try {
         val preparedStatement = session.prepare(query)
-        map.put(query, preparedStatement)
-        return preparedStatement
+        synchronized {
+          map.put(query.toLowerCase, preparedStatement)
+        }
+        preparedStatement
       } catch {
         case e:Exception => {
           logger.error("problem creating a statement for query: " + query)
@@ -273,9 +293,28 @@ class Cassandra3PersistenceManager  @Inject() (
         statement.bind(values: _*)
       } else {
         val values = Array(rowkey) ++ keyValuePairsToUse.values.toArray[String]
+        if(values == null){
+          throw new Exception("keyValuePairsToUse are null...")
+        }
+        if(statement == null){
+          throw new Exception("Retrieved statement is null...")
+        }
         statement.bind(values: _*)
       }
-      val future = session.execute(boundStatement)
+
+      if (useAsyncUpdates){
+        val future = session.executeAsync(boundStatement)
+        Futures.addCallback(future, new FutureCallback[ResultSet] {
+          override def onFailure(throwable: Throwable): Unit = {
+            logger.error("Problem persisting the following to " + entityName + " - " + throwable.getMessage)
+          }
+          override def onSuccess(v: ResultSet): Unit = {}
+        }, updateThreadService)
+      } else {
+        boundStatement.setConsistencyLevel(ConsistencyLevel.ONE)
+        executeWithRetries(session, boundStatement)
+      }
+
       rowkey
     } catch {
       case e:Exception => {
@@ -285,6 +324,35 @@ class Cassandra3PersistenceManager  @Inject() (
       }
     }
   }
+
+  def executeWithRetries(session:Session, stmt:Statement) : ResultSet = {
+
+    val MAX_QUERY_RETRIES = 10
+    var retryCount = 0
+    var needToRetry = true
+    var resultSet:ResultSet = null
+    while(retryCount < MAX_QUERY_RETRIES && needToRetry){
+      try {
+        resultSet = session.execute(stmt)
+        needToRetry = false
+      } catch {
+        case e:Exception => {
+          logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+          retryCount = retryCount + 1
+          needToRetry = true
+          if(retryCount > 5){
+            logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+            Thread.sleep(600000)
+          } else {
+            Thread.sleep(10000)
+          }
+
+        }
+      }
+    }
+    resultSet
+  }
+
 
   /**
    * Store the supplied property value in the column
@@ -361,7 +429,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * @param columnName The names of the columns that need to be provided for processing by the proc
     */
   def pageOverSelect(entityName:String, proc:((String, Map[String,String]) => Boolean), indexedField:String,
-                     indexedFieldValue:String, pageSize:Int, columnName:String*){
+                     indexedFieldValue:String, pageSize:Int, columnName:String*) : Int = {
 
     val columnsString = "rowkey," + columnName.mkString(",")
 
@@ -400,6 +468,7 @@ class Cassandra3PersistenceManager  @Inject() (
     //get token ranges....
     //iterate through each token range....
     logger.info(s"Finished: Testing paging over all. Records paged over: $counter")
+    counter
   }
 
   private def getTokenValue(rowkey:String, entityName:String) : Long = {
@@ -443,10 +512,13 @@ class Cassandra3PersistenceManager  @Inject() (
 
     val pagingQuery = s"SELECT * FROM $entityName where $indexedField = '$indexedFieldValue' allow filtering"
 
-//    val params = new java.util.HashMap[String, AnyRef]
-//    params.put("indexedFieldValue", indexedFieldValue)
+    val stmt = new SimpleStatement(pagingQuery)
+    stmt.setFetchSize(100)
+    stmt.setIdempotent(true)
+    stmt.setReadTimeoutMillis(60000)
+    stmt.setConsistencyLevel(ConsistencyLevel.ONE)
 
-    val rs: ResultSet = session.execute(pagingQuery)
+    val rs: ResultSet = session.execute(stmt)
     val rows: util.Iterator[Row] = rs.iterator
     var counter = 0
     val start = System.currentTimeMillis
@@ -486,13 +558,13 @@ class Cassandra3PersistenceManager  @Inject() (
    */
   private def pageOverLocalNotAsync(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
 
-    val MAX_QUERY_RETRIES = 5
+    val MAX_QUERY_RETRIES = 10
 
     //paging threads, processing threads
 
     //retrieve token ranges for local node
     val tokenRanges: Array[TokenRange] = getTokenRangesForLocalNode
-//
+
     val startRange = {
       System.getProperty("startAtTokenRange", "0").toInt
     }
@@ -509,7 +581,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
         def hasNextWithRetries(rows:Iterator[Row]) : Boolean = {
 
-          val MAX_QUERY_RETRIES = 5
+          val MAX_QUERY_RETRIES = 10
           var retryCount = 0
           var needToRetry = true
           var hasNext = false
@@ -522,7 +594,12 @@ class Cassandra3PersistenceManager  @Inject() (
                 logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
                 retryCount = retryCount + 1
                 needToRetry = true
-                Thread.sleep(5000)
+                if(retryCount > 5){
+                  logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+                  Thread.sleep(600000)
+                } else {
+                  Thread.sleep(10000)
+                }
               }
             }
           }
@@ -531,7 +608,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
         def getNextWithRetries(rows:Iterator[Row]) : Row = {
 
-          val MAX_QUERY_RETRIES = 5
+          val MAX_QUERY_RETRIES = 10
           var retryCount = 0
           var needToRetry = true
           var row:Row = null
@@ -544,7 +621,12 @@ class Cassandra3PersistenceManager  @Inject() (
                 logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
                 retryCount = retryCount + 1
                 needToRetry = true
-                Thread.sleep(5000)
+                if(retryCount > 5){
+                  logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+                  Thread.sleep(600000)
+                } else {
+                  Thread.sleep(10000)
+                }
               }
             }
           }
@@ -562,65 +644,85 @@ class Cassandra3PersistenceManager  @Inject() (
           logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
 
           var counter = 0
-          val startToken = tokenRanges(tokenRangeIdx).getStart()
-          val endToken =  tokenRanges(tokenRangeIdx).getEnd()
+          val tokenRangeToUse = tokenRanges(tokenRangeIdx)
 
-          val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) < $endToken")
-          stmt.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
-          stmt.setFetchSize(1000)
+          val tokenRangesSplits:Seq[TokenRange] = if(Config.cassandraTokenSplit != 1){
+            tokenRangeToUse.splitEvenly(Config.cassandraTokenSplit)
+          } else {
+            List(tokenRangeToUse)
+          }
 
-          val rs = {
-            var retryCount = 0
-            var needToRetry = true
-            var success:ResultSet = null
-            while(retryCount < MAX_QUERY_RETRIES && needToRetry){
-              try {
-                success = session.execute(stmt)
-                needToRetry = false
-              } catch {
-                case e:Exception => {
-                  logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
-                  retryCount = retryCount + 1
-                  needToRetry = true
-                  Thread.sleep(5000)
+//          val tokenRangesSplits:Seq[TokenRange] = List(tokenRangeToUse)
+
+          tokenRangesSplits.foreach { tokenRange =>
+            val startToken = tokenRange.getStart()
+            val endToken =  tokenRange.getEnd()
+
+            val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) >= $startToken and token(rowkey) <= $endToken")
+            stmt.setConsistencyLevel(ConsistencyLevel.ONE)
+            stmt.setFetchSize(250)
+            stmt.setReadTimeoutMillis(120000) //2 minute timeout
+
+            val rs = {
+              var retryCount = 0
+              var needToRetry = true
+              var success:ResultSet = null
+              while(retryCount < MAX_QUERY_RETRIES && needToRetry){
+                try {
+                  success = session.execute(stmt)
+                  needToRetry = false
+                } catch {
+                  case e:Exception => {
+                    logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+                    retryCount = retryCount + 1
+                    needToRetry = true
+                    if(retryCount > 5){
+                      logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+                      Thread.sleep(600000)
+                    } else {
+                      Thread.sleep(10000)
+                    }
+                  }
+                }
+              }
+              success
+            }
+
+            if(rs != null) {
+
+              val rows = rs.iterator()
+
+              val start = System.currentTimeMillis()
+
+              //need retries
+              while (hasNextWithRetries(rows)) {
+                val row = getNextWithRetries(rows)
+                val rowkey = row.getString("rowkey")
+                val map = new util.HashMap[String, String]()
+                row.getColumnDefinitions.foreach { defin =>
+                  val value = row.getString(defin.getName)
+                  if (value != null) {
+                    map.put(defin.getName, value)
+                  }
+                }
+
+                //processing - does this want to be on a separate thread ??
+                proc(rowkey, map.toMap)
+
+                counter += 1
+                if (counter % 10000 == 0) {
+                  val currentTime = System.currentTimeMillis()
+                  val currentRowkey = row.getString(0)
+                  val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
+                  val totalTimeInSec = ((currentTime - start) / 1000)
+                  logger.info(s"[Token range : $tokenRangeIdx] $currentRowkey - records read: $counter " +
+                    s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds")
                 }
               }
             }
-            success
           }
+          logger.info(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter)
 
-          if(rs != null) {
-
-            val rows = rs.iterator()
-
-            val start = System.currentTimeMillis()
-
-            //need retries
-            while (hasNextWithRetries(rows)) {
-              val row = getNextWithRetries(rows)
-              val rowkey = row.getString("rowkey")
-              val map = new util.HashMap[String, String]()
-              row.getColumnDefinitions.foreach { defin =>
-                val value = row.getString(defin.getName)
-                if (value != null) {
-                  map.put(defin.getName, value)
-                }
-              }
-
-              //processing - does this want to be on a separate thread ??
-              proc(rowkey, map.toMap)
-
-              counter += 1
-              if (counter % 10000 == 0) {
-                val currentTime = System.currentTimeMillis()
-                val currentRowkey = row.getString(0)
-                val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
-                val totalTimeInSec = ((currentTime - start) / 1000)
-                logger.info(s"[Token range : $tokenRangeIdx] $currentRowkey - records read: $counter " +
-                  s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds")
-              }
-            }
-          }
           counter
         }
       }
@@ -648,8 +750,8 @@ class Cassandra3PersistenceManager  @Inject() (
     * @param columns
     * @return
     */
-  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
-    if(Config.useAsyncPaging){
+  def pageOverLocal(entityName:String, proc:(String, Map[String, String]) => Boolean, threads:Int, columns:Array[String] = Array()) : Int = {
+    if(useAsyncPaging){
       pageOverLocalAsync(entityName, proc, threads, columns)
     } else {
       pageOverLocalNotAsync(entityName, proc, threads, columns)
@@ -724,7 +826,7 @@ class Cassandra3PersistenceManager  @Inject() (
       @throws(classOf[Exception])
       def apply(rs: ResultSet): ListenableFuture[ResultSet] = {
 
-        logger.info(s"Iterating over token range $tokenRange")
+        logger.debug(s"Iterating over token range $tokenRange")
         var remainingInPage = rs.getAvailableWithoutFetching
         var count = 0
         var lastUUID: String = ""
@@ -787,28 +889,30 @@ class Cassandra3PersistenceManager  @Inject() (
 
       logger.info("#######  Using full replication, so splitting token ranges based on node number " + Config.nodeNumber)
       logger.info("#######  Total number of token ranges for cluster " + tokenRanges.length)
-      val tokenRangesSorted = tokenRanges.sorted
+      val tokenRangesSorted = tokenRanges.sortBy(_.getStart)
 
       for (tokenRange <- tokenRangesSorted) {
-        logger.info("#######  Token ranges for this node - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+        logger.info("#######  Token ranges for the cluster - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
       }
 
       val tokenRangesPerNode = tokenRangesSorted.size / Config.clusterSize
-      val tokenRangesForThisNode = new Array[TokenRange](tokenRangesPerNode)
+
       val startAtRange = Config.nodeNumber * tokenRangesPerNode
 
-      logger.info(s"#######  tokenRanges " + tokenRanges.size)
-      logger.info(s"#######  tokenRangesPerNode $tokenRangesPerNode")
+      logger.info(s"#######  Global number of token ranges " + tokenRanges.size)
+      logger.info(s"#######  Number of token ranges per node  $tokenRangesPerNode")
       logger.info(s"#######  Starting at range $startAtRange")
 
       val startIdx = Config.nodeNumber * tokenRangesPerNode
-      val endIdx = startIdx + tokenRangesPerNode - 1
+      val endIdx = startIdx + tokenRangesPerNode
 
       logger.info(s"#######  Index range $startIdx to $endIdx")
 
-      (startIdx to endIdx).foreach { idx:Int =>
-        tokenRangesForThisNode(idx % tokenRangesPerNode) = tokenRangesSorted(idx)
-      }
+//      (startIdx to endIdx).foreach { idx:Int =>
+//        tokenRangesForThisNode(idx % tokenRangesPerNode) = tokenRangesSorted(idx)
+//      }
+
+      val tokenRangesForThisNode  = Arrays.copyOfRange(tokenRangesSorted, startIdx, endIdx)
 
       for (tokenRange <- tokenRangesForThisNode) {
         logger.info("#######  Token ranges for this node - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
@@ -899,6 +1003,45 @@ class Cassandra3PersistenceManager  @Inject() (
 
     counter
   }
+}
 
+class CustomRetryPolicy (readAttempts:Int, writeAttempts:Int, unavailableAttempts:Int) extends RetryPolicy {
 
+  val logger = LoggerFactory.getLogger("Cassandra3Retries")
+
+  def init(cl:Cluster){}
+  def close :Unit = {}
+  def onRequestError(stmt:Statement, cl:ConsistencyLevel,  e:DriverException, nbRetry:Int)  : RetryDecision = {
+    logger.warn("Error on request: " + e.getMessage)
+    if(nbRetry <= readAttempts)
+      RetryDecision.retry(ConsistencyLevel.ONE)
+    else
+      RetryDecision.tryNextHost(ConsistencyLevel.ONE)
+  }
+
+  def onRequestError()  :Unit = {}
+
+  def onReadTimeout(stmt:Statement, cl:ConsistencyLevel, requiredResponses:Int, receivedResponses: Int, dataReceived:Boolean, rTime:Int) : RetryDecision =  {
+    if (dataReceived) {
+      return RetryDecision.ignore()
+    } else if (rTime < readAttempts) {
+      return RetryDecision.retry(cl)
+    } else {
+      return RetryDecision.rethrow()
+    }
+  }
+
+  def onWriteTimeout(stmt:Statement, cl:ConsistencyLevel,  wt:WriteType,  requiredResponses:Int, receivedResponses:Int,  wTime:Int) : RetryDecision =  {
+    if (wTime < writeAttempts) {
+      return RetryDecision.retry(cl)
+    }
+    return RetryDecision.rethrow()
+  }
+
+  def onUnavailable( stmnt:Statement,  cl:ConsistencyLevel,  requiredResponses:Int,  receivedResponses:Int, uTime:Int) : RetryDecision =  {
+    if (uTime < unavailableAttempts) {
+      return RetryDecision.retry(ConsistencyLevel.ONE)
+    }
+    return RetryDecision.rethrow()
+  }
 }
