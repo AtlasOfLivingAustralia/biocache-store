@@ -234,6 +234,7 @@ object CMD2 {
     OptimiseIndex,
     ProcessAll,
     ProcessLocalRecords,
+    ScanRecords,
     ProcessSingleRecord,
     ProcessUuids,
     ProcessRecords,
@@ -249,7 +250,9 @@ object CMD2 {
     MigrateMedia,
     LoadMediaReferences,
     CopyDataNewColumn,
+    UpdateAttribution,
     BVPLoader,
     ShowVersion
+
   ).sortBy(_.cmd)
 }

@@ -42,6 +42,8 @@ object TaxonProfileDAO {
 
   def getByGuid(guid:String) : Option[TaxonProfile] = {
 
+    if(!Config.taxonProfilesEnabled) return None
+
     if(guid == null || guid.isEmpty) return None
 
     val taxonProfile = {
@@ -51,10 +53,10 @@ object TaxonProfileDAO {
         val map = persistenceManager.get(guid,columnFamily)
         if(!map.isEmpty){
           val result = Some(createTaxonProfile(map))
-          lock.synchronized { lru.put(guid,result) }
+          lock.synchronized { lru.put(guid, result) }
           result
         } else {
-          lock.synchronized { lru.put(guid,None) }
+          lock.synchronized { lru.put(guid, None) }
           None
         }
       } else {

@@ -160,6 +160,8 @@ object Config {
 
   val registryUrl = configModule.properties.getProperty("registry.url","http://collections.ala.org.au/ws")
 
+  val persistPointsFile = configModule.properties.getProperty("persist.points.file", "")
+
   lazy val flickrUsersUrl = configModule.properties.getProperty("flickr.users.url", "http://auth.ala.org.au/userdetails/external/flickr")
 
   lazy val reindexUrl = configModule.properties.getProperty("reindex.url")
@@ -186,15 +188,19 @@ object Config {
 
   val loadSpeciesLists = configModule.properties.getProperty("include.species.lists", "false").toBoolean
 
-  val useAsyncPaging =  configModule.properties.getProperty("cassandra.async.paging.enabled", "false").toBoolean
+  val taxonProfilesEnabled = configModule.properties.getProperty("taxon.profiles.enabled", "true").toBoolean
 
   val localNodeIp = configModule.properties.getProperty("local.node.ip", "127.0.0.1")
+
+  val zookeeperAddress = configModule.properties.getProperty("zookeeper.address", "127.0.0.1:2181")
 
   /** Whether or not full replication is in use in the cassandra cluster */
   val usingFullReplication = configModule.properties.getProperty("using.full.replication", "true").toBoolean
 
-  /** The node number  */
+  /** The node number. Not these are indexed from 0  */
   val nodeNumber = configModule.properties.getProperty("node.number", "0").toInt
+
+  val cassandraTokenSplit = configModule.properties.getProperty("cassandra.token.split", "1").toInt
 
   val clusterSize = configModule.properties.getProperty("cluster.size", "1").toInt
 

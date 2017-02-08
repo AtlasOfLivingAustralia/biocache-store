@@ -59,6 +59,7 @@ CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replicatio
       cultivarName varchar,
       cultivated varchar,
       dataGeneralizations varchar,
+      datageneralizations_p varchar,
       dataHubName varchar,
       dataHubUid varchar,
       dataProviderName varchar,
@@ -70,6 +71,7 @@ CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replicatio
       dataResourceUid varchar,
       datasetID varchar,
       datasetName varchar,
+      datePrecision varchar,
       day varchar,
       day_p varchar,
       decimalLatitude varchar,
@@ -110,6 +112,7 @@ CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replicatio
       footprintSRS varchar,
       footprintWKT varchar,
       generalisedLocality varchar,
+      generalisationtoapplyinmetres varchar,
       genus varchar,
       genus_p varchar,
       genusID varchar,
@@ -132,6 +135,7 @@ CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replicatio
       identificationQualifier_p varchar,
       IdentificationQualifierProcessor_qa varchar,
       identifiedby varchar,
+      identificationVerificationStatus varchar,
       identifier varchar,
       image_qa varchar,
       images varchar,
@@ -448,5 +452,13 @@ CREATE TABLE distribution_outliers (
 
 CREATE TABLE qid (
   rowkey varchar,
+  displayString varchar,
+  wkt varchar,
+  bbox varchar,
+  lastUse varchar,
+  q varchar,
+  fqs varchar,
+  maxAge varchar,
+  source varchar,
   PRIMARY KEY (rowkey)
 );

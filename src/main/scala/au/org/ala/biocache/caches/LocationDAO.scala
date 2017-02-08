@@ -1,5 +1,7 @@
 package au.org.ala.biocache.caches
 
+import java.io.FileWriter
+
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import scala.collection.mutable.HashMap
@@ -18,6 +20,8 @@ object LocationDAO {
 
   private final val latitudeCol = "lat"
   private final val longitudeCol = "lon"
+
+  var persistPointsFile:FileWriter = null
 
   /**
    * Add a region mapping for this point.
@@ -84,8 +88,25 @@ object LocationDAO {
   def storePointForSampling(latitude:String, longitude:String) : String = {
     val uuid = getLatLongKey(latitude, longitude)
     val map = Map(latitudeCol -> latitude, longitudeCol -> longitude)
-    Config.persistenceManager.put(uuid, columnFamily, map, true, false)
+    if(Config.persistPointsFile != ""){
+      synchronized {
+        if(persistPointsFile == null){
+          persistPointsFile = new FileWriter(Config.persistPointsFile)
+        }
+        persistPointsFile.write(longitude + "," + latitude + "\n")
+        persistPointsFile.flush()
+      }
+    } else {
+      Config.persistenceManager.put(uuid, columnFamily, map, true, false)
+    }
     uuid
+  }
+
+  def closePointsFile(): Unit ={
+    if(persistPointsFile != null){
+      persistPointsFile.flush()
+      persistPointsFile.close()
+    }
   }
 
   /**
