@@ -24,6 +24,7 @@ class Event extends Cloneable with POSO {
   //custom date range fields
   @BeanProperty var startYear:String = _
   @BeanProperty var endYear:String = _
+  @BeanProperty var datePrecision:String = _
 
   override def toString = ToStringBuilder.reflectionToString(this)
 }
