@@ -198,14 +198,16 @@ trait DataLoader {
    *
    * @param dataResourceUid the data resource UID
    * @param fr a representation of the raw record
-   * @param identifyingTerms
-   * @param updateLastModified
+   * @param identifyingTerms terms that uniquely identify a record
+   * @param updateLastModified whether to update the last modified timestamps
    * @param downloadMedia whether to download the referenced media
    * @param stripSpaces whether to strip spaces from the identifying terms.
    * @param rowKeyWriter
    * @return
    */
-  def load(dataResourceUid: String, fr: FullRecord, identifyingTerms: Seq[String], updateLastModified: Boolean, downloadMedia: Boolean, stripSpaces: Boolean, rowKeyWriter: Option[Writer], multimedia: Seq[Multimedia], deleteIfNullValue: Boolean): Boolean = {
+  def load(dataResourceUid: String, fr: FullRecord, identifyingTerms: Seq[String], updateLastModified: Boolean,
+           downloadMedia: Boolean, stripSpaces: Boolean, rowKeyWriter: Option[Writer], multimedia: Seq[Multimedia],
+           deleteIfNullValue: Boolean): Boolean = {
 
     //the details of how to construct the UniqueID belong in the Collectory
     val uniqueID = if(identifyingTerms.isEmpty) {
@@ -257,7 +259,7 @@ trait DataLoader {
     processMedia(dataResourceUid, fr, multimedia)
 
     //load the record
-    Config.occurrenceDAO.addRawOccurrence(fr,deleteIfNullValue)
+    Config.occurrenceDAO.addRawOccurrence(fr, deleteIfNullValue)
     true
   }
 
