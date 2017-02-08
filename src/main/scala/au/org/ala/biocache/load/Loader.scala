@@ -222,6 +222,14 @@ class Loader extends DataLoader {
           else
             logger.warn("TESTING is not supported for auto-feed")
         }
+        case "nbn" => {
+          logger.info("NBN exchange format loading")
+          val l = new NBNFormatLoader
+          if(!test)
+            l.load(dataResourceUid)
+          else
+            println("TESTING is not supported for NBN exchange format")
+        }
         case _ => logger.warn("Protocol " + config.get.protocol + " currently unsupported.")
       }
     } catch {
