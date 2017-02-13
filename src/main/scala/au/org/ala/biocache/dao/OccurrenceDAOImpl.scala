@@ -224,7 +224,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
           case a if elpattern.findFirstIn(a).nonEmpty => elMap.getOrElse(a, "")
           case a if clpattern.findFirstIn(a).nonEmpty => clMap.getOrElse(a, "")
           case a if firstMisc.isDefined && IndexFields.storeMiscFields.contains(a) => miscMap.getOrElse(a, "")
-          case a if userAssertions.isDefined && "user_assertions".equals(a) => if ("true".equals(fieldMap.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false"))) getUserAssertionsString(fieldMap.getOrElse("rowKey","")) else ""
+          case a if userAssertions.isDefined && "user_assertions".equals(a) =>
+            if (fieldMap.contains(FullRecordMapper.userQualityAssertionColumn))
+              getUserAssertionsString(fieldMap.getOrElse("rowKey","")) else ""
           case _ => if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap)) else getHackValue(field,fieldMap)
         }
 
