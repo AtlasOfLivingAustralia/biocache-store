@@ -24,7 +24,7 @@ object SpeciesGroups {
    createSpeciesGroup("Birds", "classs", Array("Aves"), Array(), "Animals"),
    createSpeciesGroup("Reptiles", "classs", Array("Reptilia"), Array(), "Animals"),
    createSpeciesGroup("Amphibians", "classs", Array("Amphibia"), Array(),"Animals"),
-   createSpeciesGroup("Fish", "classs", Array("Agnatha", "Chondrichthyes", "Osteichthyes", "Actinopterygii", "Sarcopterygii"), Array(), "Animals"),
+   createSpeciesGroup("Fishes", "classs", Array("Agnatha", "Chondrichthyes", "Osteichthyes", "Actinopterygii", "Sarcopterygii"), Array(), "Animals"),
    createSpeciesGroup("Molluscs", "phylum", Array("Mollusca"), Array(), "Animals"),
    createSpeciesGroup("Arthropods", "phylum", Array("Arthropoda"), Array(), "Animals"),
    createSpeciesGroup("Crustaceans", "classs" , Array("Branchiopoda", "Remipedia", "Maxillopoda", "Ostracoda", "Malacostraca"), Array(), "Arthropods"),
