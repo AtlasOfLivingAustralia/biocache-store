@@ -474,8 +474,9 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test:Boolean, 
               // Add data quality assertion
               Config.occurrenceDAO.addSystemAssertion(rowKey, QualityAssertion(AssertionCodes.SPECIES_OUTSIDE_EXPERT_RANGE, roundedDistance + " metres outside of expert distribution range"), replaceExistCode=true)
 
-              // Record distance against record
-              Config.persistenceManager.put(rowKey, "occ", Map("distanceOutsideExpertRange.p" -> roundedDistance.toString()), false)
+              //convert m to km
+              val km = scala.math.round(outValue.get / 1000.0)
+              Config.persistenceManager.put(rowKey, "occ", Map("distanceOutsideExpertRange.p" -> km.toString()), false)
             }
 
             newOutlierRowKeys += rowKey
