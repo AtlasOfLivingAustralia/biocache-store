@@ -15,21 +15,22 @@ import org.slf4j.LoggerFactory
 object FullRecordMapper {
   val logger = LoggerFactory.getLogger("FullRecordMapper")
   val entityName = "occ"
-  val qualityAssertionColumn = "qualityAssertion"
-  val userQualityAssertionColumn = "userQualityAssertion"
-  val userAssertionStatusColumn = "userAssertionStatus"
-  val geospatialDecisionColumn = "geospatiallyKosher"
-  val taxonomicDecisionColumn = "taxonomicallyKosher"
-  val userVerifiedColumn ="userVerified"
-  val locationDeterminedColumn ="locationDetermined"
-  val defaultValuesColumn = "defaultValuesUsed"
-  val alaModifiedColumn = "lastModifiedTime"
-  val dateDeletedColumn ="dateDeleted"
-  val lastUserAssertionDateColumn ="lastUserAssertionDate"
+  val qualityAssertionColumn = "qualityAssertion".toLowerCase
+  val userQualityAssertionColumn = "userQualityAssertion".toLowerCase
+  val userAssertionStatusColumn = "userAssertionStatus".toLowerCase
+  val geospatialDecisionColumn = "geospatiallyKosher".toLowerCase
+  val taxonomicDecisionColumn = "taxonomicallyKosher".toLowerCase
+  val userVerifiedColumn ="userVerified".toLowerCase
+  val locationDeterminedColumn ="locationDetermined".toLowerCase
+  val defaultValuesColumn = "defaultValuesUsed".toLowerCase
+  val dateDeletedColumn = "dateDeleted".toLowerCase
+  val lastUserAssertionDateColumn = "lastUserAssertionDate".toLowerCase
   val environmentalLayersColumn = "el" + Config.persistenceManager.fieldDelimiter + "p"
-  val contextualLayersColumn = "cl"  + Config.persistenceManager.fieldDelimiter + "p"
+  val contextualLayersColumn = "cl" + Config.persistenceManager.fieldDelimiter + "p"
   val deletedColumn = "deleted"
-  val miscPropertiesColumn = "miscProperties"
+  val miscPropertiesColumn = "miscProperties".toLowerCase
+  val firstLoadedColumn = "firstLoaded".toLowerCase
+  val alaModifiedColumn = "lastModifiedTime".toLowerCase
   val geospatialQa = "loc"
   val taxonomicalQa = "class"
   val queryAssertionColumn = "queryAssertions"  + Config.persistenceManager.fieldDelimiter + "p"
@@ -48,11 +49,11 @@ object FullRecordMapper {
     })
 
     //add the special cases to the map
-    if(fullRecord.miscProperties!=null && !fullRecord.miscProperties.isEmpty && version == Raw){
+    if(fullRecord.miscProperties != null && !fullRecord.miscProperties.isEmpty && version == Raw){
       properties.put(miscPropertiesColumn, Json.toJSON(fullRecord.miscProperties))        //store them as JSON array
     }
     if(fullRecord.firstLoaded != null && !fullRecord.firstLoaded.isEmpty && version == Raw){
-      properties.put("firstLoaded", fullRecord.firstLoaded)
+      properties.put(firstLoadedColumn, fullRecord.firstLoaded)
     }
     if(fullRecord.dateDeleted != null && !fullRecord.dateDeleted.isEmpty && version == Raw){
       properties.put(dateDeletedColumn, fullRecord.firstLoaded)
@@ -138,8 +139,8 @@ object FullRecordMapper {
     val fullRecord = new FullRecord
     fullRecord.rowKey = rowKey
     fullRecord.uuid = fields.getOrElse("uuid", "")
-    fullRecord.lastModifiedTime = fields.getOrElse(markNameBasedOnVersion("lastModifiedTime",version),"")
-    fullRecord.firstLoaded = fields.getOrElse("firstLoaded","")
+    fullRecord.lastModifiedTime = fields.getOrElse(markNameBasedOnVersion(alaModifiedColumn, version), "")
+    fullRecord.firstLoaded = fields.getOrElse(firstLoadedColumn, "")
 
     fullRecord.setRawFieldsWithMapping(fields)
     fields.keySet.foreach( fieldName => {
@@ -149,10 +150,11 @@ object FullRecordMapper {
         case Some(null) => ""
         case _ => fields.getOrElse(fieldName, "").trim
       }
+
       //only set the value if it is no null or empty string
       if (fieldValue != "") {
         fieldName match {
-          case "qualityAssertion" => {} //ignore ?????
+          case it if(it.toLowerCase == qualityAssertionColumn) => {} //ignore ?????
           case it if isQualityAssertion(it) => {
             //load the QA field names from the array
             if (fieldValue != "true" && fieldValue != "false") {
@@ -171,20 +173,20 @@ object FullRecordMapper {
               fullRecord.assertions =  codeBuff.toArray
             }
           }
-          case "miscProperties" => {
+          case miscPropertiesColumn => {
             if(version == Raw){
               fullRecord.miscProperties = Json.toJavaMap(fieldValue).asInstanceOf[java.util.Map[String,String]]
             }
           }
           case it if "class".equals(it.toLowerCase) || "clazz".equals(it.toLowerCase) || "classs".equals(it.toLowerCase) => fullRecord.classification.classs = fieldValue
-          case it if userVerifiedColumn.equals(it) => fullRecord.userVerified = "true".equals(fieldValue)
-          case it if taxonomicDecisionColumn.equals(it) => fullRecord.taxonomicallyKosher = "true".equals(fieldValue)
-          case it if geospatialDecisionColumn.equals(it) => fullRecord.geospatiallyKosher = "true".equals(fieldValue)
-          case it if defaultValuesColumn.equals(it) => fullRecord.defaultValuesUsed = "true".equals(fieldValue)
-          case it if locationDeterminedColumn.equals(it) => fullRecord.locationDetermined ="true".equals(fieldValue)
-          case it if deletedColumn.equals(it) => fullRecord.deleted = "true".equals(fieldValue)
-          case it if dateDeletedColumn.equals(it) => fullRecord.dateDeleted
-          case it if lastUserAssertionDateColumn.equals(fieldName) => fullRecord.setLastUserAssertionDate(fieldValue)
+          case it if userVerifiedColumn.equalsIgnoreCase(it) => fullRecord.userVerified = "true".equals(fieldValue)
+          case it if taxonomicDecisionColumn.equalsIgnoreCase(it) => fullRecord.taxonomicallyKosher = "true".equals(fieldValue)
+          case it if geospatialDecisionColumn.equalsIgnoreCase(it) => fullRecord.geospatiallyKosher = "true".equals(fieldValue)
+          case it if defaultValuesColumn.equalsIgnoreCase(it) => fullRecord.defaultValuesUsed = "true".equals(fieldValue)
+          case it if locationDeterminedColumn.equalsIgnoreCase(it) => fullRecord.locationDetermined ="true".equals(fieldValue)
+          case it if deletedColumn.equalsIgnoreCase(it) => fullRecord.deleted = "true".equals(fieldValue)
+          case it if dateDeletedColumn.equalsIgnoreCase(it) => fullRecord.dateDeleted
+          case it if lastUserAssertionDateColumn.equalsIgnoreCase(fieldName) => fullRecord.setLastUserAssertionDate(fieldValue)
           case it if version == Processed && isProcessedValue(fieldName) => {
             val success = fullRecord.setProperty(removeSuffix(fieldName), fieldValue)
             if(!success) {
