@@ -1,5 +1,7 @@
 package au.org.ala.biocache.poso
 
+import org.apache.commons.lang3.StringUtils
+
 import scala.collection.mutable.HashMap
 import scala.collection.immutable.Map
 import scala.util.parsing.json.JSON
@@ -59,8 +61,10 @@ trait POSO {
         case "java.lang.String" => property.setter.invoke(this, value)
         case "[Ljava.lang.String;" => {
           try {
-            val array = Json.toArray(value, classOf[String].asInstanceOf[java.lang.Class[AnyRef]])
-            property.setter.invoke(this, array)
+            if(StringUtils.isNotEmpty(value)) {
+              val array = Json.toArray(value, classOf[String].asInstanceOf[java.lang.Class[AnyRef]])
+              property.setter.invoke(this, array)
+            }
           } catch {
             case e: Exception => {
               logger.error("Problem de-serialising value: " + name  + " : " + value + " - " + e.getMessage, e)
