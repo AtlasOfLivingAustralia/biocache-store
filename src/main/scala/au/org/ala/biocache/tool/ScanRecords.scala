@@ -25,7 +25,7 @@ object ScanRecords extends Tool {
       opt("local-only", "Only scan local records",{
         local = true
       })
-      opt("of", "output-file", "the file containing coordinates", {
+      opt("of", "output-file", "output counts in CSV to the supplied file", {
         v: String => csvOutputFile = new FileWriter(v)
       })
     }
@@ -85,7 +85,7 @@ class ScanRecords {
     synchronizedMap.foreach { case (dataResource:String, count:Int) =>
       logger.info(dataResource + " : " + count)
       if(csvOutputFile != null){
-        csvOutputFile.write(dataResource + " , " + count + "\n")
+        csvOutputFile.write(dataResource + "," + count + "\n")
       }
     }
 
