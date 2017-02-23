@@ -154,7 +154,7 @@ object FullRecordMapper {
       //only set the value if it is no null or empty string
       if (fieldValue != "") {
         fieldName match {
-          case it if(it.toLowerCase == qualityAssertionColumn) => {} //ignore ?????
+          case it if (it.toLowerCase == qualityAssertionColumn) => {} //ignore ?????
           case it if isQualityAssertion(it) => {
             //load the QA field names from the array
             if (fieldValue != "true" && fieldValue != "false") {
@@ -173,7 +173,7 @@ object FullRecordMapper {
               fullRecord.assertions =  codeBuff.toArray
             }
           }
-          case miscPropertiesColumn => {
+          case it if (it.toLowerCase == miscPropertiesColumn) => {
             if(version == Raw){
               fullRecord.miscProperties = Json.toJavaMap(fieldValue).asInstanceOf[java.util.Map[String,String]]
             }
