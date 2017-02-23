@@ -334,7 +334,7 @@ class DwCALoader extends DataLoader {
 
     //commit the batch
     Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
-    logger.info("Finished DwCA loader. Records processed: " + count)
+    logger.info("Finished DwCA loader. Records loaded into the system: " + count)
     count
   }
 
