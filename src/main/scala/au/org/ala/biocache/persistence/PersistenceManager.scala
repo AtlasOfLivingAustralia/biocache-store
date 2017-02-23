@@ -82,9 +82,9 @@ trait PersistenceManager {
    * @param proc
    * @param indexedField
    * @param indexedFieldValue
-   * @param pageSize
+   * @param threads
    */
-  def pageOverIndexedField(entityName:String, proc:((String, Map[String, String]) => Boolean), indexedField:String="", indexedFieldValue:String = "", pageSize:Int = 1000)
+  def pageOverIndexedField(entityName:String, proc:((String, Map[String, String]) => Boolean), indexedField:String="", indexedFieldValue:String = "", threads:Int = 1, localOnly:Boolean = true) : Int
 
   /**
    * Page over the records that are local to this node.

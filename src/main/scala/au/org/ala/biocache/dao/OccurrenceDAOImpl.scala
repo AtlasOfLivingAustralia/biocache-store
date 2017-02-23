@@ -398,7 +398,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val consensus = FullRecordMapper.createFullRecord(guid, map, Consensus)
       //pass all version to the procedure, wrapped in the Option
       proc(Some(Array(raw, processed, consensus)))
-    }, "dataResourceUID", dataResourceUID, pageSize)
+    }, "dataResourceUID", dataResourceUID, pageSize, false)
   }
 
   /**
@@ -415,7 +415,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val fullRecord = FullRecordMapper.createFullRecord(guid, map, version)
       //pass all version to the procedure, wrapped in the Option
       proc(Some(fullRecord))
-    }, "dataResourceUID", dataResourceUID, pageSize)
+    }, "dataResourceUID", dataResourceUID, pageSize, false)
   }
 
   /**
@@ -435,14 +435,35 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }, "dataResourceUID", dataResourceUID, pageSize)
   }
 
-  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), threads: Int = 4): Int = {
-    persistenceManager.pageOverLocal(entityName, (guid, map) => {
-      //retrieve all versions
-      val raw = FullRecordMapper.createFullRecord(guid, map, Versions.RAW)
-      val processed = FullRecordMapper.createFullRecord(guid, map, Versions.PROCESSED)
-      //pass all version to the procedure, wrapped in the Option
-      proc(Some(raw, processed))
-    }, threads, Array())
+
+  /**
+   * Page over the records local to this node.
+   *
+   * @param proc
+   * @param dataResourceUID
+   * @param threads
+   * @return
+   */
+  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), dataResourceUID:String, threads: Int = 4): Int = {
+
+    if(StringUtils.isNotBlank(dataResourceUID)){
+      persistenceManager.pageOverIndexedField(entityName, (guid, map) => {
+        //retrieve all versions
+        val raw = FullRecordMapper.createFullRecord(guid, map, Versions.RAW)
+        val processed = FullRecordMapper.createFullRecord(guid, map, Versions.PROCESSED)
+        //pass all version to the procedure, wrapped in the Option
+        proc(Some(raw, processed))
+      }, "dataResourceUID", dataResourceUID, threads, localOnly = true)
+
+    } else {
+      persistenceManager.pageOverLocal(entityName, (guid, map) => {
+        //retrieve all versions
+        val raw = FullRecordMapper.createFullRecord(guid, map, Versions.RAW)
+        val processed = FullRecordMapper.createFullRecord(guid, map, Versions.PROCESSED)
+        //pass all version to the procedure, wrapped in the Option
+        proc(Some(raw, processed))
+      }, threads, Array())
+    }
   }
 
   /**
@@ -866,7 +887,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    */
   def addUserAssertion(rowKey: String, qualityAssertion: QualityAssertion) {
 
-    var userAssertions = getUserAssertions(rowKey)
+    val userAssertions = getUserAssertions(rowKey)
 
     var qaRowKey = rowKey+ "|" +qualityAssertion.getUserId + "|" + qualityAssertion.getCode
 
@@ -923,17 +944,20 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   /**
    * Retrieves a distinct list of user ids for the assertions
    */
-  def getUserIdsForAssertions(rowKey: String):Set[String] ={
-    val startKey = rowKey + "|"
-    val endKey = startKey +"~"
-    val userIds =  new ArrayBuffer[String]
-    persistenceManager.pageOverSelect(qaEntityName, (guid, map) =>{
-      val userId = map.get("userId")
-      if(userId.isDefined)
-        userIds += userId.get
-      true
-    }, startKey, endKey, 1000, "userId")
-    userIds.toSet
+  def getUserIdsForAssertions(uuid: String) : Set[String] = {
+//    val startKey = rowKey + "|"
+//    val endKey = startKey + "~"
+//    val userIds =  new ArrayBuffer[String]
+//    persistenceManager.pageOverSelect(qaEntityName, (guid, map) =>{
+//      val userId = map.get("userId")
+//      if(userId.isDefined)
+//        userIds += userId.get
+//      true
+//    }, startKey, endKey, 1000, "userId")
+//    userIds.toSet
+
+//    persistenceManager.getAllByIndex()
+    Set[String]()
   }
 
   /**

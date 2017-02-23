@@ -56,7 +56,7 @@ class UpdateAttribution {
 
   def updateRecords(threads:Int, updateLog:FileWriter, skippedLog:FileWriter) : Unit = {
     val curried = updateAttribution(updateLog, skippedLog, debug=false) _
-    Config.occurrenceDAO.pageOverRawProcessedLocal(curried, threads)
+    Config.occurrenceDAO.pageOverRawProcessedLocal(curried, null, threads)
     if(updateLog != null) {
       updateLog.flush()
       updateLog.close()
