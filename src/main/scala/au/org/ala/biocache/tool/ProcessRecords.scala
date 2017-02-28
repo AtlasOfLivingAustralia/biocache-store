@@ -1,6 +1,7 @@
 package au.org.ala.biocache.tool
 
 import java.io.File
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
@@ -116,7 +117,7 @@ object ProcessRecords extends Tool with IncrementalTool {
 
   def processRecords0(file:File, threads: Int, startUuid:Option[String], dr: Option[String] = null,
                      checkDeleted:Boolean=false, callback:ObserverCallback = null, lastKey:Option[String]=None) : Unit = {
-    var buff = new LinkedBlockingQueue[Object]
+    var buff = new LinkedBlockingQueue[Object](1000)
     var writeBuffer = new LinkedBlockingQueue[Object](threads)
     var ids = 0
     val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids,buff, writeBuffer); ids +=1; p.start; p }
@@ -132,11 +133,6 @@ object ProcessRecords extends Tool with IncrementalTool {
       else readFromDB(startUuid, dr, checkDeleted, lastKey, buff)
     }
 
-    logger.info(count
-      + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
-      + ", time taken for "+ 1000 + " records: " + (finishTime - startTime).toFloat / 1000f
-      + ", total time: "+ (finishTime - start).toFloat / 60000f + " minutes"
-    )
     logger.info("Finished reading.")
 
     //We can't shutdown the persistence manager until all of the Actors have completed their work
@@ -249,6 +245,12 @@ object ProcessRecords extends Tool with IncrementalTool {
 /**
  * A consumer actor asks for new work.
  */
+object Consumer {
+  private var count:AtomicInteger = new AtomicInteger(0)
+  private var totalTime:AtomicLong = new AtomicLong(0)
+  private var lastTime:AtomicLong = new AtomicLong(0)
+}
+
 class Consumer (master:Actor, val id:Int, val buffer:LinkedBlockingQueue[Object],
                 val writeBuffer: LinkedBlockingQueue[Object], val firstLoad:Boolean=false)  extends Actor  {
 
@@ -257,9 +259,6 @@ class Consumer (master:Actor, val id:Int, val buffer:LinkedBlockingQueue[Object]
   logger.debug("Initialising thread: " + id)
   val processor = new RecordProcessor
   val occurrenceDAO = Config.occurrenceDAO
-  var received, processedRecords = 0
-
-  def ready = processedRecords == received
 
   var batches = new scala.collection.mutable.ListBuffer[Map[String, Object]]
   val batchSize = 200
@@ -271,16 +270,23 @@ class Consumer (master:Actor, val id:Int, val buffer:LinkedBlockingQueue[Object]
 
         case rawAndProcessed: (FullRecord, FullRecord) => {
           val (raw, processed) = rawAndProcessed
-          received += 1
 
+          val startTime = System.currentTimeMillis
           batches += processor.processRecord(raw, processed, firstLoad)
+          Consumer.totalTime.addAndGet(System.currentTimeMillis() - startTime)
 
           if (batches.length == batchSize) {
             writeBuffer.put(batches.toList)
             batches = new scala.collection.mutable.ListBuffer[Map[String, Object]]
           }
 
-          processedRecords += 1
+          val c: Int = Consumer.count.addAndGet(1)
+          if (c % 1000 == 0) {
+            val t: Long = Consumer.totalTime.get()
+            logger.info("processed " + c + " records : last uuid " + raw.rowKey + " : "
+               + (1000f / ((t - Consumer.lastTime.get()).toFloat / 60000f) ) + " records processed per minute")
+            Consumer.lastTime.set(t)
+          }
         }
 
         case s: Object => {
@@ -312,24 +318,32 @@ class ProcessedBatchWriter (val writeBuffer: LinkedBlockingQueue[Object], val ca
   val firstTime = System.currentTimeMillis
   var startTime = System.currentTimeMillis
   var finishTime = System.currentTimeMillis
+  var writeTime = 0L
+  var writeTimeTotal = 0L
+  var recordCount = 0L
 
   def act {
     while (true) {
       writeBuffer.take() match {
 
         case batch: List[Map[String, Object]] => {
+            startTime = System.currentTimeMillis
             processor.writeProcessBatch(batch)
+            writeTime += System.currentTimeMillis - startTime
+            writeTimeTotal += System.currentTimeMillis - startTime
+
+            recordCount += batch.size
             count += batch.size
             if (count > nextPos) {
               finishTime = System.currentTimeMillis
 
               logger.info(count
-                + " >> Last key : " + batch(batch.size - 1).get("rowKey").get.asInstanceOf[String]
-                + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
-                + ", read time taken for "+1000+" records: " + (finishTime - startTime).toFloat / 1000f
-                + ", total time: "+ (finishTime - firstTime).toFloat / 60000f +" minutes"
+                + " >> writing records per sec: " + recordCount / (((writeTime).toFloat) / 1000f)
+                + ", time taken to write "+recordCount+" records: " + (writeTime).toFloat / 1000f
+                + ", total time: "+ (writeTimeTotal).toFloat / 60000f +" minutes"
               )
-              startTime = System.currentTimeMillis
+              writeTime = 0
+              recordCount = 0
 
               nextPos = count + 1000
               if(callback != null) {
