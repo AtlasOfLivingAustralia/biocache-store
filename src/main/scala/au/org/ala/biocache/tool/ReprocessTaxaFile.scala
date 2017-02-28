@@ -13,12 +13,15 @@ package au.org.ala.retrofit
  * implied. See the License for the specific language governing
  * rights and limitations under the License.
  */
-import au.com.bytecode.opencsv.CSVReader
-import java.io.{FileInputStream, InputStreamReader, File}
-import au.org.ala.biocache.Config
+import java.io.{File, FileInputStream, InputStreamReader}
 import java.net.URL
+
+import au.com.bytecode.opencsv.CSVReader
+import au.org.ala.biocache.Config
 import au.org.ala.biocache.index.IndexRecords
 import au.org.ala.biocache.processor.RecordProcessor
+import au.org.ala.biocache.tool.ProcessRecords
+
 import scala.io.Source
 
 /**
@@ -39,8 +42,6 @@ object ReprocessTaxaFile {
 
       println(line(0) + " " + line(1) + " :: " + values.length)
       if(values.length>1){
-        //processor.processRecords(values.toList)
-        //IndexRecords.indexList(values.toList)
         buffer ++= values
         numberRecords += values.length
       }
@@ -50,7 +51,7 @@ object ReprocessTaxaFile {
     }
     println("Starting to process " + new java.util.Date())
     val list = buffer.toList
-    processor.processRecords(list)
+    ProcessRecords.processRecords(list)
     println("Starting to index " + new java.util.Date())
     IndexRecords.indexList(list)
 

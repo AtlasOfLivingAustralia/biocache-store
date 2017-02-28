@@ -1,17 +1,20 @@
 package au.org.ala.biocache.index
 
-import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.slf4j.LoggerFactory
-import au.org.ala.biocache.util.OptionParser
-import au.org.ala.biocache.Config
-import scala.collection.mutable.ArrayBuffer
-import au.org.ala.biocache.cmd.Tool
-import org.apache.lucene.store.FSDirectory
 import java.io.File
-import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
-import org.apache.lucene.index.IndexWriterConfig.OpenMode
-import org.apache.lucene.util.Version
+
+import au.org.ala.biocache.Config
+import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.tool.ProcessRecords
+import au.org.ala.biocache.util.OptionParser
 import org.apache.commons.io.FileUtils
+import org.apache.lucene.analysis.standard.StandardAnalyzer
+import org.apache.lucene.index.IndexWriterConfig.OpenMode
+import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
+import org.apache.lucene.store.FSDirectory
+import org.apache.lucene.util.Version
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * A multi-threaded bulk processor that uses the search indexes to create a set a
@@ -110,6 +113,8 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
         if (action == "range") {
           logger.info(ranges.mkString("\n"))
+        } else if (action == "process") {
+          ProcessRecords.processRecords(numThreads, Option(start), dr, false, null, Option(end))
         } else {
           var counter = 0
           val threads = new ArrayBuffer[Thread]
@@ -133,8 +138,6 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
                   dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf",
                   pageSize
                 )
-              } else if (action == "process") {
-                new ProcessRecordsRunner(this, counter, startKey, endKey)
               } else if (action == "load-sampling") {
                 new LoadSamplingRunner(this, counter, startKey, endKey)
               } else if (action == "avro-export") {

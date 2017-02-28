@@ -2,30 +2,24 @@ package au.org.ala.biocache
 
 import java.io.OutputStream
 import java.net.URL
-import java.util
-import au.org.ala.biocache.caches.AttributionDAO
-
-import collection.JavaConversions
 import java.util.Date
-import au.org.ala.biocache.qa.ValidationRuleRunner
-import au.org.ala.layers.dao.IntersectCallback
-import collection.mutable.ArrayBuffer
-import au.org.ala.biocache.util._
-import au.org.ala.biocache.dao.{OutlierStatsDAO, OccurrenceDAO}
-import au.org.ala.biocache.load.{FullRecordMapper, SimpleLoader, Loader, MapDataLoader}
+
+import au.org.ala.biocache.dao.{OccurrenceDAO, OutlierStatsDAO}
+import au.org.ala.biocache.index.{IndexFields, IndexRecords}
+import au.org.ala.biocache.load.{FullRecordMapper, Loader, MapDataLoader, SimpleLoader}
 import au.org.ala.biocache.model._
-import au.org.ala.biocache.index.{IndexRecords, IndexFields}
-import au.org.ala.biocache.vocab._
-import au.org.ala.biocache.tool._
-import org.slf4j.LoggerFactory
-import au.org.ala.biocache.processor.{LocationProcessor, RecordProcessor}
-import au.org.ala.biocache.outliers.JackKnifeStats
-import au.org.ala.biocache.vocab.SpeciesGroup
-import scala.Some
+import au.org.ala.biocache.outliers.{JackKnifeStats, RecordJackKnifeStats, SampledRecord}
 import au.org.ala.biocache.parser.ProcessedValue
-import au.org.ala.biocache.outliers.RecordJackKnifeStats
-import au.org.ala.biocache.outliers.SampledRecord
-import au.org.ala.biocache.vocab.ErrorCode
+import au.org.ala.biocache.processor.RecordProcessor
+import au.org.ala.biocache.qa.ValidationRuleRunner
+import au.org.ala.biocache.tool._
+import au.org.ala.biocache.util._
+import au.org.ala.biocache.vocab.{ErrorCode, SpeciesGroup, _}
+import au.org.ala.layers.dao.IntersectCallback
+import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConversions
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * This is the interface to use for java applications or any application using this as a library.
@@ -53,9 +47,10 @@ object Store {
   private val validationRuleDAO = Config.validationRuleDAO
   private var readOnly = false
 
+  import BiocacheConversions._
+
   import JavaConversions._
   import scala.collection.JavaConverters._
-  import BiocacheConversions._
 
   /**
    * A java API friendly version of the getByUuid that does not require knowledge of a scala type.
@@ -190,7 +185,7 @@ object Store {
     val rowKeys = loader.load(dataResourceUid, recordsProperties.toList, identifyFields.toList)
     if(!rowKeys.isEmpty){
       val processor = new RecordProcessor
-      processor.processRecords(rowKeys)
+      ProcessRecords.processRecords(rowKeys)
       if(shouldIndex){
         IndexRecords.indexList(rowKeys)
       }

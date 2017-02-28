@@ -1,25 +1,23 @@
 package au.org.ala.biocache.index
 
-import java.util
-
-import au.org.ala.biocache._
-import org.apache.commons.io.FileUtils
-import java.io.File
-import scala.io.Source
+import java.io.{File, FileWriter}
 import java.net.URL
-import scala.util.parsing.json.JSON
-import scala.collection.mutable.ArrayBuffer
-import java.io.FileWriter
+
 import au.com.bytecode.opencsv.CSVWriter
-import scala.collection.mutable.HashSet
-import org.apache.commons.lang3.StringUtils
-import au.org.ala.biocache.processor.{RecordProcessor, Processors, LocationProcessor}
-import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.vocab.{ErrorCode, AssertionCodes}
-import au.org.ala.biocache.util.{AvroUtil, Json, OptionParser}
-import au.org.ala.biocache.model.QualityAssertion
-import org.slf4j.LoggerFactory
+import au.org.ala.biocache._
 import au.org.ala.biocache.caches.LocationDAO
+import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.model.QualityAssertion
+import au.org.ala.biocache.processor.{LocationProcessor, Processors, RecordProcessor}
+import au.org.ala.biocache.util.Json
+import au.org.ala.biocache.vocab.AssertionCodes
+import org.apache.commons.io.FileUtils
+import org.apache.commons.lang3.StringUtils
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.{ArrayBuffer, HashSet}
+import scala.io.Source
+import scala.util.parsing.json.JSON
 
 trait Counter {
 
@@ -450,57 +448,6 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
     }, startKey, endKey, 1000, "decimalLatitude.p", "decimalLongitude.p" )
     val fin = System.currentTimeMillis
     logger.info("[LoadSamplingRunner Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
-    logger.info("Finished.")
-  }
-}
-
-/**
- * A class that can be used to reprocess all records in a threaded manner.
- *
- * @param centralCounter
- * @param threadId
- * @param startKey
- * @param endKey
- */
-class ProcessRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
-  val logger = LoggerFactory.getLogger("ProcessRecordsRunner")
-  val processor = new RecordProcessor
-  var ids = 0
-  val threads = 2
-  var batches = 0
-
-  def run {
-    val pageSize = 1000
-    var counter = 0
-    val start = System.currentTimeMillis
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
-    //var buff = new ArrayBuffer[(FullRecord,FullRecord)]
-    println("Starting thread " + threadId + " from " + startKey + " to " + endKey)
-    val batches = new scala.collection.mutable.ListBuffer[Map[String, Object]]
-    val batchSize = 200
-    Config.occurrenceDAO.pageOverRawProcessed(rawAndProcessed => {
-      counter += 1
-      if (!rawAndProcessed.get._1.deleted) {
-        if (batches.length == batchSize) {
-          processor.writeProcessBatch(batches.toList)
-          batches.clear()
-        }
-        batches += processor.processRecord(rawAndProcessed.get._1, rawAndProcessed.get._2, true)
-      }
-      if (counter % pageSize == 0 && counter > 0) {
-        centralCounter.addToCounter(pageSize)
-        finishTime = System.currentTimeMillis
-        centralCounter.printOutStatus(threadId, rawAndProcessed.get._1.rowKey, "Processor")
-        startTime = System.currentTimeMillis
-      }
-      true
-    }, startKey, endKey, 1000)
-    if (batches.length > 0) {
-      processor.writeProcessBatch(batches.toList)
-    }
-    val fin = System.currentTimeMillis
-    logger.info("[Processor Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
     logger.info("Finished.")
   }
 }

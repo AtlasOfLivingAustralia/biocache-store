@@ -9,7 +9,7 @@ import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.{FullRecord, Processed, QualityAssertion, Versions}
 import org.slf4j.LoggerFactory
 
-import scala.Some
+import scala.collection.mutable
 
 /**
  * Runnable for starting record processing.
@@ -52,30 +52,7 @@ class RecordProcessor {
   val processTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
   val duplicates = List("D","D1","D2")
 
-  /**
-   * Processes a list of records
-   */
-  def processRecords(rowKeys:List[String]){
-    logger.debug("Starting to process all the records in the list: " + rowKeys)
-    var counter = 0
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
-    rowKeys.foreach { rowKey =>
-      val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(rowKey)
-      if (!rawProcessed.isEmpty){
-        val rp = rawProcessed.get
-        processRecord(rp(0), rp(1))
-
-        //debug counter
-        if (counter % 100 == 0) {
-          finishTime = System.currentTimeMillis
-          logger.debug(counter + " >> Last key : " + rp(0).uuid + ", records per sec: " + 100f / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
-        }
-      }
-      counter += 1
-    }
-  }
+  val processTimings:mutable.Map[String, Long] = scala.collection.mutable.Map[String, Long]()
 
   /**
    * Process a record, adding metadata and records quality systemAssertions.
@@ -98,7 +75,11 @@ class RecordProcessor {
       Processors.foreach(processor => {
         // when processing a new record (firstLoad==true), there is no need to include offline processing
         if (!processor.getName.equals("offline") || !firstLoad) {
+          val start = System.currentTimeMillis
           assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+          val currentTime = (System.currentTimeMillis - start) + processTimings.getOrElse(processor.getName, 0L)
+
+          processTimings += (processor.getName -> currentTime)
         }
       })
       //mark the processed time
