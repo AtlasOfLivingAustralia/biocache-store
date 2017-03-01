@@ -120,8 +120,9 @@ object ProcessRecords extends Tool with IncrementalTool {
     var buff = new LinkedBlockingQueue[Object](1000)
     var writeBuffer = new LinkedBlockingQueue[Object](threads)
     var ids = 0
+    val writer = {val p = new ProcessedBatchWriter(writeBuffer, callback); p.start; p}
+    logger.info("writer status: " + writer.getState)
     val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids,buff, writeBuffer); ids +=1; p.start; p }
-    val writer = {val p = new ProcessedBatchWriter(writeBuffer, callback).start; p}
     logger.info("Starting to process a list of records...")
     val start = System.currentTimeMillis
     val startTime = System.currentTimeMillis
@@ -264,7 +265,6 @@ class Consumer (master:Actor, val id:Int, val buffer:LinkedBlockingQueue[Object]
   val batchSize = 200
 
   def act {
-    logger.info("In thread: "+id)
     while (true) {
       buffer.take() match {
 
@@ -327,6 +327,7 @@ class ProcessedBatchWriter (val writeBuffer: LinkedBlockingQueue[Object], val ca
       writeBuffer.take() match {
 
         case batch: List[Map[String, Object]] => {
+          try {
             startTime = System.currentTimeMillis
             processor.writeProcessBatch(batch)
             writeTime += System.currentTimeMillis - startTime
@@ -335,7 +336,6 @@ class ProcessedBatchWriter (val writeBuffer: LinkedBlockingQueue[Object], val ca
             recordCount += batch.size
             count += batch.size
             if (count > nextPos) {
-              finishTime = System.currentTimeMillis
 
               logger.info(count
                 + " >> writing records per sec: " + recordCount / (((writeTime).toFloat) / 1000f)
@@ -350,18 +350,24 @@ class ProcessedBatchWriter (val writeBuffer: LinkedBlockingQueue[Object], val ca
                 callback.progressMessage(count)
               }
             }
+          } catch {
+            case e:Exception => logger.error("failed to write batch. adding to queue to retry writing: " + e.getMessage, e);
+              try {
+                writeBuffer.put(batch)
+              }
+          }
         }
 
         case s: Object => {
           if (s.equals("exit")) {
-            logger.debug("Killing (Actor.act) ProcessedBufferWriter thread")
+            logger.info("Killing (Actor.act) ProcessedBufferWriter thread")
             if (callback != null) {
               callback.progressMessage(count)
             }
 
             logger.info(count
               + " >> Finished writing, total records: " + count
-              + ", total time: " + (finishTime - firstTime).toFloat / 60000f + " minutes"
+              + ", total time spent writing: " + (writeTimeTotal).toFloat / 60000f + " minutes"
             )
 
             exit()
