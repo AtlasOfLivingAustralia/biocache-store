@@ -209,7 +209,7 @@ object ProcessRecords extends Tool with IncrementalTool {
       if(startUuid.isEmpty || startUuid.get == line) {
         val record = occurrenceDAO.getRawProcessedByRowKey(line)
         if(!record.isEmpty){
-          buffer.put(line)
+          buffer.put((record.get(0), record.get(1)))
         }
       }
 
