@@ -1,7 +1,7 @@
 package au.org.ala.biocache.persistence
 
 import java.util
-import java.util.{Arrays, UUID}
+import java.util.{Comparator, Arrays, UUID}
 import java.util.concurrent._
 
 import au.org.ala.biocache.Config
@@ -935,48 +935,53 @@ class Cassandra3PersistenceManager  @Inject() (
       localhost
     }
 
-    logger.info("####### Retrieving ranges for node:" + localHost.getAddress.getHostAddress)
+    val replicaCount= new util.HashMap[Host, util.List[TokenRange]]
+    val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges).toArray(new Array[TokenRange](0))
 
 
-    if(Config.usingFullReplication){
+    System.out.println("#######  Number of token ranges : " + tokenRanges.length)
 
-      val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges()).toArray(new Array[TokenRange](0))
 
-      logger.info("#######  Using full replication, so splitting token ranges based on node number " + Config.nodeNumber)
-      logger.info("#######  Total number of token ranges for cluster " + tokenRanges.length)
-      val tokenRangesSorted = tokenRanges.sortBy(_.getStart)
+    val tokenRangesSorted = tokenRanges.sortBy(_.getStart)
+    val numberOfHost = metadata.getAllHosts.size
+    val rangesPerHost = tokenRanges.length / numberOfHost
 
-      for (tokenRange <- tokenRangesSorted) {
-        logger.info("#######  Token ranges for the cluster - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
+    /** ****** Token ranges debug ********/
+    tokenRangesSorted.foreach { tokenRange =>
+
+      val hosts = metadata.getReplicas(keyspace, tokenRange)
+      var rangeHosts = ""
+      val iter = hosts.iterator
+
+      var allocated = false
+      while (iter.hasNext && !allocated) {
+        val host = iter.next
+        var tokenRangesForHost = replicaCount.get(host)
+        if (tokenRangesForHost == null) {
+          tokenRangesForHost = new util.ArrayList[TokenRange]
+        }
+        if (tokenRangesForHost.size < rangesPerHost || !iter.hasNext) {
+          tokenRangesForHost.add(tokenRange)
+          replicaCount.put(host, tokenRangesForHost)
+
+          allocated = true
+        }
+        rangeHosts += host.getAddress.toString
       }
-
-      val tokenRangesPerNode = tokenRangesSorted.size / Config.clusterSize
-
-      val startAtRange = Config.nodeNumber * tokenRangesPerNode
-
-      logger.info(s"#######  Global number of token ranges " + tokenRanges.size)
-      logger.info(s"#######  Number of token ranges per node  $tokenRangesPerNode")
-      logger.info(s"#######  Starting at range $startAtRange")
-
-      val startIdx = Config.nodeNumber * tokenRangesPerNode
-      val endIdx = startIdx + tokenRangesPerNode
-
-      logger.info(s"#######  Index range $startIdx to $endIdx")
-
-      val tokenRangesForThisNode  = Arrays.copyOfRange(tokenRangesSorted, startIdx, endIdx)
-
-      for (tokenRange <- tokenRangesForThisNode) {
-        logger.info("#######  Token ranges for this node - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
-      }
-
-      tokenRangesForThisNode
-    } else {
-      val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges(keyspace, localHost)).toArray(new Array[TokenRange](0))
-      for (tokenRange <- tokenRanges) {
-        logger.debug("#######  Token ranges - start:" + tokenRange.getStart + " end:" + tokenRange.getEnd)
-      }
-      tokenRanges
     }
+
+    replicaCount.keySet.foreach { replica =>
+      val allocatedRanges: util.List[TokenRange] = replicaCount.get(replica)
+      System.out.println(replica.getAddress + " allocated ranges: " + allocatedRanges.size)
+      import scala.collection.JavaConversions._
+      for (tr <- replicaCount.get(replica)) {
+        System.out.println(tr.getStart + " to " + tr.getEnd)
+      }
+    }
+
+
+    replicaCount.get(localHost).toArray(Array[TokenRange]())
+
   }
 
   private def unwrapTokenRanges(wrappedRanges: util.Set[TokenRange]) : util.Set[TokenRange] = {
