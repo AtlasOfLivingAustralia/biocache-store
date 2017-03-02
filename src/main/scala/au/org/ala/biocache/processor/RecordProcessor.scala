@@ -76,10 +76,16 @@ class RecordProcessor {
         // when processing a new record (firstLoad==true), there is no need to include offline processing
         if (!processor.getName.equals("offline") || !firstLoad) {
           val start = System.currentTimeMillis
-          assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
-          val currentTime = (System.currentTimeMillis - start) + processTimings.getOrElse(processor.getName, 0L)
-
-          processTimings += (processor.getName -> currentTime)
+          try {
+            assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+          } catch {
+            case e: Exception => {
+              logger.warn("Non-fatal error processing record: " + raw.rowKey + ", processorName: " + processor.getName + ", error: " + e.getMessage(), e)
+            }
+          } finally {
+            val currentTime = (System.currentTimeMillis - start) + processTimings.getOrElse(processor.getName, 0L)
+            processTimings += (processor.getName -> currentTime)
+          }
         }
       })
       //mark the processed time
