@@ -208,7 +208,16 @@ class SensitivityProcessor extends Processor {
         //update the raw record with whatever is left in the stringMap - change to use DAO method...
         if(StringUtils.isNotBlank(raw.rowKey)){
           Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap, false)
-          LocationDAO.storePointForSampling(processed.location.decimalLatitude, processed.location.decimalLongitude)
+          try {
+            if(StringUtils.isNotBlank(processed.location.decimalLatitude) && 
+               StringUtils.isNotBlank(processed.location.decimalLongitude)) {
+              LocationDAO.storePointForSampling(processed.location.decimalLatitude, processed.location.decimalLongitude)
+            }
+          } catch {
+            case e: Exception => {
+              logger.error("Error storing point for sampling for SDS record: " + raw.rowKey + " " + processed.uuid, e)
+            }
+          }
         }
 
       } else if (!outcome.isLoadable() && Config.obeySDSIsLoadable){
