@@ -815,6 +815,24 @@
                                     </extraArguments>
                                 </jvmSettings>
                             </program>
+                            <program>
+                                <id>biocache-species-outliers</id>
+                                <mainClass>au.org.ala.biocache.outliers.SpeciesOutlierTests</mainClass>
+                                <jvmSettings>
+                                    <initialMemorySize>4g</initialMemorySize>
+                                    <maxMemorySize>4g</maxMemorySize>
+                                    <extraArguments>
+                                        <extraArgument>$BIOCACHE_OPTS</extraArgument>
+                                        <extraArgument>-Dfile.encoding=UTF8</extraArgument>
+                                        <extraArgument>-Dlog4j.configuration=log4j.xml</extraArgument>
+                                        <extraArgument>-Dactors.corePoolSize=8</extraArgument>
+                                        <extraArgument>-Dactors.maxPoolSize=16</extraArgument>
+                                        <extraArgument>-Dactors.minPoolSize=8</extraArgument>
+                                        <extraArgument>-Djava.util.Arrays.useLegacyMergeSort=true</extraArgument>
+                                        <extraArgument>-Dactors.maxPoolSize=8</extraArgument>
+                                    </extraArguments>
+                                </jvmSettings>
+                            </program>
                         </programs>
                     </configuration>
                     <executions>
