@@ -7,8 +7,9 @@ branches:
   - master
   - cassandra3
 before_install:
-- mkdir -p ~/.m2; wget -q -O ~/.m2/settings.xml https://raw.githubusercontent.com/AtlasOfLivingAustralia/travis-build-configuration/master/travis_maven_settings.xml
-script: mvn clean install deploy -DskipTests=true
+  - mkdir -p ~/.m2; wget -q -O ~/.m2/settings.xml https://raw.githubusercontent.com/AtlasOfLivingAustralia/travis-build-configuration/master/travis_maven_settings.xml
+script:
+  - "[ \"${TRAVIS_PULL_REQUEST}\" = \"false\" ] && mvn -X clean install deploy -DskipTests || mvn -X clean install -DskipTests"
 env:
   global:
   - secure: ESKmT8MqCMhcmqlBdnhwv/EJOSuUYSAeTDdA/oXBC9g61k6KrxWZorqylh02LOqamg2r1tUn5i+H+L6vT0tEezdyO1+raFE7gMasbDmlPl/tqAKrwsU0x9YpeqFa2N48xlQlGVw4PfavBoeJ5WCwUovakhvmYauAEhc92rIXr7U=
