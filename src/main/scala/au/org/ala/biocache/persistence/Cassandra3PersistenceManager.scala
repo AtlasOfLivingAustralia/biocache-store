@@ -530,7 +530,7 @@ class Cassandra3PersistenceManager  @Inject() (
           val endToken = tokenRange.getEnd
 
           val pagingQuery = s"SELECT * FROM $entityName where $indexedField = '$indexedFieldValue' " +
-            s"AND token(rowkey) >= $startToken AND token(rowkey) <= $endToken " +
+            s"AND token(rowkey) > $startToken AND token(rowkey) <= $endToken " +
             s"allow filtering"
 
           val stmt = new SimpleStatement(pagingQuery)
@@ -690,7 +690,7 @@ class Cassandra3PersistenceManager  @Inject() (
             val startToken = tokenRange.getStart()
             val endToken =  tokenRange.getEnd()
 
-            val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) >= $startToken and token(rowkey) <= $endToken")
+            val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) <= $endToken")
             stmt.setConsistencyLevel(ConsistencyLevel.ONE)
             stmt.setFetchSize(250)
             stmt.setReadTimeoutMillis(120000) //2 minute timeout
