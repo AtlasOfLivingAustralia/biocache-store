@@ -802,6 +802,7 @@
                                     <maxMemorySize>16g</maxMemorySize>
                                     <extraArguments>
                                         <extraArgument>$BIOCACHE_OPTS</extraArgument>
+                                        <extraArgument>-XX:+UseG1GC</extraArgument>
                                         <extraArgument>-Dfile.encoding=UTF8</extraArgument>
                                         <extraArgument>-Dlog4j.configuration=log4j.xml</extraArgument>
                                         <extraArgument>-Dactors.corePoolSize=8</extraArgument>
@@ -820,6 +821,7 @@
                                     <maxMemorySize>16g</maxMemorySize>
                                     <extraArguments>
                                         <extraArgument>$BIOCACHE_OPTS</extraArgument>
+                                        <extraArgument>-XX:+UseG1GC</extraArgument>
                                         <extraArgument>-Dfile.encoding=UTF8</extraArgument>
                                         <extraArgument>-Dlog4j.configuration=log4j.xml</extraArgument>
                                         <extraArgument>-Dactors.corePoolSize=8</extraArgument>
