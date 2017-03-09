@@ -8,7 +8,7 @@ import au.org.ala.names.model.LinnaeanRankClassification
 import org.apache.commons.lang.StringUtils
 import au.org.ala.biocache.caches.{CommonNameDAO, TaxonProfileDAO, ClassificationDAO, AttributionDAO}
 import au.org.ala.biocache.util.BiocacheConversions
-import au.org.ala.biocache.model.{QualityAssertion, FullRecord, Classification}
+import au.org.ala.biocache.model.{Attribution, QualityAssertion, FullRecord, Classification}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.vocab.{AssertionStatus, Kingdoms, DwC, AssertionCodes}
 
@@ -185,10 +185,16 @@ class ClassificationProcessor extends Processor {
 
           //Check to see if the classification fits in with the supplied taxonomic hints
           //get the taxonomic hints from the collection or data resource
-          var attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
-          if (attribution.isEmpty) {
-            attribution = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
+          var attribution:Option[Attribution] = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
+          if(attribution.get.hasMappedCollections){
+            attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
           }
+//
+//
+//          var attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
+//          if (attribution.isEmpty) {
+//            attribution = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
+//          }
           var hintsPassed = true
           if (!attribution.isEmpty) {
             logger.debug("Checking taxonomic hints")
