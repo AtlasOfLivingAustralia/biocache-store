@@ -18,6 +18,7 @@ object ProcessLocalRecords extends Tool {
     var drs:Seq[String] = List()
     var skipDrs:Seq[String] = List()
     var useFullScan = false
+    var startTokenRangeIdx = 0
 
     val parser = new OptionParser(help) {
       intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
@@ -36,6 +37,10 @@ object ProcessLocalRecords extends Tool {
       opt("use-resource-scan", "Scan by data resource. This is slower for very large datasets (> 5 million record), but faster for smaller", {
         useFullScan = false
       })
+      intOpt("stk", "start-token-range-idx", "the idx of the token range to start at. Typically a value between 0 and 1024." +
+        "This is useful when a long running process fails for some reason.", {
+        v: Int => startTokenRangeIdx = v
+      })
     }
 
     if(skipDrs.isEmpty && drs.size == 1){
@@ -47,7 +52,7 @@ object ProcessLocalRecords extends Tool {
     }
 
     if(parser.parse(args)){
-      new ProcessLocalRecords().processRecords(threads, drs, skipDrs, useFullScan)
+      new ProcessLocalRecords().processRecords(threads, drs, skipDrs, useFullScan, startTokenRangeIdx)
     }
   }
 }
@@ -59,7 +64,7 @@ class ProcessLocalRecords {
 
   val logger = LoggerFactory.getLogger("ProcessLocalRecords")
 
-  def processRecords(threads:Int, drs:Seq[String], skipDrs:Seq[String], useFullScan:Boolean) : Unit = {
+  def processRecords(threads:Int, drs:Seq[String], skipDrs:Seq[String], useFullScan:Boolean, startTokenRangeIdx:Int) : Unit = {
 
     val processor = new RecordProcessor
     val start = System.currentTimeMillis()
@@ -69,6 +74,8 @@ class ProcessLocalRecords {
     //its been left in to give a general idea of performance
     var updateCount = 0
     var readCount = 0
+
+    System.setProperty("startAtTokenRange", startTokenRangeIdx.toString)
 
     val total = if(useFullScan) {
       logger.info("Using a full scan...")
