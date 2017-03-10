@@ -69,6 +69,7 @@ class ProcessLocalRecords {
     val processor = new RecordProcessor
     val start = System.currentTimeMillis()
     var lastLog = System.currentTimeMillis()
+    val processTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
 
     //note this update count isn't thread safe, so its inaccurate
     //its been left in to give a general idea of performance
@@ -87,6 +88,8 @@ class ProcessLocalRecords {
           if ((drs.isEmpty || drs.contains(raw.attribution.dataResourceUid)) &&
             !skipDrs.contains(raw.attribution.dataResourceUid)) {
             val (processed, assertions) = processor.processRecord(raw)
+            //set the last processed time
+            processed.lastModifiedTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
             Config.occurrenceDAO.updateOccurrence(rowKey, processed, Some(assertions), Versions.PROCESSED)
             updateCount += 1
           }
