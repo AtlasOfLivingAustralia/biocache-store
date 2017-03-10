@@ -1,6 +1,8 @@
 package au.org.ala.biocache.caches
 
 import java.io.FileWriter
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
@@ -17,6 +19,8 @@ object LocationDAO {
   private val columnFamily = "loc"
   private val lock : AnyRef = new Object()
   private val lru = new org.apache.commons.collections.map.LRUMap(10000)
+  private val storedPointCache = ConcurrentHashMap.newKeySet[String]()
+
 
   private final val latitudeCol = "lat"
   private final val longitudeCol = "lon"
@@ -87,6 +91,9 @@ object LocationDAO {
 
   def storePointForSampling(latitude:String, longitude:String) : String = {
     val uuid = getLatLongKey(latitude, longitude)
+    if(storedPointCache.contains(uuid)){
+      return uuid
+    }
     val map = Map(latitudeCol -> latitude, longitudeCol -> longitude)
     if(Config.persistPointsFile != ""){
       synchronized {
@@ -98,6 +105,7 @@ object LocationDAO {
       }
     } else {
       Config.persistenceManager.put(uuid, columnFamily, map, true, false)
+      storedPointCache.add(uuid)
     }
     uuid
   }
