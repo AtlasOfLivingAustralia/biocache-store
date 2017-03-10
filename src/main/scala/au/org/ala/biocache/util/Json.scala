@@ -9,15 +9,16 @@ object Json {
 
   import scala.collection.JavaConverters._
 
+  //object mapper is thread safe
+  val mapper = new ObjectMapper
+  mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
+  mapper.getDeserializationConfig().set(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+
   def toJSONWithGeneric[A](list:Seq[A]) : String = {
-    val mapper = new ObjectMapper
-    mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
     mapper.writeValueAsString(list.asJava)
   }  
   
   def toJSONWithGeneric[A](list:List[A]) : String = {
-    val mapper = new ObjectMapper
-    mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
     mapper.writeValueAsString(list.asJava)
   }
 
@@ -25,8 +26,6 @@ object Json {
    * Convert the supplied list to JSON
    */
   def toJSON(list:List[AnyRef]) : String = {
-    val mapper = new ObjectMapper
-    mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
     mapper.writeValueAsString(list.asJava)
   }
 
@@ -34,8 +33,6 @@ object Json {
    * Convert the supplied list to JSON
    */
   def toJSON(a:AnyRef) : String = {
-    val mapper = new ObjectMapper
-    mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
     if(a.isInstanceOf[scala.collection.Map[AnyRef, AnyRef]]){
       mapper.writeValueAsString(a.asInstanceOf[scala.collection.Map[AnyRef, AnyRef]].asJava)
     } else {
@@ -47,8 +44,6 @@ object Json {
    * Convert the supplied list to JSON
    */
   def toJSON(a:Map[String,Any]) : String = {
-    val mapper = new ObjectMapper
-    mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
     mapper.writeValueAsString(a.asJava)
   }
 
@@ -56,8 +51,6 @@ object Json {
    * Convert the supplied list to JSON
    */
   def toJSONMap(a:Map[String,Any]) : String = {
-    val mapper = new ObjectMapper
-    mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
     mapper.writeValueAsString(a.asJava)
   }
 
@@ -65,7 +58,6 @@ object Json {
    * Convert Array to JSON
    */
   def toJSON(arr:Array[AnyRef]) : String ={
-    val mapper = new ObjectMapper
     mapper.writeValueAsString(arr)
   }
 
@@ -74,7 +66,6 @@ object Json {
    */
   def toStringArray(jsonString:String) : Array[String] = {
     if(jsonString != null && jsonString != ""){
-      val mapper = new ObjectMapper
       val valueType = TypeFactory.arrayType(classOf[java.lang.String])
       mapper.readValue[Array[String]](jsonString, valueType)
     } else {
@@ -86,7 +77,6 @@ object Json {
    * Converts a string to the supplied array type
    */
   def toArray(jsonString:String, theClass:java.lang.Class[AnyRef]) : Array[AnyRef] ={
-    val mapper = new ObjectMapper
     val valueType = TypeFactory.arrayType(theClass)
     mapper.readValue[Array[AnyRef]](jsonString, valueType)
   }
@@ -95,8 +85,7 @@ object Json {
    * Convert the supplied list from JSON
    */
   def toList(jsonString:String, theClass:java.lang.Class[AnyRef]) : List[AnyRef] = {
-      val mapper = new ObjectMapper
-      mapper.getDeserializationConfig().set(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+
       val valueType = TypeFactory.collectionType(classOf[ArrayList[AnyRef]], theClass)
       val listOfObject = mapper.readValue[ArrayList[AnyRef]](jsonString, valueType)
       listOfObject.asScala.toList
@@ -106,8 +95,6 @@ object Json {
    * Convert the supplied list from JSON
    */
   def toListWithGeneric[A](jsonString:String,theClass:java.lang.Class[_]) : List[A] = {
-    val mapper = new ObjectMapper
-    mapper.getDeserializationConfig().set(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     val valueType = TypeFactory.collectionType(classOf[ArrayList[_]], theClass)
     val listOfObject = mapper.readValue[ArrayList[_]](jsonString, valueType)
     listOfObject.asScala.toList.asInstanceOf[List[A]]
@@ -123,7 +110,6 @@ object Json {
 
   def toMap(jsonString:String): scala.collection.Map[String,Object]={
    try {
-     val mapper = new ObjectMapper
      mapper.readValue(jsonString,classOf[java.util.Map[String,Object]]).asScala
    } catch {
      case e:Exception => Map()
@@ -132,7 +118,6 @@ object Json {
 
   def toStringMap(jsonString:String): scala.collection.Map[String,String] = {
    try {
-     val mapper = new ObjectMapper
      mapper.readValue(jsonString,classOf[java.util.Map[String,String]]).asScala
    } catch {
      case e:Exception => Map()
@@ -141,7 +126,6 @@ object Json {
 
   def toJavaMap(jsonString:String): java.util.Map[String,Object] = {
    try {
-     val mapper = new ObjectMapper
      mapper.readValue(jsonString,classOf[java.util.Map[String,Object]])
    } catch {
      case e:Exception => new java.util.HashMap()
@@ -150,7 +134,6 @@ object Json {
 
   def toJavaStringMap(jsonString:String): java.util.Map[String,String] = {
    try {
-     val mapper = new ObjectMapper
      mapper.readValue(jsonString,classOf[java.util.Map[String,String]])
    } catch {
      case e:Exception => new java.util.HashMap()
