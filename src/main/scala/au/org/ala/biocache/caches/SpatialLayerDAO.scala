@@ -3,7 +3,7 @@ package au.org.ala.biocache.caches
 import java.io.File
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.model.FullRecord
+import au.org.ala.biocache.model.{Location, FullRecord}
 import au.org.ala.biocache.util.StringHelper
 import au.org.ala.layers.intersect.SimpleShapeFile
 import org.apache.commons.lang.StringUtils
@@ -24,7 +24,8 @@ object SpatialLayerDAO {
   val idNameLookup = new mutable.HashMap[String, String]()
   val nameFieldLookup = new mutable.HashMap[String, String]()
   val loadedShapeFiles = new mutable.HashMap[String, SimpleShapeFile]()
-
+  private val lock : AnyRef = new Object()
+  private val lru = new org.apache.commons.collections.map.LRUMap(100000)
   var sdsLayerList:List[String] = List()
 
   init
@@ -156,14 +157,22 @@ object SpatialLayerDAO {
       return Map[String,String]()
     }
 
-    val intersects = new mutable.HashMap[String ,String]()
-    loadedShapeFiles.foreach { case (layerID, shp) =>
-      val intersectValue = shp.intersect(decimalLongitude, decimalLatitude)
-      if(intersectValue != null) {
-        intersects.put(layerID, intersectValue)
+    val key = decimalLongitude + "|" + decimalLatitude
+    val cachedObject = lock.synchronized { lru.get(key) }
+
+    if(cachedObject != null){
+      cachedObject.asInstanceOf[collection.Map[String, String]]
+    } else {
+      val intersects = new mutable.HashMap[String ,String]()
+      loadedShapeFiles.foreach { case (layerID, shp) =>
+        val intersectValue = shp.intersect(decimalLongitude, decimalLatitude)
+        if(intersectValue != null) {
+          intersects.put(layerID, intersectValue)
+        }
       }
+      lock.synchronized { lru.put(key, intersects) }
+      intersects
     }
-    intersects
   }
 
   private def getLatLongKey(longitude:Double, latitude:Double) : String = {
