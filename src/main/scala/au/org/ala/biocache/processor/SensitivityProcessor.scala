@@ -5,9 +5,10 @@ import au.org.ala.biocache.caches.SpatialLayerDAO
 import au.org.ala.biocache.caches.LocationDAO
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.{Versions, QualityAssertion, FullRecord}
-import au.org.ala.biocache.util.{GridUtil, StringHelper, Json}
+import au.org.ala.biocache.util.{GISPoint, GridUtil, StringHelper, Json}
 import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes, StateProvinces}
 import au.org.ala.sds.SensitiveDataService
+import com.google.common.cache.CacheBuilder
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
@@ -31,6 +32,8 @@ class SensitivityProcessor extends Processor {
 
   def getName = "sensitive"
 
+  val lruSensitiveLookups = CacheBuilder.newBuilder().maximumSize(10000).build[String, String]()
+
   /**
     * Process the supplied record.
     *
@@ -50,8 +53,20 @@ class SensitivityProcessor extends Processor {
 
     val exact = getExactSciName(raw)
 
+    val hashKey = exact + "|" + processed.classification.taxonConceptID
+    val isSensitiveString = lruSensitiveLookups.getIfPresent(hashKey)
+    val isSensitive = {
+      if (isSensitiveString == null) {
+        val isSensitive = sds.isTaxonSensitive(Config.sdsFinder, exact, processed.classification.taxonConceptID)
+        lruSensitiveLookups.put(hashKey, isSensitive.toString())
+        isSensitive
+      } else {
+        isSensitiveString.toBoolean
+      }
+    }
+
     //is the name recognised as sensitive?
-    if(!sds.isTaxonSensitive(Config.sdsFinder, exact, processed.classification.taxonConceptID)){
+    if(!isSensitive){
       return Array()
     }
 
