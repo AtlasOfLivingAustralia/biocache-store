@@ -1,11 +1,13 @@
 package au.org.ala.biocache.util
 
 import java.util
+import java.util.Collections
 
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes}
 import au.org.ala.biocache.vocab.AssertionCodes._
 import au.org.ala.biocache.vocab.AssertionStatus._
+import com.google.common.cache.CacheBuilder
 import org.apache.commons.lang.StringUtils
 import org.geotools.referencing.CRS
 import org.slf4j.LoggerFactory
@@ -21,6 +23,9 @@ object GridUtil {
   import StringHelper._, AssertionCodes._, AssertionStatus._, JavaConversions._
 
   val logger = LoggerFactory.getLogger("GridUtil")
+
+  private val lock : AnyRef = new Object()
+  val lru = CacheBuilder.newBuilder().maximumSize(100000).build[String, Option[GISPoint]]()
 
   //deal with the 2k OS grid ref separately
   val osGridRefNoEastingNorthing = ("""([A-Z]{2})""").r
@@ -479,7 +484,12 @@ object GridUtil {
     */
   def processGridReference(gridReference:String): Option[GISPoint] = {
 
-    GridUtil.gridReferenceToEastingNorthing(gridReference) match {
+    val cachedObject = lru.getIfPresent(gridReference)
+    if(cachedObject != null)
+      return cachedObject.asInstanceOf[Option[GISPoint]]
+
+
+    val result = GridUtil.gridReferenceToEastingNorthing(gridReference) match {
       case Some(gr) => {
 
         //move coordinates to the centroid of the grid
@@ -522,6 +532,8 @@ object GridUtil {
       }
       case None => None
     }
+    lru.put(gridReference, result)
+    result
   }
 
   /**
