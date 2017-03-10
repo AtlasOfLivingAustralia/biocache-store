@@ -582,7 +582,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   }
 
   /**
-   * Update the occurrence with the supplied record, setting the correct version
+   * Update the occurrence with the supplied record, setting the correct version.
+   * This implementation updates the records and assertions in a single write.
    */
   def updateOccurrence(rowKey: String, fullRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]], version: Version) {
 
@@ -590,8 +591,12 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     val properties = FullRecordMapper.fullRecord2Map(fullRecord, version)
 
     if (!assertions.isEmpty) {
-      properties ++= convertAssertionsToMap(rowKey,assertions.get)
-      updateSystemAssertions(rowKey, assertions.get)
+      properties ++= convertAssertionsToMap(rowKey, assertions.get)
+
+      var assertionsToPersist = new ListBuffer[QualityAssertion] //getSystemAssertions(uuid)
+      assertions.get.values.foreach(x => { assertionsToPersist ++= x })
+      val assertionsAsJson = Json.toJSONWithGeneric(assertionsToPersist)
+      properties ++= Map(FullRecordMapper.qualityAssertionColumn -> assertionsAsJson)
     }
 
     //commit to cassandra
@@ -634,7 +639,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         || !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")
       ){
         //only add the assertions if they have changed since the last time or the number of records to persist >1
-        propertiesToPersist ++= convertAssertionsToMap(rowKey,assertions.get)
+        propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get)
         updateSystemAssertions(rowKey, assertions.get)
       }
     }
@@ -710,7 +715,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   private def initAssertions(processed:FullRecord, assertions:Map[String, Array[QualityAssertion]]){
     assertions.values.foreach(array => {
       val failedQas = array.filter(_.qaStatus==0).map(_.getName)
-      processed.assertions = processed.assertions  ++ failedQas
+      processed.assertions = processed.assertions ++ failedQas
     })
   }
 
