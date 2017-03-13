@@ -243,6 +243,7 @@ object CMD2 {
     Sampling,
     SampleLocalRecords,
     ShowConfig,
+    SyncLocTable,
     ReverseJacknifeProcessor,
     Thumbnailer,
     BulkProcessor,

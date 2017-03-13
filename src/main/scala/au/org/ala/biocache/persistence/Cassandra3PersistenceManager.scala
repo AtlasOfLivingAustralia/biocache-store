@@ -421,6 +421,15 @@ class Cassandra3PersistenceManager  @Inject() (
     recordId
   }
 
+  def listFieldsForEntity(entityName:String): Seq[String] = {
+    val tableMetadata = cluster.getMetadata.getKeyspace("occ").getTable(entityName)
+    tableMetadata.getColumns.map(column => column.getName).toList
+  }
+
+  def addFieldToEntity(entityName:String, fieldName:String) : Unit = {
+    val resultset = session.execute(s"ALTER TABLE $entityName ADD $fieldName varchar")
+  }
+
   /**
     * Pages over all the records with the selected columns.
     *
