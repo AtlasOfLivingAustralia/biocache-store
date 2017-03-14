@@ -4,6 +4,7 @@ import java.io.File
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.index.lucene.LuceneIndexing
 import au.org.ala.biocache.tool.ProcessRecords
 import au.org.ala.biocache.util.OptionParser
 import org.apache.commons.io.FileUtils
@@ -12,6 +13,8 @@ import org.apache.lucene.index.IndexWriterConfig.OpenMode
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.FSDirectory
 import org.apache.lucene.util.Version
+import org.apache.solr.core.{CoreContainer, SolrConfig}
+import org.apache.solr.schema.IndexSchemaFactory
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
@@ -37,6 +40,10 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
   def main(args: Array[String]) {
 
     var numThreads = 8
+    var threadsPerWriter = 1
+    var threadsPerProcess = 1
+    var ramPerWriter = 200
+    var writerSegmentSize = 50000
     var pageSize = 200
     var dirPrefix = "/data/biocache-reindex"
     var keys: Option[Array[String]] = None
@@ -57,6 +64,18 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
       })
       intOpt("t", "threads", "The number of threads to perform the indexing on. Default is " + numThreads, {
         v: Int => numThreads = v
+      })
+      intOpt("wt", "writerthreads", "The number of threads for each indexing writer. There is 1 writer for each -t. Default is " + threadsPerWriter, {
+        v: Int => threadsPerWriter = v
+      })
+      intOpt("pt", "processthreads", "The number of threads for each indexing process. There is 1 process for each -t. Default is " + threadsPerProcess, {
+        v: Int => threadsPerProcess = v
+      })
+      intOpt("r", "writerram", "Ram allocation for each writer (MB). There is 1 writer for each -t. Default is " + ramPerWriter, {
+        v: Int => ramPerWriter = v
+      })
+      intOpt("ws", "writersegmentsize", "Maximum number of occurrences in a writer segment. There is 1 writer for each -t. Default is " + writerSegmentSize, {
+        v: Int => writerSegmentSize = v
       })
       intOpt("ps", "pagesize", "The page size for the records. Default is " + pageSize, {
         v: Int => pageSize = v
@@ -111,6 +130,38 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           generateRanges(keys.get, startValue, endValue)
         }
 
+        //init for luceneIndexing
+        var luceneIndexing: ArrayBuffer[LuceneIndexing] = new ArrayBuffer[LuceneIndexing]
+        if (action == "index") {
+          val h = dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf"
+          //solr-create/thread-0/conf
+          val newIndexDir = new File(h)
+          if (newIndexDir.exists) {
+            FileUtils.deleteDirectory(newIndexDir.getParentFile())
+          }
+          FileUtils.forceMkdir(newIndexDir)
+
+          //CREATE a copy of SOLR home
+          val sourceConfDir = new File(dirPrefix + "/solr-template/biocache/conf") //solr-template/biocache/conf
+          FileUtils.copyDirectory(sourceConfDir, newIndexDir)
+
+          //COPY solr-template/biocache/solr.xml  -> solr-create/biocache-thread-0/solr.xml
+          FileUtils.copyFileToDirectory(new File(sourceConfDir.getParent + "/solr.xml"), newIndexDir.getParentFile)
+
+          val cc: CoreContainer = CoreContainer.createAndLoad(dirPrefix + "/solr-template/biocache",
+            new File(dirPrefix + "/solr-template/biocache/solr.xml"))
+
+          val schema = IndexSchemaFactory.buildIndexSchema("schema.xml",
+            SolrConfig.readFromResourceLoader(cc.getResourceLoader(), "solrconfig.xml"))
+
+          val bufferSize = Config.solrHardCommitSize
+
+          for (i <- 0 until numThreads) {
+            luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, newIndexDir.getParent() + "/data" + i + "-",
+              ramPerWriter, bufferSize, bufferSize / (threadsPerWriter + 1), threadsPerWriter)
+          }
+        }
+
         if (action == "range") {
           logger.info(ranges.mkString("\n"))
         } else if (action == "process") {
@@ -129,14 +180,16 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
               } else if (action == "repair") {
                 new RepairRecordsRunner(this, counter, startKey, endKey)
               } else if (action == "index") {
-                solrDirs += (dirPrefix + "/solr-create/biocache-thread-" + counter + "/data/index")
+                //solrDirs += (dirPrefix + "/solr-create/biocache-thread-" + counter + "/data/index")
                 new IndexRunner(this,
                   counter,
                   startKey,
                   endKey,
                   dirPrefix + "/solr-template/biocache/conf",
                   dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf",
-                  pageSize
+                  pageSize,
+                  luceneIndexing(counter % 8),
+                  threadsPerProcess
                 )
               } else if (action == "load-sampling") {
                 new LoadSamplingRunner(this, counter, startKey, endKey)
@@ -167,8 +220,27 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           threads.foreach { thread => thread.join }
 
           if (action == "index") {
+            val dirs = new ArrayBuffer[String]()
+            //val dirs = new util.ArrayList[File]()
+            luceneIndexing.foreach { i =>
+              i.close(true)
+
+              //dirs.addAll(i.getOutputDirectories)
+
+              for (j <- 0 until i.getOutputDirectories.size()) {
+               dirs += i.getOutputDirectories.get(j).getPath()
+              }
+            }
+
+            luceneIndexing = null
+            threads.clear()
+            System.gc()
+
+            val mem = Math.max((Runtime.getRuntime().freeMemory() * 0.5) / 1024 / 1024, numThreads * ramPerWriter).toInt
+
             logger.info("Merging index segments")
-            IndexMergeTool.merge(dirPrefix + "/solr/merged", solrDirs.toArray, forceMerge, mergeSegments, deleteSources)
+            IndexMergeTool.merge(dirPrefix + "/solr/merged", dirs.toArray, forceMerge, mergeSegments, deleteSources, mem)
+            //LuceneIndexing.merge(dirs, new File(dirPrefix + "/solr/merged"), mem, 8, forceMerge)
             logger.info("Shutting down persistence manager")
             Config.persistenceManager.shutdown
           } else if (action == "col") {
