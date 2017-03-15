@@ -65,6 +65,8 @@ object Config {
 
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
 
+  val volunteerDataProviderUid = configModule.properties.getProperty("volunteer.dp.uid", "")
+
   val collectoryApiKey = configModule.properties.getProperty("registry.api.key","xxxxxxxxxxxxxxxxx")
 
   val loadFileStore = configModule.properties.getProperty("load.dir","/data/biocache-load/")

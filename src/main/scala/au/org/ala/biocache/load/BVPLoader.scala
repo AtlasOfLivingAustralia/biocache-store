@@ -3,10 +3,14 @@ package au.org.ala.biocache.load
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 import java.net.URLEncoder
+
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.util.{OptionParser, Json, HttpUtil}
+import au.org.ala.biocache.util.{HttpUtil, Json, OptionParser}
+
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.load.BVPLoader.{DEFAULT_CITATION, DEFAULT_LICENSE_TYPE, DEFAULT_LICENSE_VERSION}
 
 /**
  * Loader for BVP data.
@@ -14,6 +18,10 @@ import au.org.ala.biocache.cmd.Tool
 object BVPLoader extends Tool {
 
   val logger = LoggerFactory.getLogger("BVPLoader")
+
+  private val DEFAULT_CITATION = (name: Any, url: Any)=> s"$name digitised at DigiVol ($url)"
+  val DEFAULT_LICENSE_TYPE = "Creative Commons Attribution Australia"
+  val DEFAULT_LICENSE_VERSION = "3.0"
 
   def cmd = "volunteer-ingest"
 
@@ -28,6 +36,7 @@ object BVPLoader extends Tool {
     var skipSampling = false
     var skipProcessing = false
     var skipIndexing = false
+    var dryRun = false
     var startAt = ""
 
     val parser = new OptionParser(help) {
@@ -55,13 +64,16 @@ object BVPLoader extends Tool {
       opt("sa", "start-at-uid", "Start ingesting resources at the supplied UID", {
         v: String => startAt = v
       })
+      opt("dr", "dry-run", "Dry run", {
+        dryRun = true
+      })
     }
     if (parser.parse(args)) {
       val b = new BVPLoader
       if (debugOnly) {
         b.displayList
       } else {
-        val drsList = b.retrieveList
+        val drsList = b.retrieveList(dryRun)
         logger.info("Number of resources to harvest: " + drsList.size)
         if (logger.isDebugEnabled) {
           drsList.foreach(dr => logger.debug("Will harvest: " + dr))
@@ -79,7 +91,7 @@ object BVPLoader extends Tool {
           drsList
         }
 
-        if (ingestResources && !syncOnly) {
+        if (ingestResources && !syncOnly && !dryRun) {
           drsToIngest.foreach(drUid =>
             try {
               IngestTool.ingestResource(
@@ -122,7 +134,7 @@ class BVPLoader {
     }
   }
 
-  def retrieveList: Seq[String] = {
+  def retrieveList(dryRun: Boolean): Seq[String] = {
 
     val stripHtmlRegex = "\\<.*?\\>"
     val src = scala.io.Source.fromURL(Config.volunteerUrl + "/ws/harvest", "UTF-8").mkString
@@ -170,10 +182,11 @@ class BVPLoader {
 
               //http post to
               val dataUrl = exp.get("dataUrl").getOrElse("")
+              val name = exp.getOrElse("name", "").toString
               val dataResourceMap = Map(
                 "api_key" -> Config.collectoryApiKey,
                 "guid" -> resourceUrl,
-                "name" -> exp.getOrElse("name", "").toString,
+                "name" -> name,
                 "pubDescription" -> description,
                 "provenance" -> "Draft",
                 "websiteUrl" -> exp.getOrElse("url", "").toString,
@@ -181,9 +194,21 @@ class BVPLoader {
                 "resourceType" -> "records",
                 "status" -> "dataAvailable",
                 "contentTypes" -> Array("point occurrence data", "crowd sourced", "BVP", transcriptionTag, validationTag),
-                "connectionParameters" -> s"""{"protocol":"DwC", "csv_eol":"\\n", "csv_delimiter": ",", "automation":"true","termsForUniqueKey":["catalogNumber"],"url":"$dataUrl"}"""
+                "connectionParameters" -> s"""{"protocol":"DwC", "csv_eol":"\\n", "csv_delimiter": ",", "automation":"true","termsForUniqueKey":["catalogNumber"],"url":"$dataUrl"}""",
+                "citation" -> exp.getOrElse("citation", DEFAULT_CITATION(name, Config.volunteerUrl)),
+                "licenseType" -> exp.getOrElse("licenceType", DEFAULT_LICENSE_TYPE).toString,
+                "licenseVersion" -> exp.getOrElse("licenseVersion", DEFAULT_LICENSE_VERSION).toString,
+                "dataProvider" -> Map(
+                  "uid" -> Config.volunteerDataProviderUid
+                ).asJava
               )
-              val (respCode, respBody) = HttpUtil.postBody(updateUrl, "application/json", Json.toJSON(dataResourceMap))
+
+              val (respCode, respBody) = if (!dryRun) {
+                HttpUtil.postBody(updateUrl, "application/json", Json.toJSON(dataResourceMap))
+              } else {
+                logger.info(s"POST to $updateUrl with values: ${Json.toJSON(dataResourceMap)}")
+                (200, "")
+              }
 
               logger.info("Response code for " + resourceUrl + ". Code: " + respCode)
 
@@ -205,10 +230,18 @@ class BVPLoader {
     val drs = drsToHarvest.toArray
 
     if (Config.volunteerHubUid != "") {
-      val (respCode, respBody) = HttpUtil.postBody(Config.registryUrl + "/dataHub/" + Config.volunteerHubUid, "application/json", Json.toJSON(Map(
-        "api_key" -> Config.collectoryApiKey,
-        "memberDataResources" -> Json.toJSON(drs)
-      )))
+      val (respCode, respBody) = if (!dryRun) {
+        HttpUtil.postBody(Config.registryUrl + "/dataHub/" + Config.volunteerHubUid, "application/json", Json.toJSON(Map(
+          "api_key" -> Config.collectoryApiKey,
+          "memberDataResources" -> Json.toJSON(drs)
+        )))
+      } else {
+        logger.info(s"POST to ${Config.registryUrl + "/dataHub/" + Config.volunteerHubUid} with data ${Json.toJSON(Map(
+          "api_key" -> Config.collectoryApiKey,
+          "memberDataResources" -> Json.toJSON(drs)
+        ))}")
+        (200, "")
+      }
       logger.info("Data hub sync: " + respCode)
       logger.info("Data hub sync response : " + respBody)
     } else {
