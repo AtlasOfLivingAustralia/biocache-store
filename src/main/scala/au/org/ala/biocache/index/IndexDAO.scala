@@ -818,8 +818,8 @@ trait IndexDAO {
         addField(doc,header(i), getValue("occurrenceID", map))
         i = i + 1
         if (dataHubUids != null)
-          for (j <- 0 until dataHubUids.length)
-            if (StringUtils.isNotEmpty(dataHubUids(j))) addField(doc,header(i), dataHubUids(j))
+          for (j <- dataHubUids)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         addField(doc,header(i), getValue("dataHub.p", map))
         i = i + 1
@@ -873,18 +873,18 @@ trait IndexDAO {
         i = i + 1
         //if (!images.isEmpty && images(0) != "") "Multimedia" else "None"
         if (multimedia != null)
-          for (j <- 0 until multimedia.length)
-            if (StringUtils.isNotEmpty(multimedia(j))) addField(doc,header(i), multimedia(j))
+          for (j <- multimedia)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         addField(doc,header(i), if (!images.isEmpty) images(0) else "")
         i = i + 1
-        if (images != null && images.length > 0)
-          for (j <- 0 until images.length)
-            if (StringUtils.isNotEmpty(images(j))) addField(doc,header(i), images(j))
+        if (images != null)
+          for (j <- images)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         if (speciesGroup != null && speciesGroup.length > 0)
-          for (j <- 0 until speciesGroup.length)
-            if (StringUtils.isNotEmpty(speciesGroup(j))) addField(doc,header(i), speciesGroup(j))
+          for (j <- speciesGroup)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         addField(doc,header(i), getValue("countryCode", map))
         i = i + 1
@@ -983,9 +983,8 @@ trait IndexDAO {
         addField(doc,header(i), subspeciesName)
         i = i + 1
         if (interactions != null)
-          for (j <- 0 until interactions.length)
-            if (StringUtils.isNotEmpty(interactions(j))) addField(doc,header(i), interactions(j))
-
+          for (j <- interactions)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         addField(doc,header(i), if (lastUserAssertion.isEmpty) "" else DateFormatUtils.format(lastUserAssertion.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
         i = i + 1
@@ -995,9 +994,8 @@ trait IndexDAO {
         i = i + 1
         addField(doc,header(i), if (modifiedDate.isEmpty) "" else DateFormatUtils.format(modifiedDate.get, "yyy-MM-dd'T'HH:mm:ss'Z'"))
         i = i + 1
-        val v1 = map.getOrElse("establishmentMeans.p", "").split("; ")
-        for (j <- 0 until v1.length)
-          if (StringUtils.isNotEmpty(v1(j))) addField(doc,header(i), v1(j))
+        for (v1 <- map.getOrElse("establishmentMeans.p", "").split("; "))
+          if (StringUtils.isNotEmpty(v1)) addField(doc,header(i), v1)
         i = i + 1
         addField(doc,header(i), map.getOrElse("loanSequenceNumber", ""))
         i = i + 1
@@ -1013,10 +1011,9 @@ trait IndexDAO {
         i = i + 1
         addField(doc,header(i), map.getOrElse("originalNameUsage", map.getOrElse("typifiedName", "")))
         i = i + 1
-        var v2 = map.getOrElse("duplicates", null)
-          for (j <- 0 until v2.length)
-            if (StringUtils.isNotEmpty(v1(j))) addField(doc,header(i), (String) v2(j))
-        i = i + 1 //.replaceAll(",","|"),
+        for (v2 <- map.getOrElse("duplicates", "").split('|'))
+          if (StringUtils.isNotEmpty(v2)) addField(doc, header(i), v2)
+        i = i + 1
         addField(doc,header(i), map.getOrElse("recordNumber", ""))
         i = i + 1
         addField(doc,header(i), if (firstLoadDate.isEmpty) "" else DateFormatUtils.format(firstLoadDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
@@ -1026,22 +1023,22 @@ trait IndexDAO {
         addField(doc,header(i), map.getOrElse("phenology", ""))
         i = i + 1 //TODO make this a controlled vocab that gets mapped during processing...
         if (outlierForLayers != null)
-          for (j <- 0 until outlierForLayers.length)
-            if (StringUtils.isNotEmpty(outlierForLayers(j))) addField(doc,header(i), outlierForLayers(j))
+          for (j <- outlierForLayers)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         addField(doc,header(i), outlierForLayers.length.toString)
         i = i + 1
         if (taxonIssueArray != null)
-          for (j <- 0 until taxonIssueArray.length)
-            if (StringUtils.isNotEmpty(taxonIssueArray(j))) addField(doc,header(i), taxonIssueArray(j))
+          for (j <- taxonIssueArray)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         addField(doc,header(i), map.getOrElse("identificationQualifier", ""))
         i = i + 1
         addField(doc,header(i), map.getOrElse("identificationQualifier.p", ""))
         i = i + 1
         if (habitats != null)
-          for (j <- 0 until habitats.length)
-            if (StringUtils.isNotEmpty(habitats(j))) addField(doc,header(i), habitats(j))
+          for (j <- habitats)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         addField(doc,header(i), map.getOrElse("identifiedBy", ""))
         i = i + 1
@@ -1053,15 +1050,17 @@ trait IndexDAO {
         i = i + 1
         addField(doc,header(i), pest_tmp)
         i = i + 1
-        addField(doc,header(i), map.getOrElse("recordedBy.p", ""))
+        for (v1 <- map.getOrElse("recordedBy.p", "").split('|'))
+          if (StringUtils.isNotEmpty(v1)) addField(doc,header(i), v1)
         i = i + 1
         addField(doc,header(i), map.getOrElse("duplicationStatus.p", ""))
         i = i + 1
-        addField(doc,header(i), map.getOrElse("associatedOccurrences.p", ""))
+        for (v1 <- map.getOrElse("associatedOccurrences.p", "").split('|'))
+          if (StringUtils.isNotEmpty(v1)) addField(doc,header(i), v1)
         i = i + 1
         if (dupTypes != null)
-          for (j <- 0 until dupTypes.length)
-            if (StringUtils.isNotEmpty(dupTypes(j))) addField(doc,header(i), dupTypes(j))
+          for (j <- dupTypes)
+            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
         i = i + 1
         addField(doc,header(i), sensitiveMap.getOrElse("coordinateUncertaintyInMeters.p", ""))
         i = i + 1
