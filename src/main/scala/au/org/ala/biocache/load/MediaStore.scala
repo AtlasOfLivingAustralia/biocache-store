@@ -255,14 +255,17 @@ object RemoteMediaStore extends MediaStore {
       //  http://images.ala.org.au/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf
       val uri = new URI(urlToMedia)
       val params:java.util.List[NameValuePair] = URLEncodedUtils.parse(uri, "UTF-8")
-      val param = params.get(0)
-      if(param.getName.toLowerCase == "imageid"){
-        val imageId = param.getValue()
-        val imageMetadataUrl = new URL(Config.remoteMediaStoreUrl + "/ws/getImageInfo?id=" + imageId)
-        val response = Source.fromURL(imageMetadataUrl).getLines().mkString
-        val metadata = Json.toMap(response)
-        return Some(metadata.getOrElse("originalFileName", "").toString, param.getValue())
+      for(param <- params) {
+        if(param.getName.toLowerCase == "imageid"){
+          val imageId = param.getValue()
+          val imageMetadataUrl = new URL(Config.remoteMediaStoreUrl + "/ws/getImageInfo?id=" + imageId)
+          val response = Source.fromURL(imageMetadataUrl).getLines().mkString
+          val metadata = Json.toMap(response)
+          return Some(metadata.getOrElse("originalFileName", "").toString, param.getValue())
+        }
       }
+      
+      return None
     }
 
     //already stored?
