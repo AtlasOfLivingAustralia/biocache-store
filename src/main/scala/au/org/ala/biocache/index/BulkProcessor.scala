@@ -13,7 +13,7 @@ import org.apache.lucene.index.IndexWriterConfig.OpenMode
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.FSDirectory
 import org.apache.lucene.util.Version
-import org.apache.solr.core.{CoreContainer, SolrConfig}
+import org.apache.solr.core.{CoreContainer, SolrConfig, SolrResourceLoader}
 import org.apache.solr.schema.IndexSchemaFactory
 import org.slf4j.LoggerFactory
 
@@ -148,11 +148,8 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           //COPY solr-template/biocache/solr.xml  -> solr-create/biocache-thread-0/solr.xml
           FileUtils.copyFileToDirectory(new File(sourceConfDir.getParent + "/solr.xml"), newIndexDir.getParentFile)
 
-          val cc: CoreContainer = CoreContainer.createAndLoad(dirPrefix + "/solr-template/biocache",
-            new File(dirPrefix + "/solr-template/biocache/solr.xml"))
-
           val schema = IndexSchemaFactory.buildIndexSchema("schema.xml",
-            SolrConfig.readFromResourceLoader(cc.getResourceLoader(), "solrconfig.xml"))
+            SolrConfig.readFromResourceLoader(new SolrResourceLoader(dirPrefix + "/solr-template/biocache"), "solrconfig.xml"))
 
           val bufferSize = Config.solrHardCommitSize
 
