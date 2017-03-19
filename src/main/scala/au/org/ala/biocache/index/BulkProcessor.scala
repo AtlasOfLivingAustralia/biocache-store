@@ -42,8 +42,11 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var numThreads = 8
     var threadsPerWriter = 1
     var threadsPerProcess = 1
-    var ramPerWriter = 200
-    var writerSegmentSize = 50000
+    var ramPerWriter = 50
+    var writerSegmentSize = 500000
+    var writerBufferSize = 3000
+    var writerBatchSize = 1500
+    var processorBufferSize = 100
     var pageSize = 200
     var dirPrefix = "/data/biocache-reindex"
     var keys: Option[Array[String]] = None
@@ -155,7 +158,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
           for (i <- 0 until numThreads) {
             luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, newIndexDir.getParent() + "/data" + i + "-",
-              ramPerWriter, bufferSize, bufferSize / (threadsPerWriter + 1), threadsPerWriter)
+              ramPerWriter, bufferSize, bufferSize / (threadsPerWriter + 2), threadsPerWriter)
           }
         }
 

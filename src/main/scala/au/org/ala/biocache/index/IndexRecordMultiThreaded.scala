@@ -530,42 +530,46 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
 
     val queue: LinkedBlockingQueue[Map[String, String]] = new LinkedBlockingQueue[Map[String, String]](Config.solrBatchSize)
 
-    val threads = mutable.ArrayBuffer[Thread]()
+    val threads = mutable.ArrayBuffer[ProcessThread]()
     if (luceneIndexing != null) {
       indexer.luceneIndexing = luceneIndexing
     }
 
     if (processingThreads > 0 && luceneIndexing != null) {
       for (i <- 0 until processingThreads) {
-        var t = new Thread() {
-          val docBuilder = luceneIndexing.getDocBuilder
-
-          override def run() {
-
-            // Specify the SOLR config to use
-            indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
-            var continue = true
-            while (true) {
-              val m: Map[String, String] = queue.take()
-              if (m.size == 0) {
-                continue = false;
-              } else {
-                try {
-                  if (m != null && m.size > 0) {
-                    val t1 = System.nanoTime()
-                    indexer.indexFromMapNew(m.get("uuid").get, m, docBuilder = docBuilder, lock = lock)
-                    timing.addAndGet(System.nanoTime() - t1)
-                  }
-                } catch {
-                  case e: InterruptedException => throw e
-                  case e: Exception => logger.error("guid:" + m.get("uuid") + ", " + e.getMessage())
-                }
-              }
-            }
-          }
-        }
+        var t = new ProcessThread()
         t.start()
         threads += t
+      }
+    }
+
+    class ProcessThread extends Thread() {
+      val docBuilder = luceneIndexing.getDocBuilder
+      var recordsProcessed = 0
+
+      override def run() {
+
+        // Specify the SOLR config to use
+        indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
+        var continue = true
+        while (continue) {
+          val m: Map[String, String] = queue.take()
+          if (m.isEmpty) {
+            continue = false
+          } else {
+            try {
+              if (m != null && m.size > 0) {
+                val t1 = System.nanoTime()
+                val t2 = indexer.indexFromMapNew(m.get("uuid").get, m, docBuilder = docBuilder, lock = lock)
+                timing.addAndGet(System.nanoTime() - t1 - t2)
+              }
+            } catch {
+              case e: InterruptedException => throw e
+              case e: Exception => logger.error("guid:" + m.get("uuid") + ", " + e.getMessage())
+            }
+          }
+          recordsProcessed = recordsProcessed + 1
+        }
       }
     }
 
@@ -575,6 +579,20 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     Config.persistenceManager.pageOverAll("occ", (guid, map) => {
       t2Total.addAndGet(System.nanoTime() - t2)
 
+      if (counter >= 200) {
+        //signal threads to end
+        for (i <- 0 until processingThreads) {
+          queue.put(Map[String, String]())
+        }
+
+        //wait for threads to end
+        threads.foreach(t => t.join())
+
+        finishTime = System.currentTimeMillis
+        logger.info("Total indexing time for this thread " + ((finishTime - start).toFloat) / 60000f + " minutes.")
+        return
+      }
+
       counter += 1
       val commit = counter % 100000 == 0
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
@@ -583,13 +601,14 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
         if (!guid.equals(startKey)) {
           if (map.contains("uuid") && !StringUtils.isEmpty(map.getOrElse("uuid", ""))) {
             val t1 = System.nanoTime()
+            var t2 = 0L
             if (useLucene) {
               if (processingThreads > 0) queue.put(map)
-              else indexer.indexFromMapNew(map.get("uuid").get, map)
+              else t2 = indexer.indexFromMapNew(map.get("uuid").get, map)
             } else {
               indexer.indexFromMap(guid, map, commit = commit, batchID = threadId.toString, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
             }
-            timing.addAndGet(System.nanoTime() - t1)
+            timing.addAndGet(System.nanoTime() - t1 - t2)
           }
         }
       } catch {

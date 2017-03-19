@@ -341,7 +341,7 @@ trait IndexDAO {
         }
 
         val outlierForLayers: Array[String] = {
-          val outlierForLayerStr = getValue("outlierForLayers.p", map)
+          val outlierForLayerStr = map.getOrElse("outlierForLayers.p", "[]")
           if (outlierForLayerStr != "") {
             try {
               Json.toStringArray(outlierForLayerStr)
@@ -733,7 +733,7 @@ trait IndexDAO {
         }
 
         val outlierForLayers: Array[String] = {
-          val outlierForLayerStr = getValue("outlierForLayers.p", map)
+          val outlierForLayerStr = map.getOrElse("outlierForLayers.p", "[]")
           if (outlierForLayerStr != "") {
             try {
               Json.toStringArray(outlierForLayerStr)

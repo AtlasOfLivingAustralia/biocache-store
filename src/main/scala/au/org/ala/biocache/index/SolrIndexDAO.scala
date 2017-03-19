@@ -332,8 +332,12 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   /**
     * Decides whether or not the current record should be indexed based on processed times
+    * and deletion status
     */
   def shouldIndex(map: scala.collection.Map[String, String], startDate: Option[Date]): Boolean = {
+    if (map.getOrElse(FullRecordMapper.deletedColumn, "").length() > 0 || map.size < 2) {
+      return false
+    }
     if (!startDate.isEmpty) {
       val lastLoaded = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn, map))
       val lastProcessed = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn + ".p", map))
@@ -738,19 +742,19 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                             csvFileWriter:FileWriter = null,
                             csvFileWriterSensitive:FileWriter = null,
                             docBuilder: DocBuilder = null,
-                            lock: Object = null) {
+                            lock: Object = null) : Long = {
     init
+
+    var time = 0L
 
     if (shouldIndex(map, startDate)) {
 
       val doc = if (docBuilder == null) this.docBuilder else docBuilder
 
       try {
-      doc.newDoc(guid)
+        doc.newDoc(guid)
 
-      writeOccIndexModelToDoc(doc, guid, map)
-
-      if (true) {
+        writeOccIndexModelToDoc(doc, guid, map)
 
         //add the misc properties here....
         //NC 2013-04-23: Change this code to support data types in misc fields.
@@ -850,6 +854,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         }
 
         if(!test) {
+          val t1 = System.nanoTime()
           if (lock != null) {
             lock.synchronized {
               doc.index()
@@ -857,21 +862,22 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           } else {
             doc.index()
           }
+          time = System.nanoTime() - t1
         }
 
-          if (csvFileWriter != null) {
-            writeDocBuilderToCsv(doc, csvFileWriter)
-          }
+        if (csvFileWriter != null) {
+          writeDocBuilderToCsv(doc, csvFileWriter)
+        }
 
-          if (csvFileWriterSensitive != null) {
-            writeDocBuilderToCsv(doc, csvFileWriterSensitive)
-          }
+        if (csvFileWriterSensitive != null) {
+          writeDocBuilderToCsv(doc, csvFileWriterSensitive)
         }
       } finally {
         //return the doc
         doc.release()
       }
     }
+    return time
   }
 
   def addJsonMapToDoc(doc: DocBuilder, jsonString: String, fieldsAndType: Map[String, String] = null,
@@ -919,7 +925,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                   jsonString.substring(start, i)
                 }
 
-              if (!validKey.isEmpty) {
+              if (typeNotSuitableForModelling != null) {
+                doc.addField("query_assertion_uuid", key)
+                doc.addField("query_assertion_type_s", value)
+              } else {
                 if (validKey.equals("_dt")) {
                   try {
                     val dateValue = DateParser.parseDate(value)
@@ -939,8 +948,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                 } else {
                   doc.addField(key, value)
                 }
-              } else {
-                doc.addField(key, value)
               }
               if (suitableForModelling && typeNotSuitableForModelling != null && typeNotSuitableForModelling.contains(value))
                 suitableForModelling = false
