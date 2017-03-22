@@ -1,15 +1,15 @@
 package au.org.ala.biocache.persistence
 
-import java.util
-import java.util.{Comparator, Arrays, UUID}
+import java.io.{FileWriter, File}
+import java.nio.ByteBuffer
+import java.{lang, util}
+import java.util.{UUID}
 import java.util.concurrent._
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.Json
 import com.datastax.driver.core._
-import com.datastax.driver.core.exceptions.DriverException
-import com.datastax.driver.core.policies.RetryPolicy.RetryDecision
-import com.datastax.driver.core.policies.{DowngradingConsistencyRetryPolicy, RetryPolicy, DCAwareRoundRobinPolicy, TokenAwarePolicy}
+import com.datastax.driver.core.policies._
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import com.google.common.collect.MapMaker
 import com.google.common.util.concurrent._
@@ -42,7 +42,7 @@ class Cassandra3PersistenceManager  @Inject() (
     val hosts = host.split(",")
     val builder = Cluster.builder()
     hosts.foreach { builder.addContactPoint(_)}
-    builder.withRetryPolicy(new CustomRetryPolicy(10, 10, 10))
+    builder.withReconnectionPolicy(new ExponentialReconnectionPolicy(10000, 60000))
     builder.build()
   }
 
@@ -334,18 +334,19 @@ class Cassandra3PersistenceManager  @Inject() (
       try {
         resultSet = session.execute(stmt)
         needToRetry = false
+        retryCount = 0 //reset
       } catch {
         case e:Exception => {
-          logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+          logger.error(s"Exception thrown during paging. Retry count $retryCount - " + e.getMessage)
           retryCount = retryCount + 1
           needToRetry = true
           if(retryCount > 5){
-            logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+            logger.error(s"Backing off for 10 minutes. Retry count $retryCount - " + e.getMessage)
             Thread.sleep(600000)
           } else {
-            Thread.sleep(10000)
+            logger.error(s"Backing off for 5 minutes. Retry count $retryCount - " + e.getMessage)
+            Thread.sleep(300000)
           }
-
         }
       }
     }
@@ -602,9 +603,9 @@ class Cassandra3PersistenceManager  @Inject() (
    * @param proc
    * @param threads
    */
-  private def pageOverLocalNotAsync(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
+  private def pageOverLocalNotAsync(entityName:String, proc:((String, Map[String, String], String) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
 
-    val MAX_QUERY_RETRIES = 10
+    val MAX_QUERY_RETRIES = 20
 
     //paging threads, processing threads
 
@@ -612,6 +613,14 @@ class Cassandra3PersistenceManager  @Inject() (
     val tokenRanges: Array[TokenRange] = getTokenRangesForLocalNode
 
     val startRange = System.getProperty("startAtTokenRange", "0").toInt
+
+    val completedTokenRanges = System.getProperty("completedTokenRanges", "").split(",")
+
+    val checkpointFile = System.getProperty("tokenRangeCheckPointFile", "/tmp/token-range-checkpoint.txt")
+
+    val tokenRangeCheckPointFile = new File(checkpointFile)
+
+    logger.info(s"Logging to token range checkpoint file $checkpointFile")
     logger.info(s"Starting at token range $startRange")
 
     val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
@@ -620,154 +629,174 @@ class Cassandra3PersistenceManager  @Inject() (
     //generate a set of callable tasks, each with their own token range...
     for (tokenRangeIdx <- startRange until tokenRanges.length){
 
-      val scanTask = new Callable[Int]{
+      if(!completedTokenRanges.contains(tokenRangeIdx.toString)) {
+        val scanTask = new Callable[Int] {
 
-        def hasNextWithRetries(rows:Iterator[Row]) : Boolean = {
+          def hasNextWithRetries(rows: Iterator[Row]): Boolean = {
 
-          val MAX_QUERY_RETRIES = 10
-          var retryCount = 0
-          var needToRetry = true
-          var hasNext = false
-          while(retryCount < MAX_QUERY_RETRIES && needToRetry){
-            try {
-              hasNext = rows.hasNext
-              needToRetry = false
-            } catch {
-              case e:Exception => {
-                logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
-                retryCount = retryCount + 1
-                needToRetry = true
-                if(retryCount > 5){
-                  logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
-                  Thread.sleep(600000)
-                } else {
-                  Thread.sleep(10000)
+            val MAX_QUERY_RETRIES = 20
+            var retryCount = 0
+            var needToRetry = true
+            var hasNext = false
+            while (retryCount < MAX_QUERY_RETRIES && needToRetry) {
+              try {
+                hasNext = rows.hasNext
+                needToRetry = false
+                retryCount = 0 //reset
+              } catch {
+                case e: Exception => {
+                  logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+                  retryCount = retryCount + 1
+                  needToRetry = true
+                  if (retryCount > 3) {
+                    logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+                    Thread.sleep(600000)
+                  } else {
+                    logger.error(s"Backing off for 5 minutes. Retry count $retryCount", e)
+                    Thread.sleep(300000)
+                  }
                 }
               }
             }
+            hasNext
           }
-          hasNext
-        }
 
-        def getNextWithRetries(rows:Iterator[Row]) : Row = {
+          def getNextWithRetries(rows: Iterator[Row]): Row = {
 
-          val MAX_QUERY_RETRIES = 10
-          var retryCount = 0
-          var needToRetry = true
-          var row:Row = null
-          while(retryCount < MAX_QUERY_RETRIES && needToRetry){
-            try {
-              row = rows.next()
-              needToRetry = false
-            } catch {
-              case e:Exception => {
-                logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
-                retryCount = retryCount + 1
-                needToRetry = true
-                if(retryCount > 5){
-                  logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
-                  Thread.sleep(600000)
-                } else {
-                  Thread.sleep(10000)
+            val MAX_QUERY_RETRIES = 20
+            var retryCount = 0
+            var needToRetry = true
+            var row: Row = null
+            while (retryCount < MAX_QUERY_RETRIES && needToRetry) {
+              try {
+                row = rows.next()
+                needToRetry = false
+                retryCount = 0 //reset
+              } catch {
+                case e: Exception => {
+                  logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+                  retryCount = retryCount + 1
+                  needToRetry = true
+                  if (retryCount > 3) {
+                    logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+                    Thread.sleep(600000)
+                  } else {
+                    logger.error(s"Backing off for 5 minutes. Retry count $retryCount", e)
+                    Thread.sleep(30000)
+                  }
                 }
               }
             }
-          }
-          row
-        }
-
-        def call() : Int = {
-
-          val columnsString = if(columns.length > 0){
-            columns.mkString(",")
-          } else {
-            "*"
+            row
           }
 
-          logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
+          def call(): Int = {
 
-          var counter = 0
-          val tokenRangeToUse = tokenRanges(tokenRangeIdx)
+            val columnsString = if (columns.length > 0) {
+              columns.mkString(",")
+            } else {
+              "*"
+            }
 
-          val tokenRangesSplits:Seq[TokenRange] = if(Config.cassandraTokenSplit != 1){
-            tokenRangeToUse.splitEvenly(Config.cassandraTokenSplit)
-          } else {
-            List(tokenRangeToUse)
-          }
+            logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
 
-          tokenRangesSplits.foreach { tokenRange =>
-            val startToken = tokenRange.getStart()
-            val endToken =  tokenRange.getEnd()
+            var counter = 0
+            val tokenRangeToUse = tokenRanges(tokenRangeIdx)
 
-            val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) <= $endToken")
-            stmt.setConsistencyLevel(ConsistencyLevel.ONE)
-            stmt.setFetchSize(250)
-            stmt.setReadTimeoutMillis(120000) //2 minute timeout
+            val tokenRangesSplits: Seq[TokenRange] = if (Config.cassandraTokenSplit != 1) {
+              tokenRangeToUse.splitEvenly(Config.cassandraTokenSplit)
+            } else {
+              List(tokenRangeToUse)
+            }
 
-            val rs = {
-              var retryCount = 0
-              var needToRetry = true
-              var success:ResultSet = null
-              while(retryCount < MAX_QUERY_RETRIES && needToRetry){
-                try {
-                  success = session.execute(stmt)
-                  needToRetry = false
-                } catch {
-                  case e:Exception => {
-                    logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
-                    retryCount = retryCount + 1
-                    needToRetry = true
-                    if(retryCount > 5){
-                      logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
-                      Thread.sleep(600000)
-                    } else {
-                      Thread.sleep(10000)
+            tokenRangesSplits.foreach { tokenRange =>
+              val startToken = tokenRange.getStart()
+              val endToken = tokenRange.getEnd()
+
+              val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) <= $endToken")
+              stmt.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE) //ensure local reads....
+              stmt.setFetchSize(500)
+              stmt.setReadTimeoutMillis(120000) //2 minute timeout
+
+              val rs = {
+                var retryCount = 0
+                var needToRetry = true
+                var success: ResultSet = null
+                while (retryCount < MAX_QUERY_RETRIES && needToRetry) {
+                  try {
+                    success = session.execute(stmt)
+                    needToRetry = false
+                    retryCount = 0 //reset
+                  } catch {
+                    case e: Exception => {
+                      logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+                      retryCount = retryCount + 1
+                      needToRetry = true
+                      if (retryCount > 3) {
+                        logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+                        Thread.sleep(600000)
+                      } else {
+                        logger.error(s"Backing off for 5 minutes. Retry count $retryCount", e)
+                        Thread.sleep(300000)
+                      }
                     }
                   }
                 }
+                success
               }
-              success
-            }
 
-            if(rs != null) {
+              if (rs != null) {
 
-              val rows = rs.iterator()
+                val rows = rs.iterator()
 
-              val start = System.currentTimeMillis()
+                val start = System.currentTimeMillis()
 
-              //need retries
-              while (hasNextWithRetries(rows)) {
-                val row = getNextWithRetries(rows)
-                val rowkey = row.getString("rowkey")
-                val map = new util.HashMap[String, String]()
-                row.getColumnDefinitions.foreach { defin =>
-                  val value = row.getString(defin.getName)
-                  if (value != null) {
-                    map.put(defin.getName, value)
+                //need retries
+                while (hasNextWithRetries(rows)) {
+                  val row = getNextWithRetries(rows)
+                  val rowkey = row.getString("rowkey")
+                  val map = new util.HashMap[String, String]()
+                  row.getColumnDefinitions.foreach { defin =>
+                    val value = row.getString(defin.getName)
+                    if (value != null) {
+                      map.put(defin.getName, value)
+                    }
+                  }
+
+                  //processing - does this want to be on a separate thread ??
+                  proc(rowkey, map.toMap, tokenRangeIdx.toString)
+
+                  counter += 1
+                  if (counter % 10000 == 0) {
+                    val currentTime = System.currentTimeMillis()
+                    val currentRowkey = row.getString(0)
+                    val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
+                    val totalTimeInSec = ((currentTime - start) / 1000)
+                    logger.info(s"[Token range : $tokenRangeIdx] records read: $counter " +
+                      s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds, $currentRowkey")
                   }
                 }
-
-                //processing - does this want to be on a separate thread ??
-                proc(rowkey, map.toMap)
-
-                counter += 1
-                if (counter % 10000 == 0) {
-                  val currentTime = System.currentTimeMillis()
-                  val currentRowkey = row.getString(0)
-                  val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
-                  val totalTimeInSec = ((currentTime - start) / 1000)
-                  logger.info(s"[Token range : $tokenRangeIdx] $currentRowkey - records read: $counter " +
-                    s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds")
-                }
               }
             }
-          }
-          logger.info(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter)
+            logger.info(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter)
 
-          counter
+            synchronized {
+              if (!tokenRangeCheckPointFile.exists()) {
+                tokenRangeCheckPointFile.createNewFile()
+              }
+              val fw = new FileWriter(tokenRangeCheckPointFile, true)
+              try {
+                fw.write(tokenRangeIdx + "," + counter + "\n")
+              }
+              finally fw.close()
+            }
+            counter
+          }
         }
+        callables.add(scanTask)
+      } else {
+        logger.info("Skipping token range index :" + tokenRangeIdx)
       }
-      callables.add(scanTask)
     }
 
     logger.info("Starting threads...number of callables " + callables.size())
@@ -791,7 +820,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * @param columns
     * @return
     */
-  def pageOverLocal(entityName:String, proc:(String, Map[String, String]) => Boolean, threads:Int, columns:Array[String] = Array()) : Int = {
+  def pageOverLocal(entityName:String, proc:(String, Map[String, String], String) => Boolean, threads:Int, columns:Array[String] = Array()) : Int = {
 //    if(useAsyncPaging){
 //      pageOverLocalAsync(entityName, proc, threads, columns)
 //    } else {
@@ -981,10 +1010,10 @@ class Cassandra3PersistenceManager  @Inject() (
 
     replicaCount.keySet.foreach { replica =>
       val allocatedRanges: util.List[TokenRange] = replicaCount.get(replica)
-      System.out.println(replica.getAddress + " allocated ranges: " + allocatedRanges.size)
+      logger.info(replica.getAddress + " allocated ranges: " + allocatedRanges.size)
       import scala.collection.JavaConversions._
       for (tr <- replicaCount.get(replica)) {
-        System.out.println(tr.getStart + " to " + tr.getEnd)
+        logger.info(tr.getStart + " to " + tr.getEnd)
       }
     }
 
@@ -1017,12 +1046,18 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * Delete the value for the supplied column
     */
-  def deleteColumns(uuid:String, entityName:String, columnName:String*) = throw new RuntimeException("Not supported")
+  def deleteColumns(uuid:String, entityName:String, columnName:String*) = {
+    throw new RuntimeException("Currently not implemented!!!")
+  }
 
   /**
-    * Removes the record for the supplied uuid from entityName.
-    */
-  def delete(uuid:String, entityName:String) = throw new RuntimeException("Not supported")
+   * Removes the record for the supplied rowkey from entityName.
+   */
+  def delete(rowKey:String, entityName:String) = {
+    val deleteStmt = getPreparedStmt(s"DELETE FROM $entityName where rowKey = ?")
+    val boundStatement = deleteStmt bind rowKey
+    session.execute(boundStatement)
+  }
 
   /**
     * The field delimiter to use
@@ -1050,7 +1085,7 @@ class Cassandra3PersistenceManager  @Inject() (
     var counter = 0
     val start = System.currentTimeMillis()
     // create table
-    pageOverLocal(entityName, (guid, map) => {
+    pageOverLocal(entityName, (guid, map, tokenRangeIdx) => {
       //insert into secondary index
       map.get("uuid") match {
         case Some(uuid) => put(uuid, entityName + "_" + indexField, "value", guid, true, false)
@@ -1069,44 +1104,44 @@ class Cassandra3PersistenceManager  @Inject() (
     counter
   }
 }
-
-class CustomRetryPolicy (readAttempts:Int, writeAttempts:Int, unavailableAttempts:Int) extends RetryPolicy {
-
-  val logger = LoggerFactory.getLogger("Cassandra3Retries")
-
-  def init(cl:Cluster){}
-  def close :Unit = {}
-  def onRequestError(stmt:Statement, cl:ConsistencyLevel,  e:DriverException, nbRetry:Int)  : RetryDecision = {
-    logger.warn("Error on request: " + e.getMessage)
-    if(nbRetry <= readAttempts)
-      RetryDecision.retry(ConsistencyLevel.ONE)
-    else
-      RetryDecision.tryNextHost(ConsistencyLevel.ONE)
-  }
-
-  def onRequestError()  :Unit = {}
-
-  def onReadTimeout(stmt:Statement, cl:ConsistencyLevel, requiredResponses:Int, receivedResponses: Int, dataReceived:Boolean, rTime:Int) : RetryDecision =  {
-    if (dataReceived) {
-      return RetryDecision.ignore()
-    } else if (rTime < readAttempts) {
-      return RetryDecision.retry(cl)
-    } else {
-      return RetryDecision.rethrow()
-    }
-  }
-
-  def onWriteTimeout(stmt:Statement, cl:ConsistencyLevel,  wt:WriteType,  requiredResponses:Int, receivedResponses:Int,  wTime:Int) : RetryDecision =  {
-    if (wTime < writeAttempts) {
-      return RetryDecision.retry(cl)
-    }
-    return RetryDecision.rethrow()
-  }
-
-  def onUnavailable( stmnt:Statement,  cl:ConsistencyLevel,  requiredResponses:Int,  receivedResponses:Int, uTime:Int) : RetryDecision =  {
-    if (uTime < unavailableAttempts) {
-      return RetryDecision.retry(ConsistencyLevel.ONE)
-    }
-    return RetryDecision.rethrow()
-  }
-}
+//
+//class CustomRetryPolicy (readAttempts:Int, writeAttempts:Int, unavailableAttempts:Int) extends RetryPolicy {
+//
+//  val logger = LoggerFactory.getLogger("Cassandra3Retries")
+//
+//  def init(cl:Cluster){}
+//  def close :Unit = {}
+//  def onRequestError(stmt:Statement, cl:ConsistencyLevel,  e:DriverException, nbRetry:Int)  : RetryDecision = {
+//    logger.warn("Error on request: " + e.getMessage)
+//    if(nbRetry <= readAttempts)
+//      RetryDecision.retry(ConsistencyLevel.ONE)
+//    else
+//      RetryDecision.tryNextHost(ConsistencyLevel.ONE)
+//  }
+//
+//  def onRequestError()  :Unit = {}
+//
+//  def onReadTimeout(stmt:Statement, cl:ConsistencyLevel, requiredResponses:Int, receivedResponses: Int, dataReceived:Boolean, rTime:Int) : RetryDecision =  {
+//    if (dataReceived) {
+//      return RetryDecision.ignore()
+//    } else if (rTime < readAttempts) {
+//      return RetryDecision.retry(cl)
+//    } else {
+//      return RetryDecision.rethrow()
+//    }
+//  }
+//
+//  def onWriteTimeout(stmt:Statement, cl:ConsistencyLevel,  wt:WriteType,  requiredResponses:Int, receivedResponses:Int,  wTime:Int) : RetryDecision =  {
+//    if (wTime < writeAttempts) {
+//      return RetryDecision.retry(cl)
+//    }
+//    return RetryDecision.rethrow()
+//  }
+//
+//  def onUnavailable( stmnt:Statement,  cl:ConsistencyLevel,  requiredResponses:Int,  receivedResponses:Int, uTime:Int) : RetryDecision =  {
+//    if (uTime < unavailableAttempts) {
+//      return RetryDecision.retry(ConsistencyLevel.ONE)
+//    }
+//    return RetryDecision.rethrow()
+//  }
+//}

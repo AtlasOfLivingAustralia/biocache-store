@@ -13,18 +13,21 @@ class QueryDelete(query: String) extends RecordDeletor {
 
   override def deleteFromPersistent() = {
 
-    val file = new File(Config.tmpWorkDir + "/delrowkeys.out")
+    val delFile = Config.tmpWorkDir + "/delrowkeys.out"
+    val file = new File(delFile)
     var count = 0
     val start = System.currentTimeMillis
     val out = new BufferedOutputStream(new FileOutputStream(file))
+    logger.info("Retrieving a list of UUIDs from persistent storage....")
     indexer.writeUUIDsToStream(query, out)
+    logger.info(s"Retrieved a list of UUIDs from persistent storage. IDs written to $delFile")
     out.flush
     out.close
-    file.foreachLine(line => {
+    file.foreachLine { line =>
       //use the occ DAO to delete so that the record is added to the dellog cf
       occurrenceDAO.deleteByUuid(line, false, true)
       count = count + 1
-    })
+    }
     val finished = System.currentTimeMillis
 
     logger.info("Deleted " + count + " records in " + (finished - start).toFloat / 60000f + " minutes.")

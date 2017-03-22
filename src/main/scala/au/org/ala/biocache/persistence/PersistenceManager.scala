@@ -93,7 +93,7 @@ trait PersistenceManager {
    * @param threads
    * @return
    */
-  def pageOverLocal(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String]) : Int
+  def pageOverLocal(entityName:String, proc:((String, Map[String, String], String) => Boolean), threads:Int, columns:Array[String]) : Int
 
   /**
    * Page over the records, retrieving the supplied columns only.

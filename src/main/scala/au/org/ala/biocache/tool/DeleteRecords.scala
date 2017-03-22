@@ -54,7 +54,7 @@ object DeleteRecords extends Tool {
     if (parser.parse(args)) {
       val deletor: Option[RecordDeletor] = {
         if (!query.isEmpty) Some(new QueryDelete(query.get))
-        else if (!dr.isEmpty) Some(new DataResourceDelete(dr.get))
+        else if (!dr.isEmpty) Some(new QueryDelete("data_resource_uid:" + dr.get))
         else if (file.isDefined) Some(new FileDelete(file.get, useUUID, fieldDelimiter, hasHeader))
         else if (startRowkey.isDefined && endRowkey.isDefined) Some(new RangeDeletor(startRowkey.get, endRowkey.get))
         else None

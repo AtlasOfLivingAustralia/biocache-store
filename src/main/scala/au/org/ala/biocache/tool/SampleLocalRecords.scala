@@ -118,7 +118,7 @@ class SampleLocalRecords {
 
   def loadSamplingIntoOccurrences(threads:Int) : Unit = {
     logger.info(s"Starting loading sampling for local records")
-    Config.persistenceManager.pageOverLocal("occ", (guid, map) => {
+    Config.persistenceManager.pageOverLocal("occ", (guid, map, tokenRangeIdx) => {
       val lat = map.getOrElse("decimallatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
       val lon = map.getOrElse("decimallongitude" + Config.persistenceManager.fieldDelimiter + "p", "")
       if (lat != "" && lon != "") {

@@ -53,7 +53,7 @@ class ScanRecords {
       with scala.collection.mutable.SynchronizedMap[String, Int]
 
     val totalScanned = if(local) {
-      Config.persistenceManager.pageOverLocal("occ", (key, map) => {
+      Config.persistenceManager.pageOverLocal("occ", (key, map, tokenRangeIdx) => {
         synchronized {
           val dr = map.getOrElse("dataresourceuid", "")
           if (dr != "") {

@@ -456,7 +456,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       }, "dataResourceUID", dataResourceUID, threads, localOnly = true)
 
     } else {
-      persistenceManager.pageOverLocal(entityName, (guid, map) => {
+      persistenceManager.pageOverLocal(entityName, (guid, map, tokenRangeIdx) => {
         //retrieve all versions
         val raw = FullRecordMapper.createFullRecord(guid, map, Versions.RAW)
         val processed = FullRecordMapper.createFullRecord(guid, map, Versions.PROCESSED)
