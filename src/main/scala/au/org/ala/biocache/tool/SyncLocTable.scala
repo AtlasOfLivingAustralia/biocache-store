@@ -11,7 +11,7 @@ object SyncLocTable extends au.org.ala.biocache.cmd.Tool {
 
   def cmd = "sync-loc-table"
 
-  def desc = "Sync loc table"
+  def desc = "Synchronise the loc table with the list of available layers. This needs to be ran prior to sampling."
 
   protected val logger = LoggerFactory.getLogger("SyncLocTable")
 
