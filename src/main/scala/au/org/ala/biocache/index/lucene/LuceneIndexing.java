@@ -3,6 +3,7 @@ package au.org.ala.biocache.index.lucene;
 import au.com.bytecode.opencsv.CSVWriter;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
+import org.apache.lucene.analysis.core.SimpleAnalyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.*;
@@ -16,6 +17,7 @@ import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPOutputStream;
@@ -50,6 +52,7 @@ import java.util.zip.GZIPOutputStream;
 public class LuceneIndexing {
 
     final private static Logger logger = Logger.getLogger(LuceneIndexing.class);
+    final private static int MERGE_SEGMENTS = 8;
 
     private IndexSchema schema;
     private Long maxIndexSize;
@@ -171,8 +174,9 @@ public class LuceneIndexing {
      * @param numberOfSegments
      * @throws IOException
      */
-    public static void merge(List<File> directories, File outputDirectory, Integer ramBufferSize, Integer numberOfSegments, boolean skipTest) throws IOException {
-        logger.info("Begin merge");
+    public static void merge(List<File> directories, File outputDirectory, Integer ramBufferSize,
+                             Integer numberOfSegments, boolean skipTest) throws IOException {
+        logger.info("Begin merge: " + outputDirectory.getPath());
 
         //test directories
         List<File> validDirectories = new ArrayList<File>();
@@ -222,9 +226,13 @@ public class LuceneIndexing {
 
         Directory directory = FSDirectory.open(outputDirectory);
 
-        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_42, new StandardAnalyzer(Version.LUCENE_42));
+        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_42, new SimpleAnalyzer(Version.LUCENE_42));
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
         config.setRAMBufferSizeMB(ramBufferSize);
+
+        config.setMergeScheduler(new ConcurrentMergeScheduler());
+        ((ConcurrentMergeScheduler) config.getMergeScheduler()).setMaxMergesAndThreads(numberOfSegments, numberOfSegments);
+        ((ConcurrentMergeScheduler) config.getMergeScheduler()).setMergeThreadPriority(3);
 
         IndexWriter writer = new IndexWriter(directory, config);
 
@@ -234,7 +242,10 @@ public class LuceneIndexing {
         }
         writer.addIndexes(dirs.toArray(new Directory[0]));
 
-        writer.forceMerge(numberOfSegments);
+        if (numberOfSegments > directories.size()) {
+            writer.forceMerge(numberOfSegments);
+        }
+
         writer.commit();
         writer.close();
         directory.close();
@@ -261,20 +272,18 @@ public class LuceneIndexing {
     /**
      * recycling documents
      */
-    protected RecycleDoc nextDoc() throws InterruptedException {
+    protected synchronized RecycleDoc nextDoc() throws InterruptedException {
         RecycleDoc doc;
         int timeout = 0;
         boolean waiting = false;
         while (waiting || (doc = docPool.poll(timeout, TimeUnit.MILLISECONDS)) == null) {
-            if (waitingForWriter.get() == 0) {
-                synchronized (additionalDocs) {
+            if (waitingForWriter.get() == 0 && documents.size() == 0) {
                     additionalDocs.incrementAndGet();
-                }
-                logger.warn("Memory leak. " + additionalDocs.get() + " additional RecycleDocs created. Are all DocBuilder.newDoc() objects released or indexed?");
-                doc = new RecycleDoc(schema);
-                break;
+                    logger.debug("Memory leak. " + additionalDocs.get() + " additional RecycleDocs created. Are all DocBuilder.newDoc() objects released or indexed?");
+                    doc = new RecycleDoc(schema);
+                    break;
             } else {
-                timeout = 50;
+                timeout = 10;
                 waiting = true;
             }
         }
@@ -290,64 +299,69 @@ public class LuceneIndexing {
 
     private Object noThreadAddLock = new Object();
 
+    //the entire LuceneObject is finished
+    private AtomicBoolean closed = new AtomicBoolean(false);
+
     protected void addDoc(RecycleDoc doc, boolean force) throws InterruptedException, IOException {
         if (commitThreadCount > 0) {
             documents.put(doc);
         } else {
             synchronized (noThreadAddLock) {
-                waitingForWriter.incrementAndGet();
-                if (doc.get("id") != null) {
-                    if (noThreadBatchIdx < 0) noThreadBatch.add(doc);
-                    else {
-                        noThreadBatch.set(noThreadBatchIdx, doc);
-                        noThreadBatchIdx++;
+                if (!closed.get()) {
+                    waitingForWriter.incrementAndGet();
+                    if (doc.get("id") != null) {
+                        if (noThreadBatchIdx < 0) noThreadBatch.add(doc);
+                        else {
+                            noThreadBatch.set(noThreadBatchIdx, doc);
+                            noThreadBatchIdx++;
+                        }
+                    } else {
+                        release(doc);
                     }
-                } else {
-                    release(doc);
+
+                    if (force || (noThreadBatchIdx < 0 && noThreadBatch.size() >= commitBatchSize) || noThreadBatchIdx >= commitBatchSize) {
+                        count += commitBatchSize;
+
+                        //last put
+                        if (force && noThreadBatchIdx < noThreadBatch.size()) {
+                            //remove items
+                            while (noThreadBatch.size() > noThreadBatchIdx && noThreadBatch.size() > 0)
+                                noThreadBatch.remove(noThreadBatch.size() - 1);
+                        }
+
+                        long t1 = System.nanoTime();
+                        setup();
+
+                        try {
+                            writer.addDocuments(noThreadBatch);
+                            if (logger.isDebugEnabled()) {
+                                logger.debug(outputPath + " >>> numDocs=" + writer.numDocs() + " ramDocs=" + writer.numRamDocs() +
+                                        " ramBytes=" + writer.ramBytesUsed());
+                            }
+                        } catch (IOException e) {
+                            logger.error("Error committing batch. " + e.getMessage(), e);
+                        } catch (Exception e) {
+                            logger.error("failed to index: " + e.getMessage(), e);
+                            if (logger.isDebugEnabled()) {
+                                //Dump the batch that contains the faulty documents to tmp dir
+                                logDebugError(noThreadBatch, e);
+                            }
+                        } finally {
+                            //recycle documents
+                            for (RecycleDoc d : noThreadBatch) {
+                                release(d);
+                            }
+                        }
+
+                        //reuse noThreadBatch
+                        noThreadBatchIdx = 0;
+
+                        newIndexTest(null);
+
+                        time.addAndGet(System.nanoTime() - t1);
+                    }
+                    waitingForWriter.decrementAndGet();
                 }
-
-                if (force || (noThreadBatchIdx < 0 && noThreadBatch.size() >= commitBatchSize) || noThreadBatchIdx >= commitBatchSize) {
-                    count += commitBatchSize;
-
-                    //last put
-                    if (force && noThreadBatchIdx < noThreadBatch.size()) {
-                        //remove items
-                        while (noThreadBatch.size() > noThreadBatchIdx && noThreadBatch.size() > 0)
-                            noThreadBatch.remove(noThreadBatch.size() - 1);
-                    }
-
-                    long t1 = System.nanoTime();
-                    setup();
-
-                    try {
-                        writer.addDocuments(noThreadBatch);
-                        if (logger.isDebugEnabled()) {
-                            logger.debug(outputPath + " >>> numDocs=" + writer.numDocs() + " ramDocs=" + writer.numRamDocs() +
-                                    " ramBytes=" + writer.ramBytesUsed());
-                        }
-                    } catch (IOException e) {
-                        logger.error("Error committing batch. " + e.getMessage(), e);
-                    } catch (Exception e) {
-                        logger.error("failed to index: " + e.getMessage(), e);
-                        if (logger.isDebugEnabled()) {
-                            //Dump the batch that contains the faulty documents to tmp dir
-                            logDebugError(noThreadBatch, e);
-                        }
-                    } finally {
-                        //recycle documents
-                        for (RecycleDoc d : noThreadBatch) {
-                            release(d);
-                        }
-                    }
-
-                    //reuse noThreadBatch
-                    noThreadBatchIdx = 0;
-
-                    newIndexTest(null);
-
-                    time.addAndGet(System.nanoTime() - t1);
-                }
-                waitingForWriter.decrementAndGet();
             }
         }
     }
@@ -416,28 +430,64 @@ public class LuceneIndexing {
      * @throws IOException
      */
     public void close(boolean wait) throws IOException, InterruptedException {
-        if (commitThreadCount > 0) {
-            if (consumers.size() > 0) {
-                DocBuilder db = getDocBuilder();
-                db.newDoc("exit");
-                db.addField("id", "exit");
+        close(wait, false);
+    }
 
-                if (!wait) {
-                    //interrupt
+    public synchronized void close(boolean wait, boolean merge) throws IOException, InterruptedException {
+        if (!closed.get()) {
+            closed.set(true);
+
+            if (commitThreadCount > 0) {
+                if (consumers.size() > 0) {
+                    DocBuilder db = getDocBuilder();
+                    db.newDoc("exit");
+                    db.addField("id", "exit");
+
+                    int alive = 0;
                     for (Consumer t : consumers) {
-                        t.interrupt();
+                        if (t.isAlive()) alive++;
                     }
-                } else {
-                    //wait to close
-                    for (Consumer t : consumers) db.index();
-                    for (Consumer t : consumers) t.join();
-                }
-            }
-        } else {
-            addDoc(new RecycleDoc(null), true);
-        }
 
-        closeIndex();
+                    if (alive > 0) {
+                        if (!wait) {
+                            //interrupt
+                            for (Consumer t : consumers) {
+                                t.interrupt();
+                            }
+                        } else {
+                            //wait to close
+                            for (Consumer t : consumers) db.index();
+                            for (Consumer t : consumers) t.join();
+                        }
+                    }
+                }
+            } else {
+                addDoc(new RecycleDoc(null), true);
+            }
+
+            closeIndex();
+
+            //do merge
+            if (merge && outputDirectories.size() > 1) {
+                //setup adds a new dir
+                setup();
+                File output = new File(outputPath + "_merged");
+                documents = null;
+                docPool = null;
+                consumers = null;
+                System.gc();
+
+                int mem = (int) Math.max((Runtime.getRuntime().freeMemory() * 0.75) / 1024 / 1024, ramBufferSize);
+                merge(outputDirectories, output, mem, MERGE_SEGMENTS, true);
+
+                //delete output directories that were merged
+                for (File d : outputDirectories) {
+                    d.delete();
+                }
+                outputDirectories.clear();
+                outputDirectories.add(output);
+            }
+        }
     }
 
     private void closeIndex() throws IOException {
@@ -489,6 +539,9 @@ public class LuceneIndexing {
                 while (true) {
                     RecycleDoc d = documents.take();
 
+                    waitingForWriter.incrementAndGet();
+
+                    //close thread if requested
                     if (d.get("id") != null && d.get("id")[0].equals("exit")) {
                         //finish remainder
                         if (batch.size() > 0) {
@@ -502,17 +555,22 @@ public class LuceneIndexing {
                         for (CommitThread t : commitThreads) {
                             t.join();
                         }
+                        waitingForWriter.decrementAndGet();
                         break;
                     }
 
                     if (d.get("id") != null) {
                         batch.add(d);
+                    } else {
+                        release(d);
                     }
 
                     if (batch.size() >= commitBatchSize) {
                         count += commitBatchSize;
                         batches.put(batch);
                         batch = new ArrayList<RecycleDoc>(commitBatchSize);
+                    } else {
+                        waitingForWriter.decrementAndGet();
                     }
                 }
             } catch (InterruptedException e) {
@@ -538,8 +596,6 @@ public class LuceneIndexing {
                         }
 
                         long t1 = System.nanoTime();
-
-                        waitingForWriter.incrementAndGet();
 
                         try {
                             //safely access index writer
@@ -568,9 +624,9 @@ public class LuceneIndexing {
                             for (RecycleDoc d : batch) {
                                 release(d);
                             }
-
                         }
 
+                        //waitingForWriter was incremented by Consumer thread for each batch
                         waitingForWriter.decrementAndGet();
 
                         newIndexTest(commitLock);
@@ -604,7 +660,6 @@ public class LuceneIndexing {
             directoryCounter = directoryCounter + 1;
 
             outputDirectories.add(file);
-
             IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_42, analyzer);
             config.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
 
@@ -661,7 +716,8 @@ public class LuceneIndexing {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println("usage: LuceneIndexing [-skipTest | -removeDuplicates] sourceDirectory destinationDirectory\n");
+        System.out.println("usage: LuceneIndexing [-skipTest | -removeDuplicates] sourceDirectory destinationDirectory\n\n" +
+                "Default: merge source subdirectories into destinationDirectory after testing each subdirectory index.\n\n");
 
         boolean skipTest = false;
         String src;

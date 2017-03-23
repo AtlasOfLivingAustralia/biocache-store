@@ -1,6 +1,6 @@
 package au.org.ala.biocache.index
 
-import java.io.File
+import java.io._
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
@@ -10,10 +10,10 @@ import au.org.ala.biocache.util.OptionParser
 import org.apache.commons.io.FileUtils
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.IndexWriterConfig.OpenMode
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
+import org.apache.lucene.index.{ConcurrentMergeScheduler, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.FSDirectory
 import org.apache.lucene.util.Version
-import org.apache.solr.core.{CoreContainer, SolrConfig, SolrResourceLoader}
+import org.apache.solr.core.{SolrConfig, SolrResourceLoader}
 import org.apache.solr.schema.IndexSchemaFactory
 import org.slf4j.LoggerFactory
 
@@ -45,8 +45,8 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var ramPerWriter = 50
     var writerSegmentSize = 500000
     var writerBufferSize = 3000
-    var writerBatchSize = 1500
     var processorBufferSize = 100
+    var singleWriter = false
     var pageSize = 200
     var dirPrefix = "/data/biocache-reindex"
     var keys: Option[Array[String]] = None
@@ -60,6 +60,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var deleteSources = false
     var includeRowkey = true
     var charSeparator = '\t'
+    var cassandraFilterFile = ""
 
     val parser = new OptionParser(help) {
       arg("<action>", "The action to perform. Supported values :  range, process or index, col", {
@@ -71,8 +72,15 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
       intOpt("wt", "writerthreads", "The number of threads for each indexing writer. There is 1 writer for each -t. Default is " + threadsPerWriter, {
         v: Int => threadsPerWriter = v
       })
+      opt("sw", "singlewriter", "Use one index writer instead of one writer per 'thread'. Default is " + singleWriter, { singleWriter = true })
+      intOpt("wb", "writerbuffer", "Size of indexing write buffer. The default is " + writerBufferSize, {
+        v: Int => writerBufferSize = v
+      })
       intOpt("pt", "processthreads", "The number of threads for each indexing process. There is 1 process for each -t. Default is " + threadsPerProcess, {
         v: Int => threadsPerProcess = v
+      })
+      intOpt("pb", "processbuffer", "Size of the indexing process buffer. Default is " + processorBufferSize, {
+        v: Int => processorBufferSize = v
       })
       intOpt("r", "writerram", "Ram allocation for each writer (MB). There is 1 writer for each -t. Default is " + ramPerWriter, {
         v: Int => ramPerWriter = v
@@ -154,11 +162,14 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           val schema = IndexSchemaFactory.buildIndexSchema("schema.xml",
             SolrConfig.readFromResourceLoader(new SolrResourceLoader(dirPrefix + "/solr-template/biocache"), "solrconfig.xml"))
 
-          val bufferSize = Config.solrHardCommitSize
-
-          for (i <- 0 until numThreads) {
-            luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, newIndexDir.getParent() + "/data" + i + "-",
-              ramPerWriter, bufferSize, bufferSize / (threadsPerWriter + 2), threadsPerWriter)
+          if (singleWriter) {
+            luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, newIndexDir.getParent() + "/data0-",
+              ramPerWriter, writerBufferSize, writerBufferSize / (2), threadsPerWriter)
+          } else {
+            for (i <- 0 until numThreads) {
+              luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, newIndexDir.getParent() + "/data" + i + "-",
+                ramPerWriter, writerBufferSize, writerBufferSize / (threadsPerWriter + 2), threadsPerWriter)
+            }
           }
         }
 
@@ -174,13 +185,14 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
           ranges.foreach { case (startKey, endKey)  =>
             logger.info("start: " + startKey + ", end key: " + endKey)
 
-            val ir = {
+            val ir : Runnable = {
               if (action == "datum") {
                 new DatumRecordsRunner(this, counter, startKey, endKey)
               } else if (action == "repair") {
                 new RepairRecordsRunner(this, counter, startKey, endKey)
               } else if (action == "index") {
                 //solrDirs += (dirPrefix + "/solr-create/biocache-thread-" + counter + "/data/index")
+                val index = if (!singleWriter) luceneIndexing(counter % numThreads) else luceneIndexing(0)
                 new IndexRunner(this,
                   counter,
                   startKey,
@@ -188,14 +200,16 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
                   dirPrefix + "/solr-template/biocache/conf",
                   dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf",
                   pageSize,
-                  luceneIndexing(counter % 8),
-                  threadsPerProcess
+                  index,
+                  threadsPerProcess,
+                  processorBufferSize,
+                  singleWriter
                 )
               } else if (action == "load-sampling") {
                 new LoadSamplingRunner(this, counter, startKey, endKey)
-              } else if (action == "avro-export") {
+//              } else if (action == "avro-export") {
 //                new AvroExportRunner(this, counter, startKey, endKey)
-//              } else if (action == "col" || action == "column-export") {
+              } else if (action == "col" || action == "column-export") {
                 if (columns.isEmpty) {
                   new ColumnReporterRunner(this, counter, startKey, endKey)
                 } else {
@@ -221,12 +235,12 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
 
           if (action == "index") {
             val dirs = new ArrayBuffer[String]()
-            //val dirs = new util.ArrayList[File]()
+
+            if (singleWriter) {
+              luceneIndexing(0).close(true, false)
+            }
+
             luceneIndexing.foreach { i =>
-              i.close(true)
-
-              //dirs.addAll(i.getOutputDirectories)
-
               for (j <- 0 until i.getOutputDirectories.size()) {
                dirs += i.getOutputDirectories.get(j).getPath()
               }
@@ -236,7 +250,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
             threads.clear()
             System.gc()
 
-            val mem = Math.max((Runtime.getRuntime().freeMemory() * 0.5) / 1024 / 1024, numThreads * ramPerWriter).toInt
+            val mem = Math.max((Runtime.getRuntime().freeMemory() * 0.75) / 1024 / 1024, numThreads * ramPerWriter).toInt
 
             logger.info("Merging index segments")
             IndexMergeTool.merge(dirPrefix + "/solr/merged", dirs.toArray, forceMerge, mergeSegments, deleteSources, mem)
@@ -328,6 +342,10 @@ object IndexMergeTool extends Tool {
     val writerConfig = (new IndexWriterConfig(Version.LATEST, new StandardAnalyzer()))
       .setOpenMode(OpenMode.CREATE)
       .setRAMBufferSizeMB(rambuffer)
+
+    writerConfig.setMergeScheduler(new ConcurrentMergeScheduler)
+    writerConfig.getMergeScheduler.asInstanceOf[ConcurrentMergeScheduler].setMaxMergesAndThreads(Math.min(4, mergeSegments), mergeSegments)
+    writerConfig.getMergeScheduler.asInstanceOf[ConcurrentMergeScheduler].setMergeThreadPriority(3)
 
     val writer = new IndexWriter(mergedIndex, writerConfig)
     val indexes = directoriesToMerge.map(dir => FSDirectory.open(new File(dir)))

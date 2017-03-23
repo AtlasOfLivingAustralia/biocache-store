@@ -1,6 +1,6 @@
 package au.org.ala.biocache.index
 
-import java.io.{File, FileWriter}
+import java.io.{File, FileWriter, OutputStream}
 import java.net.URL
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
@@ -13,15 +13,17 @@ import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.processor.{LocationProcessor, Processors, RecordProcessor}
 import au.org.ala.biocache.util.Json
-import au.org.ala.biocache.vocab.AssertionCodes
+import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode, SpeciesGroups}
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, HashSet}
+import scala.collection.mutable.{ArrayBuffer, HashSet, ListBuffer}
 import scala.io.Source
 import scala.util.parsing.json.JSON
+
+import collection.JavaConverters._
 
 trait Counter {
 
@@ -176,6 +178,149 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
       (for (field <- fieldsToExport) yield map.getOrElse(field, "")).toArray
     }
     writer.writeNext(line)
+  }
+}
+
+class BulkColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, endKey: String,
+                         fieldLists: ListBuffer[(Array[String], Array[String], Array[Int], Boolean)],
+                         outputStreams: ArrayBuffer[CSVWriter], filters: ListBuffer[(String, String)]) extends Runnable {
+
+  val elpattern = """el[0-9]+""".r
+  val clpattern = """cl[0-9]+""".r
+
+  val logger = LoggerFactory.getLogger("BulkColumnExporter")
+
+  def run {
+    val start = System.currentTimeMillis
+    var startTime = System.currentTimeMillis
+    var finishTime = System.currentTimeMillis
+    var counter = 0
+    val pageSize = 10000
+    Config.persistenceManager.pageOverAll("occ", (key, map) => {
+      counter += 1
+      try {
+        if (!map.getOrElse("uuid", "").isEmpty && map.getOrElse(FullRecordMapper.deletedColumn, "").isEmpty) {
+          for (i <- 0 until filters.length) {
+            val v = filters(i)
+            var found = false
+
+            if (v._1.equals("species_group")) {
+              val lft = map.get("left.p")
+              val rgt = map.get("right.p")
+              if (lft.isDefined && rgt.isDefined) {
+                // check the species groups
+                val sgs = SpeciesGroups.getSpeciesGroups(lft.get, rgt.get)
+                if (sgs.isDefined) {
+                  sgs.get.foreach { v1 => if (v._2.equals(v1)) found = true }
+                }
+              }
+            }
+
+            if (found || map.getOrElse(v._1, "").equals(v._2) || ("*".equals(v._2) && !map.getOrElse(v._1, "").isEmpty)) {
+              exportRecord(outputStreams(i), fieldLists(i), key, map)
+            }
+          }
+        }
+      } catch {
+        case e:Exception => logger.error("failed to export: " + key, e);
+      }
+      if (counter % pageSize == 0 && counter > 0) {
+        centralCounter.addToCounter(pageSize)
+        finishTime = System.currentTimeMillis
+        centralCounter.printOutStatus(threadId, key, "BulkColumnExporter")
+        startTime = System.currentTimeMillis
+      }
+      true
+    }, startKey, endKey, 1000)
+
+    val fin = System.currentTimeMillis
+    logger.info("[Exporter Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+  }
+
+  def exportRecord(writer: CSVWriter, fieldsToExport: (Array[String], Array[String], Array[Int], Boolean),
+                   guid: String, map: Map[String, String]) {
+    val (fields, layers, qa, userQa) = fieldsToExport
+    val values = new ArrayBuffer[String]()
+
+    for (i <- 0 until fields.length) {
+      values += map.getOrElse(fields(i), "").replace("\n", "")
+    }
+
+    if (layers != null) {
+      val ly = Json.toStringMap(map.getOrElse("el.p", "{}")) ++ Json.toStringMap(map.getOrElse("cl.p", "{}"))
+      for (i <- 0 until layers.length) {
+        values += ly.getOrElse(layers(i), "").replace("\n", "")
+      }
+    }
+
+    if (qa != null) {
+      //now handle the QA fields
+      val failedCodes = getErrorCodes(map);
+      //work way through the codes and add to output
+      for (i <- 0 until qa.length) {
+        values += (failedCodes.contains(qa(i))).toString.replace("\n", "")
+      }
+    }
+
+    if (userQa) {
+      if (map.contains(FullRecordMapper.userQualityAssertionColumn))
+        values += getUserAssertionsString(map.getOrElse("rowKey","").replace("\n", "")) else ""
+    }
+
+    writer.writeNext(values.toArray)
+  }
+
+  def getErrorCodes(map:Map[String, String]):Array[Integer]={
+    val array:Array[List[Integer]] = FullRecordMapper.qaFields.filter(field => map.get(field).getOrElse("[]") != "[]").toArray.map(field => {
+      Json.toListWithGeneric(map.get(field).get,classOf[java.lang.Integer])
+    }).asInstanceOf[Array[List[Integer]]]
+    if(!array.isEmpty)
+      return array.reduceLeft(_++_).toArray
+    return Array()
+  }
+
+  def getUserAssertionsString(rowKey:String):String ={
+    val assertions:List[QualityAssertion] = getUserAssertions(rowKey)
+    val string:StringBuilder = new StringBuilder()
+    assertions.foreach( assertion => {
+      if (assertion != null) {
+        if (!string.isEmpty) string.append('|')
+        //format as ~ delimited created~name~comment~user
+        val comment = {
+          if (assertion.comment != null) {
+            assertion.comment
+          } else {
+            ""
+          }
+        }
+        val userDisplayName = {
+          if (assertion.userDisplayName != null) {
+            assertion.userDisplayName
+          } else {
+            ""
+          }
+        }
+        val formatted = assertion.created + "~" + assertion.name + "~" + comment.replace('~', '-').replace('\n', ' ') + "~" + userDisplayName.replace('~', '-')
+        string.append(formatted.replace('|', '/'))
+      }
+    })
+    string.toString()
+  }
+
+  def getUserAssertions(rowKey:String): List[QualityAssertion] ={
+    val startKey = rowKey + "|"
+    val endKey = startKey + "~"
+    val userAssertions = new ArrayBuffer[QualityAssertion]
+    //page over all the qa's that are for this record
+    Config.persistenceManager.pageOverAll("qa",(guid, map)=>{
+      val qa = new QualityAssertion()
+      qa.referenceRowKey = guid
+      FullRecordMapper.mapPropertiesToObject(qa, map)
+      userAssertions += qa
+      true
+    },startKey, endKey, 1000)
+
+    userAssertions.toList
   }
 }
 
@@ -474,7 +619,9 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
 class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String,
                   sourceConfDirPath: String, targetConfDirPath: String, pageSize: Int = 200,
                   luceneIndexing: LuceneIndexing = null,
-                  processingThreads: Integer = 1) extends Runnable {
+                  processingThreads: Integer = 1,
+                  processorBufferSize: Integer = 100,
+                  singleWriter: Boolean = false) extends Runnable {
 
   val logger = LoggerFactory.getLogger("IndexRunner")
 
@@ -528,7 +675,7 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
       null
     }
 
-    val queue: LinkedBlockingQueue[Map[String, String]] = new LinkedBlockingQueue[Map[String, String]](Config.solrBatchSize)
+    val queue: LinkedBlockingQueue[Map[String, String]] = new LinkedBlockingQueue[Map[String, String]](processorBufferSize)
 
     val threads = mutable.ArrayBuffer[ProcessThread]()
     if (luceneIndexing != null) {
@@ -579,20 +726,6 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
     Config.persistenceManager.pageOverAll("occ", (guid, map) => {
       t2Total.addAndGet(System.nanoTime() - t2)
 
-      if (counter >= 200) {
-        //signal threads to end
-        for (i <- 0 until processingThreads) {
-          queue.put(Map[String, String]())
-        }
-
-        //wait for threads to end
-        threads.foreach(t => t.join())
-
-        finishTime = System.currentTimeMillis
-        logger.info("Total indexing time for this thread " + ((finishTime - start).toFloat) / 60000f + " minutes.")
-        return
-      }
-
       counter += 1
       val commit = counter % 100000 == 0
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
@@ -636,15 +769,16 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
                     LuceneDocuments(solr.hard.commit.size) ->
                         CommitBatch(solr.hard.commit.size / (writerthreads + 1))
 
-         solr.batch.size can be small, (100)
+         --processorBufferSize can be small, (100). Ideally it is the same as --pagesize, memory permitting.
 
-         solr.hard.commit.size should be large (10000) to reduce commit batch overhead
+         --writterBufferSize should be large (10000) to reduce commit batch overhead.
 
          --writerram (default=200 MB) is large to reduce the number of disk flushes. The impact can be observed
          comparing 'index docs committed/in ram' values. Note that memory required is --writerram * --threads MB.
          The lesser size of --writeram to exceed is that it is large enough to
-         fit solr.hard.commit.size / (writerthreads + 1) documents. The average doc size
-         can be determined from 'in ram/ram MB'.
+         fit --writterBufferSize / (writerthreads + 2) documents. The average doc size
+         can be determined from 'in ram/ram MB'. The larger --writerram is, the less merging that will be required
+         when finished.
 
          --pagesize should be adjusted for cassandra read performance (1000)
 
@@ -654,7 +788,7 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
          --threads increase should more quickly add documents to the Processing queue, if it is consistently low.
          This has a large impact on memory required.
 
-         --processthreads should be increased if the Porcessing queue is consistently full. Also depends on available CPU.
+         --processthreads should be increased if the Processing queue is consistently full. Also depends on available CPU.
 
          --writerthreads may be increased if the LuceneDocuments queue is consistently full. This has low impact on
          writer performance. Also depends on available CPU.
@@ -719,5 +853,10 @@ class IndexRunner(centralCounter: Counter, threadId: Int, startKey: String, endK
 
     finishTime = System.currentTimeMillis
     logger.info("Total indexing time for this thread " + ((finishTime - start).toFloat) / 60000f + " minutes.")
+
+    //close and merge the lucene index parts
+    if (luceneIndexing != null && !singleWriter) {
+      luceneIndexing.close(true, true)
+    }
   }
 }

@@ -87,9 +87,10 @@ public class RecycleDoc implements Iterable<IndexableField> {
     /**
      * Attempts to reuse an existing field for the new value.
      *
-     * @param name
-     * @param value
-     * @return
+     * @param name field name
+     * @param value value to set the field if reuse is possible
+     * @return false if reuse failed and a new field must be created. true if reuse succeeded and a new field
+     * is not required.
      */
     public boolean setField(String name, Object value) {
 
@@ -103,8 +104,6 @@ public class RecycleDoc implements Iterable<IndexableField> {
         while(count < idx.size() && fieldEnabled.get(idx.get(count))) count++;
 
         if (count < idx.size()) {
-            if (name.equals("geohash"))
-                name = name;
             int i = idx.get(count);
             SchemaField sf = schemaFields.get(i);
             org.apache.solr.schema.FieldType ft = sf.getType();
