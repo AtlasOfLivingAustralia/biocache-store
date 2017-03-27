@@ -27,13 +27,11 @@ object SpatialLayerDAO {
 
   var sdsLayerList:List[String] = List()
 
-  init
-
   /**
    * Load polygon layers from the filesystem into memory to support fast intersect
    * queries.
    */
-  private def init = {
+  lazy val init = {
 
     //SDS layer loading
     logger.info("Loading Layer information from ....." + Config.layersServiceUrl)
@@ -91,6 +89,8 @@ object SpatialLayerDAO {
     if(StringUtils.isNotBlank(Config.localGovLayerID)){
       loadLayer(Config.localGovLayerID, false)
     }
+
+    true
   }
 
   private def loadLayer(layerID: String, errorIfNotAvailable:Boolean = false): Unit ={
@@ -151,6 +151,7 @@ object SpatialLayerDAO {
    * @return
    */
   def intersect(decimalLongitude:Double, decimalLatitude:Double) : collection.Map[String, String] = {
+    init
 
     if(decimalLongitude == null || decimalLatitude == null){
       return Map[String,String]()

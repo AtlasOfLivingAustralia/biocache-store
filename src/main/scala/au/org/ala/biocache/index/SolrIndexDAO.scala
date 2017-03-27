@@ -3,24 +3,31 @@ package au.org.ala.biocache.index
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.slf4j.LoggerFactory
-import org.apache.solr.core.CoreContainer
-import org.apache.solr.client.solrj.{StreamingResponseCallback, SolrQuery, SolrServer}
+import org.apache.solr.core.{CoreContainer}
+import org.apache.solr.client.solrj.{SolrQuery, SolrServer, StreamingResponseCallback}
 import au.org.ala.biocache.dao.OccurrenceDAO
 import org.apache.solr.common.{SolrDocument, SolrInputDocument}
-import java.io.{FileWriter, OutputStream, File}
+import java.io.{File, FileWriter, OutputStream}
+
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
-import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrServer}
+import org.apache.solr.client.solrj.impl.ConcurrentUpdateSolrServer
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.common.params.{MapSolrParams, ModifiableSolrParams}
 import java.util.Date
+
 import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.caches.TaxonSpeciesListDAO
 import org.apache.commons.lang.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
+
+import au.org.ala.biocache.index.lucene.{DocBuilder, LuceneIndexing}
 import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.vocab.{AssertionCodes, SpeciesGroups, ErrorCodeCategory}
+import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode, ErrorCodeCategory, SpeciesGroups}
 import au.org.ala.biocache.util.{GridUtil, Json}
+import org.apache.commons.lang3.StringEscapeUtils
+
+import scala.collection.mutable
 
 /**
   * DAO for indexing to SOLR
@@ -66,30 +73,39 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   lazy val drToExcludeSensitive = excludeSensitiveValuesFor.split(",")
 
+  var luceneIndexing:LuceneIndexing = null
+  var docBuilder:DocBuilder = null
+
   override def init() {
 
-    if (solrServer == null) {
-      logger.info("Initialising the solr server " + solrHome + " cloudserver:" + cloudServer + " solrServer:" + solrServer)
-      if(!solrHome.startsWith("http://")){
-        if(solrHome.contains(":")) {
-          //assume that it represents a SolrCloud
-          cloudServer = new org.apache.solr.client.solrj.impl.CloudSolrServer(solrHome)
-          cloudServer.setDefaultCollection("biocache1")
-          solrServer = cloudServer
-        } else if (solrConfigPath != "") {
-          logger.info("Initialising embedded SOLR server.....")
-          cc = CoreContainer.createAndLoad(solrHome, new File(solrHome+"/solr.xml"))
-          solrServer = new EmbeddedSolrServer(cc, "biocache")
+    if (luceneIndexing != null) {
+      if (docBuilder == null) {
+        docBuilder = luceneIndexing.getDocBuilder
+      }
+    } else {
+      if (solrServer == null) {
+        logger.info("Initialising the solr server " + solrHome + " cloudserver:" + cloudServer + " solrServer:" + solrServer)
+        if (!solrHome.startsWith("http://")) {
+          if (solrHome.contains(":")) {
+            //assume that it represents a SolrCloud
+            cloudServer = new org.apache.solr.client.solrj.impl.CloudSolrServer(solrHome)
+            cloudServer.setDefaultCollection("biocache1")
+            solrServer = cloudServer
+          } else if (solrConfigPath != "") {
+            logger.info("Initialising embedded SOLR server.....")
+            cc = CoreContainer.createAndLoad(solrHome, new File(solrHome + "/solr.xml"))
+            solrServer = new EmbeddedSolrServer(cc, "biocache")
+          } else {
+            logger.info("Initialising embedded SOLR server.....")
+            System.setProperty("solr.solr.home", solrHome)
+            cc = CoreContainer.createAndLoad(solrHome, new File(solrHome + "/solr.xml")) //new CoreContainer(solrHome)
+            solrServer = new EmbeddedSolrServer(cc, "biocache")
+          }
         } else {
-          logger.info("Initialising embedded SOLR server.....")
-          System.setProperty("solr.solr.home", solrHome)
-          cc = CoreContainer.createAndLoad(solrHome,new File(solrHome + "/solr.xml"))//new CoreContainer(solrHome)
-          solrServer = new EmbeddedSolrServer(cc, "biocache")
+          logger.info("Initialising connection to SOLR server.....")
+          solrServer = new ConcurrentUpdateSolrServer(solrHome, BATCH_SIZE, Config.solrUpdateThreads)
+          logger.info("Initialising connection to SOLR server - done.")
         }
-      } else {
-        logger.info("Initialising connection to SOLR server.....")
-        solrServer = new ConcurrentUpdateSolrServer(solrHome, BATCH_SIZE, Config.solrUpdateThreads)
-        logger.info("Initialising connection to SOLR server - done.")
       }
     }
   }
@@ -316,8 +332,12 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   /**
     * Decides whether or not the current record should be indexed based on processed times
+    * and deletion status
     */
   def shouldIndex(map: scala.collection.Map[String, String], startDate: Option[Date]): Boolean = {
+    if (map.getOrElse(FullRecordMapper.deletedColumn, "").length() > 0 || map.size < 2) {
+      return false
+    }
     if (!startDate.isEmpty) {
       val lastLoaded = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn, map))
       val lastProcessed = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn + ".p", map))
@@ -710,6 +730,289 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     }
   }
 
+  def indexFromMapNew(guid: String,
+                            map: scala.collection.Map[String, String],
+                            batch: Boolean = true,
+                            startDate: Option[Date] = None,
+                            commit: Boolean = false,
+                            miscIndexProperties: Seq[String] = Array[String](),
+                            userProvidedTypeMiscIndexProperties : Seq[String] = Array[String](),
+                            test:Boolean = false,
+                            batchID:String = "",
+                            csvFileWriter:FileWriter = null,
+                            csvFileWriterSensitive:FileWriter = null,
+                            docBuilder: DocBuilder = null,
+                            lock: Object = null) : Long = {
+    init
+
+    var time = 0L
+
+    if (shouldIndex(map, startDate)) {
+
+      val doc = if (docBuilder == null) this.docBuilder else docBuilder
+
+      try {
+        doc.newDoc(guid)
+
+        writeOccIndexModelToDoc(doc, guid, map)
+
+        //add the misc properties here....
+        //NC 2013-04-23: Change this code to support data types in misc fields.
+
+        if (!userProvidedTypeMiscIndexProperties.isEmpty || !miscIndexProperties.isEmpty || !arrDefaultMiscFields.isEmpty
+          || !Config.additionalFieldsToIndex.isEmpty) {
+          val fieldsAndType: Map[String, String] = Map[String, String]()
+
+          userProvidedTypeMiscIndexProperties.foreach(field =>
+            if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
+
+          miscIndexProperties.foreach(field =>
+            if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
+
+          arrDefaultMiscFields.foreach(field =>
+            if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
+
+          Config.additionalFieldsToIndex.foreach(field =>
+            if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
+
+
+          addJsonMapToDoc(doc, map.getOrElse(FullRecordMapper.miscPropertiesColumn, ""), fieldsAndType, null, true)
+        }
+
+        addJsonArrayAssertionsToDoc(doc, map.getOrElse(FullRecordMapper.qualityAssertionColumn, ""))
+
+        //load the species lists that are configured for the matched guid.
+        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(map.getOrElse("taxonConceptID.p", ""))
+        speciesLists.foreach { v =>
+          doc.addField("species_list_uid", v)
+        }
+
+        /**
+          * Additional indexing for grid references.
+          * TODO refactor so that additional indexing is pluggable without core changes.
+          */
+        if (Config.gridRefIndexingEnabled) {
+          val bboxString = map.getOrElse("bbox.p", "")
+          if (bboxString != "") {
+            val bbox = bboxString.split(",")
+            doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
+            doc.addField("min_longitude", java.lang.Float.parseFloat(bbox(1)))
+            doc.addField("max_latitude", java.lang.Float.parseFloat(bbox(2)))
+            doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
+          }
+
+          val easting = map.getOrElse("easting.p", "")
+          if (easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting).toInt)
+          val northing = map.getOrElse("northing.p", "")
+          if (northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing).toInt)
+          val gridRef = map.getOrElse("gridReference", "")
+          if (gridRef != "") {
+            doc.addField("grid_ref", gridRef)
+            val map = GridUtil.getGridRefAsResolutions(gridRef)
+            map.keySet.foreach { key => doc.addField(key, map.getOrElse(key, "")) }
+          }
+        }
+        /** UK NBN **/
+
+        // user if userQA = true
+        val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
+        if (!"".equals(hasUserAssertions)) {
+          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(guid)
+          assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
+        }
+
+        var suitableForModelling = addJsonMapToDoc(doc, map.getOrElse(FullRecordMapper.queryAssertionColumn, ""), null, typeNotSuitableForModelling)
+
+        //this will not exist for all records until a complete reindex is performed...
+        doc.addField("suitable_modelling", suitableForModelling.toString)
+
+        //index the available el and cl's - more efficient to use the supplied map than using the old way
+        addJsonMapToDoc(doc, map.getOrElse("el.p",""))
+
+        addJsonMapToDoc(doc, map.getOrElse("cl.p", ""))
+
+        //index the additional species information - ie species groups
+        val lft = map.get("left.p")
+        val rgt = map.get("right.p")
+        if (lft.isDefined && rgt.isDefined) {
+
+          // add the species groups
+          val sgs = SpeciesGroups.getSpeciesGroups(lft.get, rgt.get)
+          if (sgs.isDefined) {
+            sgs.get.foreach { v: String => doc.addField("species_group", v) }
+          }
+
+          // add the species subgroups
+          val ssgs = SpeciesGroups.getSpeciesSubGroups(lft.get, rgt.get)
+          if (ssgs.isDefined) {
+            ssgs.get.foreach { v: String => doc.addField("species_subgroup", v) }
+          }
+        }
+
+        if (batchID != "") {
+          doc.addField("batch_id_s", batchID)
+        }
+
+        if(!test) {
+          val t1 = System.nanoTime()
+          if (lock != null) {
+            lock.synchronized {
+              doc.index()
+            }
+          } else {
+            doc.index()
+          }
+          time = System.nanoTime() - t1
+        }
+
+        if (csvFileWriter != null) {
+          writeDocBuilderToCsv(doc, csvFileWriter)
+        }
+
+        if (csvFileWriterSensitive != null) {
+          writeDocBuilderToCsv(doc, csvFileWriterSensitive)
+        }
+      } finally {
+        //return the doc
+        doc.release()
+      }
+    }
+    return time
+  }
+
+  def addJsonMapToDoc(doc: DocBuilder, jsonString: String, fieldsAndType: Map[String, String] = null,
+                      typeNotSuitableForModelling:Array[String] = null, addExtension:Boolean = false) : Boolean = {
+    var suitableForModelling:Boolean = true
+    var start:Integer = 0
+    var inVal = false
+    var key: String = ""
+    var skip:Boolean = false
+    var skipped: Boolean = false
+    var validKey: String = "valid"
+    var count = 0
+    var c:Char = ' '
+    for (i <- 0 until jsonString.length) {
+      c = jsonString.charAt(i)
+      if (skip) {
+        skip = false
+        skipped = true
+      } else if (c == '\\') {
+        skip = true
+      } else if (jsonString.charAt(i) == '"') {
+        if (!inVal) {
+          inVal = true
+          start = i + 1
+        } else {
+          inVal = false
+          if (count % 2 == 0) {
+            key = jsonString.substring(start, i)
+            if (skipped) {
+              skipped = false
+              //parse
+              key = StringEscapeUtils.unescapeJson(key)
+            }
+
+            if (fieldsAndType != null) {
+              validKey = fieldsAndType.getOrElse(key, "")
+            }
+          } else {
+            if (i - start > 1 && !validKey.isEmpty) {
+              val value =
+                if (skipped) {
+                  //parse
+                  StringEscapeUtils.unescapeJson(jsonString.substring(start, i))
+                } else {
+                  jsonString.substring(start, i)
+                }
+
+              if (typeNotSuitableForModelling != null) {
+                doc.addField("query_assertion_uuid", key)
+                doc.addField("query_assertion_type_s", value)
+              } else {
+                if (validKey.equals("_dt")) {
+                  try {
+                    val dateValue = DateParser.parseDate(value)
+                    if (!dateValue.isEmpty) {
+                      doc.addField(key, dateValue)
+                    } else {
+                      logger.error("Unable to convert value to date " + value + " for " + doc.getId())
+                    }
+                  }
+                  catch {
+                    case e: Exception => logger.error("Unable to convert value to date " + value + " for " + doc.getId())
+                  }
+                } else if (validKey.endsWith("_s") || validKey.endsWith("_d") || validKey.endsWith("_i")) {
+                  doc.addField(key, value)
+                } else if (addExtension) {
+                  doc.addField(key + "_s", value)
+                } else {
+                  doc.addField(key, value)
+                }
+              }
+              if (suitableForModelling && typeNotSuitableForModelling != null && typeNotSuitableForModelling.contains(value))
+                suitableForModelling = false
+            }
+          }
+          count = count + 1
+        }
+      }
+    }
+    suitableForModelling
+  }
+
+  def addJsonArrayAssertionsToDoc(doc: DocBuilder, jsonString: String) = {
+
+    var i:Integer = 2
+    var end:Integer = jsonString.length()
+    var sa:Boolean = false
+
+    var all:mutable.Set[ErrorCode] = mutable.Set[ErrorCode]()
+    AssertionCodes.all.foreach( e => all.add(e))
+    all.remove(AssertionCodes.PROCESSING_ERROR)
+    all.remove(AssertionCodes.VERIFIED)
+
+    while (end > 2) {
+      end = jsonString.indexOf('{', i + 1)
+
+      var codePos = jsonString.indexOf("\"code\":", i)
+      var qaStatusPos = jsonString.indexOf("\"qaStatus\":", i)
+
+      var code = ""
+      if (codePos < end) {
+        code = jsonString.substring(codePos + 7, jsonString.indexOf(',', codePos + 7))
+
+        var qaStatus = ' '
+        if (qaStatusPos < end) {
+          qaStatus = jsonString.charAt(qaStatusPos + 11)
+
+          val assertionCode = AssertionCodes.getByCode(code.toInt)
+          if (qaStatus == '1') {
+            doc.addField("assertions_passed", assertionCode.get.name)
+          } else if (qaStatus == '0') {
+            sa = true
+
+            def indexField = if (!assertionCode.isEmpty && assertionCode.get.category == ErrorCodeCategory.Missing) {
+              "assertions_missing"
+            } else {
+              "assertions"
+            }
+
+            doc.addField(indexField, assertionCode.get.name)
+          }
+
+          all.remove(assertionCode)
+        }
+      }
+
+      i = end + 1
+    }
+
+    all.foreach( ec => doc.addField("assertions_unchecked", ec.name))
+
+    doc.addField("system_assertions", sa)
+  }
+
+
   //ignores "index-custom" additionalFields
   lazy val csvHeader =
     header :::
@@ -761,6 +1064,29 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         }
       }
       fileWriter.write("\t");
+    }
+  }
+
+  def writeDocBuilderToCsv(docBuilder: DocBuilder, fileWriter: FileWriter, sensitive: Boolean = false): Unit = {
+    val header : List[String] = if (sensitive) { csvHeaderSensitive } else { csvHeader }
+
+    fileWriter.write("\n")
+
+    val doc = docBuilder.getDoc()
+
+    for (i <- 0 until header.length - 1) {
+      val values = doc.get(header.get(i))
+      if (values != null && values.length > 0) {
+        for (j <- 0 until values.length) {
+          if (j == 0) {
+            fileWriter.write(values(j))
+          } else {
+            fileWriter.write("|")
+            fileWriter.write(values(j))
+          }
+        }
+      }
+      fileWriter.write("\t")
     }
   }
 
