@@ -262,7 +262,12 @@ object RemoteMediaStore extends MediaStore {
         val params:java.util.List[NameValuePair] = URLEncodedUtils.parse(uri, "UTF-8")
         for(param <- params) {
           if(param.getName.toLowerCase == "imageid"){
-            imageId = Some(param.getValue())
+            val originalUUID = param.getValue().toLowerCase
+            val testUUID = UUID.fromString(originalUUID)
+            val reformedString = testUUID.toString.toLowerCase
+            if (originalUUID == reformedString) {
+              imageId = Some(originalUUID)
+            }
           }
         }
       }
@@ -273,10 +278,11 @@ object RemoteMediaStore extends MediaStore {
           // Do not attempt parsing short segments
           if(pathSegment.length() > 10) {
             try {
-              val testUUID = UUID.fromString(pathSegment)
+              val originalUUID = pathSegment.toLowerCase
+              val testUUID = UUID.fromString(originalUUID)
               val reformedString = testUUID.toString.toLowerCase
-              if (pathSegment == reformedString) {
-                imageId = Some(pathSegment)
+              if (originalUUID == reformedString) {
+                imageId = Some(originalUUID)
               }
             } catch {
               case e:Exception => {
