@@ -144,7 +144,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
         //init for luceneIndexing
         var luceneIndexing: ArrayBuffer[LuceneIndexing] = new ArrayBuffer[LuceneIndexing]
         if (action == "index") {
-          val h = dirPrefix + "/solr-create/biocache-thread-" + counter + "/conf"
+          val h = dirPrefix + "/solr-create/biocache-thread-0/conf"
           //solr-create/thread-0/conf
           val newIndexDir = new File(h)
           if (newIndexDir.exists) {
@@ -339,7 +339,7 @@ object IndexMergeTool extends Tool {
 
     val mergedIndex = FSDirectory.open(mergeDirFile)
 
-    val writerConfig = (new IndexWriterConfig(Version.LATEST, new StandardAnalyzer()))
+    val writerConfig = (new IndexWriterConfig(Version.LATEST, null))
       .setOpenMode(OpenMode.CREATE)
       .setRAMBufferSizeMB(rambuffer)
 
