@@ -16,13 +16,13 @@ import au.org.ala.biocache.cmd.Tool
 /**
  * Companion object for the DwCACreator class.
  */
-object DwCACreator extends Tool {
+object GBIFOrgDwCACreator extends Tool {
 
-  def cmd = "createdwc"
+  def cmd = "gbif-dwca"
 
-  def desc = "Create a Darwin Core Archive for a data resource"
+  def desc = "Create a GBIF Darwin Core Archive for a data resource"
 
-  val logger = LoggerFactory.getLogger("DwCACreator")
+  val logger = LoggerFactory.getLogger("GBIFOrgDwCACreator")
 
   def main(args: Array[String]): Unit = {
 
@@ -38,7 +38,7 @@ object DwCACreator extends Tool {
       )
     }
     if(parser.parse(args)){
-      val dwcc = new DwCACreator
+      val dwcc = new GBIFOrgDwCACreator
       if("all".equalsIgnoreCase(resourceUid)){
         try {
           getDataResourceUids.foreach( dwcc.create(directory, _) )
@@ -76,26 +76,19 @@ object DwCACreator extends Tool {
  *
  * TODO support for dwc fields in registry metadata. When not available use the default fields.
  */
-class DwCACreator {
+class GBIFOrgDwCACreator {
 
-  val logger = LoggerFactory.getLogger("DwCACreator")
+  val logger = LoggerFactory.getLogger("GBIFOrgDwCACreator")
 
-  val defaultFields = List("occurrenceID", "catalogNumber", "collectionCode", "institutionCode", "scientificName.p", "recordedBy.p",
-      "taxonRank.p", "kingdom.p", "phylum.p", "classs.p", "order.p", "family.p", "genus.p", "specificEpithet", "infraspecificEpithet",
-      "decimalLatitude.p", "decimalLongitude.p", "coordinatePrecision.p", "coordinateUncertaintyInMeters.p", "maximumElevationInMeters.p", "minimumElevationInMeters.p",
-      "minimumDepthInMeters.p", "maximumDepthInMeters.p", "continent", "country.p", "stateProvince.p", "county", "locality.p", "year.p", "month.p",
-      "day.p", "basisOfRecord.p", "identifiedBy.p", "dateIdentified.p", "occurrenceRemarks", "locationRemarks", "recordNumber",
-      "vernacularName.p", "identificationQualifier", "individualCount", "eventID", "geodeticDatum.p", "eventTime", "associatedSequences",
-      "eventDate.p")
-
-  val outputFields = List("uuid", "catalogNumber", "collectionCode", "institutionCode", "scientificName", "recordedBy",
+  val defaultFields = List("uuid", "catalogNumber", "collectionCode", "institutionCode", "scientificName", "recordedBy",
       "taxonRank", "kingdom", "phylum", "classs", "order", "family", "genus", "specificEpithet", "infraspecificEpithet",
       "decimalLatitude", "decimalLongitude", "coordinatePrecision", "coordinateUncertaintyInMeters", "maximumElevationInMeters", "minimumElevationInMeters",
       "minimumDepthInMeters", "maximumDepthInMeters", "continent", "country", "stateProvince", "county", "locality", "year", "month",
       "day", "basisOfRecord", "identifiedBy", "dateIdentified", "occurrenceRemarks", "locationRemarks", "recordNumber",
       "vernacularName", "identificationQualifier", "individualCount", "eventID", "geodeticDatum", "eventTime", "associatedSequences",
       "eventDate")
-      
+
+  //The compulsory mapping fields for GBIF.
   // This indicates that the data resource name may need to be assigned at load time instead of processing
   val compulsoryFields = Map (
     "catalogNumber" -> "uuid",
@@ -104,7 +97,7 @@ class DwCACreator {
 
   def create(directory:String, dataResource:String) {
 
-    logger.info("Creating DwCA archive for " + dataResource)
+    logger.info("Creating GBIF specific archive for " + dataResource)
     val zipFile = new java.io.File (
       directory +
       System.getProperty("file.separator") +
@@ -150,7 +143,7 @@ class DwCACreator {
       </files>
             <id index="0"/>
             <field index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
-            {defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString()} term={"http://rs.tdwg.org/dwc/terms/"+outputFields(defaultFields.indexOf(f))}/>)}
+            {defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
       </core>
     </archive>
     //add the XML
