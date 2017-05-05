@@ -8,6 +8,13 @@ Please use the Ansible scripts to set this software up in your own environment.
 
 https://github.com/AtlasOfLivingAustralia/ala-install
 
+## Releases
+
+We are currently running 2 development branches
+
+* 1.9.x which is using cassandra 1.x, with SOLR 4. 
+* 2.x development branch is using cassandra 3.9 and SOLR Cloud 5. 
+
 ## Build notes
 
 This library is built with maven. By default a `mvn install` will try to run a test suite which will fail without a local installation of a name index.
