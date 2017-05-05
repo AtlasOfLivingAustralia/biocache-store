@@ -7,3 +7,5 @@ target
 .project
 .classpath
 *-distribution.zip
+.cache-main
+.cache-tests
