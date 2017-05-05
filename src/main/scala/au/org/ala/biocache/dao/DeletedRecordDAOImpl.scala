@@ -13,10 +13,10 @@ class DeletedRecordDAOImpl extends DeletedRecordDAO {
    */
   def getUuidsForDeletedRecords(startDate:String) : Array[String] = {
     val recordBuffer = new ArrayBuffer[String]
-    Config.persistenceManager.pageOverColumnRange("dellog",(rowKey,map) => {
-      recordBuffer ++= map.values
-      true
-    },startDate,"",1000,"dr","dr~")
+//    Config.persistenceManager.getpageOverColumnRange("dellog",(rowKey,map) => {
+//      recordBuffer ++= map.values
+//      true
+//    },startDate,"",1000,"dr","dr~")
 
     recordBuffer.toArray
   }

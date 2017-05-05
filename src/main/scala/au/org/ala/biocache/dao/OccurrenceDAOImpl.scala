@@ -37,6 +37,10 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
   import BiocacheConversions._
 
+  val ROW_KEY = "rowkey"
+  val UUID = "uuid"
+
+
   val elpattern = """el[0-9]+""".r
   val clpattern = """cl[0-9]+""".r
 
@@ -44,7 +48,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    * Gets the map for a record based on searching the index for new and old ids
    */
   def getMapFromIndex(value:String):Option[Map[String,String]]={
-    persistenceManager.getByIndex(value, entityName, "uuid") match {
+    persistenceManager.getByIndex(value, entityName, UUID) match {
       case None => persistenceManager.getByIndex(value, entityName, "portalId")  //legacy record ID
       case Some(map) => Some(map)
     }
@@ -167,6 +171,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
   def getUUIDForUniqueID(uniqueID: String) = persistenceManager.get(uniqueID, "occ", "uuid")
 
+
+
   /**
    * Writes the supplied field values to the writer.  The Writer specifies the format in which the record is
    * written.
@@ -204,8 +210,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       }
     }
     if (userAssertions.isDefined || (dataToInsert != null && dataToInsert.size > 0)) {
-      if (!mfields.contains("rowKey")) {
-        mfields += "rowKey"
+      if (!mfields.contains(ROW_KEY)) {
+        mfields += ROW_KEY
         addedRowKey = true
       }
     }
@@ -224,12 +230,12 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
           case a if elpattern.findFirstIn(a).nonEmpty => elMap.getOrElse(a, "")
           case a if clpattern.findFirstIn(a).nonEmpty => clMap.getOrElse(a, "")
           case a if firstMisc.isDefined && IndexFields.storeMiscFields.contains(a) => miscMap.getOrElse(a, "")
-          case a if userAssertions.isDefined && "user_assertions".equals(a) => if ("true".equals(fieldMap.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false"))) getUserAssertionsString(fieldMap.getOrElse("rowKey","")) else ""
+          case a if userAssertions.isDefined && "user_assertions".equals(a) => if ("true".equals(fieldMap.getOrElse(FullRecordMapper.userQualityAssertionColumn, "false"))) getUserAssertionsString(fieldMap.getOrElse(ROW_KEY,"")) else ""
           case _ => if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap)) else getHackValue(field,fieldMap)
         }
 
         //do not add columns not requested
-        if (!(addedRowKey && "rowKey".equals(field)) &&
+        if (!(addedRowKey && ROW_KEY.equals(field)) &&
           !(addedUserQAColumn && FullRecordMapper.userQualityAssertionColumn.equals(field))) {
           // if(includeSensitive) sensitiveMap.getOrElse(field, getHackValue(field,fieldMap))else getHackValue(field,fieldMap)
           //Create a MS Excel compliant CSV file thus field with delimiters are quoted andm embedded quotes are escaped
@@ -240,7 +246,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
       //add additional columns
       if (dataToInsert != null && dataToInsert.size > 0) {
-        val data = dataToInsert.get(fieldMap.getOrElse("rowKey", ""))
+        val data = dataToInsert.get(fieldMap.getOrElse(ROW_KEY, ""))
         if (data != null) {
           data.foreach( v => {
             array += v
@@ -479,11 +485,11 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
                                       dataResourceUID:String = "",
                                       pageSize: Int = 1000){
 
-    val columns = columnsToRetrieve ++ Array("uuid", "rowKey")
+    val columns = columnsToRetrieve ++ Array(UUID, ROW_KEY)
     persistenceManager.pageOverSelect(entityName, (guid, map) => {
       if(condition(map)){
-        if(map.contains("rowKey")){
-          val recordmap = persistenceManager.get(map.get("rowKey").get,entityName)
+        if(map.contains(ROW_KEY)){
+          val recordmap = persistenceManager.get(map.get(ROW_KEY).get,entityName)
           if(!recordmap.isEmpty){
             val raw = FullRecordMapper.createFullRecord(guid, recordmap.get, Versions.RAW)
             val processed = FullRecordMapper.createFullRecord(guid, recordmap.get, Versions.PROCESSED)
@@ -1223,7 +1229,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
   }
 
-  def getRowKeyFromUuidDB(uuid:String) : Option[String] = persistenceManager.getByIndex(uuid, entityName, "uuid", "rowKey")
+  def getRowKeyFromUuidDB(uuid:String) : Option[String] = persistenceManager.getByIndex(uuid, entityName, UUID, ROW_KEY)
 
   def getRowKeyFromUuidIndex(uuid:String) : Option[String] = {
     if(uuid.startsWith("dr")){
@@ -1271,7 +1277,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val map = persistenceManager.get(rowKey, entityName)
       if (map.isDefined){
         val stringValue = Json.toJSON(map.get)
-        val uuid = map.get.getOrElse("uuid","")
+        val uuid = map.get.getOrElse(UUID, "")
         val values = Map(rowKey -> uuid, "value|"+rowKey -> stringValue)
         val deletedKey = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd")
         persistenceManager.put(deletedKey, "dellog", values, false, false)
@@ -1299,7 +1305,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     var rowKey = ""
     val map = persistenceManager.getByIndex(uuid, entityName, "uuid")
     if (map.isDefined){
-      rowKey = map.getOrElse(Map[String,String]()).getOrElse("rowKey", "")
+      rowKey = map.getOrElse(Map[String,String]()).getOrElse("rowkey", "")
     } else {
       logger.warn("Unable to find record in occurrence store with uuid: " + uuid)
     }
@@ -1309,9 +1315,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         val stringValue = Json.toJSON(map.get)
         //log the deleted record to history
         //get the map version of the record
-        val values = Map(rowKey -> uuid, "value|" + rowKey -> stringValue)
-        val deletedKey = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd")
-        persistenceManager.put(deletedKey, "dellog", values, true, false)
+        val deletedTimestamp = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd HH:mm:ss")
+        val values = Map("uuid" -> uuid, "value" -> stringValue)
+        persistenceManager.put(deletedTimestamp, "dellog", values, true, false)
       }
       //delete from the data store
       persistenceManager.delete(rowKey, entityName)

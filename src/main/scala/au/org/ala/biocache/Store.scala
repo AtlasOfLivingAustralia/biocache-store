@@ -427,18 +427,19 @@ object Store {
    */
   def reindex(dataResource:java.lang.String, startDate:java.lang.String){
     if(dataResource != null && startDate != null) {
-      IndexRecords.index(None, None, Some(dataResource), false, false, Some(startDate))
+      IndexRecords.index(Some(dataResource), false, false, startDate = Some(startDate))
     } else {
       throw new Exception("Must supply data resource and start date")
     }
   }
 
   def reindexRange(startKey:java.lang.String, endKey:java.lang.String){
-    if(startKey != null && endKey != null) {
-      IndexRecords.index(Some(startKey), Some(endKey), None, false, false, None)
-    } else {
-      throw new Exception("Start and end key must be supplied")
-    }
+    throw new RuntimeException("Not supported")
+//    if(startKey != null && endKey != null) {
+//      IndexRecords.index(Some(startKey), Some(endKey), None, false, false, None)
+//    } else {
+//      throw new Exception("Start and end key must be supplied")
+//    }
   }
 
   /**
@@ -447,7 +448,7 @@ object Store {
    * @param dataResource the resource to index
    */
   def index(dataResource:java.lang.String) =
-    IndexRecords.index(None, None, Some(dataResource), false, false, None)
+    IndexRecords.index(Some(dataResource), false, false, None)
 
   /**
    * Index a resource, indexing custom fields
@@ -459,8 +460,7 @@ object Store {
    */
   def index(dataResource:java.lang.String, customIndexFields:Array[String], userProvidedTypeCustomIndexFields:Array[String], callback:ObserverCallback = null) = {
     logger.info("Indexing data resource " + dataResource)
-    IndexRecords.index(None,
-      None,
+    IndexRecords.index(
       Some(dataResource),
       false,
       false,
@@ -634,7 +634,7 @@ object Store {
     logger.info("Processing " + uid)
     ProcessRecords.processRecords(numThreads, None, Some(uid))
     logger.info("Indexing " +uid)
-    IndexRecords.index(None, None, Some(uid), false, false)
+    IndexRecords.index(Some(uid), false, false)
   }
 
   /**
@@ -659,7 +659,8 @@ object Store {
   /**
    * Returns a list of record uuids that have been deleted since the supplied date inclusive
    */
-  def getDeletedRecords(date:java.util.Date):Array[String] = deletedRecordDAO.getUuidsForDeletedRecords(org.apache.commons.lang.time.DateFormatUtils.format(date, "yyyy-MM-dd"))
+  def getDeletedRecords(date:java.util.Date):Array[String] =
+    deletedRecordDAO.getUuidsForDeletedRecords(org.apache.commons.lang.time.DateFormatUtils.format(date, "yyyy-MM-dd"))
 
   /**
    * Persist custom index fields.

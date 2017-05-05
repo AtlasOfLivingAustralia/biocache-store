@@ -3,7 +3,7 @@ package au.org.ala.biocache.persistence
 import java.io.{FileWriter, File}
 import java.nio.ByteBuffer
 import java.{lang, util}
-import java.util.{UUID}
+import java.util.{Date, UUID}
 import java.util.concurrent._
 
 import au.org.ala.biocache.Config
@@ -11,11 +11,13 @@ import au.org.ala.biocache.util.Json
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies._
 import com.datastax.driver.core.querybuilder.QueryBuilder
+import com.datastax.driver.extras.codecs.MappingCodec
 import com.google.common.collect.MapMaker
 import com.google.common.util.concurrent._
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang3.StringUtils
+import org.apache.commons.lang3.time.DateUtils
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
 import scala.collection.{JavaConversions}
@@ -43,6 +45,7 @@ class Cassandra3PersistenceManager  @Inject() (
     val builder = Cluster.builder()
     hosts.foreach { builder.addContactPoint(_)}
     builder.withReconnectionPolicy(new ExponentialReconnectionPolicy(10000, 60000))
+    builder.withCodecRegistry(CodecRegistry.DEFAULT_INSTANCE.register(new TimestampAsStringCodec))
     builder.build()
   }
 
@@ -56,7 +59,6 @@ class Cassandra3PersistenceManager  @Inject() (
 
   val session = cluster.connect(keyspace)
 
-//  val policy = new TokenAwarePolicy(DCAwareRoundRobinPolicy.builder.build)
   val map = new MapMaker().weakValues().makeMap[String, PreparedStatement]()
 
   private def getPreparedStmt(query:String) : PreparedStatement = {
@@ -301,18 +303,8 @@ class Cassandra3PersistenceManager  @Inject() (
         statement.bind(values: _*)
       }
 
-      if (useAsyncUpdates){
-        val future = session.executeAsync(boundStatement)
-        Futures.addCallback(future, new FutureCallback[ResultSet] {
-          override def onFailure(throwable: Throwable): Unit = {
-            logger.error("Problem persisting the following to " + entityName + " - " + throwable.getMessage)
-          }
-          override def onSuccess(v: ResultSet): Unit = {}
-        }, updateThreadService)
-      } else {
-        boundStatement.setConsistencyLevel(ConsistencyLevel.ONE)
-        executeWithRetries(session, boundStatement)
-      }
+      boundStatement.setConsistencyLevel(ConsistencyLevel.ONE)
+      executeWithRetries(session, boundStatement)
 
       rowkey
     } catch {
@@ -323,6 +315,18 @@ class Cassandra3PersistenceManager  @Inject() (
       }
     }
   }
+
+//  import com.datastax.driver.mapping.Mapper.Option._;
+//
+//  def fixType(entity:String, value:String) : Object ={
+//    if(entity == "dellog"){
+////      timestamp()
+//    } else {
+//      value
+//    }
+//  }
+
+
 
   private def executeWithRetries(session:Session, stmt:Statement) : ResultSet = {
 
@@ -828,113 +832,6 @@ class Cassandra3PersistenceManager  @Inject() (
 //    }
   }
 
-//  /***
-//    * Page over all the records in this local node.
-//    *
-//    * @param entityName
-//    * @param proc
-//    * @param threads
-//    */
-//  private def pageOverLocalAsync(entityName:String, proc:((String, Map[String, String]) => Boolean), threads:Int, columns:Array[String] = Array()) : Int = {
-//
-//    //retrieve token ranges for local node
-//    val tokenRanges: Array[TokenRange] = getTokenRangesForLocalNode
-//
-//    //threads for paging
-//    val pagingExecutors = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(4).asInstanceOf[ThreadPoolExecutor])
-//
-//    //threads for processing
-//    val processingExecutors = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(4).asInstanceOf[ThreadPoolExecutor])
-//
-//    //paging callables
-//    val pagingCallables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
-//
-//    //generate a set of callable tasks, each with their own token range...
-//    for (tokenRangeIdx <- 0 until tokenRanges.length){
-//
-//      val scanTask = new Callable[Int]{
-//        def call() : Int = {
-//
-//          val columnsString = if(columns.length > 0){
-//            columns.mkString(",")
-//          } else {
-//            "*"
-//          }
-//
-//          logger.info("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
-//
-//          val startToken = tokenRanges(tokenRangeIdx).getStart()
-//          val endToken =  tokenRanges(tokenRangeIdx).getEnd()
-//
-//          val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) < $endToken")
-//
-//          val future: ListenableFuture[ResultSet] = Futures.transform(session.executeAsync(stmt), iterate(tokenRangeIdx, 1, proc), processingExecutors)
-//
-//          while(!future.isDone){
-//            Thread.sleep(1000)
-//          }
-//          0
-//        }
-//      }
-//      pagingCallables.add(scanTask)
-//    }
-//
-//    logger.info("Starting threads...")
-//    val futures: util.List[Future[Int]] = pagingExecutors.invokeAll(pagingCallables)
-//    logger.info("All threads have completed paging")
-//
-//    var grandTotal: Int = 0
-//    for (f <- futures) {
-//      val count:Int = f.get.asInstanceOf[Int]
-//      grandTotal += count
-//    }
-//    grandTotal
-//  }
-
-//   def iterate(tokenRange:Int, page: Int, proc:((String, Map[String, String]) => Boolean)): AsyncFunction[ResultSet, ResultSet] = new AsyncFunction[ResultSet, ResultSet]() {
-//
-//      @throws(classOf[Exception])
-//      def apply(rs: ResultSet): ListenableFuture[ResultSet] = {
-//
-//        logger.debug(s"Iterating over token range $tokenRange")
-//        var remainingInPage = rs.getAvailableWithoutFetching
-//        var count = 0
-//        var lastUUID: String = ""
-//        import scala.collection.JavaConversions._
-//
-//        rs.iterator().takeWhile { _ =>
-//          remainingInPage > 0
-//        }.foreach { row =>
-//          count += 1
-//          lastUUID = row.getString(0)
-//          val rowkey = row.getString("rowkey")
-//          val map = new util.HashMap[String, String]()
-//          row.getColumnDefinitions.foreach { defin =>
-//            val value = row.getString(defin.getName)
-//            if (value != null){
-//              map.put(defin.getName, value)
-//            }
-//          }
-//
-//          //processing - does this want to be on a separate thread ??
-//          proc(rowkey, map.toMap)
-//
-//          remainingInPage = remainingInPage - 1
-//        }
-//
-////        println(s"[Token range $tokenRange] Done page $page, records $records, last UUID $lastUUID")
-////        println(count)
-//        val wasLastPage = rs.getExecutionInfo.getPagingState == null
-//        if (wasLastPage) {
-////          System.out.println("Done iterating")
-//          return Futures.immediateFuture(rs)
-//        }
-//        else {
-//          val future: ListenableFuture[ResultSet] = rs.fetchMoreResults
-//          return Futures.transform(future, iterate(tokenRange, page + 1, proc))
-//        }
-//      }
-//  }
 
   /**
    * Returns a sorted list of token ranges.
@@ -1103,45 +1000,9 @@ class Cassandra3PersistenceManager  @Inject() (
 
     counter
   }
+
+  class TimestampAsStringCodec extends MappingCodec(TypeCodec.timestamp(), classOf[String])  {
+    def serialize(value:String): Date = { DateUtils.parseDate(value, "yyyy-MM-dd HH:mm:ss") }
+    def deserialize(value:Date): String = { org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd HH:mm:ss") }
+  }
 }
-//
-//class CustomRetryPolicy (readAttempts:Int, writeAttempts:Int, unavailableAttempts:Int) extends RetryPolicy {
-//
-//  val logger = LoggerFactory.getLogger("Cassandra3Retries")
-//
-//  def init(cl:Cluster){}
-//  def close :Unit = {}
-//  def onRequestError(stmt:Statement, cl:ConsistencyLevel,  e:DriverException, nbRetry:Int)  : RetryDecision = {
-//    logger.warn("Error on request: " + e.getMessage)
-//    if(nbRetry <= readAttempts)
-//      RetryDecision.retry(ConsistencyLevel.ONE)
-//    else
-//      RetryDecision.tryNextHost(ConsistencyLevel.ONE)
-//  }
-//
-//  def onRequestError()  :Unit = {}
-//
-//  def onReadTimeout(stmt:Statement, cl:ConsistencyLevel, requiredResponses:Int, receivedResponses: Int, dataReceived:Boolean, rTime:Int) : RetryDecision =  {
-//    if (dataReceived) {
-//      return RetryDecision.ignore()
-//    } else if (rTime < readAttempts) {
-//      return RetryDecision.retry(cl)
-//    } else {
-//      return RetryDecision.rethrow()
-//    }
-//  }
-//
-//  def onWriteTimeout(stmt:Statement, cl:ConsistencyLevel,  wt:WriteType,  requiredResponses:Int, receivedResponses:Int,  wTime:Int) : RetryDecision =  {
-//    if (wTime < writeAttempts) {
-//      return RetryDecision.retry(cl)
-//    }
-//    return RetryDecision.rethrow()
-//  }
-//
-//  def onUnavailable( stmnt:Statement,  cl:ConsistencyLevel,  requiredResponses:Int,  receivedResponses:Int, uTime:Int) : RetryDecision =  {
-//    if (uTime < unavailableAttempts) {
-//      return RetryDecision.retry(ConsistencyLevel.ONE)
-//    }
-//    return RetryDecision.rethrow()
-//  }
-//}

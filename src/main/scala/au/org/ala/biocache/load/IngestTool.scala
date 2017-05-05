@@ -116,7 +116,7 @@ object IngestTool extends Tool {
     }
     if(!skipIndexing){
       logger.info("Indexing: " + uid)
-      IndexRecords.index(None, None, Some(uid), false, false)
+      IndexRecords.index(Some(uid), false, false)
     } else {
       logger.info("Skipping indexing: " + uid)
     }

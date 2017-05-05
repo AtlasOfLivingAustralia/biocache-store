@@ -287,8 +287,6 @@ trait DataLoader {
       return fr
     }
 
-    val fileNameToID = new mutable.HashMap[String, String]()
-
     val associatedMediaBuffer = new ArrayBuffer[String]
     val imagesBuffer = new ArrayBuffer[String]
     val soundsBuffer = new ArrayBuffer[String]
@@ -531,13 +529,13 @@ trait DataLoader {
       if(Config.allowCollectoryUpdates == "true"){
 
         val map = new  scala.collection.mutable.HashMap[String,String]()
-        map ++= Map("user"-> user, "api_key"-> Config.collectoryApiKey, "lastChecked" -> loadTime)
+        map ++= Map("user" -> user, "api_key" -> Config.collectoryApiKey, "lastChecked" -> loadTime)
 
         if(dataCurrency.isDefined) {
           map += ("dataCurrency" -> dataCurrency.get)
         }
         //turn the map of values into JSON representation
-        val data = map.map(pair => "\""+pair._1 +"\":\"" +pair._2 +"\"").mkString("{",",", "}")
+        val data = map.map(pair => "\"" + pair._1 + "\":\"" + pair._2 + "\"").mkString("{",",", "}")
 
         val (responseCode, responseBody) = HttpUtil.postBody(Config.registryUrl + "/dataResource/" + resourceUid, "application/json", data)
 

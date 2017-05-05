@@ -1,13 +1,14 @@
 package au.org.ala.biocache.processor
 
+import org.slf4j.LoggerFactory
+
 import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.time.{DateFormatUtils, DateUtils}
 import java.util.{GregorianCalendar, Date}
 import org.apache.commons.lang.StringUtils
-import scala.Some
 import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes}
+import au.org.ala.biocache.vocab.{DatePrecision, AssertionStatus, AssertionCodes}
 import au.org.ala.biocache.util.{DateUtil, StringHelper}
 
 /**
@@ -18,6 +19,8 @@ class EventProcessor extends Processor {
   import StringHelper._
   import AssertionCodes._
   import AssertionStatus._
+
+  val logger = LoggerFactory.getLogger("EventProcessor")
 
   /**
    * Validate the supplied number using the supplied function.
@@ -54,8 +57,8 @@ class EventProcessor extends Processor {
       var date: Option[java.util.Date] = None
       val currentYear = DateUtil.getCurrentYear
       var comment = ""
-      var addPassedInvalidCollectionDate=true
-      var dateComplete=false
+      var addPassedInvalidCollectionDate = true
+      var dateComplete = false
 
       var (year, validYear) = validateNumber(raw.event.year, {
         year => year > 0 && year <= currentYear
@@ -115,7 +118,7 @@ class EventProcessor extends Processor {
             day.toInt
           )
           //don't allow the calendar to be lenient we want exceptions with incorrect dates
-          calendar.setLenient(false);
+          calendar.setLenient(false)
           date = Some(calendar.getTime)
           dateComplete = true
         } catch {
@@ -146,7 +149,7 @@ class EventProcessor extends Processor {
           processed.event.year = parsedDate.get.startYear
           //set the valid year if one was supplied in the eventDate
           if(parsedDate.get.startYear != "") {
-            val(newComment,newValidYear,newYear) = runYearValidation(parsedDate.get.startYear.toInt, currentYear, if(parsedDate.get.startDay =="") 0 else parsedDate.get.startDay.toInt, if(parsedDate.get.startMonth =="") 0 else parsedDate.get.startMonth.toInt)
+            val(newComment,newValidYear,newYear) = runYearValidation(parsedDate.get.startYear.toInt, currentYear, if(parsedDate.get.startDay =="") 0 else parsedDate.get.startDay.toInt, if(parsedDate.get.startMonth == "") 0 else parsedDate.get.startMonth.toInt)
             comment = newComment
             validYear = newValidYear
             year = newYear
@@ -154,7 +157,7 @@ class EventProcessor extends Processor {
 
           if(StringUtils.isNotBlank(parsedDate.get.startDate)){
             //we have a complete date
-            dateComplete=true
+            dateComplete = true
           }
 
           if (DateUtil.isFutureDate(parsedDate.get)) {
@@ -237,8 +240,13 @@ class EventProcessor extends Processor {
 
     //now process the other dates
     processOtherDates(raw, processed, assertions)
+
     //check for the "first" of month,year,century
     processFirstDates(raw, processed, assertions)
+
+    //validate against date precision
+    checkPrecision(raw, processed, assertions)
+
     assertions.toArray
   }
 
@@ -292,7 +300,7 @@ class EventProcessor extends Processor {
         assertions += QualityAssertion(FIRST_OF_YEAR)
         //check to see if the date is the first of the century
         if(processed.event.year != null){
-          var (year, validYear) = validateNumber(processed.event.year, {
+          val (year, validYear) = validateNumber(processed.event.year, {
             year => year > 0
           })
           if(validYear && year % 100 == 0){
@@ -314,7 +322,8 @@ class EventProcessor extends Processor {
 
   /**
    * processed the other dates for the occurrence including performing data checks
-   * @param raw
+    *
+    * @param raw
    * @param processed
    * @param assertions
    */
@@ -364,6 +373,85 @@ class EventProcessor extends Processor {
       }
     }
   }
+
+  /**
+    * Check the precision of the supplied date and alter the processed date
+    *
+    * @param raw
+    * @param processed
+    * @param assertions
+    */
+  def checkPrecision(raw:FullRecord, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
+
+    if(StringUtils.isNotBlank(raw.event.datePrecision) && StringUtils.isNotBlank(processed.event.eventDate)){
+      val matchedTerm = DatePrecision.matchTerm(raw.event.datePrecision)
+      if(!matchedTerm.isEmpty){
+        val term = matchedTerm.get
+        processed.event.datePrecision = term.canonical
+
+        if (term.canonical.equalsIgnoreCase(MONTH_PRECISION)){
+          //is the processed date in yyyy-MM format
+          reformatToPrecision(processed, "yyyy-MM", true, false, false)
+        }
+        if (term.canonical.equalsIgnoreCase(YEAR_PRECISION)){
+          //is the processed date in yyyy format
+          reformatToPrecision(processed, "yyyy", true, true, false)
+        }
+//        if (term.canonical.equalsIgnoreCase(MONTH_RANGE_PRECISION)){
+//          is the processed date in yyyy-MM format
+//          reformatToPrecision(processed, "yyyy-MM", true, false, false)
+//        }
+//        if (term.canonical.equalsIgnoreCase(YEAR_RANGE_PRECISION)){
+//          is the processed date in yyyy format
+//          reformatToPrecision(processed, "yyyy", true, true, true)
+//        }
+      }
+    }
+  }
+
+  /**
+    * TODO handle all the permutations of year and month ranges.
+    *
+    * @param processed
+    * @param format
+    * @param nullifyDay
+    * @param nullifyMonth
+    * @param nullifyYear
+    */
+  def reformatToPrecision(processed:FullRecord, format:String, nullifyDay:Boolean, nullifyMonth:Boolean, nullifyYear:Boolean): Unit ={
+
+    val parsedDate = DateParser.parseDate(processed.event.eventDate)
+    if(!parsedDate.isEmpty) {
+
+      if(parsedDate.get.singleDate && parsedDate.get.parsedStartDate != null){
+        try {
+          processed.event.eventDate = DateFormatUtils.format(parsedDate.get.parsedStartDate, format)
+        } catch {
+          case e:Exception => logger.error("Problem reformatting date to new precision")
+        }
+      }
+
+      if(parsedDate.get.singleDate) {
+        if (nullifyDay) {
+          processed.event.day = null
+        }
+        if (nullifyMonth) {
+          processed.event.month = null
+        }
+        if (nullifyYear) {
+          processed.event.year = null
+        }
+      }
+    }
+  }
+
+  val DAY_RANGE_PRECISION = "day range"
+  val MONTH_RANGE_PRECISION = "month range"
+  val YEAR_RANGE_PRECISION = "year range"
+
+  val DAY_PRECISION = "day"
+  val MONTH_PRECISION = "month"
+  val YEAR_PRECISION = "year"
 
   def getName = "event"
 }

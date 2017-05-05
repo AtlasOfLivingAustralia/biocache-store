@@ -21,8 +21,6 @@ object DeleteRecords extends Tool {
     var query: Option[String] = None
     var dr: Option[String] = None
     var file: Option[String] = None
-    var startRowkey: Option[String] = None
-    var endRowkey: Option[String] = None
     var useUUID = false
     var fieldDelimiter:Char = '\t'
     var hasHeader = false
@@ -37,12 +35,6 @@ object DeleteRecords extends Tool {
       opt("f", "file", "The file of row keys to delete. Can be an absolute local file path or URL to a file that contains rowkeys or UUIDs.", {
         v: String => file = Some(v)
       })
-      opt("s", "startRowkey", "The start rowkey to use", {
-        v: String => startRowkey = Some(v)
-      })
-      opt("e", "endRowkey", "The end rowkey to use", {
-        v: String => endRowkey = Some(v)
-      })
       opt("hdr", "fileHasHeader", "The supplied file has a header", {
         hasHeader = true
       })
@@ -56,7 +48,6 @@ object DeleteRecords extends Tool {
         if (!query.isEmpty) Some(new QueryDelete(query.get))
         else if (!dr.isEmpty) Some(new QueryDelete("data_resource_uid:" + dr.get))
         else if (file.isDefined) Some(new FileDelete(file.get, useUUID, fieldDelimiter, hasHeader))
-        else if (startRowkey.isDefined && endRowkey.isDefined) Some(new RangeDeletor(startRowkey.get, endRowkey.get))
         else None
       }
       if (!deletor.isEmpty) {

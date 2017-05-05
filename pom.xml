@@ -35,7 +35,7 @@
         <maven>3.0.5</maven>
     </prerequisites>
     <description>
-        Scala implementation of biocache backend.
+        Scala implementation of biocache backend that uses Cassandra 3.x and SOLR Cloud 5.x
         This code base manages the loading, processing, sampling and indexing of occurrence records for the ALA.
         There are additional tools to support outlier detection, duplicate detection and extra-limital outliers.
     </description>
@@ -209,7 +209,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>ala-name-matching</artifactId>
-            <version>3.0-SNAPSHOT</version>
+            <version>3.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.gbif</groupId>

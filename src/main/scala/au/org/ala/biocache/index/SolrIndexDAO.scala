@@ -11,7 +11,7 @@ import java.io.{FileWriter, OutputStream, File}
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
 import org.apache.solr.client.solrj.impl.{ConcurrentUpdateSolrClient, CloudSolrClient, ConcurrentUpdateSolrServer}
 import org.apache.solr.client.solrj.response.FacetField
-import org.apache.solr.common.params.{MapSolrParams, ModifiableSolrParams}
+import org.apache.solr.common.params.{CursorMarkParams, MapSolrParams, ModifiableSolrParams}
 import java.util.Date
 import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.Config
@@ -880,34 +880,37 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
 
   private def writeFieldToStream(field:String, query: String, outputStream: OutputStream) {
-    init
-    val size = 100
-    var start = 0
-    var continue = true
 
-    val solrQuery = new SolrQuery()
+    init
+    var done = false
+    val q = new SolrQuery()
       .setFacet(false)
       .setFields(field)
       .setQuery(query)
-      .setRows(100)
+      .setRows(1000)
+      .setSort("id", SolrQuery.ORDER.desc)
 
-    while (continue) {
-      solrQuery.setStart(start)
-      val response = solrServer.query(solrQuery)
+    var cursorMark = CursorMarkParams.CURSOR_MARK_START
+    while (!done) {
+      q.set(CursorMarkParams.CURSOR_MARK_PARAM, cursorMark)
+      val response = solrServer.query(q)
+      val nextCursorMark = response.getNextCursorMark()
       val resultsIterator = response.getResults().iterator
       while (resultsIterator.hasNext) {
         val result = resultsIterator.next()
         outputStream.write((result.getFieldValue(field) + "\n").getBytes())
       }
 
-      start += size
-      continue = response.getResults.getNumFound > start
+      if (cursorMark.equals(nextCursorMark)) {
+        done = true
+      }
+      cursorMark = nextCursorMark
     }
+    outputStream.flush()
   }
 
   def printNumDocumentsInIndex =
     ">>>> Document count of index: " + solrServer.query(new SolrQuery("*:*")).getResults().getNumFound()
-
 
   class AddDocThread(queue: ArrayBlockingQueue[java.util.List[SolrInputDocument]], id: Int) extends Thread {
 

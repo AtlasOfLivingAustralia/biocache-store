@@ -122,6 +122,10 @@ class SensitivityProcessor extends Processor {
     if(processed.event.year != null)
       rawMap("year") = processed.event.year
 
+    if(logger.isDebugEnabled()){
+      logger.debug("Testing with the following properties: " + rawMap + ", and ID" +  processed.classification.taxonConceptID)
+    }
+
     //SDS check - now get the ValidationOutcome from the Sensitive Data Service
     val outcome = sds.testMapDetails(Config.sdsFinder, rawMap, exact, processed.classification.taxonConceptID)
 
@@ -143,7 +147,8 @@ class SensitivityProcessor extends Processor {
             // add the original "processed" coordinate uncertainty to the sensitive values so that it
             // can be available if necessary
             if (processed.location.coordinateUncertaintyInMeters != null) {
-              osv.put("coordinateUncertaintyInMeters.p", processed.location.coordinateUncertaintyInMeters)
+              osv.put("coordinateUncertaintyInMeters" + Config.persistenceManager.fieldDelimiter + "p",
+                processed.location.coordinateUncertaintyInMeters)
             }
             if(raw.location.gridReference != null && raw.location.gridReference != ""){
               osv.put("gridReference", raw.location.gridReference)

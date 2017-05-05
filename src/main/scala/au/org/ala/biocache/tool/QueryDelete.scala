@@ -18,9 +18,9 @@ class QueryDelete(query: String) extends RecordDeletor {
     var count = 0
     val start = System.currentTimeMillis
     val out = new BufferedOutputStream(new FileOutputStream(file))
-    logger.info("Retrieving a list of UUIDs from persistent storage....")
+    logger.info("Retrieving a list of UUIDs from index....")
     indexer.writeUUIDsToStream(query, out)
-    logger.info(s"Retrieved a list of UUIDs from persistent storage. IDs written to $delFile")
+    logger.info(s"Retrieved a list of UUIDs from index. IDs written to $delFile")
     out.flush
     out.close
     file.foreachLine { line =>

@@ -1,4 +1,4 @@
-CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 4 };
+CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 2 };
 use occ;
 
 CREATE TABLE occ_uuid (
@@ -418,6 +418,8 @@ CREATE TABLE attr (
 
 CREATE TABLE dellog (
   rowkey varchar,
+  id varchar,
+  value varchar,
   PRIMARY KEY (rowkey)
 );
 

@@ -49,13 +49,11 @@ object IndexRecords extends Tool with IncrementalTool {
   val persistenceManager = Config.getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
 
   def main(args: Array[String]): Unit = {
-    var startUuid:Option[String] = None
-    var endUuid:Option[String] = None
-    var dataResourceUid:Option[String] = None
     var empty = false
     var check = false
     var startDate:Option[String] = None
     var pageSize = 1000
+    var dataResourceUid:Option[String] = None
     var uuidFile = ""
     var rowKeyFile = ""
     var threads = 1
@@ -65,12 +63,11 @@ object IndexRecords extends Tool with IncrementalTool {
 
     val parser = new OptionParser(help) {
         opt("empty", "empty the index first", {empty=true})
+
         opt("check","check to see if the record is deleted before indexing",{check=true})
-        opt("s", "start","The record to start with", {v:String => startUuid = Some(v)})
-        opt("e","end", "The record to end with",{v:String =>endUuid = Some(v)})
-        opt("dr", "resource", "The data resource to (re) index", {v:String => dataResourceUid = Some(v)})
         opt("date", "date", "The earliest modification date for records to be indexed. Date in the form yyyy-mm-dd",
           {v:String => startDate = Some(v)})
+        opt("dr", "dataResource", "The data resource to index", {v:String => dataResourceUid = Some(v)})
         intOpt("ps", "pageSize", "The page size for indexing", {v:Int => pageSize = v })
         opt("if", "file-uuids-to-index","Absolute file path to fle containing UUIDs to index", {v:String => uuidFile = v})
         opt("rf", "file-rowkeys-to-index","Absolute file path to fle containing rowkeys to index", {v:String => rowKeyFile = v})
@@ -80,14 +77,12 @@ object IndexRecords extends Tool with IncrementalTool {
         opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
     }
 
-    if(parser.parse(args)){
-      if(!dataResourceUid.isEmpty && checkRowKeyFile){
-        val (hasRowKey, retrievedRowKeyFile) = IndexRecords.hasRowKey(dataResourceUid.get)
-        rowKeyFile = retrievedRowKeyFile.getOrElse("")
-      }
+    if(parser.parse(args)) {
 
-      if(abortIfNotRowKeyFile && (rowKeyFile=="" || !(new File(rowKeyFile).exists()))){
+      if (abortIfNotRowKeyFile && (rowKeyFile == "" || !(new File(rowKeyFile).exists()))) {
         logger.warn("No rowkey file was found for this index. Aborting.")
+      } else if (!dataResourceUid.isEmpty){
+        index(dataResourceUid)
       } else {
         //delete the content of the index
         if(empty){
@@ -96,16 +91,13 @@ object IndexRecords extends Tool with IncrementalTool {
         }
         if (uuidFile != ""){
           indexListOfUUIDs(new File(uuidFile))
-        } else if (rowKeyFile != ""){
-          if(threads == 1) {
+        } else if (rowKeyFile != "") {
+          if (threads == 1) {
             indexList(new File(rowKeyFile))
           } else {
             indexListThreaded(new File(rowKeyFile), threads)
           }
-        } else {
-          index(startUuid, endUuid, dataResourceUid, false, false, startDate, check, pageSize, test=test)
         }
-        //shut down pelops and index to allow normal exit
         indexer.shutdown
       }
     }
@@ -114,21 +106,16 @@ object IndexRecords extends Tool with IncrementalTool {
   /**
    * Index the supplied range of records.
    *
-   * @param startUuid
-   * @param endUuid
    * @param dataResource
    * @param optimise
    * @param shutdown
-   * @param startDate
    * @param checkDeleted
    * @param pageSize
    * @param miscIndexProperties
    * @param callback
    * @param test
    */
-  def index(startUuid:Option[String],
-            endUuid:Option[String],
-            dataResource:Option[String],
+  def index(dataResource:Option[String],
             optimise:Boolean = false,
             shutdown:Boolean = false,
             startDate:Option[String] = None,
@@ -137,31 +124,16 @@ object IndexRecords extends Tool with IncrementalTool {
             miscIndexProperties:Seq[String] = Array[String](),
             userProvidedTypeMiscIndexProperties :Seq[String] = Array[String](),
             callback:ObserverCallback = null,
-            test:Boolean = false) {
-
-    val startKey = if(startUuid.isEmpty && !dataResource.isEmpty) {
-      dataResource.get +"|"
-    } else {
-      startUuid.getOrElse("")
-    }
-
-    var date:Option[Date]=None
-    if(!startDate.isEmpty){
-      date = DateParser.parseStringToDate(startDate.get + " 00:00:00")
-      if(date.isEmpty) {
-        throw new Exception("Date is in incorrect format. Try yyyy-mm-dd")
-      }
-      logger.info("Indexing will be restricted to records changed after " + date.get)
-    }
+            test:Boolean = false): Unit = {
 
     if(dataResource.isEmpty){
       logger.info("Starting full index")
     } else {
       logger.info("Starting to index " + dataResource.get)
     }
-    indexRange(dataResource.getOrElse(""), date, checkDeleted, miscIndexProperties = miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, callback = callback, test=test)
+    indexRange(dataResource.getOrElse(""), None, checkDeleted, miscIndexProperties = miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, callback = callback, test=test)
     //index any remaining items before exiting
-    indexer.finaliseIndex(optimise, shutdown)  
+    indexer.finaliseIndex(optimise, shutdown)
   }
 
   def indexRange(dataResourceUID:String, startDate:Option[Date]=None, checkDeleted:Boolean=false,
@@ -181,11 +153,11 @@ object IndexRecords extends Tool with IncrementalTool {
 
       indexer.indexFromMap(guid,
         map,
-        startDate=startDate,
-        commit=shouldcommit,
-        miscIndexProperties=miscIndexProperties,
+        startDate = startDate,
+        commit = shouldcommit,
+        miscIndexProperties = miscIndexProperties,
         userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties,
-        test=test,
+        test = test,
         csvFileWriter = csvFileWriter,
         csvFileWriterSensitive = csvFileWriterSensitive
       )
@@ -322,8 +294,8 @@ object IndexRecords extends Tool with IncrementalTool {
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
-    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter() } else { null }
+    val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter() } else { null }
 
     file.foreachLine(line => {
       counter += 1
@@ -350,8 +322,8 @@ object IndexRecords extends Tool with IncrementalTool {
     var counter = 0
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
-    var csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
-    var csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
+    val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
+    val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
 
     file.foreachLine(line => {
       val uuid = line.replaceAll("\"","")
