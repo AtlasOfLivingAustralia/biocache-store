@@ -29,6 +29,8 @@
         <jts.version>1.13</jts.version>
         <jackson.version>2.8.4</jackson.version>
         <gt.version>2.7.5</gt.version>
+	<initialMemorySize>4g</initialMemorySize>
+	<maxMemorySize>4g</maxMemorySize>
     </properties>
     <prerequisites>
         <maven>3.0.5</maven>
@@ -798,8 +800,8 @@
                                 <id>biocache</id>
                                 <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
                                 <jvmSettings>
-                                    <initialMemorySize>16g</initialMemorySize>
-                                    <maxMemorySize>16g</maxMemorySize>
+                                    <initialMemorySize>${initialMemorySize}</initialMemorySize>
+                                    <maxMemorySize>${maxMemorySize}</maxMemorySize>
                                     <extraArguments>
                                         <extraArgument>$BIOCACHE_OPTS</extraArgument>
                                         <extraArgument>-XX:+UseG1GC</extraArgument>
@@ -817,8 +819,8 @@
                                 <id>biocache-species-outliers</id>
                                 <mainClass>au.org.ala.biocache.outliers.SpeciesOutlierTests</mainClass>
                                 <jvmSettings>
-                                    <initialMemorySize>16g</initialMemorySize>
-                                    <maxMemorySize>16g</maxMemorySize>
+                                    <initialMemorySize>${initialMemorySize}</initialMemorySize>
+                                    <maxMemorySize>${maxMemorySize}</maxMemorySize>
                                     <extraArguments>
                                         <extraArgument>$BIOCACHE_OPTS</extraArgument>
                                         <extraArgument>-XX:+UseG1GC</extraArgument>
