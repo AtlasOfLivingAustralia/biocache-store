@@ -140,14 +140,14 @@ trait RangeCalculator {
  * @param endKey
  * @param columns
  */
-class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, endKey: String, columns: List[String], includeRowkey:Boolean, separator:Char = '\t') extends Runnable {
+class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, endKey: String, columns: List[String], includeRowkey:Boolean, separator:Char = '\t', quoteChar:Char = '"', escapeChar:Char = '\\') extends Runnable {
 
   val logger = LoggerFactory.getLogger("ColumnExporter")
 
   def run {
 
     val outWriter = new FileWriter(new File( Config.tmpWorkDir + "/fullexport" + threadId + ".txt"))
-    val writer = new CSVWriter(outWriter, separator, '"', '\\')
+    val writer = new CSVWriter(outWriter, separator, quoteChar, escapeChar)
     if (includeRowkey) writer.writeNext(Array("rowKey") ++ columns.toArray[String])
     else writer.writeNext(columns.toArray[String])
     val start = System.currentTimeMillis
