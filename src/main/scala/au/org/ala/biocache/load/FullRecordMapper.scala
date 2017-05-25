@@ -185,6 +185,8 @@ object FullRecordMapper {
           case it if deletedColumn.equals(it) => fullRecord.deleted = "true".equals(fieldValue)
           case it if dateDeletedColumn.equals(it) => fullRecord.dateDeleted
           case it if lastUserAssertionDateColumn.equals(fieldName) => fullRecord.setLastUserAssertionDate(fieldValue)
+          case it if userAssertionStatusColumn.equals(fieldName) => fullRecord.setUserAssertionStatus(fieldValue)
+          case it if userQualityAssertionColumn.equals(fieldName) => fullRecord.setUserQualityAssertion(fieldValue)
           case it if version == Processed && isProcessedValue(fieldName) => {
             val success = fullRecord.setProperty(removeSuffix(fieldName), fieldValue)
             if(!success) {
