@@ -8,7 +8,6 @@ import au.org.ala.biocache.index.lucene.LuceneIndexing
 import au.org.ala.biocache.tool.ProcessRecords
 import au.org.ala.biocache.util.OptionParser
 import org.apache.commons.io.FileUtils
-import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.IndexWriterConfig.OpenMode
 import org.apache.lucene.index.{ConcurrentMergeScheduler, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.FSDirectory
@@ -54,7 +53,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var action = ""
     var start, end = ""
     var dr: Option[String] = None
-    val validActions = List("range", "process", "index", "col", "repair", "datum", "load-sampling", "avro-export")
+    val validActions = List("range", "process", "index", "col", "repair", "datum", "load-sampling", "avro-export", "load-conservation-data")
     var forceMerge = true
     var mergeSegments = 1
     var deleteSources = false
@@ -215,6 +214,8 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
                 } else {
                   new ColumnExporter(this, counter, startKey, endKey, columns.get.toList, includeRowkey, charSeparator)
                 }
+              } else if (action == "load-conservation-data") {
+                new LoadTaxonConservationData(this, counter, startKey, endKey)
               } else {
                 new Thread()
               }
