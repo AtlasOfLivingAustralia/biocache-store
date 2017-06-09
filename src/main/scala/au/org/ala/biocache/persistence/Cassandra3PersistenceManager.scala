@@ -28,12 +28,9 @@ import scala.collection.{JavaConversions}
   */
 class Cassandra3PersistenceManager  @Inject() (
                   @Named("cassandra.hosts") val host:String = "localhost",
-                  @Named("cassandra.port") val port:Int = 9160,
+                  @Named("cassandra.port") val port:Int = 9042,
                   @Named("cassandra.pool") val poolName:String = "biocache-store-pool",
-                  @Named("cassandra.keyspace") val keyspace:String = "occ",
-                  @Named("cassandra.async.updates.enabled") val useAsyncUpdates:Boolean = false,
-                  @Named("cassandra.async.updates.threads") val useAsyncUpdatesThreads:Int = 4,
-                  @Named("cassandra.async.paging.enabled") val useAsyncPaging:Boolean = false
+                  @Named("cassandra.keyspace") val keyspace:String = "occ"
                                               ) extends PersistenceManager {
 
   import JavaConversions._
@@ -49,13 +46,7 @@ class Cassandra3PersistenceManager  @Inject() (
     builder.build()
   }
 
-  val updateThreadService = if (useAsyncUpdates) {
-    logger.info("Async updates enabled. Starting thread pool")
-    MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(useAsyncUpdatesThreads).asInstanceOf[ThreadPoolExecutor])
-  } else {
-    logger.info("Async updates disabled. Not starting thread pool")
-    null
-  }
+  val updateThreadService = null
 
   val session = cluster.connect(keyspace)
 
