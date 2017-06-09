@@ -5,7 +5,7 @@ import org.apache.commons.lang3.StringUtils
 import scala.collection.mutable.HashMap
 import scala.collection.immutable.Map
 import scala.util.parsing.json.JSON
-import org.codehaus.jackson.annotate.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.util.{BiocacheConversions, StringHelper, Json}
 import au.org.ala.biocache.parser.DateParser
@@ -14,6 +14,7 @@ import au.org.ala.biocache.parser.DateParser
  * A trait for POSOs that allows for setting of values using
  * reflection.
  */
+@JsonIgnoreProperties(Array("propertyNames"))
 trait POSO {
 
   val logger = LoggerFactory.getLogger("POSO")
@@ -22,6 +23,7 @@ trait POSO {
 
   protected val lookup = ReflectionCache.getPosoLookup(this)
 
+  @JsonIgnore
   val propertyNames = lookup.values.map(v => v.name)
 
   /**

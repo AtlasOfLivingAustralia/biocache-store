@@ -1,11 +1,14 @@
 package au.org.ala.biocache.model
 
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
+
 import scala.beans.BeanProperty
 import au.org.ala.biocache.poso.POSO
 
 /**
  * POSO for holding measurement information for an occurrence.
  */
+@JsonIgnoreProperties(Array("propertyNames"))
 class Measurement extends Cloneable with POSO {
   override def clone : Measurement = super.clone.asInstanceOf[Measurement]
   @BeanProperty var measurementAccuracy:String = _

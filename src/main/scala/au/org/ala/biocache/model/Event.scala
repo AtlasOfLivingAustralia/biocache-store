@@ -1,5 +1,7 @@
 package au.org.ala.biocache.model
 
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
+
 import scala.beans.BeanProperty
 import org.apache.commons.lang.builder.ToStringBuilder
 import au.org.ala.biocache.poso.POSO
@@ -7,6 +9,7 @@ import au.org.ala.biocache.poso.POSO
 /**
  * POSO for holding event data for an occurrence
  */
+@JsonIgnoreProperties(Array("propertyNames"))
 class Event extends Cloneable with POSO {
   override def clone : Event = super.clone.asInstanceOf[Event]
   @BeanProperty var day:String = _

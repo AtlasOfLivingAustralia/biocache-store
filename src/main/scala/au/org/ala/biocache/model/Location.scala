@@ -4,12 +4,13 @@ import au.org.ala.biocache.util.StringHelper
 
 import scala.beans.BeanProperty
 import org.apache.commons.lang.builder.ToStringBuilder
-import org.codehaus.jackson.annotate.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import au.org.ala.biocache.poso.POSO
 
 /**
  * POSO for holding location information for an occurrence.
  */
+@JsonIgnoreProperties(Array("propertyNames"))
 class Location extends Cloneable with POSO {
 
   import StringHelper._

@@ -1,7 +1,7 @@
 package au.org.ala.biocache.model
 
 import scala.beans.BeanProperty
-import org.codehaus.jackson.annotate.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.commons.lang.builder.ToStringBuilder
 import scala.collection.mutable.HashMap
 import au.org.ala.biocache.poso.POSO
@@ -9,6 +9,7 @@ import au.org.ala.biocache.poso.POSO
 /**
  * Represents the full attribution for a record.
  */
+@JsonIgnoreProperties(Array("propertyNames"))
 class Attribution (
   @BeanProperty var dataProviderUid:String,
   @BeanProperty var dataProviderName:String,

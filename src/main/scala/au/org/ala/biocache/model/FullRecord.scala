@@ -1,5 +1,6 @@
 package au.org.ala.biocache.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.codehaus.jackson.annotate.JsonIgnoreProperties
 import scala.beans.BeanProperty
 import org.apache.commons.lang.builder.EqualsBuilder
@@ -11,7 +12,7 @@ import au.org.ala.biocache.poso.{POSO, CompositePOSO}
  * This should make it clearer the what the differences are between a
  * raw and processed record.
  */
-@JsonIgnoreProperties
+@JsonIgnoreProperties(Array("propertyNames"))
 class FullRecord (
   @BeanProperty var rowKey:String,
   @BeanProperty var uuid:String,
@@ -92,6 +93,7 @@ class FullRecord (
     case _ => false
   }
 
+  @JsonIgnore
   def getRawFields() : scala.collection.Map[String, String] = rawFields
 
   def setRawFieldsWithMapping(rf: scala.collection.Map[String, String]) = {

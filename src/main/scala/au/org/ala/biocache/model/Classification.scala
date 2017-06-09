@@ -1,11 +1,14 @@
 package au.org.ala.biocache.model
 
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
+
 import scala.beans.BeanProperty
 import au.org.ala.biocache.poso.POSO
 
 /**
  * POSO for handling details of a classification associated with an occurrence.
  */
+@JsonIgnoreProperties(Array("propertyNames"))
 class Classification extends Cloneable with POSO {
   override def clone : Classification = super.clone.asInstanceOf[Classification]
   @BeanProperty var scientificName:String = _

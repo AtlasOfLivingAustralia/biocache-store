@@ -1,13 +1,14 @@
 package au.org.ala.biocache.model
 
 import scala.beans.BeanProperty
-import org.codehaus.jackson.annotate.JsonIgnore
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import au.org.ala.biocache.poso.POSO
 
 /**
  * Represents an occurrence record. These fields map directly on to
  * the latest darwin core terms, with a few additional fields.
  */
+@JsonIgnoreProperties(Array("propertyNames"))
 class Occurrence extends Cloneable with POSO {
   override def clone : Occurrence = super.clone.asInstanceOf[Occurrence]
   @BeanProperty var occurrenceID:String = _
@@ -114,7 +115,7 @@ class Occurrence extends Cloneable with POSO {
   @BeanProperty var outlierForLayers:Array[String] = _
   @BeanProperty var photographer:String =_
 
-   @JsonIgnore
+  @JsonIgnore
   def getOriginalSensitiveValues():Map[String,String] = originalSensitiveValues
 
   def setOriginalSensitiveValues(originalSensitiveValues:Map[String,String]) = this.originalSensitiveValues = originalSensitiveValues

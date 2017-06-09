@@ -1,5 +1,6 @@
 package au.org.ala.biocache.poso
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.commons.lang3.BooleanUtils
 
 import scala.util.parsing.json.JSON
@@ -23,6 +24,7 @@ trait CompositePOSO extends POSO {
     *
     * @return
    */
+  @JsonIgnore
   override def getPropertyNames: List[String] = ReflectionCache.getCompositePropertyNames(this)
 
   override def setProperty(name: String, value: String) : Boolean = {
@@ -126,6 +128,7 @@ trait CompositePOSO extends POSO {
     }
   }
 
+  @JsonIgnore
   def getNestedProperties(): Iterable[String] = {
     nestedProperties
   }
