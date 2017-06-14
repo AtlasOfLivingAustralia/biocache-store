@@ -20,7 +20,7 @@ import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.time.DateUtils
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.ListBuffer
-import scala.collection.{JavaConversions}
+import scala.collection.{mutable, JavaConversions}
 
 /**
   * Cassandra 3 based implementation of a persistence manager.
@@ -864,10 +864,6 @@ class Cassandra3PersistenceManager  @Inject() (
     val replicaCount= new util.HashMap[Host, util.List[TokenRange]]
     val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges).toArray(new Array[TokenRange](0))
 
-
-    System.out.println("#######  Number of token ranges : " + tokenRanges.length)
-
-
     val tokenRangesSorted = tokenRanges.sortBy(_.getStart)
     val numberOfHost = metadata.getAllHosts.size
     val rangesPerHost = tokenRanges.length / numberOfHost
@@ -905,9 +901,7 @@ class Cassandra3PersistenceManager  @Inject() (
       }
     }
 
-
     replicaCount.get(localHost).toArray(Array[TokenRange]())
-
   }
 
   private def unwrapTokenRanges(wrappedRanges: util.Set[TokenRange]) : util.Set[TokenRange] = {
@@ -922,9 +916,37 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * Select fields from rows and pass to the supplied function.
     */
-  def selectRows(rowkeys:Seq[String], entityName:String, fields:Seq[String], proc:((Map[String,String])=>Unit)) : Unit =
-    throw new RuntimeException("No supported")
+  def selectRows(rowkeys:Seq[String], entityName:String, fields:Seq[String], proc:((Map[String, String]) => Unit)) : Unit = {
+    println("Rowkeys requested: " + rowkeys.size + ", first key: " + rowkeys.head)
+    println("Fields requested: " + fields.mkString(","))
 
+    val cleanedFields = fields.map { field =>
+      if(field == "order"){
+        "'order'"
+      } else {
+        field
+      }
+    }
+
+    val fieldsList = cleanedFields.mkString(",")
+    val statement = session.prepare(s"SELECT $fieldsList FROM $entityName where rowkey = ?")
+    val futures = new ListBuffer[ResultSetFuture]
+    rowkeys.foreach { rowkey =>
+      val resultSetFuture = session.executeAsync(statement.bind(rowkey))
+      futures.add(resultSetFuture)
+    }
+
+    futures.foreach { future =>
+      val rows = future.getUninterruptibly()
+      val row = rows.one()
+      val mapBuilder = collection.mutable.Map[String,String]()
+      fields.foreach { field =>
+        mapBuilder.put(field, row.getString(field.toLowerCase))
+      }
+
+      proc(mapBuilder.toMap)
+    }
+  }
 
   def shutdown = {
     this.session.close()
