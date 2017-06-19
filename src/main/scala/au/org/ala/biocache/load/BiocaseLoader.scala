@@ -293,7 +293,19 @@ object HttpCrawlClientProvider {
   val MAX_TOTAL_PER_ROUTE = 3
 
   def newHttpCrawlClient(port: Int = -1): HttpCrawlClient = {
-    HttpCrawlClient.newInstance(CONNECTION_TIMEOUT_MSEC, MAX_TOTAL_CONNECTIONS, MAX_TOTAL_PER_ROUTE)
+    val schemeRegistry = new SchemeRegistry()
+    val actualPort = if (port < 0) DEFAULT_HTTP_PORT else port
+    schemeRegistry.register(new Scheme("http", actualPort, PlainSocketFactory.getSocketFactory))
+
+    val connectionManager = new PoolingClientConnectionManager(schemeRegistry)
+    connectionManager.setMaxTotal(MAX_TOTAL_CONNECTIONS)
+    connectionManager.setDefaultMaxPerRoute(MAX_TOTAL_PER_ROUTE)
+
+    val params = new BasicHttpParams()
+    params.setParameter(HttpConnectionParams.CONNECTION_TIMEOUT, CONNECTION_TIMEOUT_MSEC)
+    params.setParameter(HttpConnectionParams.SO_TIMEOUT, CONNECTION_TIMEOUT_MSEC)
+    val httpClient = new DecompressingHttpClient(new DefaultHttpClient(connectionManager, params))
+    new HttpCrawlClient(connectionManager, httpClient)
   }
 
   def HttpCrawlClientProvider() {
