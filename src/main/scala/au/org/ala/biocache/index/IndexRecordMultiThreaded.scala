@@ -1,19 +1,19 @@
 package au.org.ala.biocache.index
 
-import java.io.{File, FileWriter, OutputStream}
+import java.io.{File, FileWriter}
 import java.net.URL
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 
 import au.com.bytecode.opencsv.CSVWriter
 import au.org.ala.biocache._
-import au.org.ala.biocache.caches.LocationDAO
+import au.org.ala.biocache.caches.{LocationDAO, TaxonProfileDAO}
 import au.org.ala.biocache.index.lucene.LuceneIndexing
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.processor.{LocationProcessor, Processors, RecordProcessor}
 import au.org.ala.biocache.util.Json
-import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode, SpeciesGroups}
+import au.org.ala.biocache.vocab.{AssertionCodes, SpeciesGroups}
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
@@ -22,8 +22,6 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashSet, ListBuffer}
 import scala.io.Source
 import scala.util.parsing.json.JSON
-
-import collection.JavaConverters._
 
 trait Counter {
 
@@ -601,6 +599,63 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, startKey: Strin
     }, startKey, endKey, 1000, "decimalLatitude.p", "decimalLongitude.p" )
     val fin = System.currentTimeMillis
     logger.info("[LoadSamplingRunner Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+    logger.info("Finished.")
+  }
+}
+
+/**
+  * A class that can be used to reload taxon conservation values for all records.
+  *
+  * @param centralCounter
+  * @param threadId
+  * @param startKey
+  * @param endKey
+  */
+class LoadTaxonConservationData(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
+
+  val logger = LoggerFactory.getLogger("LoadTaxonConservationData")
+  var ids = 0
+  val threads = 2
+  var batches = 0
+
+  def run {
+    var counter = 0
+    val start = System.currentTimeMillis
+    logger.info("Starting thread " + threadId + " from " + startKey + " to " + endKey)
+    Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
+      val updates = mutable.Map[String, String]()
+      val taxonProfileWithOption = TaxonProfileDAO.getByGuid(map.getOrElse("taxonConceptID.p", ""))
+      if(!taxonProfileWithOption.isEmpty){
+        val taxonProfile = taxonProfileWithOption.get
+        //add the conservation status if necessary
+        if (taxonProfile.conservation != null) {
+          val country = taxonProfile.retrieveConservationStatus(map.getOrElse("country.p", ""))
+          updates.put("countryConservation.p", country.getOrElse(""))
+          val state = taxonProfile.retrieveConservationStatus(map.getOrElse("stateProvince.p", ""))
+          updates.put("stateConservation.p", state.getOrElse(""))
+          val global = taxonProfile.retrieveConservationStatus("Global")
+          updates.put("Global", global.getOrElse(""))
+        }
+      }
+      if (updates.size < 3) {
+        updates.put("countryConservation.p", "")
+        updates.put("stateConservation.p", "")
+        updates.put("Global", "")
+      }
+      val changes = updates.filter(it => map.getOrElse(it._1, "") != it._2)
+      if (!changes.isEmpty) {
+        Config.persistenceManager.put(guid, "occ", changes.toMap, true)
+      }
+
+      counter += 1
+      if(counter % 10000 == 0){
+        logger.info("[LoadTaxonConservationData Thread " + threadId + "] Import of sample data " + counter + " Last key " + guid)
+      }
+
+      true
+    }, startKey, endKey, 1000, "taxonConceptID.p", "country.p", "countryConservation.p", "stateProvince.p", "stateConservation.p", "Global")
+    val fin = System.currentTimeMillis
+    logger.info("[LoadTaxonConservationData Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
     logger.info("Finished.")
   }
 }

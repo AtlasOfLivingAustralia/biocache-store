@@ -366,7 +366,7 @@ trait IndexDAO {
         //val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
         val userAssertionStatus: Int = map.getOrElse(FullRecordMapper.userAssertionStatusColumn, AssertionStatus.QA_NONE.toString).toInt
         val hasUserAss:String = userAssertionStatus match {
-          case AssertionStatus.QA_NONE => "false"
+          case AssertionStatus.QA_NONE => ""
           case _ => userAssertionStatus.toString
         }
 
@@ -758,7 +758,7 @@ trait IndexDAO {
         //val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
         val userAssertionStatus: Int = map.getOrElse(FullRecordMapper.userAssertionStatusColumn, AssertionStatus.QA_NONE.toString).toInt
         val hasUserAss: String = userAssertionStatus match {
-          case AssertionStatus.QA_NONE => "false"
+          case AssertionStatus.QA_NONE => ""
           case _ => userAssertionStatus.toString
         }
 

@@ -220,6 +220,7 @@ object CMD2 {
     ExportFromIndexStream,
     ExportAllSpatialSpecies,
     GBIFOrgCSVCreator,
+    GBIFOrgDwCACreator,
     HabitatLoader,
     Healthcheck,
     ImageExport,

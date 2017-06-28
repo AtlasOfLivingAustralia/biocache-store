@@ -633,7 +633,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         // user if userQA = true
         val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
         if (!"".equals(hasUserAssertions)) {
-          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(guid)
+          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(map.getOrElse("rowKey", ""))
           assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
         }
 
@@ -817,7 +817,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         // user if userQA = true
         val hasUserAssertions = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
         if (!"".equals(hasUserAssertions)) {
-          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(guid)
+          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(map.getOrElse("rowKey", ""))
           assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
         }
 
