@@ -917,12 +917,10 @@ class Cassandra3PersistenceManager  @Inject() (
     * Select fields from rows and pass to the supplied function.
     */
   def selectRows(rowkeys:Seq[String], entityName:String, fields:Seq[String], proc:((Map[String, String]) => Unit)) : Unit = {
-    println("Rowkeys requested: " + rowkeys.size + ", first key: " + rowkeys.head)
-    println("Fields requested: " + fields.mkString(","))
 
     val cleanedFields = fields.map { field =>
       if(field == "order"){
-        "'order'"
+        "bioorder"
       } else {
         field
       }
@@ -940,7 +938,7 @@ class Cassandra3PersistenceManager  @Inject() (
       val rows = future.getUninterruptibly()
       val row = rows.one()
       val mapBuilder = collection.mutable.Map[String,String]()
-      fields.foreach { field =>
+      cleanedFields.foreach { field =>
         mapBuilder.put(field, row.getString(field.toLowerCase))
       }
 
