@@ -679,7 +679,19 @@ object IndexFields {
   }
 
   def loadFromFile() = {
-    scala.io.Source.fromURL(getClass.getResource("/indexFields.txt"), "utf-8").getLines.toList.collect {
+
+    val overrideFile = new File("/data/biocache/config/indexFields.txt")
+    val indexFieldSource = if(overrideFile.exists){
+      //if external file exists, use this
+      logger.info("Reading vocab file: " + overrideFile.getAbsolutePath)
+      scala.io.Source.fromFile(overrideFile, "utf-8")
+    } else {
+      //else use the file shipped with jar
+      logger.info("Reading internal /indexFields.txt file")
+      scala.io.Source.fromURL(getClass.getResource("/indexFields.txt"), "utf-8")
+    }
+
+    indexFieldSource.getLines.toList.collect {
       case row if !row.startsWith("#") && row.split("\t").length == 7 => {
         val values = row.split("\t")
         new IndexField(values(0),
