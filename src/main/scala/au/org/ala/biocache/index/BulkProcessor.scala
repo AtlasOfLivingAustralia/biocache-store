@@ -59,6 +59,8 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
     var deleteSources = false
     var includeRowkey = true
     var charSeparator = '\t'
+    var charQuote = '"'
+    var charEscape = '\\'
     var cassandraFilterFile = ""
 
     val parser = new OptionParser(help) {
@@ -114,8 +116,14 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
       opt("erk", "exclude-rowkey", "Exclude rowkey from export.", {
         includeRowkey = false
       })
-      opt("sep", "char=separator", "Character separator for CSV exports. Defaults to tab.", {
+      opt("sep", "char=separator", "Character separator for TSV exports. Defaults to tab.", {
         v: String => charSeparator = v.trim().charAt(0)
+      })
+      opt("quo", "quoteChar", "Character quote for TSV exports. Defaults to \".", {
+        v: String => charQuote = v.trim().charAt(0)
+      })
+      opt("esc", "escapeChar", "Character escape for TSV exports. Defaults to \\.", {
+        v: String => charEscape = v.trim().charAt(0)
       })
       opt("sm", "skipMerge", "Force merge of segments. Default is " + forceMerge + ". For index only.", { forceMerge = false })
       intOpt("ms", "max segments", "Max merge segments. Default " + mergeSegments + ". For index only.", {
@@ -212,7 +220,7 @@ object BulkProcessor extends Tool with Counter with RangeCalculator {
                 if (columns.isEmpty) {
                   new ColumnReporterRunner(this, counter, startKey, endKey)
                 } else {
-                  new ColumnExporter(this, counter, startKey, endKey, columns.get.toList, includeRowkey, charSeparator)
+                  new ColumnExporter(this, counter, startKey, endKey, columns.get.toList, includeRowkey, charSeparator, charQuote, charEscape)
                 }
               } else if (action == "load-conservation-data") {
                 new LoadTaxonConservationData(this, counter, startKey, endKey)
