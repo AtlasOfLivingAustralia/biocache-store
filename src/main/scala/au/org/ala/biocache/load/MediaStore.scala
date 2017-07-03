@@ -23,6 +23,7 @@ import org.apache.commons.lang3.StringUtils
 import com.jayway.jsonpath.JsonPath
 import net.minidev.json.JSONArray
 import java.util
+import java.util.UUID
 
 /**
  * Trait for Media stores to implement.
@@ -251,17 +252,55 @@ object RemoteMediaStore extends MediaStore {
 
     //is the supplied URL an image service URL ?? If so extract imageID and return.....
     if(urlToMedia.startsWith(Config.remoteMediaStoreUrl)){
-      logger.info("Remote media store URL recognised: " + urlToMedia)
-      //  http://images.ala.org.au/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf
+      logger.info("Remote media store host recognised: " + urlToMedia)
       val uri = new URI(urlToMedia)
-      val params:java.util.List[NameValuePair] = URLEncodedUtils.parse(uri, "UTF-8")
-      val param = params.get(0)
-      if(param.getName.toLowerCase == "imageid"){
-        val imageId = param.getValue()
-        val imageMetadataUrl = new URL(Config.remoteMediaStoreUrl + "/ws/getImageInfo?id=" + imageId)
+      var imageId = Some("")
+      
+      if(urlToMedia.contains("/image/proxy")) {
+      // Case 1:
+      //   http://images.ala.org.au/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf
+        val params:java.util.List[NameValuePair] = URLEncodedUtils.parse(uri, "UTF-8")
+        for(param <- params) {
+          if(param.getName.toLowerCase == "imageid"){
+            val originalUUID = param.getValue().toLowerCase
+            val testUUID = UUID.fromString(originalUUID)
+            val reformedString = testUUID.toString.toLowerCase
+            if (originalUUID == reformedString) {
+              imageId = Some(originalUUID)
+            }
+          }
+        }
+      }
+      // Case 2:
+      //   http://images.ala.org.au/store/e/7/f/3/eb024033-4da4-4124-83f7-317365783f7e/original
+      else if (urlToMedia.contains("/store/")) {
+        for (pathSegment <- uri.getPath().split("/")) {
+          // Do not attempt parsing short segments
+          if(pathSegment.length() > 10) {
+            try {
+              val originalUUID = pathSegment.toLowerCase
+              val testUUID = UUID.fromString(originalUUID)
+              val reformedString = testUUID.toString.toLowerCase
+              if (originalUUID == reformedString) {
+                imageId = Some(originalUUID)
+              }
+            } catch {
+              case e:Exception => {
+                // Ignore, as path segment may not have been the UUID
+              }
+            }
+          }
+        }
+      }
+      
+      if(imageId.isEmpty || imageId.get.isEmpty) {
+        logger.info("Did not recognise URL pattern for remote media store: {}", urlToMedia)
+        return None
+      } else {
+        val imageMetadataUrl = new URL(Config.remoteMediaStoreUrl + "/ws/getImageInfo?id=" + imageId.get)
         val response = Source.fromURL(imageMetadataUrl).getLines().mkString
         val metadata = Json.toMap(response)
-        return Some(metadata.getOrElse("originalFileName", "").toString, param.getValue())
+        return Some((metadata.getOrElse("originalFileName", "").toString, imageId.get))
       }
     }
 
