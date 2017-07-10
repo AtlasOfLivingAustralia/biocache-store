@@ -3,8 +3,6 @@ package au.org.ala.biocache.index.lucene;
 import au.com.bytecode.opencsv.CSVWriter;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
-import org.apache.lucene.analysis.core.SimpleAnalyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.*;
 import org.apache.lucene.store.Directory;
@@ -17,7 +15,6 @@ import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPOutputStream;
@@ -66,16 +63,16 @@ public class LuceneIndexing {
     private int directoryCounter = 0;
     public LinkedBlockingQueue<RecycleDoc> documents;
     private LinkedBlockingQueue<RecycleDoc> docPool;
-    private List<Consumer> consumers = new ArrayList();
+    private List<Consumer> consumers = new ArrayList<Consumer>();
 
     private IndexWriter writer = null;
     private Directory directory = null;
 
     public long count = 0;
 
-    List<RecycleDoc> noThreadBatch;
+    private List<RecycleDoc> noThreadBatch;
 
-    AtomicLong time = new AtomicLong(0L);
+    private AtomicLong time = new AtomicLong(0L);
 
 
     /**
@@ -235,7 +232,7 @@ public class LuceneIndexing {
 
         IndexWriter writer = new IndexWriter(directory, config);
 
-        List<Directory> dirs = new ArrayList();
+        List<Directory> dirs = new ArrayList<Directory>();
         for (File f : validDirectories) {
             dirs.add(FSDirectory.open(f));
         }
@@ -263,12 +260,12 @@ public class LuceneIndexing {
         return time.get();
     }
 
-    private AtomicInteger additionalDocs = new AtomicInteger(0); //memory leak tracking
+    private final AtomicInteger additionalDocs = new AtomicInteger(0); //memory leak tracking
 
     //true while waiting for the writer to release documents and stop.
     private AtomicInteger waitingForWriter = new AtomicInteger(0);
 
-    private Object nextDocLock = new Object();
+    private final Object nextDocLock = new Object();
     /**
      * recycling documents
      */
@@ -299,7 +296,7 @@ public class LuceneIndexing {
         addDoc(doc, false);
     }
 
-    private Object noThreadAddLock = new Object();
+    private final Object noThreadAddLock = new Object();
 
     protected void addDoc(RecycleDoc doc, boolean force) throws InterruptedException, IOException {
         if (commitThreadCount > 0) {
@@ -379,17 +376,16 @@ public class LuceneIndexing {
         }
         CSVWriter csv = new CSVWriter(new OutputStreamWriter(out));
         for (RecycleDoc d : documents) {
-            List<String> line = new ArrayList();
-            Iterator<IndexableField> i = d.iterator();
-            while (i.hasNext()) {
-                line.add(i.next().stringValue());
+            List<String> line = new ArrayList<String>();
+            for (IndexableField f : d) {
+                line.add(f.stringValue());
             }
             csv.writeNext(line.toArray(new String[0]));
         }
         out.close();
     }
 
-    private void logDebugError(List list, Exception e) {
+    private void logDebugError(List<RecycleDoc> list, Exception e) {
         try {
             File f = File.createTempFile("indexing.error", "");
             FileUtils.writeStringToFile(f, e.getMessage() + "\n");
@@ -431,7 +427,7 @@ public class LuceneIndexing {
     }
 
 
-    private Object closeLock = new Object();
+    private final Object closeLock = new Object();
     public void close(boolean wait, boolean merge) throws IOException, InterruptedException {
         synchronized (closeLock) {
             if (commitThreadCount > 0) {
@@ -517,7 +513,7 @@ public class LuceneIndexing {
      * Put processed documents into batches before committing to the index.
      */
     class Consumer extends Thread {
-        List<CommitThread> commitThreads = new ArrayList();
+        List<CommitThread> commitThreads = new ArrayList<CommitThread>();
         LinkedBlockingQueue<List<RecycleDoc>> batches = new LinkedBlockingQueue<List<RecycleDoc>>();
 
         Semaphore commitLock = new Semaphore(commitThreadCount, true);
@@ -547,7 +543,7 @@ public class LuceneIndexing {
 
                         //wait and close commit threads
                         for (CommitThread t : commitThreads) {
-                            batches.put(new ArrayList());
+                            batches.put(new ArrayList<RecycleDoc>());
                         }
                         for (CommitThread t : commitThreads) {
                             t.join();
@@ -638,7 +634,7 @@ public class LuceneIndexing {
     }
 
 
-    private Object setupLock = new Object();
+    private final Object setupLock = new Object();
     /**
      * setup index writer if it does not exist.
      * <p>
@@ -743,8 +739,10 @@ public class LuceneIndexing {
             int numThreads = 8;
             int mem = (int) (Runtime.getRuntime().freeMemory() * 0.75) / 1024 / 1024;
 
-            LuceneIndexing.merge(Arrays.asList(new File(src).listFiles()),
-                    new File(dst), mem, numThreads, skipTest);
+            File[] list = new File(src).listFiles();
+            if (list != null) {
+                LuceneIndexing.merge(Arrays.asList(list), new File(dst), mem, numThreads, skipTest);
+            }
         } else {
             LuceneIndexing.removeDuplicates(src, dst);
         }

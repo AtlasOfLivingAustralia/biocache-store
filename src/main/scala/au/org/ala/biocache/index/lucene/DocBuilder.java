@@ -1,12 +1,16 @@
 package au.org.ala.biocache.index.lucene;
 
 import org.apache.log4j.Logger;
-import org.apache.lucene.document.*;
+import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexableField;
-import org.apache.solr.schema.*;
+import org.apache.solr.schema.CopyField;
+import org.apache.solr.schema.IndexSchema;
+import org.apache.solr.schema.SchemaField;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Build a lucene document for use with LuceneIndexing.
@@ -32,19 +36,19 @@ import java.util.*;
  */
 public class DocBuilder {
 
-    final static Logger logger = Logger.getLogger(DocBuilder.class);
+    final private static Logger logger = Logger.getLogger(DocBuilder.class);
 
-    LuceneIndexing index;
+    private LuceneIndexing index;
 
-    IndexSchema schema;
+    private IndexSchema schema;
 
-    Map<String, Object[]> schemaMap = new HashMap();
+    private Map<String, SchemaObject> schemaMap = new HashMap<String, SchemaObject>();
 
-    String currentId = "";
+    private String currentId = "";
 
-    RecycleDoc doc;
+    private RecycleDoc doc;
 
-    boolean closed = true;
+    private boolean closed = true;
 
     DocBuilder(IndexSchema schema, LuceneIndexing index) {
         this.schema = schema;
@@ -55,8 +59,17 @@ public class DocBuilder {
         return currentId;
     }
 
+    class SchemaObject {
 
-    private Map<String, List<IndexableField>> storedFields = new HashMap<String, List<IndexableField>>();
+        private final SchemaField fieldOrNull;
+        private final List<CopyField> copyFieldsList;
+
+        SchemaObject(SchemaField fieldOrNull, List<CopyField> copyFieldsList) {
+            this.fieldOrNull = fieldOrNull;
+            this.copyFieldsList = copyFieldsList;
+        }
+    }
+
 
     /**
      * Start a new document.
@@ -126,14 +139,11 @@ public class DocBuilder {
 
         boolean used = false;
 
-        Object[] s = schemaMap.get(field);
-        if (s == null) {
-            s = new Object[]{schema.getFieldOrNull(field), schema.getCopyFieldsList(field)};
-            schemaMap.put(field, s);
-        }
+        SchemaObject s = schemaMap.computeIfAbsent(field, f ->
+                new SchemaObject(schema.getFieldOrNull(f), schema.getCopyFieldsList(f)));
 
-        SchemaField sf = (SchemaField) s[0];
-        List<CopyField> copyField = (List) s[1];
+        SchemaField sf = s.fieldOrNull;
+        List<CopyField> copyField = s.copyFieldsList;
 
         // load each field value
         try {
@@ -175,12 +185,10 @@ public class DocBuilder {
                 ((Field) val).setBoost(1f);
                 doc.add(field, (Field) val);
             } else {
-                Iterator i$ = field.getType().createFields(field, val, 1f).iterator();
 
-                while (i$.hasNext()) {
-                    IndexableField f = (IndexableField) i$.next();
+                for (IndexableField f : field.getType().createFields(field, val, 1f)) {
                     if (f != null) {
-                        doc.add(field, (Field) f);
+                        doc.add(field, f);
                     }
                 }
             }

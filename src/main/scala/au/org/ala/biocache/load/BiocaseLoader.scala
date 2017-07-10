@@ -1,26 +1,19 @@
 package au.org.ala.biocache.load
 
-import java.net.{URL, URI}
-import java.util.{Date, UUID}
+import java.net.{URI, URL}
 import java.util.concurrent.TimeUnit
+import java.util.{Date, UUID}
 
 import au.org.ala.biocache.cmd.Tool
-import au.org.ala.biocache.model.{Raw, Multimedia, Versions}
+import au.org.ala.biocache.model.{Multimedia, Versions}
 import au.org.ala.biocache.util.OptionParser
-import au.org.ala.biocache.vocab.DwC
 import com.google.common.base.Optional
 import com.google.common.primitives.Bytes
-import org.apache.commons.httpclient.params.HttpConnectionParams
-import org.apache.commons.lang.StringUtils
-import org.apache.http.conn.scheme.{PlainSocketFactory, Scheme, SchemeRegistry}
-import org.apache.http.impl.client.{DecompressingHttpClient, DefaultHttpClient}
-import org.apache.http.impl.conn.PoolingClientConnectionManager
-import org.apache.http.params.BasicHttpParams
-import org.gbif.crawler.{AbstractCrawlListener, CrawlConfiguration, CrawlContext, Crawler}
 import org.gbif.crawler.client.HttpCrawlClient
 import org.gbif.crawler.protocol.biocase.{BiocaseCrawlConfiguration, BiocaseResponseHandler, BiocaseScientificNameRangeRequestHandler}
 import org.gbif.crawler.retry.LimitedRetryPolicy
 import org.gbif.crawler.strategy.{ScientificNameRangeCrawlContext, ScientificNameRangeStrategy}
+import org.gbif.crawler.{AbstractCrawlListener, CrawlConfiguration, CrawlContext, Crawler}
 import org.gbif.dwc.terms.{DcTerm, Term}
 import org.gbif.wrangler.lock.NoLockFactory
 import org.slf4j.{LoggerFactory, MDC}
@@ -293,19 +286,7 @@ object HttpCrawlClientProvider {
   val MAX_TOTAL_PER_ROUTE = 3
 
   def newHttpCrawlClient(port: Int = -1): HttpCrawlClient = {
-    val schemeRegistry = new SchemeRegistry()
-    val actualPort = if (port < 0) DEFAULT_HTTP_PORT else port
-    schemeRegistry.register(new Scheme("http", actualPort, PlainSocketFactory.getSocketFactory))
-
-    val connectionManager = new PoolingClientConnectionManager(schemeRegistry)
-    connectionManager.setMaxTotal(MAX_TOTAL_CONNECTIONS)
-    connectionManager.setDefaultMaxPerRoute(MAX_TOTAL_PER_ROUTE)
-
-    val params = new BasicHttpParams()
-    params.setParameter(HttpConnectionParams.CONNECTION_TIMEOUT, CONNECTION_TIMEOUT_MSEC)
-    params.setParameter(HttpConnectionParams.SO_TIMEOUT, CONNECTION_TIMEOUT_MSEC)
-    val httpClient = new DecompressingHttpClient(new DefaultHttpClient(connectionManager, params))
-    new HttpCrawlClient(connectionManager, httpClient)
+    HttpCrawlClient.newInstance(CONNECTION_TIMEOUT_MSEC, MAX_TOTAL_CONNECTIONS, MAX_TOTAL_PER_ROUTE)
   }
 
   def HttpCrawlClientProvider() {
