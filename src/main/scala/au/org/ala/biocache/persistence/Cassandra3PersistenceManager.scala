@@ -115,11 +115,28 @@ class Cassandra3PersistenceManager  @Inject() (
     if (rows.hasNext()) {
       val row = rows.next()
       val map = new util.HashMap[String, Long]()
-      row.getColumnDefinitions.foreach { defin =>
+
+      //filter for columns with values
+      val columnsWitHValues = row.getColumnDefinitions.filter { defin =>
         val value = row.getString(defin.getName)
+        defin.getName != "rowkey" && defin.getName != "dataresourceuid" && value != null && value != ""
+      }
+
+      //construct the select clause
+      val selectClause = columnsWitHValues.map { "writetime(" + _.getName + ")" }.mkString(",")
+
+      //retrieve column timestamps
+      val wtStmt = getPreparedStmt(s"SELECT $selectClause FROM $entityName where rowkey = ?")
+      val wtBoundStatement = wtStmt bind uuid
+      val rs2 = session.execute(wtBoundStatement)
+      val writeTimeRow = rs2.iterator.next()
+
+      //create the columnName -> writeTime map.
+      columnsWitHValues.foreach { defin =>
+        val value = row.getString(defin.getName)
+        val writetime = writeTimeRow.getLong("writetime(" + defin.getName + ")")
         if(value != null){
-          //FIXME - not sure the column timestamp is supported in cassandra 3
-          map.put(defin.getName, System.currentTimeMillis())
+          map.put(defin.getName, writetime)
         }
       }
       Some(map.toMap)
@@ -758,8 +775,12 @@ class Cassandra3PersistenceManager  @Inject() (
                     }
                   }
 
-                  //processing - does this want to be on a separate thread ??
-                  proc(rowkey, map.toMap, tokenRangeIdx.toString)
+                  try {
+                    //processing - does this want to be on a separate thread ??
+                    proc(rowkey, map.toMap, tokenRangeIdx.toString)
+                  } catch {
+                    case e:Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
+                  }
 
                   counter += 1
                   if (counter % 10000 == 0) {
