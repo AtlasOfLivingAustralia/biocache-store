@@ -27,7 +27,7 @@ For a list of built releases, see [here](http://nexus.ala.org.au/#nexus-search;q
 ## Version 2.x
 
 We are currently working on version 2.x of this code base  that makes use of cassandra 3.x and SOLR 5.x with SOLR cloud support.
-See the [cassamdra3](https://github.com/AtlasOfLivingAustralia/biocache-store/tree/cassandra3) branch for details.
+See the [cassandra3](https://github.com/AtlasOfLivingAustralia/biocache-store/tree/cassandra3) branch for details.
 
 
 ## Acknowledgements
