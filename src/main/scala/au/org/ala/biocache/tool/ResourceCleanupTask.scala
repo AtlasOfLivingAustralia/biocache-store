@@ -35,8 +35,6 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
     var removeColumns = false
     var removeDeleted = false
     var test = false
-    var start: Option[String] = None
-    var end: Option[String] = None
     var columns = Array[String]() //stores the columns to keep or remove depending on the args
     var isInclusiveList = true // the record need to include all the columns
     var filename: Option[String] = None
@@ -46,11 +44,11 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
       arg("data-resource-uid", "The data resource on which to perform the clean up.", {
         v: String => dataResourceUid = v
       })
-      arg("type", "The type of cleanup to perform." +
+      arg("type", "The type of cleanup to perform. " +
         "Either all, columns, rows, delete. " +
-        "\n\t\tcolumns - removes the columns that were not modified since the " +
-        "last date \n\t\trows - marks records as deleted when they have not been reloaded " +
-        "since the supplied date \n\t\tdelete - removes the deleted record from occ and places them into the dellog ", {
+        "\n\t\tcolumns - removes the columns that were not modified since the last date" +
+        "\n\t\trows - marks records as deleted when they have not been reloaded since the supplied date" +
+        "\n\t\tdelete - removes the deleted record from occ and places them into the dellog ", {
         v: String => v match {
           case "all" => removeRows = true; removeColumns = true; removeDeleted = true
           case "columns" => removeColumns = true;
@@ -64,12 +62,6 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
       })
       opt("d", "date", "<date last loaded yyyy-MM-dd format>", "The date of the last load.  Any records that have not been updated since this date will be marked as deleted.", {
         value: String => lastLoadDate = value + "T00:00:00Z"
-      })
-      opt("s", "start", "<starting rowkey>", "The row key to start looking for deleted records", {
-        value: String => start = Some(value)
-      })
-      opt("e", "end", "<ending rowkey>", "The row key to stop looking for deleted records", {
-        value: String => end = Some(value)
       })
       opt("test", "Simulates the cleanup without removing anything.  Useful to run to determine whether or not you are happy with the load.", {
         test = true
@@ -93,47 +85,47 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
       }
 
       val checkDate = DateParser.parseStringToDate(lastLoadDate)
-      logger.info(s"Attempting to cleanup $dataResourceUid based on a last load date of $checkDate rows: $removeRows  columns: $removeColumns, start:  $start,end:  $end.")
+      logger.info(s"Attempting to cleanup $dataResourceUid based on a last load date of $checkDate rows: $removeRows columns: $removeColumns")
       if (checkDate.isDefined && columns.length == 0) {
         if (removeRows) {
-          modifyRecord(dataResourceUid, checkDate.get, start, end, test)
+          modifyRecord(dataResourceUid, checkDate.get, test)
         }
 
         if (removeColumns) {
           if (filename.isDefined) {
             removeObsoleteColumnsIncremental(new java.io.File(filename.get), checkDate.get.getTime(), test)
           } else {
-            removeObsoleteColumns(dataResourceUid, checkDate.get.getTime(), start, end, test)
+            removeObsoleteColumns(dataResourceUid, checkDate.get.getTime(), test)
           }
         }
 
         if (removeDeleted) {
-          removeDeletedRecords(dataResourceUid, checkDate.get, start, end, test)
+          removeDeletedRecords(dataResourceUid, checkDate.get, test)
         }
 
       } else if (columns.length > 0) {
         //running this with a date will be slower
         if (!checkDate.isDefined || checkDate.get.equals(DateParser.parseStringToDate(defaultDate).get)) {
           if (isInclusiveList) {
-            removeRawRecordColumnsNotInList(dataResourceUid, columns, start, end, test)
+            removeRawRecordColumnsNotInList(dataResourceUid, columns, test)
           } else {
-            removeSpecifiedColumns(dataResourceUid, columns, start, end, test)
+            removeSpecifiedColumns(dataResourceUid, columns, test)
           }
         } else {
           if (isInclusiveList) {
-            removeRawRecordColumnsNotInListByDate(dataResourceUid, columns, checkDate.get.getTime(), start, end, test)
+            removeRawRecordColumnsNotInListByDate(dataResourceUid, columns, checkDate.get.getTime(), test)
           } else {
-            removeSpecifiedColumnsByDate(dataResourceUid, columns, checkDate.get.getTime(), start, end, test)
+            removeSpecifiedColumnsByDate(dataResourceUid, columns, checkDate.get.getTime(), test)
           }
         }
       }
+    } else {
+      parser.showUsage
     }
   }
 
-  def removeRawRecordColumnsNotInList(dr: String, colsToKeep: Array[String], start: Option[String], end: Option[String], test: Boolean = false) {
+  def removeRawRecordColumnsNotInList(dr: String, colsToKeep: Array[String], test: Boolean = false) {
     logger.info("Starting to remove raw record columns not in " + colsToKeep.toList)
-    val startUuid = start.getOrElse(dr + "|")
-    val endUuid = end.getOrElse(startUuid + "~")
     val pm = Config.persistenceManager
     val valueSet = new scala.collection.mutable.HashSet[String]
     var totalRecords = 0
@@ -141,7 +133,8 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
     var totalColumnsRemoved = 0
     val fullRecord = new FullRecord
     val valuesToIgnore = Array("uuid", "originalSensitiveValues", "rowKey")
-    pm.pageOverAll("occ", (guid, map) => {
+
+    Config.persistenceManager.pageOverIndexedField("occ", (guid, map) => {
       totalRecords += 1
       val colToDelete = new ArrayBuffer[String]
       map.keySet.foreach(fieldName => {
@@ -165,24 +158,22 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, startUuid, endUuid, 1000)
+    }, "dataresourceuid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
     logger.info("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
   }
 
-  def removeSpecifiedColumns(dr: String, colsToDelete: Array[String], start: Option[String], end: Option[String], test: Boolean = false) {
+  def removeSpecifiedColumns(dr: String, colsToDelete: Array[String], test: Boolean = false) {
     logger.info("Starting to remove all columns in " + colsToDelete.toList)
-    val startUuid = start.getOrElse(dr + "|")
-    val endUuid = end.getOrElse(startUuid + "~")
     val pm = Config.persistenceManager
     var totalRecords = 0
     var totalRecordModified = 0
     var totalColumnsRemoved = 0
     val fullRecord = new FullRecord
     val valueSet = new scala.collection.mutable.HashSet[String]
-    pm.pageOverAll("occ", (guid, map) => {
+    Config.persistenceManager.pageOverIndexedField("occ", (guid, map) => {
       totalRecords += 1
       val colToDelete = new ArrayBuffer[String]
       map.keySet.foreach(fieldName => {
@@ -200,7 +191,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, startUuid, endUuid, 1000)
+    }, "dataresourceuid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
@@ -268,17 +259,15 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
     (totalRecordModified, totalColumnsRemoved)
   }
 
-  def removeObsoleteColumns(dr: String, editTime: Long, start: Option[String], end: Option[String], test: Boolean = false) {
+  def removeObsoleteColumns(dr: String, editTime: Long, test: Boolean = false) {
     logger.info("Starting to remove obsolete columns based on timestamps.")
-    val startUuid = start.getOrElse(dr + "|")
-    val endUuid = end.getOrElse(startUuid + "~")
     val fullRecord = new FullRecord
     val valueSet = new scala.collection.mutable.HashSet[String]
     var totalRecords = 0
     var totalRecordModified = 0
     var totalColumnsRemoved = 0
-    val valuesToIgnore = Array("uuid", "originalSensitiveValues", "rowKey")
-    Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
+    val valuesToIgnore = Array("uuid", "originalsensitivevalues", "rowkey")
+    Config.persistenceManager.pageOverIndexedField("occ", (guid, map) => {
       totalRecords += 1
 
       if (!map.contains("dateDeleted")) {
@@ -310,7 +299,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, startUuid, endUuid, 1000, "rowKey", "dateDeleted")
+    }, "dataresourceuid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
@@ -318,9 +307,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
   }
 
 
-  def modifyRecord(dr: String, lastDate: java.util.Date, start: Option[String], end: Option[String], test: Boolean = false) {
-    val startUuid = start.getOrElse(dr + "|")
-    val endUuid = end.getOrElse(dr + "|~")
+  def modifyRecord(dr: String, lastDate: java.util.Date, test: Boolean = false) {
     val deleteTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
     var totalRecords = 0
     var deleted = 0
@@ -329,8 +316,8 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
       totalRecords += 1
       //check to see if lastModifiedDate and dateDeleted settings require changes to
-      val lastModified = DateParser.parseStringToDate(map.getOrElse("lastModifiedTime", ""));
-      val dateDeleted = DateParser.parseStringToDate(map.getOrElse("dateDeleted", ""));
+      val lastModified = DateParser.parseStringToDate(map.getOrElse("lastmodifiedtime", ""))
+      val dateDeleted = DateParser.parseStringToDate(map.getOrElse("datedeleted", ""))
       if (lastModified.isDefined) {
         if (lastModified.get.before(lastDate)) {
           //we need to mark this record as deleted if it is not already
@@ -357,7 +344,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, startUuid, endUuid, 1000, "rowKey", "uuid", "lastModifiedTime", "dateDeleted")
+    }, "dataresourceuid", dr, 1000,  "rowkey", "uuid", "lastmodifiedtime", "datedeleted")
     println("Finished cleanup for rows")
     println("Records checked: " + totalRecords + " Records deleted: " + deleted + " Records reinstated: " + reinstate)
   }
@@ -366,18 +353,16 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
    * removes the deleted record from the occ column family and places it in the dellog column family
    * when last modified time occurs before lastDate
    */
-  def removeDeletedRecords(dr: String, lastDate: java.util.Date, start: Option[String], end: Option[String], test: Boolean = false) {
+  def removeDeletedRecords(dr: String, lastDate: java.util.Date, test: Boolean = false) {
     val occDao = Config.occurrenceDAO
     var count = 0
     var totalRecords = 0
-    val startUuid = start.getOrElse(dr + "|")
-    val endUuid = end.getOrElse(startUuid + "~")
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
       totalRecords += 1
       val delete = map.getOrElse(FullRecordMapper.deletedColumn, "false")
 
       //check to see if lastModifiedDate is candidate for move
-      val lastModified = DateParser.parseStringToDate(map.getOrElse("lastModifiedTime", ""))
+      val lastModified = DateParser.parseStringToDate(map.getOrElse("lastmodifiedtime", ""))
       if (lastModified.isDefined) {
         if (lastModified.get.before(lastDate)) {
           if ("true".equals(delete)) {
@@ -393,33 +378,31 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         logger.info("Last key checked: " + guid)
       }
       true
-    }, startUuid, endUuid, 1000, "rowKey", "uuid", FullRecordMapper.deletedColumn, "lastModifiedTime")
+    }, "dataresourceuid", dr, 1000, "rowkey", "uuid", FullRecordMapper.deletedColumn, "lastmodifiedtime")
 
     println("Finished moving deleted occ rows to dellog")
     println("Records deleted: " + count)
   }
 
-  def removeRawRecordColumnsNotInListByDate(dr: String, colsToKeep: Array[String], editTime: Long, start: Option[String], end: Option[String], test: Boolean = false) {
+  def removeRawRecordColumnsNotInListByDate(dr: String, colsToKeep: Array[String], editTime: Long, test: Boolean = false) {
     logger.info("Starting to remove columns based on timestamps and not in colsToKeep: " + colsToKeep.toList)
-    val startUuid = start.getOrElse(dr + "|")
-    val endUuid = end.getOrElse(startUuid + "~")
     val fullRecord = new FullRecord
     val valueSet = new scala.collection.mutable.HashSet[String]
     var totalRecords = 0
     var totalRecordModified = 0
     var totalColumnsRemoved = 0
-    val valuesToIgnore = Array("uuid", "originalSensitiveValues", "rowKey")
+    val valuesToIgnore = Array("uuid", "originalsensitivevalues", "rowkey")
     Config.persistenceManager.pageOverAll("occ", (guid, map) => {
       totalRecords += 1
 
-      if (!map.contains("dateDeleted")) {
+      if (!map.contains("datedeleted")) {
         //check all the raw properties for the modified time.
         val timemap = Config.persistenceManager.getColumnsWithTimestamps(guid, "occ")
         val colToDelete = new ArrayBuffer[String]
 
         //only interested in the raw values
         if (timemap.isDefined) {
-          timemap.get.keySet.foreach(fieldName => {
+          timemap.get.keySet.foreach { fieldName =>
             fieldName match {
               case it if (fullRecord.hasNestedProperty(fieldName) && !valuesToIgnore.contains(fieldName) &&
                 !colsToKeep.contains(fieldName)) => {
@@ -431,7 +414,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
               }
               case _ => //ignore
             }
-          })
+          }
         }
         if (colToDelete.size > 0) {
           totalRecordModified += 1
@@ -442,27 +425,25 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, startUuid, endUuid, 1000)
+    }, "dataresourceuid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
     logger.info("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
   }
 
-  def removeSpecifiedColumnsByDate(dr: String, colsToDelete: Array[String], editTime: Long, start: Option[String], end: Option[String], test: Boolean = false) {
+  def removeSpecifiedColumnsByDate(dr: String, colsToDelete: Array[String], editTime: Long,  test: Boolean = false) {
     logger.info("Starting to remove columns based on timestamps and in colsToDelete: " + colsToDelete.toList)
-    val startUuid = start.getOrElse(dr + "|")
-    val endUuid = end.getOrElse(startUuid + "~")
     val fullRecord = new FullRecord
     val valueSet = new scala.collection.mutable.HashSet[String]
     var totalRecords = 0
     var totalRecordModified = 0
     var totalColumnsRemoved = 0
-    val valuesToIgnore = Array("uuid", "originalSensitiveValues", "rowKey")
-    Config.persistenceManager.pageOverAll("occ", (guid, map) => {
+    val valuesToIgnore = Array("uuid", "originalsensitivevalues", "rowkey")
+    Config.persistenceManager.pageOverIndexedField("occ", (guid, map) => {
       totalRecords += 1
 
-      if (!map.contains("dateDeleted")) {
+      if (!map.contains("datedeleted")) {
         //check all the raw properties for the modified time.
         val timemap = Config.persistenceManager.getColumnsWithTimestamps(guid, "occ")
         val colToDelete = new ArrayBuffer[String]
@@ -486,11 +467,11 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, startUuid, endUuid, 1000)
+    }, "dataresourceuid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
-    logger.info("total records changed: " + totalRecordModified + " out of " + totalRecords + ". " + totalColumnsRemoved + " columns were removed from cassandra")
+    logger.info(s"total records changed: $totalRecordModified  out of $totalRecords. $totalColumnsRemoved columns were removed from cassandra")
   }
 }
 
