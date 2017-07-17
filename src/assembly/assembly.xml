@@ -11,6 +11,13 @@
                 <include>/**</include>
             </includes>
         </fileSet>
+        <fileSet>
+            <directory>src/main/bin</directory>
+            <includes>
+                <include>environmentSetupFile.sh</include>
+            </includes>
+            <outputDirectory>/bin</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>
 

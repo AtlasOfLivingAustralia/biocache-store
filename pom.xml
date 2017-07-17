@@ -29,8 +29,6 @@
         <jts.version>1.13</jts.version>
         <jackson.version>2.8.9</jackson.version>
         <gt.version>11.1</gt.version>
-        <initialMemorySize>4g</initialMemorySize>
-        <maxMemorySize>4g</maxMemorySize>
         <!-- These properties are used by ala-parent-pom to validate our compliance with this JDK API and bytecode -->
         <targetJdk>1.8</targetJdk>
         <animal-sniffer-signature.artifact>java18</animal-sniffer-signature.artifact>
@@ -800,15 +798,15 @@
                         <includeConfigurationDirectoryInClasspath>true</includeConfigurationDirectoryInClasspath>
                         <projectArtifactFirstInClassPath>true</projectArtifactFirstInClassPath>
                         <configurationDirectory>etc</configurationDirectory>
-			<copyConfigurationDirectory>true</copyConfigurationDirectory>
+                        <copyConfigurationDirectory>true</copyConfigurationDirectory>
+                        <environmentSetupFileName>environmentSetupFile.sh</environmentSetupFileName>
                         <programs>
                             <program>
                                 <id>biocache</id>
                                 <mainClass>au.org.ala.biocache.cmd.CMD2</mainClass>
                                 <jvmSettings>
-                                    <initialMemorySize>${initialMemorySize}</initialMemorySize>
-                                    <maxMemorySize>${maxMemorySize}</maxMemorySize>
                                     <extraArguments>
+                                        <extraArgument>$BIOCACHE_MEMORY_OPTS</extraArgument>
                                         <extraArgument>$BIOCACHE_OPTS</extraArgument>
                                         <extraArgument>-XX:+UseG1GC</extraArgument>
                                         <extraArgument>-Dfile.encoding=UTF8</extraArgument>
@@ -825,9 +823,8 @@
                                 <id>biocache-species-outliers</id>
                                 <mainClass>au.org.ala.biocache.outliers.SpeciesOutlierTests</mainClass>
                                 <jvmSettings>
-                                    <initialMemorySize>${initialMemorySize}</initialMemorySize>
-                                    <maxMemorySize>${maxMemorySize}</maxMemorySize>
                                     <extraArguments>
+                                        <extraArgument>$BIOCACHE_MEMORY_OPTS</extraArgument>
                                         <extraArgument>$BIOCACHE_OPTS</extraArgument>
                                         <extraArgument>-XX:+UseG1GC</extraArgument>
                                         <extraArgument>-Dfile.encoding=UTF8</extraArgument>
