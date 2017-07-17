@@ -15,7 +15,6 @@ import org.apache.lucene.spatial.prefix.tree.Cell;
 import org.apache.lucene.spatial.prefix.tree.SpatialPrefixTree;
 import org.apache.lucene.spatial.query.SpatialArgs;
 import org.apache.solr.schema.*;
-import org.apache.solr.util.DateMathParser;
 
 import java.util.*;
 
@@ -125,7 +124,7 @@ public class RecycleDoc implements Iterable<IndexableField> {
                             ((Field) f).setDoubleValue(value instanceof Number ? ((Number) value).doubleValue() : Double.parseDouble((String) value)); found=true;
                             break;
                         case 4:
-                            ((Field) f).setLongValue(value instanceof Date ? ((Date) value).getTime() : new DateMathParser().parseMath(value.toString()).getTime());
+                            ((Field) f).setLongValue(value instanceof Date ? ((Date) value).getTime() : ((DateField) ft).parseMath(null, value.toString()).getTime());
                             found = true;
                             break;
                         default:
@@ -133,7 +132,7 @@ public class RecycleDoc implements Iterable<IndexableField> {
                 } else if (ft instanceof TextField) {
                     ((Field) f).setStringValue((String) value); found=true;
                 } else if (ft instanceof TrieDateField) {
-                    ((Field) f).setLongValue(value instanceof Date ? ((Date) value).getTime() : new DateMathParser().parseMath(value.toString()).getTime());
+                    ((Field) f).setLongValue(value instanceof Date ? ((Date) value).getTime() : ((DateField) ft).parseMath(null, value.toString()).getTime());
                     found = true;
                 } else if (ft instanceof SpatialTermQueryPrefixTreeFieldType ||
                         ft instanceof SpatialRecursivePrefixTreeFieldType) {
