@@ -4,7 +4,7 @@
     <parent>
         <groupId>au.org.ala</groupId>
         <artifactId>ala-parent-pom</artifactId>
-        <version>1.0</version>
+        <version>4</version>
     </parent>
 
     <groupId>au.org.ala</groupId>
@@ -774,8 +774,8 @@
                         <compilerArgument>-Xlint:all</compilerArgument>
                         <showWarnings>true</showWarnings>
                         <showDeprecation>true</showDeprecation>
-                        <source>1.8</source>
-                        <target>1.8</target>
+                        <source>${targetJdk}</source>
+                        <target>${targetJdk}</target>
                     </configuration>
                     <executions>
                         <execution>
