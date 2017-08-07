@@ -1,23 +1,24 @@
 package au.org.ala.biocache.processor
 
-import scala.collection.mutable.ArrayBuffer
-import org.apache.commons.lang.time.{DateFormatUtils, DateUtils}
-import java.util.{GregorianCalendar, Date}
-import org.apache.commons.lang.StringUtils
-import scala.Some
+import java.util.{Date, GregorianCalendar}
+
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
 import au.org.ala.biocache.parser.DateParser
-import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes}
 import au.org.ala.biocache.util.{DateUtil, StringHelper}
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus}
+import org.apache.commons.lang.StringUtils
+import org.apache.commons.lang.time.{DateFormatUtils, DateUtils}
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Processor for event (date) information.
  */
 class EventProcessor extends Processor {
 
-  import StringHelper._
   import AssertionCodes._
   import AssertionStatus._
+  import StringHelper._
 
   /**
    * Validate the supplied number using the supplied function.
@@ -363,6 +364,25 @@ class EventProcessor extends Processor {
         }
       }
     }
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(GEOREFERENCE_POST_OCCURRENCE.code, ID_PRE_OCCURRENCE.code,
+        MISSING_COLLECTION_DATE.code, DAY_MONTH_TRANSPOSED.code, INVALID_COLLECTION_DATE.code,
+        INCOMPLETE_COLLECTION_DATE.code, FIRST_OF_MONTH.code, FIRST_OF_YEAR.code, FIRST_OF_CENTURY.code))
+
+      //update the details from lastProcessed
+      processed.event = lastProcessed.get.event
+      processed.occurrence.modified = lastProcessed.get.occurrence.modified
+      processed.identification.dateIdentified = lastProcessed.get.identification.dateIdentified
+      processed.location.georeferencedDate = lastProcessed.get.location.georeferencedDate
+    }
+
+    assertions.toArray
   }
 
   def getName = "event"

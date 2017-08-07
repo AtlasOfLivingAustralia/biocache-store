@@ -1,12 +1,9 @@
 package au.org.ala.biocache
 
-import org.scalatest.FunSuite
-import org.scalatest.junit.JUnitRunner
-import org.junit.runner.RunWith
-import au.org.ala.biocache.processor._
 import au.org.ala.biocache.model.FullRecord
-import au.org.ala.biocache.vocab.SpeciesGroups
-import au.org.ala.biocache.load.MediaStore
+import au.org.ala.biocache.processor._
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 
 @RunWith(classOf[JUnitRunner])
 class MiscTest extends ConfigFunSuite {
@@ -339,6 +336,9 @@ class MiscTest extends ConfigFunSuite {
   test("indexFields.txt column counts") {
     //log row length errors
     scala.io.Source.fromURL(getClass.getResource("/indexFields.txt"), "utf-8").getLines.toList.foreach { row =>
+      if (!row.startsWith("#") && row.split("\t").length != 7) {
+        println("invalid row: " + row)
+      }
       expectResult(true) {row.startsWith("#") || row.split("\t").length == 7}
     }
   }

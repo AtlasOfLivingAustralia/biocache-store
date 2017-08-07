@@ -62,7 +62,8 @@ class RecordProcessor {
    *
    * When it is a firstLoad, there will be no offline assertions 
    */
-  def processRecord(raw: FullRecord, currentProcessed: FullRecord, batch: Boolean = false, firstLoad: Boolean = false): Map[String, Object] = {
+  def processRecord(raw: FullRecord, currentProcessed: FullRecord, batch: Boolean = false, firstLoad: Boolean = false,
+                    processors: Option[String] = None): Map[String, Object] = {
     try {
       val guid = raw.rowKey
       val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
@@ -75,15 +76,19 @@ class RecordProcessor {
       Processors.foreach(processor => {
         // when processing a new record (firstLoad==true), there is no need to include offline processing
         if (!processor.getName.equals("offline") || !firstLoad) {
-          val start = System.currentTimeMillis
+          val start = System.nanoTime()
           try {
-            assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+            if (processors.isEmpty || processors.get.contains(processor.getName)) {
+              assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+            } else {
+              assertions += (processor.getName -> processor.skip(guid, raw, processed, Some(currentProcessed)))
+            }
           } catch {
             case e: Exception => {
               logger.warn("Non-fatal error processing record: " + raw.rowKey + ", processorName: " + processor.getName + ", error: " + e.getMessage(), e)
             }
           } finally {
-            val currentTime = (System.currentTimeMillis - start) + processTimings.getOrElse(processor.getName, 0L)
+            val currentTime = (System.nanoTime() - start) + processTimings.getOrElse(processor.getName, 0L)
             processTimings += (processor.getName -> currentTime)
           }
         }

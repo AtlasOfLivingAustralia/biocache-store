@@ -1,23 +1,25 @@
 package au.org.ala.biocache.processor
 
-import org.slf4j.LoggerFactory
 import au.org.ala.biocache._
-import scala.collection.JavaConversions
-import scala.collection.mutable.ArrayBuffer
-import org.apache.commons.lang.StringUtils
-import au.org.ala.biocache.caches.{SpatialLayerDAO, TaxonProfileDAO, LocationDAO}
-import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
-import au.org.ala.biocache.model._
+import au.org.ala.biocache.caches.{LocationDAO, SpatialLayerDAO, TaxonProfileDAO}
 import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.model._
+import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
+import au.org.ala.biocache.util.{GISPoint, GISUtil, GridUtil, StringHelper}
 import au.org.ala.biocache.vocab._
-import au.org.ala.biocache.util.{GISUtil, GISPoint, GridUtil, StringHelper}
+import org.apache.commons.lang.StringUtils
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Processor of location information.
  */
 class LocationProcessor extends Processor {
 
-  import StringHelper._, AssertionCodes._, AssertionStatus._
+  import AssertionCodes._
+  import AssertionStatus._
+  import StringHelper._
 
   val logger = LoggerFactory.getLogger("LocationProcessor")
 
@@ -866,6 +868,35 @@ class LocationProcessor extends Processor {
       raw.classification.vernacularName
     else //return the name default name string which will be null
       raw.classification.scientificName
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(LOCATION_NOT_SUPPLIED.code,
+        COUNTRY_INFERRED_FROM_COORDINATES.code, COORDINATES_CENTRE_OF_STATEPROVINCE.code,
+        COORDINATES_CENTRE_OF_COUNTRY.code, MIN_MAX_DEPTH_REVERSED.code, MIN_MAX_ALTITUDE_REVERSED.code,
+        ALTITUDE_OUT_OF_RANGE.code, ALTITUDE_NON_NUMERIC.code, ALTITUDE_IN_FEET.code, DEPTH_OUT_OF_RANGE.code,
+        DEPTH_NON_NUMERIC.code, DEPTH_IN_FEET.code, DECIMAL_COORDINATES_NOT_SUPPLIED.code,
+        DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF.code, GEODETIC_DATUM_ASSUMED_WGS84.code,
+        UNRECOGNIZED_GEODETIC_DATUM.code, DECIMAL_LAT_LONG_CONVERSION_FAILED.code, DECIMAL_LAT_LONG_CONVERTED.code,
+        DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED.code, DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM.code,
+        UNCERTAINTY_RANGE_MISMATCH.code, UNCERTAINTY_IN_PRECISION.code, MISSING_COORDINATEPRECISION.code,
+        PRECISION_RANGE_MISMATCH.code, COORDINATE_PRECISION_MISMATCH.code, PRECISION_RANGE_MISMATCH.code,
+        UNCERTAINTY_NOT_SPECIFIED.code, COORDINATE_HABITAT_MISMATCH.code, STATE_COORDINATE_MISMATCH.code,
+        MISSING_GEODETICDATUM.code, MISSING_GEOREFERNCEDBY.code, MISSING_GEOREFERENCEPROTOCOL.code,
+        MISSING_GEOREFERENCESOURCES.code, MISSING_GEOREFERENCEVERIFICATIONSTATUS.code, MISSING_GEOREFERENCE_DATE.code,
+        INVERTED_COORDINATES.code, COORDINATES_OUT_OF_RANGE.code, ZERO_COORDINATES.code, ZERO_LATITUDE_COORDINATES.code,
+        ZERO_LONGITUDE_COORDINATES.code, UNKNOWN_COUNTRY_NAME.code, NEGATED_LATITUDE.code, NEGATED_LONGITUDE.code,
+        COUNTRY_COORDINATE_MISMATCH.code))
+
+      //update the details from lastProcessed
+      processed.location = lastProcessed.get.location
+    }
+
+    assertions.toArray
   }
 
   def getName = FullRecordMapper.geospatialQa

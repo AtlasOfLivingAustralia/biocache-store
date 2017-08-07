@@ -1,21 +1,22 @@
 package au.org.ala.biocache
 
-import au.org.ala.biocache.caches.SpatialLayerDAO
-import au.org.ala.biocache.util.LayersStore
+import java.io.{File, FileInputStream}
+import java.util.Properties
 import java.util.jar.Attributes
 
-import org.apache.commons.lang3.{BooleanUtils, StringUtils}
-import org.slf4j.LoggerFactory
-import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
+import au.org.ala.biocache.caches.SpatialLayerDAO
+import au.org.ala.biocache.dao._
+import au.org.ala.biocache.index.{IndexDAO, SolrIndexDAO}
+import au.org.ala.biocache.load.{LocalMediaStore, RemoteMediaStore}
+import au.org.ala.biocache.persistence._
+import au.org.ala.biocache.util.LayersStore
 import au.org.ala.names.search.ALANameSearcher
 import au.org.ala.sds.{SensitiveSpeciesFinder, SensitiveSpeciesFinderFactory}
-import java.util.Properties
-import java.io.{File, FileInputStream}
 import com.google.inject.name.Names
-import au.org.ala.biocache.dao._
-import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
-import au.org.ala.biocache.persistence._
-import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
+import com.google.inject.{AbstractModule, Guice, Injector, Scopes}
+import org.apache.commons.lang3.{BooleanUtils, StringUtils}
+import org.slf4j.LoggerFactory
+
 import scala.io.Source
 
 /**
@@ -96,6 +97,10 @@ object Config {
 
   /** a regex pattern for identifying guids associated with the national checklists */
   val nationalChecklistIdentifierPattern = configModule.properties.getProperty("national.checklist.guid.pattern", """biodiversity.org.au""")
+
+  val taxonProfileCacheAll = configModule.properties.getProperty("taxon.profile.cache.all", "false").toBoolean
+  val taxonProfileCacheSize = configModule.properties.getProperty("taxon.profile.cache.size", "10000").toInt
+  val classificationCacheSize = configModule.properties.getProperty("classification.cache.size", "10000").toInt
 
   private var fieldsToSampleCached = Array[String]()
 

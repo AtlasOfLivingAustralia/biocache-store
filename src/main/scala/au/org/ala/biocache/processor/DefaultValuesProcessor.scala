@@ -1,9 +1,9 @@
 package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.caches.AttributionDAO
-import au.org.ala.biocache.parser.DateParser
-import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
+import au.org.ala.biocache.parser.DateParser
 
 /**
  * Maps the default values from the data resource configuration in the
@@ -53,6 +53,11 @@ class DefaultValuesProcessor extends Processor {
     }
 
     Array()
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    //DefaultValuesProcessor has low overhead, do not skip
+    process(guid, raw, processed, lastProcessed)
   }
 
   def getName = "default"

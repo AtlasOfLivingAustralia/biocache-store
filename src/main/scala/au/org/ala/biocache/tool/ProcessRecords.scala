@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import au.org.ala.biocache._
 import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
 import au.org.ala.biocache.model.FullRecord
-import au.org.ala.biocache.processor.RecordProcessor
+import au.org.ala.biocache.processor.{Processors, RecordProcessor}
 import au.org.ala.biocache.util.{FileHelper, OptionParser}
 import org.apache.commons.io.FileUtils
 import org.slf4j.LoggerFactory
@@ -23,11 +23,14 @@ object ProcessAll extends Tool {
   def main(args:Array[String]){
 
     var threads:Int = 4
+    var processors: Option[String] = None
     val parser = new OptionParser(help) {
       intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
+      opt("p", "processors", "Comma separated list of processors to run. One or more of: " +
+        Processors.processorMap.values.collect({ case it => it.getName }).mkString(","), { v: String => processors = Some(v) })
     }
     if(parser.parse(args)){
-      ProcessRecords.processRecords(threads, None, None)
+      ProcessRecords.processRecords(threads, None, None, processors = processors)
     }
   }
 }
@@ -57,6 +60,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     var checkRowKeyFile = false
     var rowKeyFile = ""
     var abortIfNotRowKeyFile = false
+    var processors: Option[String] = None
 
     val parser = new OptionParser(help) {
       intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
@@ -66,6 +70,8 @@ object ProcessRecords extends Tool with IncrementalTool {
       booleanOpt("cd", "checkDeleted", "Check deleted records", {v:Boolean => checkDeleted = v})
       opt("crk", "check for row key file",{ checkRowKeyFile = true })
       opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
+      opt("p", "processors", "Comma separated list of processors to run. One or more of: " +
+        Processors.processorMap.values.collect({ case it => it.getName }).mkString(","), { v: String => processors = Some(v) })
     }
 
     if(parser.parse(args)){
@@ -80,10 +86,10 @@ object ProcessRecords extends Tool with IncrementalTool {
       } else {
         if (rowKeyFile != "") {
           //process the row key file
-          processRecords(new java.io.File(rowKeyFile), threads, None)
+          processRecords(new java.io.File(rowKeyFile), threads, None, processors)
         } else {
           logger.info("Processing " + dataResourceUid.getOrElse("") + " from " + startUuid.getOrElse("*") + " to " + endUuid.getOrElse("*") + " with " + threads + " actors")
-          processRecords(threads, startUuid, dataResourceUid, checkDeleted, lastKey = endUuid)
+          processRecords(threads, startUuid, dataResourceUid, checkDeleted, lastKey = endUuid, processors = processors)
         }
       }
     }
@@ -92,16 +98,16 @@ object ProcessRecords extends Tool with IncrementalTool {
   /**
    * Processes the supplied row keys in a Thread
    */
-  def processRecords(file:File, threads: Int, startUuid:Option[String]) : Unit = {
-    processRecords0(file, threads, startUuid)
+  def processRecords(file: File, threads: Int, startUuid: Option[String], processors: Option[String]): Unit = {
+    processRecords0(file, threads, startUuid, processors = processors)
   }
 
   /**
     * Process the records using the supplied number of threads
     */
   def processRecords(threads: Int, firstKey:Option[String], dr: Option[String], checkDeleted:Boolean=false,
-                     callback:ObserverCallback = null, lastKey:Option[String]=None): Unit = {
-    processRecords0(null, threads, firstKey, dr, checkDeleted, callback, lastKey)
+                     callback: ObserverCallback = null, lastKey: Option[String] = None, processors: Option[String] = None): Unit = {
+    processRecords0(null, threads, firstKey, dr, checkDeleted, callback, lastKey, processors = processors)
   }
 
   /**
@@ -111,18 +117,20 @@ object ProcessRecords extends Tool with IncrementalTool {
     val file:File = File.createTempFile("uuids","")
     FileUtils.writeStringToFile(file, rowKeys.mkString("\n"))
 
-    processRecords(file, 4, None)
+    processRecords(file, 4, None, None)
   }
 
-
   def processRecords0(file:File, threads: Int, startUuid:Option[String], dr: Option[String] = null,
-                     checkDeleted:Boolean=false, callback:ObserverCallback = null, lastKey:Option[String]=None) : Unit = {
+                      checkDeleted: Boolean = false, callback: ObserverCallback = null, lastKey: Option[String] = None,
+                      processors: Option[String] = None): Unit = {
     var buff = new LinkedBlockingQueue[Object](1000)
     var writeBuffer = new LinkedBlockingQueue[Object](threads)
     var ids = 0
     val writer = {val p = new ProcessedBatchWriter(writeBuffer, callback); p.start; p}
     logger.info("writer status: " + writer.getState)
-    val pool = Array.fill(threads){ val p = new Consumer(Actor.self,ids,buff, writeBuffer); ids +=1; p.start; p }
+    val pool = Array.fill(threads) {
+      val p = new Consumer(Actor.self, ids, buff, writeBuffer, processors = processors); ids += 1; p.start; p
+    }
     logger.info("Starting to process a list of records...")
     val start = System.currentTimeMillis
     val startTime = System.currentTimeMillis
@@ -238,7 +246,7 @@ object ProcessRecords extends Tool with IncrementalTool {
 
     val timings = new StringBuilder()
     timings.append("time for each processor (ms):")
-    processorTimings.foreach { e => timings.append(e._1 + "=" + e._2 + "; ") }
+    processorTimings.foreach { e => timings.append(e._1 + "=" + (e._2 / 1000000f) + "; ") }
     logger.info(timings.toString)
   }
 }
@@ -253,7 +261,8 @@ object Consumer {
 }
 
 class Consumer (master:Actor, val id:Int, val buffer:LinkedBlockingQueue[Object],
-                val writeBuffer: LinkedBlockingQueue[Object], val firstLoad:Boolean=false)  extends Actor  {
+                val writeBuffer: LinkedBlockingQueue[Object], val firstLoad: Boolean = false,
+                val processors: Option[String] = None) extends Actor {
 
   val logger = LoggerFactory.getLogger("Consumer")
 
@@ -271,9 +280,9 @@ class Consumer (master:Actor, val id:Int, val buffer:LinkedBlockingQueue[Object]
         case rawAndProcessed: (FullRecord, FullRecord) => {
           val (raw, processed) = rawAndProcessed
 
-          val startTime = System.currentTimeMillis
-          batches += processor.processRecord(raw, processed, firstLoad)
-          Consumer.totalTime.addAndGet(System.currentTimeMillis() - startTime)
+          val startTime = System.nanoTime()
+          batches += processor.processRecord(raw, processed, firstLoad, processors = processors)
+          Consumer.totalTime.addAndGet(System.nanoTime() - startTime)
 
           if (batches.length == batchSize) {
             writeBuffer.put(batches.toList)
@@ -284,7 +293,8 @@ class Consumer (master:Actor, val id:Int, val buffer:LinkedBlockingQueue[Object]
           if (c % 1000 == 0) {
             val t: Long = Consumer.totalTime.get()
             logger.info("processed " + c + " records : last uuid " + raw.rowKey + " : "
-               + (1000f / ((t - Consumer.lastTime.get()).toFloat / 60000f) ) + " records processed per minute")
+              + (1000f / ((t - Consumer.lastTime.get()).toFloat / 60000f / 1000000f)) + " records processed per minute")
+
             Consumer.lastTime.set(t)
           }
         }
@@ -323,24 +333,21 @@ class ProcessedBatchWriter (val writeBuffer: LinkedBlockingQueue[Object], val ca
   var recordCount = 0L
 
   def act {
+    startTime = System.currentTimeMillis
     while (true) {
       writeBuffer.take() match {
-
         case batch: List[Map[String, Object]] => {
           try {
-            startTime = System.currentTimeMillis
             processor.writeProcessBatch(batch)
-            writeTime += System.currentTimeMillis - startTime
-            writeTimeTotal += System.currentTimeMillis - startTime
 
             recordCount += batch.size
             count += batch.size
             if (count > nextPos) {
 
               logger.info(count
-                + " >> writing records per sec: " + recordCount / (((writeTime).toFloat) / 1000f)
-                + ", time taken to write "+recordCount+" records: " + (writeTime).toFloat / 1000f
-                + ", total time: "+ (writeTimeTotal).toFloat / 60000f +" minutes"
+                + " >> writing records per sec (average): " + count / (((System.currentTimeMillis - firstTime).toFloat) / 1000f)
+                + ", total time " + (System.currentTimeMillis - firstTime).toFloat / 60000f
+                + "minutes"
               )
               writeTime = 0
               recordCount = 0
@@ -367,7 +374,7 @@ class ProcessedBatchWriter (val writeBuffer: LinkedBlockingQueue[Object], val ca
 
             logger.info(count
               + " >> Finished writing, total records: " + count
-              + ", total time spent writing: " + (writeTimeTotal).toFloat / 60000f + " minutes"
+              + ", total time spent writing: " + (System.currentTimeMillis - firstTime).toFloat / 60000f + " minutes"
             )
 
             exit()

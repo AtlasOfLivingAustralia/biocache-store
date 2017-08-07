@@ -1,10 +1,11 @@
 package au.org.ala.biocache.processor
 
-import scala.collection.mutable.ArrayBuffer
-import org.apache.commons.lang.StringUtils
-import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab._
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
 import au.org.ala.biocache.parser.CollectorNameParser
+import au.org.ala.biocache.vocab._
+import org.apache.commons.lang.StringUtils
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * A processor of miscellaneous information.
@@ -172,6 +173,20 @@ class MiscellaneousProcessor extends Processor {
       processed.occurrence.images = raw.occurrence.images
       processed.occurrence.sounds = raw.occurrence.sounds
       processed.occurrence.videos = raw.occurrence.videos
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array())
+
+      //update the details from lastProcessed
+      processed.location = lastProcessed.get.location
+    }
+
+    assertions.toArray
   }
 
   def getName = "image"

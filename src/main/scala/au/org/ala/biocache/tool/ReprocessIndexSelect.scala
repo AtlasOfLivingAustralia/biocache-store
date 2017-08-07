@@ -1,11 +1,11 @@
 package au.org.ala.biocache.tool
 
+import java.io.{BufferedOutputStream, File, FileOutputStream}
+
 import au.org.ala.biocache._
-import java.io.{BufferedOutputStream, FileOutputStream}
-import java.io.File
-import au.org.ala.biocache.index.{IndexRecords, IndexDAO}
-import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.index.{IndexDAO, IndexRecords}
+import au.org.ala.biocache.util.OptionParser
 
 /**
  * Reprocesses and reindexes a select set of records.  The records will
@@ -52,7 +52,7 @@ object ReprocessIndexSelect extends Tool {
       out.close
     }
     if (!indexOnly) {
-      ProcessRecords.processRecords(file, threads, startUuid)
+      ProcessRecords.processRecords(file, threads, startUuid, None)
     }
     IndexRecords.indexList(file)
   }

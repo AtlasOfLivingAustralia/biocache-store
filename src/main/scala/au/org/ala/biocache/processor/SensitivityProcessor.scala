@@ -1,17 +1,17 @@
 package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.caches.SpatialLayerDAO
-import au.org.ala.biocache.caches.LocationDAO
+import au.org.ala.biocache.caches.{LocationDAO, SpatialLayerDAO}
 import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.model.{Versions, QualityAssertion, FullRecord}
-import au.org.ala.biocache.util.{GridUtil, StringHelper, Json}
-import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes, StateProvinces}
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion, Versions}
+import au.org.ala.biocache.util.{GridUtil, Json}
+import au.org.ala.biocache.vocab.StateProvinces
 import au.org.ala.sds.SensitiveDataService
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions
+import scala.collection.mutable.ArrayBuffer
 
 /**
   * Performs sensitive data processing on the record.
@@ -21,9 +21,6 @@ class SensitivityProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("SensitivityProcessor")
 
-  import StringHelper._
-  import AssertionCodes._
-  import AssertionStatus._
   import JavaConversions._
 
   //This is being initialised here because it may take some time to load all the XML records...
@@ -56,12 +53,17 @@ class SensitivityProcessor extends Processor {
     }
 
     //needs to be performed for all records whether or not they are in Australia
-    //get a map representation of the raw record...
+    //get a map representation of the raw record for sdsFlag fields...
     val rawMap = scala.collection.mutable.Map[String, String]()
-    raw.objectArray.foreach { poso =>
-      val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
-      rawMap.putAll(map)
+    rawMap.putAll(raw.getRawFields())
+    if (rawMap.isEmpty) {
+      //populate rawMap if raw.rawFields is empty
+      raw.objectArray.foreach { poso =>
+        val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
+        rawMap ++= map
+      }
     }
+
 
     //use the processed versions of the coordinates for the sensitivity check if raw not available
     //this would be the case when coordinates have been derived from easting/northings or grid references
@@ -271,5 +273,30 @@ class SensitivityProcessor extends Processor {
       raw.classification.vernacularName
     else //return the name default name string which will be null
       raw.classification.scientificName
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    val assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      //no assertions
+      //assertions ++= lastProcessed.get.findAssertions(Array())
+
+      //update the details from lastProcessed
+      processed.location.coordinateUncertaintyInMeters = lastProcessed.get.location.coordinateUncertaintyInMeters
+      processed.location.decimalLatitude = lastProcessed.get.location.decimalLatitude
+      processed.location.decimalLongitude = lastProcessed.get.location.decimalLatitude
+      processed.location.northing = lastProcessed.get.location.northing
+      processed.location.easting = lastProcessed.get.location.easting
+      processed.location.bbox = lastProcessed.get.location.bbox
+      processed.occurrence.informationWithheld = lastProcessed.get.occurrence.informationWithheld
+      processed.occurrence.dataGeneralizations = lastProcessed.get.occurrence.dataGeneralizations
+      processed.event.day = lastProcessed.get.event.eventDateEnd
+      processed.event.eventDate = lastProcessed.get.event.eventDateEnd
+      processed.event.eventDateEnd = lastProcessed.get.event.eventDateEnd
+    }
+
+    assertions.toArray
   }
 }

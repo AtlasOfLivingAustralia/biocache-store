@@ -4,6 +4,8 @@ import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
 import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, TypeStatus}
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
  * Process type status information
  */
@@ -40,6 +42,19 @@ class TypeStatusProcessor extends Processor {
      }
    }
 
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(UNRECOGNISED_TYPESTATUS.code))
+
+      //update the details from lastProcessed
+      processed.identification.typeStatus = lastProcessed.get.identification.typeStatus
+    }
+
+    assertions.toArray
+  }
 
 
   def getName = "type"

@@ -1,12 +1,13 @@
 package au.org.ala.biocache
 
+import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.model.{FullRecord, Versions}
+import au.org.ala.biocache.processor.{EventProcessor, LocationProcessor, SensitivityProcessor}
 import au.org.ala.biocache.vocab.AssertionCodes
 import org.apache.commons.lang.StringUtils
-import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.BeforeAndAfterAll
-import au.org.ala.biocache.processor.{SensitivityProcessor, EventProcessor, LocationProcessor}
-import au.org.ala.biocache.model.FullRecord
+import org.scalatest.junit.JUnitRunner
 
 /**
  * Performs some Location Processing tests
@@ -114,6 +115,13 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     raw.event.month = "12"
     raw.event.year = "2000"
 
+    val rawMap = scala.collection.mutable.Map[String, String]()
+    raw.objectArray.foreach { poso =>
+      val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
+      rawMap ++= map
+    }
+    raw.setRawFieldsWithMapping(rawMap)
+
     (new EventProcessor).process("test", raw, processed)
     (new LocationProcessor).process("test", raw, processed)
     (new SensitivityProcessor).process("test", raw, processed)
@@ -152,8 +160,17 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     processed.classification.setTaxonRankID("7000")
     raw.location.stateProvince = "NSW"
     raw.location.locality = "My test locality"
+
+    val rawMap = scala.collection.mutable.Map[String, String]()
+    raw.objectArray.foreach { poso =>
+      val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
+      rawMap ++= map
+    }
+    raw.setRawFieldsWithMapping(rawMap)
+
     (new LocationProcessor).process("test", raw, processed)
     (new SensitivityProcessor).process("test", raw, processed)
+
     expectResult(true) {
       StringUtils.isNotBlank(processed.occurrence.dataGeneralizations)
     }

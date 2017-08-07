@@ -1,10 +1,12 @@
 package au.org.ala.biocache.processor
 
 import java.io.File
+
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
+
 import scala.collection.mutable.ArrayBuffer
 /**
   * Created by koh032 on 1/06/2016.
@@ -115,6 +117,22 @@ class IdentificationQualifierProcessor extends Processor {
       scala.io.Source.fromURL(getClass.getResource(filePath), "utf-8")
     }
 
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      //no assertions
+      //assertions ++= lastProcessed.get.findAssertions(Array())
+
+      //update the details from lastProcessed
+      processed.identification.identificationQualifier = lastProcessed.get.identification.identificationQualifier
+      processed.identification.abcdIdentificationQualifier = lastProcessed.get.identification.identificationQualifier
+    }
+
+    assertions.toArray
   }
 
   def getName = "IdentificationQualifierProcessor"

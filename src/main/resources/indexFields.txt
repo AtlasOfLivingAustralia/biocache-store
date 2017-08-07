@@ -243,7 +243,7 @@ reproductive_condition_s	string	reproductiveCondition	T	T		F
 	string	geospatialIssue	F	F	F	F
 geospatial_kosher	string	geospatiallyKosher	F	F	F	F
 	string	Global	F	F	F	F
-    string	group	F	F	F	F
+	string	group	F	F	F	F
 	string	habitat	F	F	F	F
 	string	habitat.p	F	F	F	F
 	string	higherClassification	F	F	F	F

@@ -1,16 +1,17 @@
 package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.Config
-import org.slf4j.LoggerFactory
-import scala.collection.JavaConversions
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import au.org.ala.biocache.caches.{AttributionDAO, ClassificationDAO, CommonNameDAO, TaxonProfileDAO}
+import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.model.{Classification, FullRecord, QualityAssertion}
+import au.org.ala.biocache.util.BiocacheConversions
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, DwC, Kingdoms}
 import au.org.ala.names.model.LinnaeanRankClassification
 import org.apache.commons.lang.StringUtils
-import au.org.ala.biocache.caches.{CommonNameDAO, TaxonProfileDAO, ClassificationDAO, AttributionDAO}
-import au.org.ala.biocache.util.BiocacheConversions
-import au.org.ala.biocache.model.{QualityAssertion, FullRecord, Classification}
-import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.vocab.{AssertionStatus, Kingdoms, DwC, AssertionCodes}
+import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConversions
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 /**
  * A processor of taxonomic information.
@@ -26,10 +27,11 @@ class ClassificationProcessor extends Processor {
   val affPattern = """([\x00-\x7F\s]*) aff[#!?\\.]?([\x00-\x7F\s]*)""".r
   val cfPattern = """([\x00-\x7F\s]*) cf[#!?\\.]?([\x00-\x7F\s]*)""".r
 
-  import BiocacheConversions._
-  import JavaConversions._
   import AssertionCodes._
   import AssertionStatus._
+  import BiocacheConversions._
+
+  import JavaConversions._
 
   /**
    * Parse the hints into a usable map with rank -> Set.
@@ -285,6 +287,22 @@ class ClassificationProcessor extends Processor {
     } catch {
       case e: Exception => logger.error("Exception during classification match for record " + guid, e)
     }
+    assertions.toArray
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(HOMONYM_ISSUE.code, NAME_NOTRECOGNISED.code,
+        NAME_NOT_IN_NATIONAL_CHECKLISTS.code, INVALID_SCIENTIFIC_NAME.code, MISSING_TAXONRANK.code,
+        NAME_NOT_SUPPLIED.code, UNKNOWN_KINGDOM.code, RESOURCE_TAXONOMIC_SCOPE_MISMATCH.code))
+
+      //update the details from lastProcessed
+      processed.classification = lastProcessed.get.classification
+    }
+
     assertions.toArray
   }
 

@@ -1,8 +1,10 @@
 package au.org.ala.biocache.processor
 
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, BasisOfRecord}
 import org.slf4j.LoggerFactory
-import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{AssertionStatus, BasisOfRecord, AssertionCodes}
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * A processor of basis of record information.
@@ -34,6 +36,20 @@ class BasisOfRecordProcessor extends Processor {
         Array[QualityAssertion](QualityAssertion(MISSING_BASIS_OF_RECORD,1), QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD, PASSED))
       }
     }
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(MISSING_BASIS_OF_RECORD.code, BADLY_FORMED_BASIS_OF_RECORD.code))
+
+      //update the details from lastProcessed
+      processed.occurrence.basisOfRecord = lastProcessed.get.occurrence.basisOfRecord
+    }
+
+    assertions.toArray
   }
 
   def getName() = "bor"

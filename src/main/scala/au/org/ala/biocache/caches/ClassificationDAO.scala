@@ -1,8 +1,8 @@
 package au.org.ala.biocache.caches
 
 import au.org.ala.biocache.Config
-import au.org.ala.names.model.{NameSearchResult, MetricsResultDTO, LinnaeanRankClassification}
 import au.org.ala.biocache.model.Classification
+import au.org.ala.names.model.{LinnaeanRankClassification, MetricsResultDTO, NameSearchResult}
 import org.slf4j.LoggerFactory
 
 /**
@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory
 object ClassificationDAO {
 
   val logger = LoggerFactory.getLogger("ClassificationDAO")
-  private val lru = new org.apache.commons.collections.map.LRUMap(10000)
+  private val lru = new org.apache.commons.collections.map.LRUMap(Config.classificationCacheSize)
   private val lock : AnyRef = new Object()
   private val nameIndex = Config.nameIndex
 
@@ -121,7 +121,7 @@ object ClassificationDAO {
           }
         } catch {
           case e:Exception => {
-            logger.debug(e.getMessage + ", hash =  " + hash, e)
+            logger.error(e.getMessage + ", hash =  " + hash, e)
           }
           null
         }

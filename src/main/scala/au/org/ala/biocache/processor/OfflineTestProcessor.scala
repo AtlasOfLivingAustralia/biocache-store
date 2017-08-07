@@ -1,7 +1,6 @@
 package au.org.ala.biocache.processor
 
-import au.org.ala.biocache.Config
-import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
 import au.org.ala.biocache.vocab.AssertionCodes
 
 /**
@@ -14,7 +13,7 @@ class OfflineTestProcessor extends Processor {
      if(lastProcessed.isDefined){
        //get the current system assertions
        val currentProcessed = lastProcessed.get
-       val systemAssertions = Config.occurrenceDAO.getSystemAssertions(guid)
+       val systemAssertions = currentProcessed.findAssertions()
        val offlineAssertions = systemAssertions.filter(sa => AssertionCodes.offlineAssertionCodes.contains(AssertionCodes.getByCode(sa.code).getOrElse(AssertionCodes.GEOSPATIAL_ISSUE)) )
        processed.occurrence.outlierForLayers = currentProcessed.occurrence.outlierForLayers
        processed.occurrence.duplicationStatus = currentProcessed.occurrence.duplicationStatus
@@ -27,6 +26,11 @@ class OfflineTestProcessor extends Processor {
        //assume that the assertions were not tested
        Array()
      }
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    //low process overhead, no need to skip
+    process(guid, raw, processed, lastProcessed)
   }
 
   def getName = "offline"

@@ -1,8 +1,9 @@
 package au.org.ala.biocache.caches
 
+import java.util
+
 import au.org.ala.biocache._
-import scala.Some
-import au.org.ala.biocache.model.{TaxonProfile, SensitiveSpecies, ConservationStatus}
+import au.org.ala.biocache.model.{ConservationStatus, TaxonProfile}
 import au.org.ala.biocache.util.Json
 
 /**
@@ -15,7 +16,13 @@ import au.org.ala.biocache.util.Json
 object TaxonProfileDAO {
 
   private val columnFamily = "taxon"
-  private val lru = new org.apache.commons.collections.map.LRUMap(10000)
+  private val lru: util.Map[String, Option[TaxonProfile]] = {
+    if (Config.taxonProfileCacheAll) {
+      new util.HashMap[String, Option[TaxonProfile]]()
+    } else {
+      new org.apache.commons.collections.map.LRUMap(10000)
+    }
+  }.asInstanceOf[util.Map[String, Option[TaxonProfile]]]
   private val lock : AnyRef = new Object()
   private val persistenceManager = Config.persistenceManager
 
@@ -41,6 +48,21 @@ object TaxonProfileDAO {
   }
 
   def getByGuid(guid:String) : Option[TaxonProfile] = {
+
+    if (Config.taxonProfileCacheAll) {
+      lock.synchronized {
+        if (lru.size() == 0) {
+          persistenceManager.pageOverAll(columnFamily, (guid, map) => {
+            if (!map.isEmpty) {
+              val result = Some(createTaxonProfile(Some(map)))
+              lru.put(guid, result)
+            }
+
+            true
+          })
+        }
+      }
+    }
 
     if(guid == null || guid.isEmpty) return None
 
@@ -80,5 +102,11 @@ object TaxonProfileDAO {
         properties.put("conservation", Json.toJSON(taxonProfile.conservation.asInstanceOf[Array[AnyRef]]))
       }
       persistenceManager.put(taxonProfile.guid, columnFamily, properties.toMap, false)
+
+    if (Config.taxonProfileCacheAll) {
+      lock.synchronized {
+        lru.put(taxonProfile.guid, Some(taxonProfile))
+      }
+    }
   }
 }
