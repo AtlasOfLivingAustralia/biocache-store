@@ -8,10 +8,16 @@ import scala.io.Source
 import java.io.File
 import org.apache.http.entity.StringEntity
 import org.slf4j.LoggerFactory
+import java.net.URL
 
 object HttpUtil {
 
   val logger = LoggerFactory.getLogger("HttpUtil")
+
+  def get(url: String) : (String) = {
+    val result = Source.fromURL(new URL(url)).mkString
+    result
+  }
 
   def postBody(url:String, contentType:String, stringBody:String ) : (Int, String) = {
     val httpClient = new DefaultHttpClient()

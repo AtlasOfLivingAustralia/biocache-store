@@ -48,7 +48,7 @@ trait MediaStore {
   def isValidVideoURL(url: String) = !videoParser.unapplySeq(url.trim.toLowerCase).isEmpty
 
   def isValidImage(filename: String) = endsWithOneOf(imageExtension, filename) || !imageParser.findAllMatchIn(filename).isEmpty
-  def isValidSound(filename: String) = endsWithOneOf(soundExtension, filename) || !soundParser.findAllMatchIn(filename).isEmpty
+  def isValidSound(filename: String): Boolean = endsWithOneOf(soundExtension, filename) || !soundParser.findAllMatchIn(filename).isEmpty
   def isValidVideo(filename: String) = endsWithOneOf(videoExtension, filename) || !videoParser.findAllMatchIn(filename).isEmpty
 
   def getImageFormats(filenameOrID:String) : java.util.Map[String, String]
@@ -152,6 +152,8 @@ trait MediaStore {
    * @return
    */
   def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]) : Option[(String, String)]
+
+  def getMetadata(uuid: String): java.util.Map[String, Object]
 
   def getSoundFormats(filePath: String): java.util.Map[String, String]
 
@@ -297,10 +299,8 @@ object RemoteMediaStore extends MediaStore {
         logger.info("Did not recognise URL pattern for remote media store: {}", urlToMedia)
         return None
       } else {
-        val imageMetadataUrl = new URL(Config.remoteMediaStoreUrl + "/ws/getImageInfo?id=" + imageId.get)
-        val response = Source.fromURL(imageMetadataUrl).getLines().mkString
-        val metadata = Json.toMap(response)
-        return Some((metadata.getOrElse("originalFileName", "").toString, imageId.get))
+        val metadata = getMetadata(imageId.get)
+        return Some((metadata.getOrDefault("originalFileName", "").toString, imageId.get))
       }
     }
 
@@ -334,6 +334,12 @@ object RemoteMediaStore extends MediaStore {
         case None => None
       }
     }
+  }
+
+  def getMetadata(uuid: String): java.util.Map[String, Object] = {
+    val url = Config.remoteMediaStoreUrl + "/ws/image/" + uuid + ".json"
+    val result = Json.toJavaMap(HttpUtil.get(url))
+    result
   }
 
   private def downloadToTmpFile(resourceUID: String, uuid: String, urlToMedia: String): Option[File] = try {
@@ -632,6 +638,11 @@ object LocalMediaStore extends MediaStore {
       case false => Array()
     }
     formats
+  }
+
+  def getMetadata(uuid: String): java.util.Map[String, Object] = {
+    val result = new java.util.HashMap[String, Object]()
+    result
   }
 }
 
