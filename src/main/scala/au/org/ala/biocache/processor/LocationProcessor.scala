@@ -418,7 +418,7 @@ class LocationProcessor extends Processor {
           )
 
           if (reprojectedCoords.isEmpty) {
-            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, "Transformation of decimal latiude and longitude to WGS84 failed")
+            assertions += QualityAssertion(DECIMAL_LAT_LONG_CONVERSION_FAILED, "Transformation of decimal latitude and longitude to WGS84 failed")
             None
           } else {
             //transformation of coordinates did not fail:
