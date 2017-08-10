@@ -307,4 +307,24 @@ class DateParserTest extends FunSuite {
     val result = DateParser.parseDate("0 01")
     expectResult(true){result.isEmpty}
   }
+
+  test("dd/MM/yy - post 2000"){
+    val result = DateParser.parseDate("01/02/01")
+    expectResult("2001"){result.get.startYear}
+    expectResult("02"){result.get.startMonth}
+    expectResult("02"){result.get.endMonth}
+    expectResult("01"){result.get.startDay}
+    expectResult("01"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
+
+  test("dd/MM/yy - pre 2000"){
+    val result = DateParser.parseDate("05/02/78")
+    expectResult("1978"){result.get.startYear}
+    expectResult("02"){result.get.startMonth}
+    expectResult("02"){result.get.endMonth}
+    expectResult("05"){result.get.startDay}
+    expectResult("05"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
 }

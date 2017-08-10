@@ -30,7 +30,7 @@ object DateParser {
           if(!secondAttempt.isEmpty && isValid(secondAttempt.get)){
             secondAttempt
           } else {
-            None
+            parseNonISOTruncatedYearDate(dateStrNormalised)
           }
         } else {
           eventDateWithOption
@@ -42,7 +42,7 @@ object DateParser {
         if(!secondAttempt.isEmpty && isValid(secondAttempt.get)){
           secondAttempt
         } else {
-          None
+          parseNonISOTruncatedYearDate(dateStrNormalised)
         }
       }
     }
@@ -99,6 +99,14 @@ object DateParser {
 
     date match {
       case NonISOSingleDate(date) => Some(date)
+      case _ => None
+    }
+  }
+
+  def parseNonISOTruncatedYearDate(date: String): Option[EventDate] = {
+
+    date match {
+      case NonISOTruncatedYearDate(date) => Some(date)
       case _ => None
     }
   }
@@ -208,7 +216,7 @@ object ISOSingleYear {
   }
 }
 
-/** Extractor for the formatyyyy-MM-dd */
+/** Extractor for the format yyyy-MM-dd */
 class SingleDate {
 
   def baseFormats = Array("yyyy-MM-dd","yyyy/MM/dd")
@@ -241,9 +249,15 @@ trait NonISO extends SingleDate {
   override def baseFormats = Array("dd-MM-yyyy","dd/MM/yyyy","dd-MMM-yyyy","dd/MMM/yyyy","dd MMM yyyy")
 }
 
+trait NonISOTruncatedYear extends SingleDate {
+  override def baseFormats = Array("dd-MM-yy","dd/MM/yy")
+}
+
 object ISOSingleDate extends SingleDate
 
 object NonISOSingleDate extends SingleDate with NonISO
+
+object NonISOTruncatedYearDate extends SingleDate with NonISOTruncatedYear
 
 /** Extractor for the format yyyy-MM-dd */
 object ISOMonthDate {
