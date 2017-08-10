@@ -144,7 +144,7 @@ object AdHocParser {
     val rawAndProcessed = raw.objectArray zip processed.objectArray
     val listBuff = new ListBuffer[ProcessedValue]
     rawAndProcessed.foreach { case (rawPoso, procPoso) =>
-      rawPoso.propertyNames.foreach { name =>
+      rawPoso.getPropertyNames.foreach { name =>
         val rawValue = rawPoso.getProperty(name)
         val procValue = procPoso.getProperty(name)
         if (!rawValue.isEmpty || !procValue.isEmpty) {

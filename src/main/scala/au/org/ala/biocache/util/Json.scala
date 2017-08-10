@@ -95,7 +95,7 @@ object Json {
    * Convert the supplied list from JSON
    */
   def toListWithGeneric[A](jsonString:String,theClass:java.lang.Class[_]) : List[A] = {
-    val valueType = TypeFactory.collectionType(classOf[ArrayList[_]], theClass)
+    val valueType = mapper.getTypeFactory.constructCollectionType(classOf[ArrayList[_]], theClass)
     val listOfObject = mapper.readValue[ArrayList[_]](jsonString, valueType)
     listOfObject.asScala.toList.asInstanceOf[List[A]]
   }
