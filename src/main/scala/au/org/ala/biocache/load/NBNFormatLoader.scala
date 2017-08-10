@@ -17,6 +17,19 @@ class NBNFormatLoader extends DwcCSVLoader {
    */
   override def meddle(map: Map[String, String]): Map[String, String] = {
 
+    val meddledMap = collection.mutable.Map(map.toSeq: _*)
+
+    if(meddledMap.contains("geodeticDatum")){
+      //Easting/Northing can include a latitude / longitude
+      val projection = map.getOrElse("geodeticDatum", "")
+      if (projection != ""){
+        if (!projection.equalsIgnoreCase("OSGB") && !projection.equalsIgnoreCase("OSGB36") && !projection.equalsIgnoreCase("27700")){
+          meddledMap.put("decimalLatitude", map.getOrElse("northing", ""))
+          meddledMap.put("decimalLongitude", map.getOrElse("easting", ""))
+        }
+      }
+    }
+
     //ZeroAbundance=Y - map this to occurrenceStatus - present / absent
     if(map.contains("ZeroAbundance")){
       val rawValue = map.getOrElse("ZeroAbundance", "")
@@ -26,10 +39,10 @@ class NBNFormatLoader extends DwcCSVLoader {
       } else {
         "present"
       }
-      map + ("occurrenceStatus" -> occurrenceStatus)
-    } else {
-      map
+      meddledMap.put("occurrenceStatus", occurrenceStatus)
     }
+
+    meddledMap.toMap
   }
 
   /**
