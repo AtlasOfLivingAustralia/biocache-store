@@ -24,7 +24,7 @@ object ReflectionCache {
         val isAPoso = !(getter.getReturnType.getInterfaces.forall(i => i == classOf[POSO]))
         if (isAPoso) {
           val poso = getter.invoke(cposo).asInstanceOf[POSO]
-          poso.propertyNames.foreach { name => list += name }
+          poso.getPropertyNames.foreach { name => list += name }
         }
       } catch {
         case e: Exception =>
@@ -46,7 +46,7 @@ object ReflectionCache {
            val isAPoso = !(getter.getReturnType.getInterfaces.forall(i => i == classOf[POSO]))
            if (isAPoso) {
              val poso = getter.invoke(cposo).asInstanceOf[POSO]
-             poso.propertyNames.foreach { name => map += (name.toLowerCase -> getter) }
+             poso.getPropertyNames.foreach { name => map += (name.toLowerCase -> getter) }
            }
          } catch {
            case e: Exception =>

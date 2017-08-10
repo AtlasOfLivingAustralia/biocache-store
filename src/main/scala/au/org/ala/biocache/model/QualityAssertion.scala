@@ -2,6 +2,8 @@ package au.org.ala.biocache.model
 
 import au.org.ala.biocache.poso.POSO
 import java.util.{Date, UUID}
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+
 import scala.beans.BeanProperty
 import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode, AssertionStatus}
 import au.org.ala.biocache.util.BiocacheConversions
@@ -10,6 +12,7 @@ import au.org.ala.biocache.util.BiocacheConversions
  * A companion object for the QualityAssertion class that provides factory
  * type functionality.
  */
+@JsonIgnoreProperties(Array("propertyNames"))
 object QualityAssertion {
   import BiocacheConversions._
   def apply(code:Int) = {
@@ -84,6 +87,7 @@ object QualityAssertion {
  * Man - provided through a UI, giving a positive or negative assertion
  * Machine - provided through backend processing
  */
+@JsonIgnoreProperties(Array("propertyNames", "qastatusName"))
 class QualityAssertion (
   @BeanProperty var uuid:String,
   @BeanProperty var referenceRowKey:String,
@@ -115,13 +119,15 @@ class QualityAssertion (
     case _ => false
   }
 
+  @JsonIgnoreProperties
   def getQAStatusName = {
     AssertionStatus.getQAAssertionName(qaStatus.toString)
   }
 
   /**
    * NC a temporary measure so that the qaStatus is correctly set for historic records.
-   * @param asserted
+    *
+    * @param asserted
    */
   def setProblemAsserted(asserted:java.lang.Boolean){
     problemAsserted = asserted

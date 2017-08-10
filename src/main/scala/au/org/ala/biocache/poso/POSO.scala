@@ -24,7 +24,7 @@ trait POSO {
   protected val lookup = ReflectionCache.getPosoLookup(this)
 
   @JsonIgnore
-  val propertyNames = lookup.values.map(v => v.name)
+  private val propertyNames = lookup.values.map(v => v.name)
 
   /**
    * Case insensitive property check.
@@ -64,7 +64,7 @@ trait POSO {
         case "[Ljava.lang.String;" => {
           try {
             if(StringUtils.isNotEmpty(value)) {
-              val array = Json.toArray(value, classOf[String].asInstanceOf[java.lang.Class[AnyRef]])
+              val array = Json.toStringArray(value)
               property.setter.invoke(this, array)
             }
           } catch {
