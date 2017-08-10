@@ -29,6 +29,7 @@ object BVPLoader extends Tool {
     var skipProcessing = false
     var skipIndexing = false
     var startAt = ""
+    var threads:Int = 4
 
     val parser = new OptionParser(help) {
       opt("debug", "Display the list of expeditions. For debug purposes.", {
@@ -55,6 +56,7 @@ object BVPLoader extends Tool {
       opt("sa", "start-at-uid", "Start ingesting resources at the supplied UID", {
         v: String => startAt = v
       })
+      intOpt("t","threads","Number of threads to index from", {v:Int => threads = v})
     }
     if (parser.parse(args)) {
       val b = new BVPLoader
@@ -84,6 +86,7 @@ object BVPLoader extends Tool {
             try {
               IngestTool.ingestResource(
                 drUid,
+                threads,
                 skipLoading = skipLoading,
                 skipSampling = skipSampling,
                 skipProcessing = skipProcessing,
