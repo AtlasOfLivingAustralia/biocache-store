@@ -38,8 +38,8 @@ object Sampling extends Tool with IncrementalTool {
     var singleRowKey = ""
     var workingDir = Config.tmpWorkDir
     var batchSize = 100000
-    var checkRowKeyFile = false
-    var abortIfNotRowKeyFile = false
+    var checkRowKeyFile = true
+    var abortIfNotRowKeyFile = true
     var numThreads = 8
 
     val parser = new OptionParser(help) {
@@ -297,7 +297,8 @@ class Sampling {
         handleRecordMap(map, coordinates, lp)
 
         if (counter % 10000 == 0 && counter > 0) {
-          logger.debug(s"Distinct coordinates counter: $counter , current count: $coordinates.size")
+          val numberOfCoordinates = coordinates.size
+          logger.debug(s"Distinct coordinates counter: $counter , current count: $numberOfCoordinates")
         }
         counter += 1
         passed += 1

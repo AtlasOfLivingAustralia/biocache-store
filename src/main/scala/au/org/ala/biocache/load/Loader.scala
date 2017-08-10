@@ -66,8 +66,6 @@ object Loader extends Tool {
         }
         logger.info("Completed loading resource: " + dataResourceUid)
       }
-
-//      biocache.Config.persistenceManager.shutdown
     }
   }
 }
@@ -158,12 +156,12 @@ class Loader extends DataLoader {
         case "dwc" => {
           logger.info("Darwin core headed CSV loading")
           val l = new DwcCSVLoader
-          l.load(dataResourceUid, false,test,forceLoad, removeNullFields)
+          l.load(dataResourceUid, true, test, forceLoad, removeNullFields)
         }
         case "dwca" => {
           logger.info("Darwin core archive loading")
           val l = new DwCALoader
-          l.load(dataResourceUid, false,test,forceLoad,removeNullFields)
+          l.load(dataResourceUid, true, test, forceLoad,removeNullFields)
         }
         case "digir" => {
           logger.info("digir webservice loading")
@@ -226,7 +224,7 @@ class Loader extends DataLoader {
           logger.info("NBN exchange format loading")
           val l = new NBNFormatLoader
           if(!test)
-            l.load(dataResourceUid)
+            l.load(dataResourceUid, true)
           else
             println("TESTING is not supported for NBN exchange format")
         }

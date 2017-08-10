@@ -102,7 +102,7 @@ object Store {
         val (rawPoso, procPoso) = rawAndProcessed
         val listBuff = new java.util.LinkedList[ProcessedValue]
         
-        rawPoso.propertyNames.foreach { name =>
+        rawPoso.getPropertyNames.foreach { name =>
           if(!Config.sensitiveFields.contains(name)){
             val rawValue = rawPoso.getProperty(name)
             val procValue = procPoso.getProperty(name)
@@ -426,11 +426,12 @@ object Store {
    * Indexes a dataResource from a specific date
    */
   def reindex(dataResource:java.lang.String, startDate:java.lang.String){
-    if(dataResource != null && startDate != null) {
-      IndexRecords.index(Some(dataResource), false, false, startDate = Some(startDate))
-    } else {
-      throw new Exception("Must supply data resource and start date")
-    }
+    throw new RuntimeException("Not supported")
+//    if(dataResource != null && startDate != null) {
+//      IndexRecords.index(Some(dataResource), false, false, startDate = Some(startDate))
+//    } else {
+//      throw new Exception("Must supply data resource and start date")
+//    }
   }
 
   def reindexRange(startKey:java.lang.String, endKey:java.lang.String){
@@ -448,7 +449,7 @@ object Store {
    * @param dataResource the resource to index
    */
   def index(dataResource:java.lang.String) =
-    IndexRecords.index(Some(dataResource), false, false, None)
+    throw new RuntimeException("Not supported")
 
   /**
    * Index a resource, indexing custom fields
@@ -459,19 +460,18 @@ object Store {
    * @param callback a callback used for monitoring the process
    */
   def index(dataResource:java.lang.String, customIndexFields:Array[String], userProvidedTypeCustomIndexFields:Array[String], callback:ObserverCallback = null) = {
-    logger.info("Indexing data resource " + dataResource)
-    IndexRecords.index(
-      Some(dataResource),
-      false,
-      false,
-      None,
-      miscIndexProperties = customIndexFields,
-      userProvidedTypeMiscIndexProperties = userProvidedTypeCustomIndexFields,
-      callback = callback)
-    logger.info("Finished indexing data resource " + dataResource)
-    logger.info("Storing custom index fields to the database....")
-    storeCustomIndexFields(dataResource,customIndexFields)
-    logger.info("Storing custom index fields to the database....done")
+    throw new RuntimeException("Not supported")
+//    logger.info("Indexing data resource " + dataResource)
+//    IndexRecords.index(
+//      Some(dataResource),
+//      None,
+//      miscIndexProperties = customIndexFields,
+//      userProvidedTypeMiscIndexProperties = userProvidedTypeCustomIndexFields,
+//      callback = callback)
+//    logger.info("Finished indexing data resource " + dataResource)
+//    logger.info("Storing custom index fields to the database....")
+//    storeCustomIndexFields(dataResource,customIndexFields)
+//    logger.info("Storing custom index fields to the database....done")
   }
 
   /**
@@ -493,7 +493,8 @@ object Store {
    * @param threads
    */
   def process(dataResourceUid:java.lang.String, threads:Int = 1, callback:ObserverCallback = null) = {
-    ProcessRecords.processRecords(threads, None, Some(dataResourceUid), callback=callback)
+//    ProcessRecords.processRecords(threads, None, Some(dataResourceUid), callback=callback)
+    throw new RuntimeException("Not supported")
   }
 
   /**
@@ -626,15 +627,16 @@ object Store {
    * @param numThreads
    */
   def performIngest(uid:String, l:Loader, numThreads:Int){
-    //load
-    logger.info("Loading : " + uid)
-    l.load(uid)
-    logger.info("Sampling " + uid)
-    Sampling.main(Array("-dr", uid))
-    logger.info("Processing " + uid)
-    ProcessRecords.processRecords(numThreads, None, Some(uid))
-    logger.info("Indexing " +uid)
-    IndexRecords.index(Some(uid), false, false)
+//    //load
+//    logger.info("Loading : " + uid)
+//    l.load(uid)
+//    logger.info("Sampling " + uid)
+//    Sampling.main(Array("-dr", uid))
+//    logger.info("Processing " + uid)
+//    ProcessRecords.processRecords(numThreads, None, Some(uid))
+//    logger.info("Indexing " +uid)
+//    IndexRecords.index(Some(uid), false, false)
+    throw new RuntimeException("Not supported")
   }
 
   /**

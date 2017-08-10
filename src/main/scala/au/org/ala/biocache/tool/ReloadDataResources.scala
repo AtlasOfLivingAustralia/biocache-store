@@ -71,13 +71,13 @@ object ReloadDataResources {
     }
     //Step 3: Reprocess records
     if (process) {
-      ProcessRecords.processRecords(4, None, Some(dataResourceUid), true) //want to process on the not deleted records
+      ProcessRecords.processRecords(dataResourceUid, 4) //want to process on the not deleted records
     }
     if (index) {
       //Step4: Remove current records from the index
       deletor.deleteFromIndex
       //Step 5: Reindex dataResource
-      IndexRecords.index(Some(dataResourceUid), false, false, checkDeleted = true)
+      IndexRecords.index(dataResourceUid, 4)
     }
     if (remove) {
       //Step 6: Remove "deleted" records from persistence.

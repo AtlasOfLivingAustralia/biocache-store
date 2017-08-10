@@ -47,7 +47,7 @@ object DeleteRecords extends Tool {
       val deletor: Option[RecordDeletor] = {
         if (!query.isEmpty) Some(new QueryDelete(query.get))
         else if (!dr.isEmpty) Some(new QueryDelete("data_resource_uid:" + dr.get))
-        else if (file.isDefined) Some(new FileDelete(file.get, useUUID, fieldDelimiter, hasHeader))
+        else if (file.isDefined) Some(new FileDelete(file.get, useUUID, hasHeader))
         else None
       }
       if (!deletor.isEmpty) {

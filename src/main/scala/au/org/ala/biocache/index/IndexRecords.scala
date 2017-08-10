@@ -39,6 +39,7 @@ object OptimiseIndex extends NoArgsTool {
 object IndexRecords extends Tool with IncrementalTool {
 
   def cmd = "index"
+
   def desc = "Index records. Not suitable for full re-indexing (>5m)"
 
   import FileHelper._
@@ -51,45 +52,46 @@ object IndexRecords extends Tool with IncrementalTool {
   def main(args: Array[String]): Unit = {
     var empty = false
     var check = false
-    var startDate:Option[String] = None
+    var startDate: Option[String] = None
     var pageSize = 1000
-    var dataResourceUid:Option[String] = None
+    var dataResourceUid: Option[String] = None
     var uuidFile = ""
     var rowKeyFile = ""
     var threads = 1
     var test = false
-    var checkRowKeyFile = false
-    var abortIfNotRowKeyFile = false
+    var checkRowKeyFile = true
+    var abortIfNotRowKeyFile = true
 
     val parser = new OptionParser(help) {
-        opt("empty", "empty the index first", {empty=true})
+      opt("empty", "empty the index first", {
+        empty = true
+      })
 
-        opt("check","check to see if the record is deleted before indexing",{check=true})
-        opt("date", "date", "The earliest modification date for records to be indexed. Date in the form yyyy-mm-dd",
-          {v:String => startDate = Some(v)})
-        opt("dr", "dataResource", "The data resource to index", {v:String => dataResourceUid = Some(v)})
-        intOpt("ps", "pageSize", "The page size for indexing", {v:Int => pageSize = v })
-        opt("if", "file-uuids-to-index","Absolute file path to fle containing UUIDs to index", {v:String => uuidFile = v})
-        opt("rf", "file-rowkeys-to-index","Absolute file path to fle containing rowkeys to index", {v:String => rowKeyFile = v})
-        intOpt("t","threads","Number of threads to index from", {v:Int => threads = v})
-        opt("test", "test the speed of creating the index the minus the actual SOLR indexing costs", {test = true} )
-        opt("crk", "check for row key file",{ checkRowKeyFile = true })
-        opt("acrk", "abort if no row key file found",{ abortIfNotRowKeyFile = true })
+      opt("check", "check to see if the record is deleted before indexing", {
+        check = true
+      })
+      opt("date", "date", "The earliest modification date for records to be indexed. Date in the form yyyy-mm-dd", { v: String => startDate = Some(v) })
+      opt("dr", "dataResource", "The data resource to index", { v: String => dataResourceUid = Some(v) })
+      intOpt("ps", "pageSize", "The page size for indexing", { v: Int => pageSize = v })
+      opt("if", "file-uuids-to-index", "Absolute file path to fle containing UUIDs to index", { v: String => uuidFile = v })
+      opt("rf", "file-rowkeys-to-index", "Absolute file path to fle containing rowkeys to index", { v: String => rowKeyFile = v })
+      intOpt("t", "threads", "Number of threads to index from", { v: Int => threads = v })
+      opt("test", "test the speed of creating the index the minus the actual SOLR indexing costs", {
+        test = true
+      })
     }
 
-    if(parser.parse(args)) {
+    if (parser.parse(args)) {
+
+      if (!dataResourceUid.isEmpty && checkRowKeyFile) {
+        val (hasRowKey, retrievedRowKeyFile) = IndexRecords.hasRowKey(dataResourceUid.get)
+        rowKeyFile = retrievedRowKeyFile.getOrElse("")
+      }
 
       if (abortIfNotRowKeyFile && (rowKeyFile == "" || !(new File(rowKeyFile).exists()))) {
         logger.warn("No rowkey file was found for this index. Aborting.")
-      } else if (!dataResourceUid.isEmpty){
-        index(dataResourceUid)
       } else {
-        //delete the content of the index
-        if(empty){
-          logger.info("Emptying index")
-          indexer.emptyIndex
-        }
-        if (uuidFile != ""){
+        if (uuidFile != "") {
           indexListOfUUIDs(new File(uuidFile))
         } else if (rowKeyFile != "") {
           if (threads == 1) {
@@ -103,103 +105,21 @@ object IndexRecords extends Tool with IncrementalTool {
     }
   }
 
-  /**
-   * Index the supplied range of records.
-   *
-   * @param dataResource
-   * @param optimise
-   * @param shutdown
-   * @param checkDeleted
-   * @param pageSize
-   * @param miscIndexProperties
-   * @param callback
-   * @param test
-   */
-  def index(dataResource:Option[String],
-            optimise:Boolean = false,
-            shutdown:Boolean = false,
-            startDate:Option[String] = None,
-            checkDeleted:Boolean = false,
-            pageSize:Int = 1000,
-            miscIndexProperties:Seq[String] = Array[String](),
-            userProvidedTypeMiscIndexProperties :Seq[String] = Array[String](),
-            callback:ObserverCallback = null,
-            test:Boolean = false): Unit = {
+  def index(dataResourceUid: String, threads: Int): Unit = {
 
-    if(dataResource.isEmpty){
-      logger.info("Starting full index")
+    val (hasRowKey, retrievedRowKeyFile) = IndexRecords.hasRowKey(dataResourceUid)
+    val rowKeyFile = retrievedRowKeyFile.getOrElse("")
+
+    if ((rowKeyFile == "" || !(new File(rowKeyFile).exists()))) {
+      logger.warn("No rowkey file was found for this index. Aborting.")
     } else {
-      logger.info("Starting to index " + dataResource.get)
-    }
-    indexRange(dataResource.getOrElse(""), None, checkDeleted, miscIndexProperties = miscIndexProperties, userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties, callback = callback, test=test)
-    //index any remaining items before exiting
-    indexer.finaliseIndex(optimise, shutdown)
-  }
-
-  def indexRange(dataResourceUID:String, startDate:Option[Date]=None, checkDeleted:Boolean=false,
-                 pageSize:Int = 1000, miscIndexProperties:Seq[String] = Array[String](),
-                 userProvidedTypeMiscIndexProperties :Seq[String] = Array[String](),
-                 callback:ObserverCallback = null, test:Boolean =false) {
-    var counter = 0
-    val start = System.currentTimeMillis
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
-    val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) { indexer.getCsvWriter() } else { null }
-    val csvFileWriterSensitive = if (Config.exportIndexAsCsvPathSensitive.length > 0) { indexer.getCsvWriter(true) } else { null }
-    performPaging( (guid, map) => {
-      counter += 1
-      ///convert EL and CL properties at this stage
-      val shouldcommit = counter % 10000 == 0
-
-      indexer.indexFromMap(guid,
-        map,
-        startDate = startDate,
-        commit = shouldcommit,
-        miscIndexProperties = miscIndexProperties,
-        userProvidedTypeMiscIndexProperties = userProvidedTypeMiscIndexProperties,
-        test = test,
-        csvFileWriter = csvFileWriter,
-        csvFileWriterSensitive = csvFileWriterSensitive
-      )
-
-      if (counter % pageSize == 0) {
-        if(callback != null) {
-          callback.progressMessage(counter)
-        }
-        finishTime = System.currentTimeMillis
-        logger.info(counter + " >> Last key : " + guid + ", records per sec: " +
-          pageSize.toFloat / (((finishTime - startTime).toFloat) / 1000f))
-        startTime = System.currentTimeMillis
+      if (threads == 1) {
+        indexList(new File(rowKeyFile))
+      } else {
+        indexListThreaded(new File(rowKeyFile), threads)
       }
-      true
-    }, dataResourceUID, checkDeleted = checkDeleted, pageSize = pageSize)
-
-    if (csvFileWriter != null) { csvFileWriter.flush(); csvFileWriter.close() }
-    if (csvFileWriterSensitive != null) { csvFileWriterSensitive.flush(); csvFileWriterSensitive.close() }
-
-    finishTime = System.currentTimeMillis
-    logger.info("Total indexing time " + ((finishTime-start).toFloat)/1000f + " seconds")
-  }
-
-  /**
-   * Page over records function
-   */
-  def performPaging(proc: ((String, Map[String, String]) => Boolean), dataResourceUID:String,  pageSize: Int = 1000, checkDeleted: Boolean = false) {
-    if (checkDeleted) {
-      persistenceManager.pageOverSelect("occ", (guid, map) => {
-        if (map.getOrElse(FullRecordMapper.deletedColumn, "false").equals("false")) {
-          val map = persistenceManager.get(guid, "occ")
-          if (!map.isEmpty) {
-            proc(guid, map.get)
-          }
-        }
-        true
-      }, "dataResourceUID", dataResourceUID, pageSize, "uuid", "rowKey", FullRecordMapper.deletedColumn)
-    } else {
-      persistenceManager.pageOverIndexedField("occ", (guid, map) => {
-        proc(guid, map)
-      }, "dataResourceUID", dataResourceUID, pageSize)
     }
+    indexer.shutdown
   }
 
   /**

@@ -24,6 +24,7 @@ object IngestTool extends Tool {
     var skipSampling = false
     var skipProcessing = false
     var skipIndexing = false
+    var threads:Int = 4
 
     val parser = new OptionParser(help) {
       opt("dr", "dataResourceUid", "comma separated list of resources (uids) to load, sample, process and index. e.g. dr321,dr123", {
@@ -42,6 +43,7 @@ object IngestTool extends Tool {
       opt("skip-indexing", "Ingest but don't indexing.", {
         skipIndexing = true
       })
+      intOpt("t","threads","Number of threads to index from", {v:Int => threads = v})
     }
 
     if(parser.parse(args)){
@@ -53,6 +55,7 @@ object IngestTool extends Tool {
           if (uid != "") {
             IngestTool.ingestResource(
               uid,
+              threads,
               skipLoading = skipLoading,
               skipProcessing = skipProcessing,
               skipSampling = skipSampling,
@@ -68,6 +71,7 @@ object IngestTool extends Tool {
           if(uid != ""){
             IngestTool.ingestResource(
               uid,
+              threads,
               skipLoading = skipLoading,
               skipProcessing = skipProcessing,
               skipSampling = skipSampling,
@@ -91,6 +95,7 @@ object IngestTool extends Tool {
    * @param skipSampling
    */
   def ingestResource(uid: String,
+                     threads:Int,
                      skipIndexing:Boolean = false,
                      skipLoading:Boolean = false,
                      skipProcessing:Boolean = false,
@@ -104,7 +109,7 @@ object IngestTool extends Tool {
     }
     if(!skipProcessing){
       logger.info("Processing: " + uid)
-      ProcessRecords.processRecords(4, None, Some(uid))
+      ProcessRecords.processRecords(uid, threads)
     } else {
       logger.info("Skipping processing: " + uid)
     }
@@ -116,7 +121,7 @@ object IngestTool extends Tool {
     }
     if(!skipIndexing){
       logger.info("Indexing: " + uid)
-      IndexRecords.index(Some(uid), false, false)
+      IndexRecords.index(uid, threads)
     } else {
       logger.info("Skipping indexing: " + uid)
     }

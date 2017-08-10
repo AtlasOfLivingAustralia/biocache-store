@@ -11,7 +11,7 @@ import au.org.ala.biocache.Config
 /**
  * A record deletor that takes a file of rowkeys to delete.
  */
-class FileDelete(fileName: String, useUUID: Boolean  = false, fieldDelimiter:Char = '\t', hasHeader:Boolean = false) extends RecordDeletor {
+class FileDelete(fileName: String, useUUID: Boolean  = false, hasHeader:Boolean = false) extends RecordDeletor {
 
   import FileHelper._
 

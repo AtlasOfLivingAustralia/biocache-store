@@ -52,7 +52,7 @@ object ReprocessIndexSelect extends Tool {
       out.close
     }
     if (!indexOnly) {
-      ProcessRecords.processRecords(file, threads, startUuid)
+      ProcessRecords.processFileOfRowKeys(file, threads)
     }
     IndexRecords.indexList(file)
   }
