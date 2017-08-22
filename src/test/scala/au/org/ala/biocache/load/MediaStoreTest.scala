@@ -68,6 +68,11 @@ class TestMediaStore extends MediaStore {
   }
 
   override def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String) = (false, "", "")
+
+  override def getMetadata(uuid: String): java.util.Map[String, Object] = {
+    val result = new java.util.HashMap[String, Object]
+    result
+  }
 }
 
 

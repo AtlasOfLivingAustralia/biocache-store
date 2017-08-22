@@ -317,11 +317,28 @@ trait DataLoader {
       val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, media)
       savedTo match {
         case Some((savedFilename, savedFilePathOrId)) => {
-          if (Config.mediaStore.isValidSound(fileToStore)) {
+          val metadata = Config.mediaStore.getMetadata(savedFilePathOrId)
+          if (metadata.containsKey("mimeType") && metadata.get("mimeType").asInstanceOf[String].startsWith("audio/")) {
             soundsBuffer += savedFilePathOrId
+          } else if (metadata.containsKey("originalFileName") && Config.mediaStore.isValidSound(metadata.get("originalFileName").asInstanceOf[String])) {
+            soundsBuffer += savedFilePathOrId
+          } else if (Config.mediaStore.isValidSound(fileToStore)) {
+            soundsBuffer += savedFilePathOrId
+          } else if (metadata.containsKey("mimeType") && metadata.get("mimeType").asInstanceOf[String].startsWith("video/")) {
+            videosBuffer += savedFilePathOrId
+          } else if (metadata.containsKey("originalFileName") && Config.mediaStore.isValidVideo(metadata.get("originalFileName").asInstanceOf[String])) {
+            videosBuffer += savedFilePathOrId
           } else if (Config.mediaStore.isValidVideo(fileToStore)) {
             videosBuffer += savedFilePathOrId
+          } else if (metadata.containsKey("originalFileName") && Config.mediaStore.isValidImage(metadata.get("originalFileName").asInstanceOf[String])) {
+            imagesBuffer += savedFilePathOrId
+          } else if (metadata.containsKey("mimeType") && metadata.get("mimeType").asInstanceOf[String].startsWith("image/")) {
+            imagesBuffer += savedFilePathOrId
+          } else if (Config.mediaStore.isValidImage(fileToStore)) {
+            imagesBuffer += savedFilePathOrId
           } else {
+            // Expecting that all URLs will match one of the above, but can remove this if it turns out that many do not
+            logger.warn("Unrecognised media type, defaulting to image: " + fileToStore + " " + savedFilename + " " + savedFilePathOrId)
             imagesBuffer += savedFilePathOrId
           }
           associatedMediaBuffer += savedFilename
