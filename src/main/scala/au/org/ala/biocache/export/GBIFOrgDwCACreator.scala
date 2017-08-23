@@ -148,10 +148,10 @@ class GBIFOrgDwCACreator {
       fieldsString.append(nextField)
       fieldsString.append("\" ")
       if(defaultsFromCollectory.isDefined) {
-        val defaultsMap = defaultsFromCollectory.asInstanceOf[Map[String, Any]]
+        val defaultsMap = defaultsFromCollectory.get.asInstanceOf[Map[String, Any]]
         if(defaultsMap.contains(nextField)) {
           fieldsString.append(" default=\"")
-          fieldsString.append(defaultsMap.get(nextField).toString())
+          fieldsString.append(defaultsMap.get(nextField).get.toString())
           fieldsString.append("\" ")
         }
       }
