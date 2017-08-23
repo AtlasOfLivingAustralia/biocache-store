@@ -110,7 +110,7 @@ class GBIFOrgDwCACreator {
     FileUtils.forceMkdir(zipFile.getParentFile)
     val zop = new ZipOutputStream(new FileOutputStream(zipFile))
     if(addEML(zop, dataResource)){
-      addMeta(zop)
+      addMeta(zop, dataResource)
       addCSV(zop, dataResource)
       zop.close
     } else {
@@ -134,7 +134,11 @@ class GBIFOrgDwCACreator {
     }
   }
 
-  def addMeta(zop:ZipOutputStream) ={
+  def addMeta(zop:ZipOutputStream, dr:String) ={
+    val url = Config.registryUrl + "/dataResource/" + dr
+    val jsonString = Source.fromURL(url).getLines.mkString
+    val json = JSON.parseFull(jsonString).get.asInstanceOf[Map[String, String]]
+    val defaultsFromCollectory = json.get("defaultDarwinCoreValues")
     zop.putNextEntry(new ZipEntry("meta.xml"))
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
