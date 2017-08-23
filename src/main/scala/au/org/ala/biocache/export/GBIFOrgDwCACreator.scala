@@ -138,8 +138,26 @@ class GBIFOrgDwCACreator {
   def addMeta(zop:ZipOutputStream, dr:String) ={
     val url = Config.registryUrl + "/dataResource/" + dr
     val jsonString = Source.fromURL(url).getLines.mkString
-    val json = JSON.parseFull(jsonString).get.asInstanceOf[Map[String, String]]
+    val json = JSON.parseFull(jsonString).get.asInstanceOf[Map[String, Any]]
     val defaultsFromCollectory = json.get("defaultDarwinCoreValues")
+    val fieldsString = new StringBuilder()
+    for (nextField <- defaultFields) {
+      fieldsString.append("<field index=\"")
+      fieldsString.append(defaultFields.indexOf(nextField).toString())
+      fieldsString.append("\" term=\"http://rs.tdwg.org/dwc/terms/")
+      fieldsString.append(nextField)
+      fieldsString.append("\" ")
+      if(defaultsFromCollectory.isDefined) {
+        val defaultsMap = defaultsFromCollectory.asInstanceOf[Map[String, Any]]
+        if(defaultsMap.contains(nextField)) {
+          fieldsString.append(" default=\"")
+          fieldsString.append(defaultsMap.get(nextField).toString())
+          fieldsString.append("\" ")
+        }
+      }
+      fieldsString.append(" />\n")
+    }
+    //{defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f} {if (defaultsFromCollectory.contains(f)) {default={defaultsFromCollectory.get(f)} }/>)}
     zop.putNextEntry(new ZipEntry("meta.xml"))
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
@@ -148,7 +166,7 @@ class GBIFOrgDwCACreator {
       </files>
             <id index="0"/>
             <field index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
-            {defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
+            { fieldsString.toString() }
       </core>
     </archive>
     //add the XML
