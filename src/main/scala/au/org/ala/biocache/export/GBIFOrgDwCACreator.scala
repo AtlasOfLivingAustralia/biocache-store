@@ -12,6 +12,7 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
 import util.matching.Regex
 import au.org.ala.biocache.cmd.Tool
+import java.nio.charset.StandardCharsets
 
 /**
  * Companion object for the DwCACreator class.
@@ -125,7 +126,7 @@ class GBIFOrgDwCACreator {
     try {
       zop.putNextEntry(new ZipEntry("eml.xml"))
       val content = Source.fromURL(Config.registryUrl + "/eml/" + dr).mkString
-      zop.write(content.getBytes)
+      zop.write(content.getBytes(StandardCharsets.UTF_8))
       zop.flush
       zop.closeEntry
       true
@@ -151,9 +152,9 @@ class GBIFOrgDwCACreator {
       </core>
     </archive>
     //add the XML
-    zop.write("""<?xml version="1.0"?>""".getBytes)
-    zop.write("\n".getBytes)
-    zop.write(metaXml.mkString("\n").getBytes)
+    zop.write("""<?xml version="1.0"?>""".getBytes(StandardCharsets.UTF_8))
+    zop.write("\n".getBytes(StandardCharsets.UTF_8))
+    zop.write(metaXml.mkString("\n").getBytes(StandardCharsets.UTF_8))
     zop.flush
     zop.closeEntry
   }
@@ -163,7 +164,7 @@ class GBIFOrgDwCACreator {
     val startUuid = dr + "|"
     val endUuid = startUuid + "~"
     ExportUtil.export(
-      new CSVWriter(new OutputStreamWriter(zop)),
+      new CSVWriter(new OutputStreamWriter(zop, StandardCharsets.UTF_8)),
       "occ",
       defaultFields,
       List("uuid"),
