@@ -12,6 +12,7 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
 import util.matching.Regex
 import au.org.ala.biocache.cmd.Tool
+import java.nio.charset.StandardCharsets
 
 /**
  * Companion object for the DwCACreator class.
@@ -110,7 +111,7 @@ class GBIFOrgDwCACreator {
     FileUtils.forceMkdir(zipFile.getParentFile)
     val zop = new ZipOutputStream(new FileOutputStream(zipFile))
     if(addEML(zop, dataResource)){
-      addMeta(zop)
+      addMeta(zop, dataResource)
       addCSV(zop, dataResource)
       zop.close
     } else {
@@ -125,7 +126,7 @@ class GBIFOrgDwCACreator {
     try {
       zop.putNextEntry(new ZipEntry("eml.xml"))
       val content = Source.fromURL(Config.registryUrl + "/eml/" + dr).mkString
-      zop.write(content.getBytes)
+      zop.write(content.getBytes(StandardCharsets.UTF_8))
       zop.flush
       zop.closeEntry
       true
@@ -134,22 +135,48 @@ class GBIFOrgDwCACreator {
     }
   }
 
-  def addMeta(zop:ZipOutputStream) ={
-    zop.putNextEntry(new ZipEntry("meta.xml"))
-    val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
-      <files>
-            <location>occurrence.csv</location>
-      </files>
-            <id index="0"/>
-            <field index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
-            {defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
-      </core>
-    </archive>
+  def addMeta(zop:ZipOutputStream, dr:String) ={
+    val url = Config.registryUrl + "/dataResource/" + dr
+    val jsonString = Source.fromURL(url).getLines.mkString
+    val json = JSON.parseFull(jsonString).get.asInstanceOf[Map[String, Any]]
+    val defaultsFromCollectory = json.get("defaultDarwinCoreValues")
+    val fieldsString = new StringBuilder()
+    fieldsString.append("<archive xmlns=\"http://rs.tdwg.org/dwc/text/\" metadata=\"eml.xml\">\n")
+    fieldsString.append("  <core encoding=\"UTF-8\" linesTerminatedBy=\"\\n\" fieldsTerminatedBy=\",\" fieldsEnclosedBy=\"&quot;\" ignoreHeaderLines=\"0\" rowType=\"http://rs.tdwg.org/dwc/terms/Occurrence\">\n")
+    fieldsString.append("    <files>\n")
+    fieldsString.append("      <location>occurrence.csv</location>\n")
+    fieldsString.append("    </files>\n")
+    fieldsString.append("    <id index=\"0\"/>\n")
+    fieldsString.append("    <field index=\"0\" term=\"http://rs.tdwg.org/dwc/terms/occurrenceID\"/>\n")
+    var skippedFirst = false
+    for (nextField <- defaultFields) {
+      if(!skippedFirst) {
+        // First item hardcoded as occurrenceID, we must skip whatever is first on the list, should be uuid that isn't in Darwin Core Terms
+        skippedFirst = true
+      } else {
+        fieldsString.append("<field index=\"")
+        fieldsString.append(defaultFields.indexOf(nextField).toString())
+        fieldsString.append("\" term=\"http://rs.tdwg.org/dwc/terms/")
+        fieldsString.append(nextField)
+        fieldsString.append("\" ")
+        if(defaultsFromCollectory.isDefined) {
+          val defaultsMap = defaultsFromCollectory.get.asInstanceOf[Map[String, Any]]
+          if(defaultsMap.contains(nextField)) {
+            fieldsString.append(" default=\"")
+            fieldsString.append(defaultsMap.get(nextField).get.toString())
+            fieldsString.append("\" ")
+          }
+        }
+        fieldsString.append(" />\n")
+      }
+    }
+    fieldsString.append("  </core>\n")
+    fieldsString.append("</archive>\n")
     //add the XML
-    zop.write("""<?xml version="1.0"?>""".getBytes)
-    zop.write("\n".getBytes)
-    zop.write(metaXml.mkString("\n").getBytes)
+    zop.putNextEntry(new ZipEntry("meta.xml"))
+    zop.write("""<?xml version="1.0"?>""".getBytes(StandardCharsets.UTF_8))
+    zop.write("\n".getBytes(StandardCharsets.UTF_8))
+    zop.write(fieldsString.toString().getBytes(StandardCharsets.UTF_8))
     zop.flush
     zop.closeEntry
   }
@@ -159,7 +186,7 @@ class GBIFOrgDwCACreator {
     val startUuid = dr + "|"
     val endUuid = startUuid + "~"
     ExportUtil.export(
-      new CSVWriter(new OutputStreamWriter(zop)),
+      new CSVWriter(new OutputStreamWriter(zop, StandardCharsets.UTF_8)),
       "occ",
       defaultFields,
       List("uuid"),
