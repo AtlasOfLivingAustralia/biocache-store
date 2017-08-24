@@ -148,21 +148,27 @@ class GBIFOrgDwCACreator {
     fieldsString.append("    </files>\n")
     fieldsString.append("    <id index=\"0\"/>\n")
     fieldsString.append("    <field index=\"0\" term=\"http://rs.tdwg.org/dwc/terms/occurrenceID\"/>\n")
+    var skippedFirst = false
     for (nextField <- defaultFields) {
-      fieldsString.append("<field index=\"")
-      fieldsString.append(defaultFields.indexOf(nextField).toString())
-      fieldsString.append("\" term=\"http://rs.tdwg.org/dwc/terms/")
-      fieldsString.append(nextField)
-      fieldsString.append("\" ")
-      if(defaultsFromCollectory.isDefined) {
-        val defaultsMap = defaultsFromCollectory.get.asInstanceOf[Map[String, Any]]
-        if(defaultsMap.contains(nextField)) {
-          fieldsString.append(" default=\"")
-          fieldsString.append(defaultsMap.get(nextField).get.toString())
-          fieldsString.append("\" ")
+      if(!skippedFirst) {
+        // First item hardcoded as occurrenceID, we must skip whatever is first on the list, should be uuid that isn't in Darwin Core Terms
+        skippedFirst = true
+      } else {
+        fieldsString.append("<field index=\"")
+        fieldsString.append(defaultFields.indexOf(nextField).toString())
+        fieldsString.append("\" term=\"http://rs.tdwg.org/dwc/terms/")
+        fieldsString.append(nextField)
+        fieldsString.append("\" ")
+        if(defaultsFromCollectory.isDefined) {
+          val defaultsMap = defaultsFromCollectory.get.asInstanceOf[Map[String, Any]]
+          if(defaultsMap.contains(nextField)) {
+            fieldsString.append(" default=\"")
+            fieldsString.append(defaultsMap.get(nextField).get.toString())
+            fieldsString.append("\" ")
+          }
         }
+        fieldsString.append(" />\n")
       }
-      fieldsString.append(" />\n")
     }
     fieldsString.append("  </core>\n")
     fieldsString.append("</archive>\n")
