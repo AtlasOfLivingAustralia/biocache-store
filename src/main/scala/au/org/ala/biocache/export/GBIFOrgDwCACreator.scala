@@ -142,12 +142,12 @@ class GBIFOrgDwCACreator {
     val defaultsFromCollectory = json.get("defaultDarwinCoreValues")
     val fieldsString = new StringBuilder()
     fieldsString.append("<archive xmlns=\"http://rs.tdwg.org/dwc/text/\" metadata=\"eml.xml\">\n")
-    fieldsString.append("  <core encoding=\"UTF-8\" linesTerminatedBy=\"\\n\" fieldsTerminatedBy=\",\" fieldsEnclosedBy=\"&quot;\" ignoreHeaderLines=\"0\" rowType=\"http://rs.tdwg.org/dwc/terms/Occurrence\">")
-    fieldsString.append("    <files>")
-    fieldsString.append("      <location>occurrence.csv</location>")
-    fieldsString.append("    </files>")
-    fieldsString.append("    <id index=\"0\"/>")
-    fieldsString.append("    <field index=\"0\" term=\"http://rs.tdwg.org/dwc/terms/occurrenceID\"/>")
+    fieldsString.append("  <core encoding=\"UTF-8\" linesTerminatedBy=\"\\n\" fieldsTerminatedBy=\",\" fieldsEnclosedBy=\"&quot;\" ignoreHeaderLines=\"0\" rowType=\"http://rs.tdwg.org/dwc/terms/Occurrence\">\n")
+    fieldsString.append("    <files>\n")
+    fieldsString.append("      <location>occurrence.csv</location>\n")
+    fieldsString.append("    </files>\n")
+    fieldsString.append("    <id index=\"0\"/>\n")
+    fieldsString.append("    <field index=\"0\" term=\"http://rs.tdwg.org/dwc/terms/occurrenceID\"/>\n")
     for (nextField <- defaultFields) {
       fieldsString.append("<field index=\"")
       fieldsString.append(defaultFields.indexOf(nextField).toString())
@@ -164,8 +164,8 @@ class GBIFOrgDwCACreator {
       }
       fieldsString.append(" />\n")
     }
-    fieldsString.append("  </core>")
-    fieldsString.append("</archive>")
+    fieldsString.append("  </core>\n")
+    fieldsString.append("</archive>\n")
     //add the XML
     zop.putNextEntry(new ZipEntry("meta.xml"))
     zop.write("""<?xml version="1.0"?>""".getBytes(StandardCharsets.UTF_8))
