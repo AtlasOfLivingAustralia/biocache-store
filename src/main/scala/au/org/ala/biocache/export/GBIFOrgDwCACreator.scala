@@ -141,6 +141,13 @@ class GBIFOrgDwCACreator {
     val json = JSON.parseFull(jsonString).get.asInstanceOf[Map[String, Any]]
     val defaultsFromCollectory = json.get("defaultDarwinCoreValues")
     val fieldsString = new StringBuilder()
+    fieldsString.append("<archive xmlns=\"http://rs.tdwg.org/dwc/text/\" metadata=\"eml.xml\">\n")
+    fieldsString.append("  <core encoding=\"UTF-8\" linesTerminatedBy=\"\r\n\" fieldsTerminatedBy=\",\" fieldsEnclosedBy=\"&quot;\" ignoreHeaderLines=\"0\" rowType=\"http://rs.tdwg.org/dwc/terms/Occurrence\">")
+    fieldsString.append("    <files>")
+    fieldsString.append("      <location>occurrence.csv</location>")
+    fieldsString.append("    </files>")
+    fieldsString.append("    <id index=\"0\"/>")
+    fieldsString.append("    <field index=\"0\" term=\"http://rs.tdwg.org/dwc/terms/occurrenceID\"/>")
     for (nextField <- defaultFields) {
       fieldsString.append("<field index=\"")
       fieldsString.append(defaultFields.indexOf(nextField).toString())
@@ -157,22 +164,13 @@ class GBIFOrgDwCACreator {
       }
       fieldsString.append(" />\n")
     }
-    //{defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f} {if (defaultsFromCollectory.contains(f)) {default={defaultsFromCollectory.get(f)} }/>)}
-    zop.putNextEntry(new ZipEntry("meta.xml"))
-    val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
-      <files>
-            <location>occurrence.csv</location>
-      </files>
-            <id index="0"/>
-            <field index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
-            { fieldsString.toString() }
-      </core>
-    </archive>
+    fieldsString.append("  </core>")
+    fieldsString.append("</archive>")
     //add the XML
+    zop.putNextEntry(new ZipEntry("meta.xml"))
     zop.write("""<?xml version="1.0"?>""".getBytes(StandardCharsets.UTF_8))
     zop.write("\n".getBytes(StandardCharsets.UTF_8))
-    zop.write(metaXml.mkString("\n").getBytes(StandardCharsets.UTF_8))
+    zop.write(fieldsString.toString().getBytes(StandardCharsets.UTF_8))
     zop.flush
     zop.closeEntry
   }
