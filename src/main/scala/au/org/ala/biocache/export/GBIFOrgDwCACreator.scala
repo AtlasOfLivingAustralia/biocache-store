@@ -142,7 +142,7 @@ class GBIFOrgDwCACreator {
     val defaultsFromCollectory = json.get("defaultDarwinCoreValues")
     val fieldsString = new StringBuilder()
     fieldsString.append("<archive xmlns=\"http://rs.tdwg.org/dwc/text/\" metadata=\"eml.xml\">\n")
-    fieldsString.append("  <core encoding=\"UTF-8\" linesTerminatedBy=\"\r\n\" fieldsTerminatedBy=\",\" fieldsEnclosedBy=\"&quot;\" ignoreHeaderLines=\"0\" rowType=\"http://rs.tdwg.org/dwc/terms/Occurrence\">")
+    fieldsString.append("  <core encoding=\"UTF-8\" linesTerminatedBy=\"\\n\" fieldsTerminatedBy=\",\" fieldsEnclosedBy=\"&quot;\" ignoreHeaderLines=\"0\" rowType=\"http://rs.tdwg.org/dwc/terms/Occurrence\">")
     fieldsString.append("    <files>")
     fieldsString.append("      <location>occurrence.csv</location>")
     fieldsString.append("    </files>")
