@@ -6,6 +6,7 @@ import java.util.zip.ZipEntry
 import au.com.bytecode.opencsv.CSVWriter
 import scala.io.Source
 import org.apache.commons.io.FileUtils
+import org.apache.commons.text.StringEscapeUtils
 import scala.util.parsing.json.JSON
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
@@ -154,16 +155,16 @@ class GBIFOrgDwCACreator {
         // First item hardcoded as occurrenceID, we must skip whatever is first on the list, should be uuid that isn't in Darwin Core Terms
         skippedFirst = true
       } else {
-        fieldsString.append("<field index=\"")
+        fieldsString.append("    <field index=\"")
         fieldsString.append(defaultFields.indexOf(nextField).toString())
         fieldsString.append("\" term=\"http://rs.tdwg.org/dwc/terms/")
-        fieldsString.append(nextField)
+        fieldsString.append(StringEscapeUtils.escapeXml10(nextField))
         fieldsString.append("\" ")
         if(defaultsFromCollectory.isDefined) {
           val defaultsMap = defaultsFromCollectory.get.asInstanceOf[Map[String, Any]]
           if(defaultsMap.contains(nextField)) {
             fieldsString.append(" default=\"")
-            fieldsString.append(defaultsMap.get(nextField).get.toString())
+            fieldsString.append(StringEscapeUtils.escapeXml10(defaultsMap.get(nextField).get.toString()))
             fieldsString.append("\" ")
           }
         }
