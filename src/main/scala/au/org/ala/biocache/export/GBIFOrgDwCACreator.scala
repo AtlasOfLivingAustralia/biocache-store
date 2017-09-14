@@ -90,7 +90,7 @@ class GBIFOrgDwCACreator {
       "vernacularName", "identificationQualifier", "individualCount", "eventID", "geodeticDatum", "eventTime", "associatedSequences",
       "eventDate", "collectionID" , "datasetID" , "datasetName" , "language" , "modified" , "rightsHolder" , "fieldNumber" , 
       "georeferencedDate" , "higherClassification" , "higherGeography" , "institutionID" , "lifeStage" , "municipality" , "occurrenceStatus" ,
-      "ownerInstitutionCode" , "preparations" , "sex" , "subgenus" , "typeStatus" , "verbatimLocality" , "geodeticDatum" , "scientificNameAuthorship")
+      "ownerInstitutionCode" , "preparations" , "sex" , "subgenus" , "typeStatus" , "verbatimLocality" , "scientificNameAuthorship")
 
   //The compulsory mapping fields for GBIF.
   // This indicates that the data resource name may need to be assigned at load time instead of processing
