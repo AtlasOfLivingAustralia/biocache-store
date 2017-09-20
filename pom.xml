@@ -33,6 +33,8 @@
         <targetJdk>1.8</targetJdk>
         <animal-sniffer-signature.artifact>java18</animal-sniffer-signature.artifact>
         <animal-sniffer-signature.version>1.0</animal-sniffer-signature.version>
+        <initialMemorySize>4g</initialMemorySize>
+        <maxMemorySize>4g</maxMemorySize>
     </properties>
     <prerequisites>
         <maven>3.0.5</maven>
@@ -803,8 +805,10 @@
                         <includeConfigurationDirectoryInClasspath>true</includeConfigurationDirectoryInClasspath>
                         <projectArtifactFirstInClassPath>true</projectArtifactFirstInClassPath>
                         <configurationDirectory>etc</configurationDirectory>
-                        <copyConfigurationDirectory>true</copyConfigurationDirectory>
+                        <!-- copyConfigurationDirectory>true</copyConfigurationDirectory -->
                         <environmentSetupFileName>environmentSetupFile.sh</environmentSetupFileName>
+                        <preAssembleDirectory>src/main/bin</preAssembleDirectory>
+                        <filterPreAssembleDirectory>true</filterPreAssembleDirectory>
                         <programs>
                             <program>
                                 <id>biocache</id>
