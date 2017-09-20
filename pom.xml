@@ -805,7 +805,6 @@
                         <includeConfigurationDirectoryInClasspath>true</includeConfigurationDirectoryInClasspath>
                         <projectArtifactFirstInClassPath>true</projectArtifactFirstInClassPath>
                         <configurationDirectory>etc</configurationDirectory>
-                        <!-- copyConfigurationDirectory>true</copyConfigurationDirectory -->
                         <environmentSetupFileName>environmentSetupFile.sh</environmentSetupFileName>
                         <preAssembleDirectory>src/main/bin</preAssembleDirectory>
                         <filterPreAssembleDirectory>true</filterPreAssembleDirectory>
