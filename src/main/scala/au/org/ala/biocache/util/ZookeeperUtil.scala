@@ -40,11 +40,13 @@ object ZookeeperUtil {
     * @param count
     */
   def setStatus(processName:String, status:String, count:Int): Unit ={
-    val now = org.apache.commons.lang.time.DateFormatUtils.format(
-      new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
-    setProperty(processName, Config.nodeNumber.toString, "status", status)
-    setProperty(processName, Config.nodeNumber.toString, "count", count.toString)
-    setProperty(processName, Config.nodeNumber.toString, "lastUpdated", now)
+    if(Config.zookeeperUpdatesEnabled) {
+      val now = org.apache.commons.lang.time.DateFormatUtils.format(
+        new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
+      setProperty(processName, Config.nodeNumber.toString, "status", status)
+      setProperty(processName, Config.nodeNumber.toString, "count", count.toString)
+      setProperty(processName, Config.nodeNumber.toString, "lastUpdated", now)
+    }
   }
 
   /**
@@ -56,11 +58,13 @@ object ZookeeperUtil {
     * @param count
     */
   def setStatus(processName:String, nodeID:String, status:String, count:Int): Unit ={
-    val now = org.apache.commons.lang.time.DateFormatUtils.format(
-      new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
-    setProperty(processName, nodeID, "status", status)
-    setProperty(processName, nodeID, "count", count.toString)
-    setProperty(processName, nodeID, "lastUpdated", now)
+    if(Config.zookeeperUpdatesEnabled) {
+      val now = org.apache.commons.lang.time.DateFormatUtils.format(
+        new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
+      setProperty(processName, nodeID, "status", status)
+      setProperty(processName, nodeID, "count", count.toString)
+      setProperty(processName, nodeID, "lastUpdated", now)
+    }
   }
 
   /**
@@ -72,9 +76,11 @@ object ZookeeperUtil {
    * @param count
    */
   def setStatus(processName:String, nodeID:String, status:String, count:Int, lastUpdated:String): Unit ={
-    setProperty(processName, nodeID, "status", status)
-    setProperty(processName, nodeID, "count", count.toString)
-    setProperty(processName, nodeID, "lastUpdated", lastUpdated)
+    if(Config.zookeeperUpdatesEnabled) {
+      setProperty(processName, nodeID, "status", status)
+      setProperty(processName, nodeID, "count", count.toString)
+      setProperty(processName, nodeID, "lastUpdated", lastUpdated)
+    }
   }
 
   /**

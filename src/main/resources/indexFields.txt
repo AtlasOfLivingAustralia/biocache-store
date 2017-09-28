@@ -290,7 +290,7 @@ geospatial_kosher	string	geospatiallyKosher	F	F	F	F
 	string	northing	F	F	F	F
 	string	occurrenceRemarks	F	F	F	F
 	string	occurrenceStatus	F	F	F	F
-	string	occurrenceStatus_p	F	F	F	F
+occurrenceStatus	string	occurrenceStatus_p	F	F	F	F
 	string	offline_qa	T	T	F	F
 	string	order	F	F	F	F
 	string	orderID_p	F	F	F	F

@@ -7,7 +7,7 @@ import au.org.ala.biocache.dao.{OccurrenceDAOImpl, OccurrenceDAO}
 import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
 import org.slf4j.LoggerFactory
 
-class MockPersistenceManager /*extends PersistenceManager*/ {
+class MockPersistenceManager extends PersistenceManager {
 
   val logger = LoggerFactory.getLogger("MockPersistenceManager")
 
@@ -151,4 +151,30 @@ class MockPersistenceManager /*extends PersistenceManager*/ {
 
   def createSecondaryIndex(entityName:String, indexFieldName:String, threads:Int) = 0
 
+  /**
+    * Page over all records using an indexed field
+    *
+    * @param entityName
+    * @param proc
+    * @param indexedField
+    * @param indexedFieldValue
+    * @param threads
+    */
+  override def pageOverIndexedField(entityName: String, proc: (String, Map[String, String]) => Boolean, indexedField: String, indexedFieldValue: String, threads: Int, localOnly: Boolean): Int = {
+    1
+  }
+
+  def rowKeyExists(rowKey:String, entityName:String) : Boolean = false
+
+  /**
+    * Page over the records that are local to this node.
+    *
+    * @param entityName
+    * @param proc
+    * @param threads
+    * @return
+    */
+  override def pageOverLocal(entityName: String, proc: (String, Map[String, String], String) => Boolean, threads: Int, columns: Array[String]): Int = {
+    1
+  }
 }

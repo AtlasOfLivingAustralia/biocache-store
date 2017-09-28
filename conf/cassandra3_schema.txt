@@ -1,475 +1,732 @@
-CREATE KEYSPACE occ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 2 };
-use occ;
+CREATE KEYSPACE occ WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '2'}  AND durable_writes = true;
 
-CREATE TABLE occ_uuid (
-  rowkey varchar,
-  value varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.loc (
+    rowkey text PRIMARY KEY,
+    decimallatitude text,
+    decimallongitude text,
+    lat text,
+    lon text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ (
-  rowkey varchar,
-  uuid varchar,
-  occurrenceID varchar,
-  abcdIdentificationQualifier_p varchar,
-  acceptedNameUsage varchar,
-  acceptedNameUsageID varchar,
-  accessrights varchar,
-  associatedMedia varchar,
-  associatedOccurrences varchar,
-  associatedReferences varchar,
-  associatedSequences varchar,
-  associatedTaxa varchar,
-  attr_qa varchar,
-  australianHerbariumRegion varchar,
-  basisOfRecord varchar,
-  basisOfRecord_p varchar,
-  bbox varchar,
-  bbox_p varchar,
-  behavior varchar,
-  bibliographicCitation varchar,
-  biome varchar,
-  biome_p varchar,
-  bioOrder varchar,
-  bor_qa varchar,
-  catalogNumber varchar,
-  citation varchar,
-  class_qa varchar,
-  classID varchar,
-  classid_p varchar,
-  classs varchar,
-  classs_p varchar,
-  collectionCode varchar,
-  collectionID varchar,
-  collectionName varchar,
-  collectionUid varchar,,
-  collectorFieldNumber varchar,
-  continent varchar,
-  coordinatePrecision varchar,
-  coordinateUncertaintyInMeters varchar,
-  coordinateUncertaintyInMeters_p varchar,
-  country varchar,
-  country_p varchar,
-  countryCode varchar,
-  countryCode_p varchar,
-  countryConservation varchar,
-  county varchar,
-  cultivarName varchar,
-  cultivated varchar,
-  dataGeneralizations varchar,
-  datageneralizations_p varchar,
-  dataHubName varchar,
-  dataHubUid varchar,
-  dataProviderName varchar,
-  dataprovidername_p varchar,
-  dataProviderUid varchar,
-  dataProviderUid_p  varchar,
-  dataResourceName varchar,
-  dataResourceName_p varchar,
-  dataResourceUid varchar,
-  datasetID varchar,
-  datasetName varchar,
-  datePrecision varchar,
-  day varchar,
-  day_p varchar,
-  decimalLatitude varchar,
-  decimalLatitude_p varchar,
-  decimalLongitude varchar,
-  decimalLongitude_p varchar,
-  default_qa varchar,
-  defaultValuesUsed varchar,
-  disposition varchar,
-  distanceOutsideExpertRange varchar,
-  duplicates varchar,
-  duplicatesOriginalInstitutionID varchar,
-  duplicatesOriginalUnitID varchar,
-  duplicationStatus varchar,
-  duplicationType varchar,
-  dynamicProperties varchar,
-  easting varchar,
-  easting_p varchar,
-  endDayOfYear varchar,
-  endYear varchar,
-  establishmentMeans varchar,
-  event_qa varchar,
-  eventAttributes varchar,
-  eventDate varchar,
-  eventDate_p varchar,
-  eventDateEnd varchar,
-  eventID varchar,
-  eventRemarks varchar,
-  eventTime varchar,
-  family varchar,
-  family_p varchar,
-  familyID varchar,
-  familyID_p varchar,
-  fieldNotes varchar,
-  fieldNumber varchar,
-  firstLoaded varchar,
-  footprintSpatialFit varchar,
-  footprintSRS varchar,
-  footprintWKT varchar,
-  generalisedLocality varchar,
-  generalisationtoapplyinmetres varchar,
-  genus varchar,
-  genus_p varchar,
-  genusID varchar,
-  genusID_p varchar,
-  geodeticDatum varchar,
-  geodeticDatum_p varchar,
-  georeferencedBy varchar,
-  georeferencedDate varchar,
-  georeferenceProtocol varchar,
-  georeferenceRemarks varchar,
-  georeferenceSources varchar,
-  georeferenceVerificationStatus varchar,
-  geospatiallyKosher varchar,
-  globalConservation varchar,
-  gridReference varchar,
-  habitat varchar,
-  higherClassification varchar,
-  higherGeography varchar,
-  higherGeographyID varchar,
-  identificationQualifier_p varchar,
-  IdentificationQualifierProcessor_qa varchar,
-  identifiedby varchar,
-  identificationVerificationStatus varchar,
-  identifier varchar,
-  image_qa varchar,
-  images varchar,
-  images_p varchar,
-  individualCount varchar,
-  individualID varchar,
-  informationWithheld varchar,
-  infraspecificEpithet varchar,
-  infraspecificMarker varchar,
-  institutionCode varchar,
-  institutionID varchar,
-  institutionName varchar,
-  institutionUid varchar,
-  interactions varchar,
-  island varchar,
-  islandGroup varchar,
-  kingdom varchar,
-  kingdom_p varchar,
-  kingdomID varchar,
-  kingdomID_p varchar,
-  language varchar,
-  lastModifiedTime varchar,
-  lastModifiedTime_p varchar,
-  left varchar,
-  left_p varchar,
-  lga varchar,
-  lga_p varchar,
-  license varchar,
-  license_p varchar,
-  lifeStage varchar,
-  loanDate varchar,
-  loanDestination varchar,
-  loanForBotanist varchar,
-  loanIdentifier varchar,
-  loanReturnDate varchar,
-  loanSequenceNumber varchar,
-  loc_qa varchar,
-  locality varchar,
-  locationAccordingTo varchar,
-  locationAttributes varchar,
-  locationDetermined varchar,
-  locationID varchar,
-  locationRemarks varchar,
-  maximumDepthInMeters varchar,
-  maximumDistanceAboveSurfaceInMeters varchar,
-  maximumElevationInMeters varchar,
-  measurementAccuracy varchar,
-  measurementDeterminedBy varchar,
-  measurementDeterminedDate varchar,
-  measurementID varchar,
-  measurementMethod varchar,
-  measurementRemarks varchar,
-  measurementType varchar,
-  measurementUnit varchar,
-  measurementValue varchar,
-  minimumDepthInMeters varchar,
-  minimumDistanceAboveSurfaceInMeters varchar,
-  minimumElevationInMeters varchar,
-  miscProperties varchar,
-  modified varchar,
-  month varchar,
-  month_p varchar,
-  municipality varchar,
-  nameAccordingTo varchar,
-  nameAccordingToID varchar,
-  nameMatchMetric varchar,
-  nameMatchMetric_p varchar,
-  nameParseType varchar,
-  nameParseType_p varchar,
-  namePublishedIn varchar,
-  namePublishedInID varchar,
-  namePublishedInYear varchar,
-  naturalOccurrence varchar,
-  nearNamedPlaceRelationTo varchar,
-  nomenclaturalCode varchar,
-  nomenclaturalStatus varchar,
-  northing varchar,
-  northing_p varchar,
-  occurrenceAttributes varchar,
-  occurrenceDetails varchar,
-  occurrenceRemarks varchar,
-  occurrenceStatus varchar,
-  occurrenceStatus_p varchar,
-  offline_qa varchar,
-  order_p varchar,
-  orderID varchar,
-  orderID_p varchar,
-  originalNameUsage varchar,
-  originalNameUsageID varchar,
-  originalSensitiveValues varchar,
-  originalDecimalLatitude varchar,
-  originalDecimalLongitude varchar,
-  otherCatalogNumbers varchar,
-  outlierForLayers varchar,
-  ownerInstitutionCode varchar,
-  parentNameUsage varchar,
-  parentNameUsageID varchar,
-  phenology varchar,
-  photographer varchar,
-  phylum varchar,
-  phylum_p varchar,
-  phylumID varchar,
-  phylumID_p varchar,
-  pointRadiusSpatialFit varchar,
-  preferredFlag varchar,
-  preparations varchar,
-  previousIdentifications varchar,
-  provenance varchar,
-  qualityassertion varchar,
-  recordedBy varchar,
-  recordedby_p varchar,
-  recordNumber varchar,
-  relatedResourceID varchar,
-  relationshipAccordingTo varchar,
-  relationshipEstablishedDate varchar,
-  relationshipOfResource varchar,
-  relationshipRemarks varchar,
-  reproductiveCondition varchar,
-  resourceID varchar,
-  resourceRelationshipID varchar,
-  right varchar,
-  right_p varchar,
-  rights varchar,
-  rightsholder varchar,
-  samplingEffort varchar,
-  samplingProtocol varchar,
-  scientificName varchar,
-  scientificName_p varchar,
-  scientificNameAddendum varchar,
-  scientificNameAuthorship varchar,
-  scientificNameID varchar,
-  scientificNameWithoutAuthor varchar,
-  secondaryCollectors varchar,
-  sensitive_qa varchar,
-  sex varchar,
-  sounds varchar,
-  source varchar,
-  species varchar,
-  species_p varchar,
-  speciesGroups varchar,
-  speciesHabitats varchar,
-  speciesID varchar,
-  speciesID_p varchar,
-  specificEpithet varchar,
-  startDayOfYear varchar,
-  startYear varchar,
-  stateConservation varchar,
-  stateProvince varchar,
-  stateprovince_p varchar,
-  subfamily varchar,
-  subgenus varchar,
-  subgenusID varchar,
-  subspecies varchar,
-  subspecies_p varchar,
-  subspeciesID varchar,
-  subspeciesID_p varchar,
-  superfamily varchar,
-  taxonConceptID varchar,
-  taxonConceptID_p varchar,
-  taxonID varchar,
-  taxonomicallyKosher varchar,
-  taxonomicIssue varchar,
-  taxonomicIssue_p varchar,
-  taxonomicStatus varchar,
-  taxonRank varchar,
-  taxonRank_p varchar,
-  taxonRankID varchar,
-  taxonRankID_p varchar,
-  taxonRemarks varchar,
-  type_qa varchar,
-  userId varchar,
-  userQualityAssertion varchar,
-  validDistribution varchar,
-  verbatimCoordinates varchar,
-  verbatimCoordinateSystem varchar,
-  verbatimDepth varchar,
-  verbatimElevation varchar,
-  verbatimEventDate varchar,
-  verbatimLatitude varchar,
-  verbatimLocality varchar,
-  verbatimLongitude varchar,
-  verbatimSRS varchar,
-  verbatimTaxonRank varchar,
-  vernacularName varchar,
-  vernacularName_p varchar,
-  videos varchar,
-  waterBody varchar,
-  year varchar,
-  year_p varchar,
-  zone varchar,
-  el_p varchar,
-  cl_p varchar,
-PRIMARY KEY (rowkey, dataresourceuid)
-);
+CREATE TABLE occ.distribution_outliers (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE loc (
-    rowkey varchar,
-    lat varchar,
-    decimallatitude varchar,
-    decimallongitude varchar,
-    lon varchar,
-    cl1083 varchar,
-    cl1 varchar,
-    cl2 varchar,
-    cl3 varchar,
-    cl4 varchar,
-    cl6 varchar,
-    cl7 varchar,
-    cl8 varchar,
-    cl9 varchar,
-    cl10 varchar,
-    cl11 varchar,
-    cl12 varchar,
-    cl13 varchar,
-    cl5 varchar,
-    cl14 varchar,
-    cl15 varchar,
-    cl16 varchar,
-    cl17 varchar,
-    cl27 varchar,
-    cl25 varchar,
-    cl26 varchar,
-    cl20 varchar,
-    cl18 varchar,
-    cl21 varchar,
-    cl19 varchar,
-    cl24 varchar,
-    cl1001 varchar,
-    cl1000 varchar,
-    cl23 varchar,
- PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.attr (
+    rowkey text PRIMARY KEY,
+    citation text,
+    collectionname text,
+    collectionuid text,
+    datahubname text,
+    datahubuid text,
+    dataprovidername text,
+    dataprovideruid text,
+    dataresourcename text,
+    dataresourceuid text,
+    defaultdwcvalues text,
+    institutionname text,
+    institutionuid text,
+    provenance text,
+    taxonomichints text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE qa (
-  rowkey varchar,
-  uuid varchar,
-  referenceRowKey varchar,
-  name varchar,
-  code varchar,
-  problemAsserted varchar,
-  relatedUuid varchar,
-  qaStatus varchar,
-  comment varchar,
-  value varchar,
-  userId varchar,
-  userEmail varchar,
-  userDisplayName varchar,
-  userRole varchar,
-  userEntityUid varchar,
-  userEntityName varchar,
-  created varchar,
-  snapshot varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.duplicates (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE taxon (
-  rowkey varchar,
-  commonName varchar,
-  habitats varchar,
-  conservation varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.qa (
+    rowkey text PRIMARY KEY,
+    code text,
+    comment text,
+    created text,
+    name text,
+    problemasserted text,
+    qastatus text,
+    referencerowkey text,
+    relateduuid text,
+    snapshot text,
+    userdisplayname text,
+    useremail text,
+    userentityname text,
+    userentityuid text,
+    userid text,
+    userrole text,
+    uuid text,
+    value text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE attr (
-  rowkey varchar,
-  dataProviderUid varchar,
-  dataProviderName varchar,
-  dataResourceUid varchar,
-  dataResourceName varchar,
-  collectionUid varchar,
-  institutionUid varchar,
-  dataHubUid varchar,
-  dataHubName varchar,
-  institutionName varchar,
-  collectionName varchar,
-  citation varchar,
-  provenance varchar,
-  taxonomicHints varchar,
-  defaultDwcValues varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.occ (
+    rowkey text,
+    dataresourceuid text,
+    abcdidentificationqualifier_p text,
+    acceptednameusage text,
+    acceptednameusageid text,
+    accessrights text,
+    associatedmedia text,
+    associatedoccurrences text,
+    associatedoccurrences_p text,
+    associatedorganisms text,
+    associatedreferences text,
+    associatedsequences text,
+    associatedtaxa text,
+    attr_qa text,
+    australianherbariumregion text,
+    basisofrecord text,
+    basisofrecord_p text,
+    bbox text,
+    bbox_p text,
+    bed text,
+    behavior text,
+    bibliographiccitation text,
+    biome text,
+    biome_p text,
+    bioorder text,
+    bor_qa text,
+    catalognumber text,
+    citation text,
+    cl_p text,
+    class_qa text,
+    classid text,
+    classid_p text,
+    classs text,
+    classs_p text,
+    collectioncode text,
+    collectioncode_p text,
+    collectionid text,
+    collectionname text,
+    collectionname_p text,
+    collectionuid text,
+    collectionuid_p text,
+    collectorfieldnumber text,
+    continent text,
+    coordinateprecision text,
+    coordinateprecision_p text,
+    coordinateuncertaintyinmeters text,
+    coordinateuncertaintyinmeters_p text,
+    country text,
+    country_p text,
+    countrycode text,
+    countrycode_p text,
+    countryconservation text,
+    county text,
+    cultivarname text,
+    cultivated text,
+    datageneralizations text,
+    datageneralizations_p text,
+    datahub_p text,
+    datahubname text,
+    datahubuid text,
+    datahubuid_p text,
+    dataprovidername text,
+    dataprovidername_p text,
+    dataprovideruid text,
+    dataprovideruid_p text,
+    dataresourcename text,
+    dataresourcename_p text,
+    datasetid text,
+    datasetname text,
+    datedeleted text,
+    dateidentified text,
+    dateidentified_p text,
+    dateprecision text,
+    dateprecision_p text,
+    day text,
+    day_p text,
+    decimallatitude text,
+    decimallatitude_p text,
+    decimallatitudelatitude text,
+    decimallongitude text,
+    decimallongitude_p text,
+    default_qa text,
+    defaultvaluesused text,
+    deleted text,
+    disposition text,
+    distanceoutsideexpertrange text,
+    distanceoutsideexpertrange_p text,
+    duplicates text,
+    duplicates_qa text,
+    duplicatesoriginalinstitutionid text,
+    duplicatesoriginalunitid text,
+    duplicationstatus text,
+    duplicationstatus_p text,
+    duplicationtype text,
+    duplicationtype_p text,
+    dynamicproperties text,
+    earliestageorloweststage text,
+    earliesteonorlowesteonothem text,
+    earliestepochorlowestseries text,
+    earliesteraorlowesterathem text,
+    earliestperiodorlowestsystem text,
+    easting text,
+    easting_p text,
+    el_p text,
+    enddayofyear text,
+    endyear text,
+    establishmentmeans text,
+    establishmentmeans_p text,
+    event_qa text,
+    eventattributes text,
+    eventdate text,
+    eventdate_p text,
+    eventdateend text,
+    eventid text,
+    eventremarks text,
+    eventtime text,
+    family text,
+    family_p text,
+    familyid text,
+    familyid_p text,
+    fieldnotes text,
+    fieldnumber text,
+    firstloaded text,
+    footprintspatialfit text,
+    footprintsrs text,
+    footprintwkt text,
+    formation text,
+    generalisationtoapplyinmetres text,
+    generalisedlocality text,
+    generalisedmeters text,
+    genus text,
+    genus_p text,
+    genusid text,
+    genusid_p text,
+    geodeticdatum text,
+    geodeticdatum_p text,
+    geologicalcontextid text,
+    georeferencedby text,
+    georeferencedby_p text,
+    georeferenceddate text,
+    georeferenceddate_p text,
+    georeferenceprotocol text,
+    georeferenceprotocol_p text,
+    georeferenceremarks text,
+    georeferencesources text,
+    georeferencesources_p text,
+    georeferenceverificationstatus text,
+    georeferenceverificationstatus_p text,
+    geospatialissue text,
+    geospatiallykosher text,
+    globalconservation text,
+    gridreference text,
+    group text,
+    habitat text,
+    habitat_p text,
+    higherclassification text,
+    highergeography text,
+    highergeographyid text,
+    highestbiostratigraphiczone text,
+    identificationid text,
+    identificationqualifier text,
+    identificationqualifier_p text,
+    identificationqualifierprocessor_qa text,
+    identificationreferences text,
+    identificationreferences_p text,
+    identificationremarks text,
+    identificationverificationstatus text,
+    identificationverificationstatus_p text,
+    identifiedby text,
+    identifiedby_p text,
+    identifier text,
+    identifierby text,
+    identifierrole text,
+    image_qa text,
+    images text,
+    images_p text,
+    individualcount text,
+    individualid text,
+    informationwithheld text,
+    informationwithheld_p text,
+    infraspecificepithet text,
+    infraspecificmarker text,
+    institutioncode text,
+    institutioncode_p text,
+    institutionid text,
+    institutionname text,
+    institutionname_p text,
+    institutionuid text,
+    institutionuid_p text,
+    interactions text,
+    interactions_p text,
+    island text,
+    islandgroup text,
+    kingdom text,
+    kingdom_p text,
+    kingdomid text,
+    kingdomid_p text,
+    language text,
+    lastmodifiedtime text,
+    lastmodifiedtime_p text,
+    lastuserassertiondate text,
+    latestageorhigheststage text,
+    latesteonorhighesteonothem text,
+    latestepochorhighestseries text,
+    latesteraorhighesterathem text,
+    latestperiodorhighestsystem text,
+    left text,
+    left_p text,
+    lga text,
+    lga_p text,
+    license text,
+    license_p text,
+    lifestage text,
+    lithostratigraphicterms text,
+    loandate text,
+    loandestination text,
+    loanforbotanist text,
+    loanidentifier text,
+    loanreturndate text,
+    loansequencenumber text,
+    loc_qa text,
+    locality text,
+    locality_p text,
+    locationaccordingto text,
+    locationattributes text,
+    locationdetermined text,
+    locationid text,
+    locationremarks text,
+    lowestbiostratigraphiczone text,
+    materialsampleid text,
+    maximumdepthinmeters text,
+    maximumdepthinmeters_p text,
+    maximumdistanceabovesurfaceinmeters text,
+    maximumelevationinmeters text,
+    maximumelevationinmeters_p text,
+    measurementaccuracy text,
+    measurementdeterminedby text,
+    measurementdetermineddate text,
+    measurementid text,
+    measurementmethod text,
+    measurementremarks text,
+    measurementtype text,
+    measurementunit text,
+    measurementvalue text,
+    member text,
+    minimumdepthinmeters text,
+    minimumdepthinmeters_p text,
+    minimumdistanceabovesurfaceinmeters text,
+    minimumelevationinmeters text,
+    minimumelevationinmeters_p text,
+    miscproperties text,
+    modified text,
+    modified_p text,
+    month text,
+    month_p text,
+    municipality text,
+    nameaccordingto text,
+    nameaccordingto_p text,
+    nameaccordingtoid text,
+    namematchmetric text,
+    namematchmetric_p text,
+    nameparsetype text,
+    nameparsetype_p text,
+    namepublishedin text,
+    namepublishedinid text,
+    namepublishedinyear text,
+    naturaloccurrence text,
+    nearnamedplacerelationto text,
+    nomenclaturalcode text,
+    nomenclaturalcode_p text,
+    nomenclaturalstatus text,
+    northing text,
+    northing_p text,
+    occurrenceattributes text,
+    occurrencedetails text,
+    occurrenceid text,
+    occurrenceremarks text,
+    occurrencestatus text,
+    occurrencestatus_p text,
+    offline_qa text,
+    order_p text,
+    orderid text,
+    orderid_p text,
+    organismid text,
+    organismname text,
+    organismquantity text,
+    organismquantitytype text,
+    organismremarks text,
+    organismscope text,
+    originaldecimallatitude text,
+    originaldecimallongitude text,
+    originalnameusage text,
+    originalnameusageid text,
+    originalsensitivevalues text,
+    othercatalognumbers text,
+    outlierforlayers text,
+    outlierforlayers_p text,
+    ownerinstitutioncode text,
+    parenteventid text,
+    parentnameusage text,
+    parentnameusageid text,
+    phenology text,
+    photographer text,
+    photopageurl text,
+    phylum text,
+    phylum_p text,
+    phylumid text,
+    phylumid_p text,
+    pointradiusspatialfit text,
+    portalid text,
+    preferredflag text,
+    preparations text,
+    previousidentifications text,
+    provenance text,
+    provenance_p text,
+    qualityassertion text,
+    queryassertions_p text,
+    recordedby text,
+    recordedby_p text,
+    recordnumber text,
+    references text,
+    relatedresourceid text,
+    relationshipaccordingto text,
+    relationshipestablisheddate text,
+    relationshipofresource text,
+    relationshipremarks text,
+    reproductivecondition text,
+    resourceid text,
+    resourcerelationshipid text,
+    right text,
+    right_p text,
+    rights text,
+    rightsholder text,
+    samplesizeunit text,
+    samplesizevalue text,
+    samplingeffort text,
+    samplingprotocol text,
+    samplingprotocol_p text,
+    scientificname text,
+    scientificname_p text,
+    scientificnameaddendum text,
+    scientificnameauthorship text,
+    scientificnameid text,
+    scientificnamewithoutauthor text,
+    secondarycollectors text,
+    sensitive_qa text,
+    sex text,
+    sounds text,
+    sounds_p text,
+    source text,
+    species text,
+    species_p text,
+    speciesgroups text,
+    speciesgroups_p text,
+    specieshabitats text,
+    specieshabitats_p text,
+    speciesid text,
+    speciesid_p text,
+    specificepithet text,
+    startdayofyear text,
+    startyear text,
+    state text,
+    stateconservation text,
+    stateconservation_p text,
+    stateprovince text,
+    stateprovince_p text,
+    subfamily text,
+    subgenus text,
+    subgenusid text,
+    subspecies text,
+    subspecies_p text,
+    subspeciesid text,
+    subspeciesid_p text,
+    superfamily text,
+    taxonconceptid text,
+    taxonconceptid_p text,
+    taxonid text,
+    taxonomicallykosher text,
+    taxonomicissue text,
+    taxonomicissue_p text,
+    taxonomicstatus text,
+    taxonrank text,
+    taxonrank_p text,
+    taxonrankid text,
+    taxonrankid_p text,
+    taxonremarks text,
+    type text,
+    type_qa text,
+    typestatus text,
+    typestatus_p text,
+    typestatusqualifier text,
+    typifiedname text,
+    userassertionstatus text,
+    userid text,
+    userid_p text,
+    userqualityassertion text,
+    userverified text,
+    uuid text,
+    validdistribution text,
+    verbatimcoordinates text,
+    verbatimcoordinatesystem text,
+    verbatimdateidentified text,
+    verbatimdepth text,
+    verbatimdepth_p text,
+    verbatimelevation text,
+    verbatimelevation_p text,
+    verbatimeventdate text,
+    verbatimlatitude text,
+    verbatimlocality text,
+    verbatimlongitude text,
+    verbatimsrs text,
+    verbatimtaxonrank text,
+    verificationdate text,
+    verificationnotes text,
+    verifier text,
+    vernacularname text,
+    vernacularname_p text,
+    videos text,
+    videos_p text,
+    waterbody text,
+    year text,
+    year_p text,
+    zone text,
+    PRIMARY KEY (rowkey, dataresourceuid)
+) WITH CLUSTERING ORDER BY (dataresourceuid ASC)
+    AND bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE dellog (
-  rowkey varchar,
-  id varchar,
-  value varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.queryassert (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE duplicates (
-  rowkey varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.taxon (
+    rowkey text PRIMARY KEY,
+    commonname text,
+    conservation text,
+    habitats text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ_duplicates (
-  rowkey varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.upload (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE upload (
-  rowkey varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.occ_duplicates (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE outliers (
-  rowkey varchar,
-  jackKnifeStats varchar,
-  jackKnifeOutliers varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.occ_outliers (
+    rowkey text PRIMARY KEY,
+    jackknife text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ_outliers (
-  rowkey varchar,
-  jackKnife varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.occ_uuid (
+    rowkey text PRIMARY KEY,
+    value text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE queryassert (
-  rowkey varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.qid (
+    rowkey text PRIMARY KEY,
+    bbox text,
+    displaystring text,
+    fqs text,
+    lastuse text,
+    maxage text,
+    q text,
+    source text,
+    wkt text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE distribution_outliers (
-  rowkey varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.outliers (
+    rowkey text PRIMARY KEY,
+    jackknifeoutliers text,
+    jackknifestats text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE qid (
-  rowkey varchar,
-  displayString varchar,
-  wkt varchar,
-  bbox varchar,
-  lastUse varchar,
-  q varchar,
-  fqs varchar,
-  maxAge varchar,
-  source varchar,
-  PRIMARY KEY (rowkey)
-);
+CREATE TABLE occ.dellog (
+    rowkey text PRIMARY KEY,
+    id text,
+    value text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';

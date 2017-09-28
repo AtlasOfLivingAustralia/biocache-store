@@ -13,6 +13,8 @@ package au.org.ala.biocache.persistence
  */
 trait PersistenceManager {
 
+  def rowKeyExists(rowKey:String, entityName:String) : Boolean
+
   /**
    * Get a single property.
    */

@@ -16,6 +16,8 @@ trait OccurrenceDAO extends DAO {
 
   def setDeleted(rowKey: String, del: Boolean, dateTime:Option[String]=None) : Unit
 
+  def rowKeyExists(uuid:String) : Boolean
+
   def getRowKeyFromUuid(uuid:String) : Option[String]
 
   def getByUuid(uuid: String) : Option[FullRecord] = getByUuid(uuid, false)

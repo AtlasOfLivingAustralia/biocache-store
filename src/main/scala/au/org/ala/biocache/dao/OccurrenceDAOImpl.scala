@@ -530,6 +530,13 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   }
 
   /**
+    *
+    * @param rowKey
+    * @return
+    */
+  def rowKeyExists(rowKey:String): Boolean = persistenceManager.rowKeyExists(rowKey, "occ")
+
+  /**
    * Update the version of the occurrence record.
    */
   def addRawOccurrenceBatch(fullRecords: Array[FullRecord], removeNullFields:Boolean = false) {

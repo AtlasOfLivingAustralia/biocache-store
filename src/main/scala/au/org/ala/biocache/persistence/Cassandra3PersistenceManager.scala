@@ -46,6 +46,12 @@ class Cassandra3PersistenceManager  @Inject() (
     builder.build()
   }
 
+  val cassandraKeyWordMap = Map(
+    "order" -> "bioorder",
+    "class" -> "classs"
+  )
+
+
   val updateThreadService = null
 
   val session = cluster.connect(keyspace)
@@ -73,6 +79,13 @@ class Cassandra3PersistenceManager  @Inject() (
         }
       }
     }
+  }
+
+  def rowKeyExists(rowKey:String, entityName:String) : Boolean = {
+    val stmt = getPreparedStmt(s"SELECT rowkey FROM $entityName where rowkey = ? ALLOW FILTERING")
+    val boundStatement = stmt bind rowKey
+    val rs = session.execute(boundStatement)
+    rs.size != 0
   }
 
   /**
@@ -282,6 +295,15 @@ class Cassandra3PersistenceManager  @Inject() (
       if(keyValuePairsToUse.containsKey("rowkey") || keyValuePairsToUse.containsKey("rowKey")){
         keyValuePairsToUse.remove("rowKey")
         keyValuePairsToUse.remove("rowkey") //cassandra 3 is case insensitive, and returns columns lower case
+      }
+
+
+      cassandraKeyWordMap.foreach { case (key:String, value:String) =>
+        if(keyValuePairsToUse.containsKey(key)){
+          val bioorder = keyValuePairsToUse.getOrElse(key, "")
+          keyValuePairsToUse.put(value, bioorder) //cassandra 3 is case insensitive, and returns columns lower case
+          keyValuePairsToUse.remove(key)
+        }
       }
 
       //TEMPORARY WORKAROUND  - for clustered key issue with cassandra 3

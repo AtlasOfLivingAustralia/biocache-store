@@ -194,6 +194,8 @@ object Config {
 
   val zookeeperAddress = configModule.properties.getProperty("zookeeper.address", "127.0.0.1:2181")
 
+  val zookeeperUpdatesEnabled = configModule.properties.getProperty("zookeeper.updates.enabled", "false").toBoolean
+
   /** Whether or not full replication is in use in the cassandra cluster */
   val usingFullReplication = configModule.properties.getProperty("using.full.replication", "true").toBoolean
 
@@ -351,7 +353,7 @@ private class ConfigModule extends AbstractModule {
     }
     logger.debug("Initialising persistence manager")
     properties.getProperty("db") match {
-//      case "mock" => bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(Scopes.SINGLETON)
+      case "mock" => bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(Scopes.SINGLETON)
 //      case "postgres" => bind(classOf[PersistenceManager]).to(classOf[PostgresPersistenceManager]).in(Scopes.SINGLETON)
 //      case "cassandra" => bind(classOf[PersistenceManager]).to(classOf[CassandraPersistenceManager]).in(Scopes.SINGLETON)
       case "cassandra3" => bind(classOf[PersistenceManager]).to(classOf[Cassandra3PersistenceManager]).in(Scopes.SINGLETON)

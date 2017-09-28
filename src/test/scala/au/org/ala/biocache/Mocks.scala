@@ -28,8 +28,8 @@ class TestConfigModule extends com.google.inject.AbstractModule {
     } catch {
       case e: Exception => e.printStackTrace()
     }
-//    bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(com.google.inject.Scopes.SINGLETON)
-    //        println("Using Test Config")
+    bind(classOf[PersistenceManager]).to(classOf[MockPersistenceManager]).in(com.google.inject.Scopes.SINGLETON)
+    println("Using Test Config")
   }
 }
 
