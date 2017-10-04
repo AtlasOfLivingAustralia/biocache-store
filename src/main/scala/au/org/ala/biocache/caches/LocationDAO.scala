@@ -1,13 +1,14 @@
 package au.org.ala.biocache.caches
 
 import java.io.FileWriter
-import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 
-import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
-import scala.collection.mutable.HashMap
 import au.org.ala.biocache.model.Location
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.HashMap
+import scala.util.Try
 
 /**
  * DAO for location lookups (lat, long -> locality).
@@ -78,7 +79,9 @@ object LocationDAO {
   }
 
   def getLatLongKey(latitude:String, longitude:String) : String = {
-    latitude.toFloat.toString.trim + "|" + longitude.toFloat.toString
+    Try { latitude.toFloat.toString.trim }.getOrElse("") +
+      "|" +
+      Try { longitude.toFloat.toString }.getOrElse("")
   }
 
   private def getLatLongKey(latitude:Float, longitude:Float) : String = {

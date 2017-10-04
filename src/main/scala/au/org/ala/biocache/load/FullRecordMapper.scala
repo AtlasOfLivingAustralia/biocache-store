@@ -15,22 +15,22 @@ import org.slf4j.LoggerFactory
 object FullRecordMapper {
   val logger = LoggerFactory.getLogger("FullRecordMapper")
   val entityName = "occ"
-  val qualityAssertionColumn = "qualityAssertion".toLowerCase
-  val userQualityAssertionColumn = "userQualityAssertion".toLowerCase
-  val userAssertionStatusColumn = "userAssertionStatus".toLowerCase
-  val geospatialDecisionColumn = "geospatiallyKosher".toLowerCase
-  val taxonomicDecisionColumn = "taxonomicallyKosher".toLowerCase
-  val userVerifiedColumn ="userVerified".toLowerCase
-  val locationDeterminedColumn ="locationDetermined".toLowerCase
-  val defaultValuesColumn = "defaultValuesUsed".toLowerCase
-  val dateDeletedColumn = "dateDeleted".toLowerCase
-  val lastUserAssertionDateColumn = "lastUserAssertionDate".toLowerCase
+  val qualityAssertionColumn = "qualityAssertion"
+  val userQualityAssertionColumn = "userQualityAssertion"
+  val userAssertionStatusColumn = "userAssertionStatus"
+  val geospatialDecisionColumn = "geospatiallyKosher"
+  val taxonomicDecisionColumn = "taxonomicallyKosher"
+  val userVerifiedColumn ="userVerified"
+  val locationDeterminedColumn ="locationDetermined"
+  val defaultValuesColumn = "defaultValuesUsed"
+  val dateDeletedColumn = "dateDeleted"
+  val lastUserAssertionDateColumn = "lastUserAssertionDate"
   val environmentalLayersColumn = "el" + Config.persistenceManager.fieldDelimiter + "p"
   val contextualLayersColumn = "cl" + Config.persistenceManager.fieldDelimiter + "p"
   val deletedColumn = "deleted"
-  val miscPropertiesColumn = "miscProperties".toLowerCase
-  val firstLoadedColumn = "firstLoaded".toLowerCase
-  val alaModifiedColumn = "lastModifiedTime".toLowerCase
+  val miscPropertiesColumn = "miscProperties"
+  val firstLoadedColumn = "firstLoaded"
+  val alaModifiedColumn = "lastModifiedTime"
   val geospatialQa = "loc"
   val taxonomicalQa = "class"
   val queryAssertionColumn = "queryAssertions"  + Config.persistenceManager.fieldDelimiter + "p"
@@ -154,7 +154,7 @@ object FullRecordMapper {
       //only set the value if it is no null or empty string
       if (fieldValue != "") {
         fieldName match {
-          case it if (it.toLowerCase == qualityAssertionColumn) => {} //ignore ?????
+          case it if (it == qualityAssertionColumn) => {} //ignore ?????
           case it if isQualityAssertion(it) => {
             //load the QA field names from the array
             if (fieldValue != "true" && fieldValue != "false") {
@@ -173,12 +173,12 @@ object FullRecordMapper {
               fullRecord.assertions =  codeBuff.toArray
             }
           }
-          case it if (it.toLowerCase == miscPropertiesColumn) => {
+          case it if (it == miscPropertiesColumn) => {
             if(version == Raw){
               fullRecord.miscProperties = Json.toJavaMap(fieldValue).asInstanceOf[java.util.Map[String,String]]
             }
           }
-          case it if version == Raw && ("class".equals(it.toLowerCase) || "clazz".equals(it.toLowerCase) || "classs".equals(it.toLowerCase)) => fullRecord.classification.classs = fieldValue
+          case it if version == Raw && ("class".equals(it) || "clazz".equals(it) || "classs".equals(it)) => fullRecord.classification.classs = fieldValue
           case it if userVerifiedColumn.equalsIgnoreCase(it) => fullRecord.userVerified = "true".equals(fieldValue)
           case it if taxonomicDecisionColumn.equalsIgnoreCase(it) => fullRecord.taxonomicallyKosher = "true".equals(fieldValue)
           case it if geospatialDecisionColumn.equalsIgnoreCase(it) => fullRecord.geospatiallyKosher = "true".equals(fieldValue)

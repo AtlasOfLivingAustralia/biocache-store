@@ -315,7 +315,7 @@ class Cassandra3PersistenceManager  @Inject() (
       val placeHolders = ",?" * keyValuePairsToUse.size
 
       val sql =
-          s"INSERT INTO $entityName (rowkey," + keyValuePairsToUse.keySet.mkString(",") + ") VALUES (?" + placeHolders + ")"
+          s"INSERT INTO $entityName (rowkey," + "\"" +  keyValuePairsToUse.keySet.mkString("\",\"") + "\") VALUES (?" + placeHolders + ")"
 
       val statement = getPreparedStmt(sql)
 
@@ -982,7 +982,7 @@ class Cassandra3PersistenceManager  @Inject() (
       val row = rows.one()
       val mapBuilder = collection.mutable.Map[String,String]()
       cleanedFields.foreach { field =>
-        mapBuilder.put(field, row.getString(field.toLowerCase))
+        mapBuilder.put(field, row.getString(field))
       }
 
       proc(mapBuilder.toMap)
