@@ -826,14 +826,20 @@ class Cassandra3PersistenceManager @Inject()(
             logger.info(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter)
 
             synchronized {
-              if (!tokenRangeCheckPointFile.exists()) {
-                tokenRangeCheckPointFile.createNewFile()
-              }
-              val fw = new FileWriter(tokenRangeCheckPointFile, true)
               try {
-                fw.write(tokenRangeIdx + "," + counter + "\n")
+                if (!tokenRangeCheckPointFile.exists()) {
+                  tokenRangeCheckPointFile.createNewFile()
+                }
+                val fw = new FileWriter(tokenRangeCheckPointFile, true)
+                try {
+                  fw.write(tokenRangeIdx + "," + counter + "\n")
+                }
+                finally fw.close()
+              } catch {
+                case e: Exception => {
+                  logger.error("failed to create/write to tokenRangeCheckPointFile: " + tokenRangeCheckPointFile.getPath, e)
+                }
               }
-              finally fw.close()
             }
             counter
           }
