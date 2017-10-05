@@ -781,7 +781,6 @@ CREATE TABLE occ.occ (
     "identificationReferences_p" text,
     "identificationRemarks" text,
     "identificationVerificationStatus" text,
-    "identificationVerificationStatus_p" text,
     "identifiedBy" text,
     "identifiedBy_p" text,
     identifier text,
