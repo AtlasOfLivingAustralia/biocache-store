@@ -4,13 +4,18 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.util.Json
+import org.apache.http.MethodNotSupportedException
 
 /**
- * Copies the QA's from the occ list to the QA column family.
- */
+  * Copies the QA's from the occ list to the QA column family.
+  */
 object RetrofitQAColumnFamily {
 
   def main(args: Array[String]) = {
+    //TODO: update for cassandra3/solr6
+
+    throw new RuntimeException("not implemented");
+
     val pm = Config.persistenceManager
     val theClass = classOf[QualityAssertion].asInstanceOf[java.lang.Class[AnyRef]]
     pm.pageOverSelect("occ", (rowKey, map) => {
@@ -25,6 +30,6 @@ object RetrofitQAColumnFamily {
         })
       }
       true
-    }, "", "", 1000, "uuid", "rowKey", "userQualityAssertion")
+    }, "", "", 1000, "uuid", "rowkey", "userQualityAssertion")
   }
 }

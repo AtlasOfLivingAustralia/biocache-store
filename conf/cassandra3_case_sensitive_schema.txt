@@ -1,0 +1,1190 @@
+CREATE KEYSPACE occ WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '2'}  AND durable_writes = true;
+
+CREATE TABLE occ.loc (
+    rowkey text PRIMARY KEY,
+    cl1048 text,
+    cl1049 text,
+    cl1050 text,
+    cl1050b text,
+    cl1051 text,
+    cl1051b text,
+    cl1052 text,
+    cl1053 text,
+    cl1054 text,
+    cl1057 text,
+    cl1058 text,
+    cl1059 text,
+    cl1062 text,
+    cl1063 text,
+    cl1064 text,
+    cl1065 text,
+    cl1066 text,
+    cl1067 text,
+    cl1068 text,
+    cl1069 text,
+    cl1070 text,
+    cl1071 text,
+    cl1076a text,
+    cl10829 text,
+    cl10831 text,
+    cl10832 text,
+    cl10833 text,
+    cl10834 text,
+    cl10835 text,
+    cl1084 text,
+    cl10847 text,
+    cl10848 text,
+    cl1085 text,
+    cl10872 text,
+    cl10874 text,
+    cl10900 text,
+    cl10902 text,
+    cl10903 text,
+    cl13001 text,
+    cl1918 text,
+    cl20 text,
+    cl2009 text,
+    cl2010 text,
+    cl2012 text,
+    cl2013 text,
+    cl2015 text,
+    cl2020 text,
+    cl2021 text,
+    cl2022 text,
+    cl2045 text,
+    cl2048 text,
+    cl2049 text,
+    cl2050 text,
+    cl2052 text,
+    cl2076 text,
+    cl2077 text,
+    cl2078 text,
+    cl2079 text,
+    cl2080 text,
+    cl2081 text,
+    cl2083 text,
+    cl2084 text,
+    cl2085 text,
+    cl2086 text,
+    cl2087 text,
+    cl21 text,
+    cl2105 text,
+    cl2109 text,
+    cl2110 text,
+    cl2111 text,
+    cl2113 text,
+    cl2115 text,
+    cl2116 text,
+    cl2117 text,
+    cl2120 text,
+    cl2124 text,
+    cl2125 text,
+    cl22 text,
+    cl23 text,
+    cl3003 text,
+    cl3004 text,
+    cl3005 text,
+    cl604 text,
+    cl605 text,
+    cl606 text,
+    cl611 text,
+    cl612 text,
+    cl613 text,
+    cl614 text,
+    cl617 text,
+    cl618 text,
+    cl619 text,
+    cl620 text,
+    cl664 text,
+    cl678 text,
+    cl900 text,
+    cl901 text,
+    cl914 text,
+    cl916 text,
+    cl917 text,
+    cl923 text,
+    cl925 text,
+    cl926 text,
+    cl927 text,
+    cl928 text,
+    cl929 text,
+    cl930 text,
+    cl932 text,
+    cl935 text,
+    cl936 text,
+    cl938 text,
+    cl939 text,
+    cl940 text,
+    cl941 text,
+    cl942 text,
+    cl958 text,
+    cl959 text,
+    cl960 text,
+    cl961 text,
+    cl962 text,
+    cl963 text,
+    cl964 text,
+    cl965 text,
+    cl966 text,
+    cl987 text,
+    cl988 text,
+    cl990 text,
+    cl991 text,
+    "cleared, non-native vegetation, buildings" text,
+    el1000 text,
+    el1001 text,
+    el1002 text,
+    el1003 text,
+    el1004 text,
+    el1005 text,
+    el1006 text,
+    el1007 text,
+    el1008 text,
+    el1009 text,
+    el1010 text,
+    el1011 text,
+    el1012 text,
+    el1013 text,
+    el1014 text,
+    el1015 text,
+    el1016 text,
+    el1017 text,
+    el1018 text,
+    el1019 text,
+    el1020 text,
+    el1021 text,
+    el1022 text,
+    el1023 text,
+    el1024 text,
+    el1025 text,
+    el1026 text,
+    el1027 text,
+    el1028 text,
+    el1029 text,
+    el1030 text,
+    el1031 text,
+    el1032 text,
+    el1033 text,
+    el1034 text,
+    el1035 text,
+    el1036 text,
+    el1037 text,
+    el1038 text,
+    el1039 text,
+    el1040 text,
+    el1041 text,
+    el1042 text,
+    el1043 text,
+    el1044 text,
+    el1045 text,
+    el1046 text,
+    el1047 text,
+    el1055 text,
+    el1056 text,
+    el1072 text,
+    el1073 text,
+    el1074 text,
+    el1077 text,
+    el1078 text,
+    el1079 text,
+    el1080 text,
+    el1081 text,
+    el2016 text,
+    el2017 text,
+    el2018 text,
+    el2042 text,
+    el2043 text,
+    el2044 text,
+    el2088 text,
+    el2089 text,
+    el2090 text,
+    el2091 text,
+    el2092 text,
+    el2093 text,
+    el2094 text,
+    el2095 text,
+    el2096 text,
+    el2097 text,
+    el2098 text,
+    el2099 text,
+    el2100 text,
+    el2101 text,
+    el2102 text,
+    el2103 text,
+    el2104 text,
+    el2119 text,
+    el2121 text,
+    el2122 text,
+    el2126 text,
+    el586 text,
+    el591 text,
+    el593 text,
+    el594 text,
+    el595 text,
+    el596 text,
+    el597 text,
+    el598 text,
+    el599 text,
+    el600 text,
+    el601 text,
+    el602 text,
+    el603 text,
+    el607 text,
+    el608 text,
+    el609 text,
+    el610 text,
+    el615 text,
+    el616 text,
+    el642 text,
+    el643 text,
+    el644 text,
+    el645 text,
+    el646 text,
+    el647 text,
+    el648 text,
+    el649 text,
+    el650 text,
+    el651 text,
+    el652 text,
+    el653 text,
+    el654 text,
+    el655 text,
+    el656 text,
+    el658 text,
+    el659 text,
+    el660 text,
+    el661 text,
+    el662 text,
+    el663 text,
+    el665 text,
+    el666 text,
+    el667 text,
+    el668 text,
+    el669 text,
+    el670 text,
+    el671 text,
+    el672 text,
+    el673 text,
+    el674 text,
+    el675 text,
+    el676 text,
+    el680 text,
+    el681 text,
+    el682 text,
+    el683 text,
+    el704 text,
+    el705 text,
+    el706 text,
+    el707 text,
+    el708 text,
+    el709 text,
+    el710 text,
+    el711 text,
+    el712 text,
+    el713 text,
+    el714 text,
+    el715 text,
+    el716 text,
+    el717 text,
+    el718 text,
+    el719 text,
+    el720 text,
+    el721 text,
+    el722 text,
+    el723 text,
+    el724 text,
+    el725 text,
+    el726 text,
+    el727 text,
+    el728 text,
+    el729 text,
+    el730 text,
+    el731 text,
+    el732 text,
+    el733 text,
+    el734 text,
+    el735 text,
+    el736 text,
+    el737 text,
+    el738 text,
+    el739 text,
+    el740 text,
+    el741 text,
+    el742 text,
+    el743 text,
+    el744 text,
+    el745 text,
+    el746 text,
+    el747 text,
+    el748 text,
+    el749 text,
+    el750 text,
+    el751 text,
+    el752 text,
+    el753 text,
+    el754 text,
+    el755 text,
+    el756 text,
+    el757 text,
+    el758 text,
+    el759 text,
+    el760 text,
+    el761 text,
+    el762 text,
+    el763 text,
+    el764 text,
+    el765 text,
+    el766 text,
+    el767 text,
+    el768 text,
+    el769 text,
+    el770 text,
+    el771 text,
+    el772 text,
+    el773 text,
+    el774 text,
+    el775 text,
+    el776 text,
+    el777 text,
+    el778 text,
+    el779 text,
+    el781 text,
+    el782 text,
+    el783 text,
+    el784 text,
+    el785 text,
+    el786 text,
+    el787 text,
+    el788 text,
+    el789 text,
+    el790 text,
+    el791 text,
+    el792 text,
+    el793 text,
+    el794 text,
+    el795 text,
+    el796 text,
+    el797 text,
+    el798 text,
+    el799 text,
+    el800 text,
+    el801 text,
+    el802 text,
+    el803 text,
+    el804 text,
+    el805 text,
+    el806 text,
+    el807 text,
+    el808 text,
+    el809 text,
+    el810 text,
+    el811 text,
+    el812 text,
+    el813 text,
+    el814 text,
+    el815 text,
+    el816 text,
+    el817 text,
+    el818 text,
+    el819 text,
+    el820 text,
+    el821 text,
+    el822 text,
+    el823 text,
+    el824 text,
+    el825 text,
+    el826 text,
+    el827 text,
+    el828 text,
+    el829 text,
+    el830 text,
+    el831 text,
+    el832 text,
+    el833 text,
+    el834 text,
+    el835 text,
+    el836 text,
+    el837 text,
+    el838 text,
+    el839 text,
+    el840 text,
+    el841 text,
+    el842 text,
+    el843 text,
+    el844 text,
+    el845 text,
+    el848 text,
+    el849 text,
+    el850 text,
+    el851 text,
+    el852 text,
+    el853 text,
+    el854 text,
+    el855 text,
+    el856 text,
+    el857 text,
+    el858 text,
+    el859 text,
+    el860 text,
+    el861 text,
+    el862 text,
+    el863 text,
+    el864 text,
+    el865 text,
+    el866 text,
+    el867 text,
+    el868 text,
+    el869 text,
+    el870 text,
+    el871 text,
+    el872 text,
+    el873 text,
+    el874 text,
+    el875 text,
+    el876 text,
+    el877 text,
+    el878 text,
+    el879 text,
+    el880 text,
+    el881 text,
+    el882 text,
+    el883 text,
+    el884 text,
+    el885 text,
+    el886 text,
+    el887 text,
+    el888 text,
+    el889 text,
+    el890 text,
+    el891 text,
+    el892 text,
+    el893 text,
+    el894 text,
+    el895 text,
+    el898 text,
+    el899 text,
+    el946 text,
+    el947 text,
+    el948 text,
+    el949 text,
+    el950 text,
+    el951 text,
+    el952 text,
+    el954 text,
+    el955 text,
+    el957 text,
+    el967 text,
+    el989 text,
+    el992 text,
+    el993 text,
+    el994 text,
+    el995 text,
+    el996 text,
+    el997 text,
+    el998 text,
+    el999 text,
+    lat text,
+    lon text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.taxon (
+    rowkey text PRIMARY KEY,
+    "commonName" text,
+    conservation text,
+    habitats text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.distribution_outliers (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.attr (
+    rowkey text PRIMARY KEY,
+    "collectionName" text,
+    "collectionUid" text,
+    "dataHubUid" text,
+    "dataProviderName" text,
+    "dataProviderUid" text,
+    "dataResourceName" text,
+    "institutionName" text,
+    "institutionUid" text,
+    provenance text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.duplicates (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4', 'tombstone_compaction_interval': '86400'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 86400
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.qa (
+    rowkey text,
+    "userId" text,
+    code text,
+    comment text,
+    created text,
+    name text,
+    "problemAsserted" text,
+    "qaStatus" text,
+    "referenceRowKey" text,
+    "relatedUuid" text,
+    snapshot text,
+    "userDisplayName" text,
+    "userEmail" text,
+    uuid text,
+    PRIMARY KEY (rowkey, "userId", code)
+) WITH CLUSTERING ORDER BY ("userId" ASC, code ASC)
+    AND bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.occ (
+    rowkey text,
+    "dataResourceUid" text,
+    "IdentificationQualifierProcessor_qa" text,
+    "_class" text,
+    "_qa" text,
+    "abcdIdentificationQualifier" text,
+    "abcdIdentificationQualifierInsertionPoint" text,
+    "abcdIdentificationQualifier_p" text,
+    "abcdTypeStatus" text,
+    "acceptedNameUsage" text,
+    "acceptedNameUsageID" text,
+    "accessRights" text,
+    "alaUserId" text,
+    "associatedMedia" text,
+    "associatedOccurrences" text,
+    "associatedOccurrences_p" text,
+    "associatedReferences" text,
+    "associatedReferences_p" text,
+    "associatedSequences" text,
+    "associatedTaxa" text,
+    attr_qa text,
+    "austConservation_p" text,
+    "australianHerbariumRegion" text,
+    "basisOfRecord" text,
+    "basisOfRecord_p" text,
+    bbox text,
+    bbox_p text,
+    behavior text,
+    "bibliographicCitation" text,
+    biome text,
+    biome_p text,
+    bor_qa text,
+    "catalogNumber" text,
+    citation text,
+    cl_p text,
+    class text,
+    "classID" text,
+    "classID_p" text,
+    class_p text,
+    class_qa text,
+    classs text,
+    classs_p text,
+    "collectionCode" text,
+    "collectionCode_p" text,
+    "collectionID" text,
+    "collectionName" text,
+    "collectionName_p" text,
+    "collectionUid" text,
+    "collectionUid_p" text,
+    "collectorFieldNumber" text,
+    continent text,
+    continent_p text,
+    "coordinatePrecision" text,
+    "coordinatePrecision_p" text,
+    "coordinateUncertaintyInMeters" text,
+    "coordinateUncertaintyInMeters_p" text,
+    country text,
+    "countryCode" text,
+    "countryCode_p" text,
+    "countryConservation" text,
+    "countryConservation_p" text,
+    country_p text,
+    county text,
+    "cultivarName" text,
+    cultivated text,
+    "dataGeneralizations" text,
+    "dataGeneralizations_p" text,
+    "dataHubName" text,
+    "dataHubUid" text,
+    "dataHubUid_p" text,
+    "dataProviderName" text,
+    "dataProviderName_p" text,
+    "dataProviderUid" text,
+    "dataProviderUid_p" text,
+    "dataResourceName" text,
+    "dataResourceName_p" text,
+    "datasetID" text,
+    "datasetName" text,
+    "dateDeleted" text,
+    "dateIdentified" text,
+    "dateIdentified_p" text,
+    "datePrecision" text,
+    day text,
+    day_p text,
+    "decimalLatitude" text,
+    "decimalLatitude_p" text,
+    "decimalLatitudelatitude" text,
+    "decimalLongitude" text,
+    "decimalLongitude_p" text,
+    "defaultValuesUsed" text,
+    default_qa text,
+    deleted text,
+    disposition text,
+    "distanceOutsideExpertRange" text,
+    "distanceOutsideExpertRange_p" text,
+    duplicates text,
+    "duplicatesOriginalInstitutionID" text,
+    "duplicatesOriginalUnitID" text,
+    duplicates_qa text,
+    "duplicationStatus" text,
+    "duplicationStatus_p" text,
+    "duplicationType" text,
+    "duplicationType_p" text,
+    "dynamicProperties" text,
+    easting text,
+    easting_p text,
+    el_p text,
+    "endDayOfYear" text,
+    "endYear" text,
+    "establishmentMeans" text,
+    "establishmentMeans_p" text,
+    "eventAttributes" text,
+    "eventDate" text,
+    "eventDateEnd" text,
+    "eventDateEnd_p" text,
+    "eventDate_p" text,
+    "eventID" text,
+    "eventRemarks" text,
+    "eventTime" text,
+    event_qa text,
+    family text,
+    "familyID" text,
+    "familyID_p" text,
+    family_p text,
+    "fieldNotes" text,
+    "fieldNumber" text,
+    "firstLoaded" text,
+    "footprintSRS" text,
+    "footprintSpatialFit" text,
+    "footprintWKT" text,
+    "generalisationToApplyInMetres" text,
+    "generalisedLocality" text,
+    genus text,
+    "genusID" text,
+    "genusID_p" text,
+    genus_p text,
+    "geodeticDatum" text,
+    "geodeticDatum_p" text,
+    "georeferenceProtocol" text,
+    "georeferenceProtocol_p" text,
+    "georeferenceRemarks" text,
+    "georeferenceSources" text,
+    "georeferenceSources_p" text,
+    "georeferenceVerificationStatus" text,
+    "georeferenceVerificationStatus_p" text,
+    "georeferencedBy" text,
+    "georeferencedBy_p" text,
+    "georeferencedDate" text,
+    "georeferencedDate_p" text,
+    "geospatialIssue" text,
+    "geospatiallyKosher" text,
+    "globalConservation" text,
+    "gridReference" text,
+    habitat text,
+    habitat_p text,
+    "higherClassification" text,
+    "higherGeography" text,
+    "higherGeographyID" text,
+    ibra text,
+    "ibraSubregion" text,
+    ibra_p text,
+    "identificationID" text,
+    "identificationQualifier" text,
+    "identificationQualifier_p" text,
+    "identificationReferences" text,
+    "identificationReferences_p" text,
+    "identificationRemarks" text,
+    "identificationVerificationStatus" text,
+    "identificationVerificationStatus_p" text,
+    "identifiedBy" text,
+    "identifiedBy_p" text,
+    identifier text,
+    "identifierBy" text,
+    "identifierRole" text,
+    image_qa text,
+    images text,
+    images_p text,
+    imcra_p text,
+    "individualCount" text,
+    "individualID" text,
+    "informationWithheld" text,
+    "informationWithheld_p" text,
+    "infraspecificEpithet" text,
+    "infraspecificMarker" text,
+    "institutionCode" text,
+    "institutionCode_p" text,
+    "institutionID" text,
+    "institutionID_p" text,
+    "institutionName" text,
+    "institutionName_p" text,
+    "institutionUid" text,
+    "institutionUid_p" text,
+    interactions text,
+    interactions_p text,
+    island text,
+    "islandGroup" text,
+    kingdom text,
+    "kingdomID" text,
+    "kingdomID_p" text,
+    kingdom_p text,
+    language text,
+    "lastModifiedTime" text,
+    "lastModifiedTime_p" text,
+    "lastUserAssertionDate" text,
+    left text,
+    left_p text,
+    lga text,
+    lga_p text,
+    license text,
+    license_p text,
+    "lifeStage" text,
+    "lifeStage_p" text,
+    "loanDate" text,
+    "loanDestination" text,
+    "loanForBotanist" text,
+    "loanIdentifier" text,
+    "loanReturnDate" text,
+    "loanSequenceNumber" text,
+    loc_qa text,
+    locality text,
+    locality_p text,
+    "locationAccordingTo" text,
+    "locationAttributes" text,
+    "locationDetermined" text,
+    "locationID" text,
+    "locationRemarks" text,
+    "maximumDepthInMeters" text,
+    "maximumDepthInMeters_p" text,
+    "maximumDistanceAboveSurfaceInMeters" text,
+    "maximumElevationInMeters" text,
+    "maximumElevationInMeters_p" text,
+    "measurementAccuracy" text,
+    "measurementDeterminedBy" text,
+    "measurementDeterminedDate" text,
+    "measurementID" text,
+    "measurementMethod" text,
+    "measurementRemarks" text,
+    "measurementType" text,
+    "measurementUnit" text,
+    "measurementValue" text,
+    "minimumDepthInMeters" text,
+    "minimumDepthInMeters_p" text,
+    "minimumDistanceAboveSurfaceInMeters" text,
+    "minimumElevationInMeters" text,
+    "minimumElevationInMeters_p" text,
+    "miscProperties" text,
+    modified text,
+    modified_p text,
+    month text,
+    month_p text,
+    municipality text,
+    mytest text,
+    "nameAccordingTo" text,
+    "nameAccordingToID" text,
+    "nameAccordingTo_p" text,
+    "nameMatchMetric" text,
+    "nameMatchMetric_p" text,
+    "nameParseType" text,
+    "nameParseType_p" text,
+    "namePublishedIn" text,
+    "namePublishedInID" text,
+    "namePublishedInYear" text,
+    "naturalOccurrence" text,
+    "nearNamedPlaceRelationTo" text,
+    "nomenclaturalCode" text,
+    "nomenclaturalCode_p" text,
+    "nomenclaturalStatus" text,
+    northing text,
+    northing_p text,
+    "occurrenceAttributes" text,
+    "occurrenceDetails" text,
+    "occurrenceID" text,
+    "occurrenceRemarks" text,
+    "occurrenceStatus" text,
+    "occurrenceStatus_p" text,
+    offline_qa text,
+    "order" text,
+    "orderID" text,
+    "orderID_p" text,
+    order_p text,
+    "originalDecimalLatitude" text,
+    "originalDecimalLongitude" text,
+    "originalNameUsage" text,
+    "originalNameUsageID" text,
+    "originalSensitiveValues" text,
+    "otherCatalogNumbers" text,
+    "outlierForLayers" text,
+    "outlierForLayers_p" text,
+    "ownerInstitutionCode" text,
+    "parentNameUsage" text,
+    "parentNameUsageID" text,
+    phenology text,
+    "photoPageUrl" text,
+    photographer text,
+    phylum text,
+    "phylumID" text,
+    "phylumID_p" text,
+    phylum_p text,
+    "pointRadiusSpatialFit" text,
+    "portalId" text,
+    "preferredFlag" text,
+    preparations text,
+    "previousIdentifications" text,
+    provenance text,
+    provenance_p text,
+    "qualityAssertion" text,
+    "queryAssertions_p" text,
+    "recordNumber" text,
+    "recordedBy" text,
+    "recordedBy_p" text,
+    "relatedResourceID" text,
+    "relationshipAccordingTo" text,
+    "relationshipEstablishedDate" text,
+    "relationshipOfResource" text,
+    "relationshipRemarks" text,
+    reprocessing_qa text,
+    "reproductiveCondition" text,
+    "resourceID" text,
+    "resourceRelationshipID" text,
+    right text,
+    right_p text,
+    rights text,
+    rightsholder text,
+    "samplingEffort" text,
+    "samplingProtocol" text,
+    "samplingProtocol_p" text,
+    "scientificName" text,
+    "scientificNameAddendum" text,
+    "scientificNameAuthorship" text,
+    "scientificNameID" text,
+    "scientificNameWithoutAuthor" text,
+    "scientificName_p" text,
+    "secondaryCollectors" text,
+    sensitive_qa text,
+    sex text,
+    sounds text,
+    sounds_p text,
+    source text,
+    species text,
+    "speciesGroups" text,
+    "speciesGroups_p" text,
+    "speciesHabitats" text,
+    "speciesHabitats_p" text,
+    "speciesID" text,
+    "speciesID_p" text,
+    species_p text,
+    "specificEpithet" text,
+    "startDayOfYear" text,
+    "startYear" text,
+    state text,
+    "stateConservation" text,
+    "stateConservation_p" text,
+    "stateProvince" text,
+    "stateProvince_p" text,
+    subfamily text,
+    subgenus text,
+    "subgenusID" text,
+    subspecies text,
+    "subspeciesID" text,
+    "subspeciesID_p" text,
+    subspecies_p text,
+    superfamily text,
+    "taxonConceptID" text,
+    "taxonConceptID_p" text,
+    "taxonID" text,
+    "taxonRank" text,
+    "taxonRankID" text,
+    "taxonRankID_p" text,
+    "taxonRank_p" text,
+    "taxonRemarks" text,
+    "taxonomicIssue" text,
+    "taxonomicIssue_p" text,
+    "taxonomicStatus" text,
+    "taxonomicallyKosher" text,
+    type text,
+    "typeStatus" text,
+    "typeStatusQualifier" text,
+    "typeStatus_p" text,
+    type_qa text,
+    "typifiedName" text,
+    "userAssertionStatus" text,
+    "userId" text,
+    "userId_p" text,
+    "userQualityAssertion" text,
+    "userVerified" text,
+    uuid text,
+    "validDistribution" text,
+    "verbatimCoordinateSystem" text,
+    "verbatimCoordinates" text,
+    "verbatimDateIdentified" text,
+    "verbatimDepth" text,
+    "verbatimDepth_p" text,
+    "verbatimElevation" text,
+    "verbatimElevation_p" text,
+    "verbatimEventDate" text,
+    "verbatimLatitude" text,
+    "verbatimLocality" text,
+    "verbatimLongitude" text,
+    "verbatimSRS" text,
+    "verbatimTaxonRank" text,
+    "verificationDate" text,
+    "verificationNotes" text,
+    verifier text,
+    "vernacularName" text,
+    "vernacularName_p" text,
+    videos text,
+    videos_p text,
+    "waterBody" text,
+    year text,
+    year_p text,
+    zone text,
+    PRIMARY KEY (rowkey, "dataResourceUid")
+) WITH CLUSTERING ORDER BY ("dataResourceUid" ASC)
+    AND bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.queryassert (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.occ_duplicates (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4', 'tombstone_compaction_interval': '86400'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 86400
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.occ_outliers (
+    rowkey text PRIMARY KEY,
+    "jackKnife" text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.upload (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4', 'tombstone_compaction_interval': '86400'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 86400
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.occ_uuid (
+    rowkey text PRIMARY KEY,
+    value text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4', 'tombstone_compaction_interval': '86400'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 86400
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.qid (
+    rowkey text PRIMARY KEY,
+    bbox text,
+    "displayString" text,
+    fqs text,
+    "lastUse" text,
+    "maxAge" text,
+    q text,
+    source text,
+    wkt text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.outliers (
+    rowkey text PRIMARY KEY,
+    "jackKnifeOutliers" text,
+    "jackKnifeStats" text
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';
+
+CREATE TABLE occ.dellog (
+    rowkey text PRIMARY KEY
+) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4', 'tombstone_compaction_interval': '86400'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND dclocal_read_repair_chance = 0.1
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 86400
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair_chance = 0.0
+    AND speculative_retry = '99PERCENTILE';

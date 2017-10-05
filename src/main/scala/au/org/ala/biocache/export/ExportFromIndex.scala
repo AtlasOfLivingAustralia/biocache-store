@@ -1,17 +1,19 @@
 package au.org.ala.biocache.export
 
 import java.io.{File, FileWriter}
+
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.util.OptionParser
 
 /**
- * Utility for exporting a list of fields from the index.
- */
+  * Utility for exporting a list of fields from the index.
+  */
 object ExportFromIndex extends Tool {
 
   def cmd = "export-index"
-  def desc = "Export from search indexes"
+
+  def desc = "Export from search indexes. From SOLR"
 
   def main(args: Array[String]) {
 
@@ -36,7 +38,8 @@ object ExportFromIndex extends Tool {
       Config.indexDAO.pageOverIndex(map => {
         counter += 1
         if (counter % 1000 == 0) {
-          println("Exported :" + counter); fileWriter.flush;
+          println("Exported :" + counter);
+          fileWriter.flush;
         }
         val outputLine = fieldsToExport.map(f => getFromMap(map, f))
         fileWriter.write(outputLine.mkString("\t"))

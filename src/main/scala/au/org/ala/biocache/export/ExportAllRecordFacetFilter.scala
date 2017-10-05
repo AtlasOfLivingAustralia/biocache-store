@@ -1,15 +1,16 @@
 package au.org.ala.biocache.export
 
-import au.org.ala.biocache.util.{StringConsumer, CountAwareFacetConsumer, OptionParser, FileHelper}
-import java.io.{FileWriter, File}
-import org.apache.commons.io.FileUtils
+import java.io.{File, FileWriter}
 import java.util.Date
 import java.util.concurrent.ArrayBlockingQueue
+
 import au.org.ala.biocache.tool.DuplicationDetection
+import au.org.ala.biocache.util.{CountAwareFacetConsumer, FileHelper, OptionParser, StringConsumer}
+import org.apache.commons.io.FileUtils
 
 /**
- * Utility to export based on facet and optional filter.
- */
+  * Utility to export based on facet and optional filter.
+  */
 object ExportAllRecordFacetFilter {
 
   import FileHelper._
@@ -23,7 +24,7 @@ object ExportAllRecordFacetFilter {
     val fieldsToExport = Array("row_key", "id", "species_guid", "subspecies_guid", "year", "month", "occurrence_date", "point-1", "point-0.1",
       "point-0.01", "point-0.001", "point-0.0001", "lat_long", "raw_taxon_name", "collectors", "duplicate_status", "duplicate_record", "latitude", "longitude",
       "el882", "el889", "el887", "el865", "el894")
-    val parser = new OptionParser("Export based on facet and optional filter") {
+    val parser = new OptionParser("Export based on facet and optional filter. From SOLR") {
       arg("<output directory>", "the output directory for the exports", {
         v: String => exportDirectory = v
       })

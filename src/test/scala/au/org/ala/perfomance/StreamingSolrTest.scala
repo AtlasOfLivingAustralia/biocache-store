@@ -1,14 +1,16 @@
 package au.org.ala.perfomance
 
-import org.apache.solr.client.solrj.impl.HttpSolrServer
-import scala.collection.JavaConversions._
-import collection.immutable._
-import org.apache.solr.client.solrj.StreamingResponseCallback
 import java.lang.Float
+
+import org.apache.solr.client.solrj.StreamingResponseCallback
+import org.apache.solr.client.solrj.impl.HttpSolrClient
 import org.apache.solr.common.SolrDocument
 import org.apache.solr.common._
 import org.apache.solr.common.params._
 import org.junit.Ignore
+
+import scala.collection.JavaConversions._
+import scala.collection.immutable._
 
 /*
  * Copyright (C) 2012 Atlas of Living Australia
@@ -30,7 +32,7 @@ import org.junit.Ignore
 @Ignore
 object StreamingSolrTest {
   def main(args:Array[String]){
-    val server=new HttpSolrServer("http://ala-rufus.it.csiro.au:8080/solr/biocache")
+    val server = new HttpSolrClient("http://ala-rufus.it.csiro.au:8080/solr/biocache")
     val params = HashMap(
       "collectionName" -> "biocache",
       "q" -> "*:*",

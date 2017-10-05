@@ -1,30 +1,32 @@
 package au.org.ala.biocache.processor
 
-import org.slf4j.LoggerFactory
 import au.org.ala.biocache._
-import scala.collection.JavaConversions
-import scala.collection.mutable.ArrayBuffer
-import org.apache.commons.lang.StringUtils
-import au.org.ala.biocache.caches.{SpatialLayerDAO, TaxonProfileDAO, LocationDAO}
-import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
-import au.org.ala.biocache.model._
+import au.org.ala.biocache.caches.{LocationDAO, SpatialLayerDAO, TaxonProfileDAO}
 import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.model._
+import au.org.ala.biocache.parser.{DistanceRangeParser, VerbatimLatLongParser}
+import au.org.ala.biocache.util.{GISPoint, GISUtil, GridUtil, StringHelper}
 import au.org.ala.biocache.vocab._
-import au.org.ala.biocache.util.{GISUtil, GISPoint, GridUtil, StringHelper}
+import org.apache.commons.lang.StringUtils
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
- * Processor of location information.
- */
+  * Processor of location information.
+  */
 class LocationProcessor extends Processor {
 
-  import StringHelper._, AssertionCodes._, AssertionStatus._
+  import AssertionCodes._
+  import AssertionStatus._
+  import StringHelper._
 
   val logger = LoggerFactory.getLogger("LocationProcessor")
 
   /**
-   * Process geospatial details of the record. This step parses coordinates and cordinate precision values.
-   * It performs a large number of tests on the supplied geospatial information.
-   */
+    * Process geospatial details of the record. This step parses coordinates and cordinate precision values.
+    * It performs a large number of tests on the supplied geospatial information.
+    */
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
 
     logger.debug(s"Processing location for guid: $guid")
@@ -55,7 +57,7 @@ class LocationProcessor extends Processor {
 
       //add state province, country, LGA
       processed.location.stateProvince = intersectValues.getOrElse(Config.stateProvinceLayerID, null)
-      processed.location.lga  = intersectValues.getOrElse(Config.localGovLayerID, null)
+      processed.location.lga = intersectValues.getOrElse(Config.localGovLayerID, null)
       processed.location.country = intersectValues.getOrElse(Config.countriesLayerID, null)
 
       if (processed.location.country == null && processed.location.stateProvince != null) {
@@ -99,13 +101,13 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Create flag if no location info was supplied for this record
-   *
-   * @param raw
-   * @param processed
-   * @param assertions
-   * @return
-   */
+    * Create flag if no location info was supplied for this record
+    *
+    * @param raw
+    * @param processed
+    * @param assertions
+    * @return
+    */
   def checkLocationSupplied(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): ArrayBuffer[QualityAssertion] = {
     if (processed.location.decimalLatitude == null || processed.location.decimalLongitude == null) {
       //check to see if we have any location information at all for the record
@@ -120,13 +122,13 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * If no coordinates have been supplied, parse raw state and country values to vocabularies.
-   *
-   * @param raw
-   * @param processed
-   * @param assertions
-   */
-  private def processStateCountryValues(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]){
+    * If no coordinates have been supplied, parse raw state and country values to vocabularies.
+    *
+    * @param raw
+    * @param processed
+    * @param assertions
+    */
+  private def processStateCountryValues(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
     //Only process the raw state value if no latitude and longitude is provided
     if (processed.location.stateProvince == null && raw.location.decimalLatitude == null && raw.location.decimalLongitude == null) {
@@ -148,7 +150,7 @@ class LocationProcessor extends Processor {
     }
 
     //Try the country code
-    if (processed.location.country == null && raw.location.countryCode != null){
+    if (processed.location.country == null && raw.location.countryCode != null) {
       val countryCodeTerm = Countries.matchTerm(raw.location.countryCode)
       if (!countryCodeTerm.isEmpty) {
         processed.location.country = countryCodeTerm.get.canonical
@@ -157,12 +159,12 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Validation checks
-   *
-   * @param raw
-   * @param processed
-   * @param assertions
-   */
+    * Validation checks
+    *
+    * @param raw
+    * @param processed
+    * @param assertions
+    */
   private def validateCoordinates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]): Unit = {
     if (raw.location.country == null && processed.location.country != null) {
       assertions += QualityAssertion(COUNTRY_INFERRED_FROM_COORDINATES, FAILED)
@@ -186,8 +188,8 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Performs the QAs associated with elevation and depth
-   */
+    * Performs the QAs associated with elevation and depth
+    */
   private def processAltitudeAndDepth(guid: String, raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //check that the values are numeric
     processVerbatimDepth(raw, processed, assertions)
@@ -268,8 +270,8 @@ class LocationProcessor extends Processor {
         if (vdepth > 10000)
           assertions += QualityAssertion(DEPTH_OUT_OF_RANGE, s"Depth $vdepth is greater than 10,000 metres")
         else
-          assertions += QualityAssertion(DEPTH_OUT_OF_RANGE,  PASSED)
-        assertions += QualityAssertion(DEPTH_NON_NUMERIC,  PASSED)
+          assertions += QualityAssertion(DEPTH_OUT_OF_RANGE, PASSED)
+        assertions += QualityAssertion(DEPTH_NON_NUMERIC, PASSED)
         //check on the units
         if (sourceUnit == Feet) {
           assertions += QualityAssertion(DEPTH_IN_FEET, "The supplied depth was in feet it has been converted to metres")
@@ -325,24 +327,24 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Process the latitude, longitude converting raw coordinates to decimal latitude, longitude.
-   * Handles reprojections where required.
-   *
-   * @param rawLatitude
-   * @param rawLongitude
-   * @param rawGeodeticDatum
-   * @param verbatimLatitude
-   * @param verbatimLongitude
-   * @param verbatimSRS
-   * @param easting
-   * @param northing
-   * @param zone
-   * @param assertions
-   * @return
-   */
+    * Process the latitude, longitude converting raw coordinates to decimal latitude, longitude.
+    * Handles reprojections where required.
+    *
+    * @param rawLatitude
+    * @param rawLongitude
+    * @param rawGeodeticDatum
+    * @param verbatimLatitude
+    * @param verbatimLongitude
+    * @param verbatimSRS
+    * @param easting
+    * @param northing
+    * @param zone
+    * @param assertions
+    * @return
+    */
   def processLatLong(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String, verbatimLatitude: String,
                      verbatimLongitude: String, verbatimSRS: String, easting: String, northing: String, zone: String,
-                     gridReference:String, assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
+                     gridReference: String, assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
 
     //check to see if we have coordinates specified
     if (rawLatitude != null && rawLongitude != null && !rawLatitude.toFloatWithOption.isEmpty && !rawLongitude.toFloatWithOption.isEmpty) {
@@ -368,9 +370,9 @@ class LocationProcessor extends Processor {
         }
       } else if (easting != null && northing != null && zone != null) {
         GridUtil.processNorthingEastingZone(verbatimSRS, easting, northing, zone, assertions)
-      } else if ( gridReference != null) {
+      } else if (gridReference != null) {
         val result = GridUtil.processGridReference(gridReference)
-        if(!result.isEmpty){
+        if (!result.isEmpty) {
           assertions += QualityAssertion(DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF)
         }
         result
@@ -381,14 +383,14 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Process the raw string values supplied as decimal latitude and longitude.
-   *
-   * @param rawLatitude
-   * @param rawLongitude
-   * @param rawGeodeticDatum
-   * @param assertions
-   * @return
-   */
+    * Process the raw string values supplied as decimal latitude and longitude.
+    *
+    * @param rawLatitude
+    * @param rawLongitude
+    * @param rawGeodeticDatum
+    * @param assertions
+    * @return
+    */
   private def processDecimalCoordinates(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String,
                                         assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
 
@@ -506,14 +508,13 @@ class LocationProcessor extends Processor {
   }
 
 
-
   /**
-   * Get the number of decimal places in a double value in string form
+    * Get the number of decimal places in a double value in string form
     *
     * @param decimalAsString
-   * @return
-   */
-   def getNumberOfDecimalPlacesInDouble(decimalAsString: String): Int = {
+    * @return
+    */
+  def getNumberOfDecimalPlacesInDouble(decimalAsString: String): Int = {
     val tokens = decimalAsString.split('.')
     if (tokens.length == 2) {
       tokens(1).length
@@ -524,13 +525,13 @@ class LocationProcessor extends Processor {
 
   private def checkCoordinateUncertainty(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //validate coordinate accuracy (coordinateUncertaintyInMeters) and coordinatePrecision (precision - A. Chapman)
-    var checkedPrecision =false
+    var checkedPrecision = false
     if (raw.location.coordinateUncertaintyInMeters != null && raw.location.coordinateUncertaintyInMeters.length > 0) {
       //parse it into a numeric number in metres
       val parsedResult = DistanceRangeParser.parse(raw.location.coordinateUncertaintyInMeters)
       if (!parsedResult.isEmpty) {
         val (parsedValue, rawUnit) = parsedResult.get
-        if(parsedValue > 0){
+        if (parsedValue > 0) {
           //not an uncertainty mismatch
           assertions += QualityAssertion(UNCERTAINTY_RANGE_MISMATCH, PASSED)
         } else {
@@ -555,33 +556,33 @@ class LocationProcessor extends Processor {
       }
     }
 
-    if (StringUtils.isBlank(raw.location.coordinatePrecision)){
+    if (StringUtils.isBlank(raw.location.coordinatePrecision)) {
       assertions += QualityAssertion(MISSING_COORDINATEPRECISION, "Missing coordinatePrecision")
     } else {
       assertions += QualityAssertion(MISSING_COORDINATEPRECISION, PASSED)
-      if(!checkedPrecision){
+      if (!checkedPrecision) {
         val value = raw.location.coordinatePrecision.toFloatWithOption
-        if(value.isDefined){
+        if (value.isDefined) {
           //Ensure that the precision is within the required ranges
-          if (value.get > 0 && value.get <= 1){
+          if (value.get > 0 && value.get <= 1) {
             assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, PASSED)
             //now test for coordinate precision
             val pre = if (raw.location.coordinatePrecision.contains(".")) raw.location.coordinatePrecision.split("\\.")(1).length else 0
             val lat = processed.location.decimalLatitude
             val long = processed.location.decimalLongitude
-            val latp = if(lat.contains(".")) lat.split("\\.")(1).length else 0
-            val lonp = if(long.contains(".")) long.split("\\.")(1).length else 0
-            if(pre == latp && pre == lonp){
+            val latp = if (lat.contains(".")) lat.split("\\.")(1).length else 0
+            val lonp = if (long.contains(".")) long.split("\\.")(1).length else 0
+            if (pre == latp && pre == lonp) {
               // no coordinate precision mismatch exists
               assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH, PASSED)
             } else {
               assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH)
             }
-          } else{
-            assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, "Coordinate precision is not between 0 and 1" )
+          } else {
+            assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, "Coordinate precision is not between 0 and 1")
           }
         } else {
-           assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, "Unable to parse the coordinate precision")
+          assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, "Unable to parse the coordinate precision")
         }
       }
     }
@@ -598,12 +599,12 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Check the habitats for the taxon profile against the biome associated with the point.
-   *
-   * @param raw
-   * @param processed
-   * @param assertions
-   */
+    * Check the habitats for the taxon profile against the biome associated with the point.
+    *
+    * @param raw
+    * @param processed
+    * @param assertions
+    */
   private def checkForBiomeMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
     if (processed.location.biome == null) {
@@ -617,7 +618,7 @@ class LocationProcessor extends Processor {
     val habitats = {
       if (!taxonProfileWithOption.isEmpty && taxonProfileWithOption.get.habitats != null && !taxonProfileWithOption.get.habitats.isEmpty) {
         taxonProfileWithOption.get.habitats
-      } else if (!genusProfileWithOption.isEmpty && genusProfileWithOption.get.habitats != null && !genusProfileWithOption.get.habitats.isEmpty){
+      } else if (!genusProfileWithOption.isEmpty && genusProfileWithOption.get.habitats != null && !genusProfileWithOption.get.habitats.isEmpty) {
         genusProfileWithOption.get.habitats
       } else {
         Array[String]()
@@ -650,15 +651,15 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Add the correct conservation status to the record.
-   *
-   * @param raw
-   * @param processed
-   */
+    * Add the correct conservation status to the record.
+    *
+    * @param raw
+    * @param processed
+    */
   private def addConservationStatus(raw: FullRecord, processed: FullRecord) {
     //retrieve the species profile
     val taxonProfileWithOption = TaxonProfileDAO.getByGuid(processed.classification.taxonConceptID)
-    if(!taxonProfileWithOption.isEmpty){
+    if (!taxonProfileWithOption.isEmpty) {
       val taxonProfile = taxonProfileWithOption.get
       //add the conservation status if necessary
       if (taxonProfile.conservation != null) {
@@ -666,19 +667,19 @@ class LocationProcessor extends Processor {
         processed.occurrence.countryConservation = country.getOrElse(null)
         val state = taxonProfile.retrieveConservationStatus(processed.location.stateProvince)
         processed.occurrence.stateConservation = state.getOrElse(null)
-        val global = taxonProfile.retrieveConservationStatus("Global")
+        val global = taxonProfile.retrieveConservationStatus("global")
         processed.occurrence.globalConservation = global.getOrElse(null)
       }
     }
   }
 
   /**
-   * Check the supplied state value aligns with the supplied coordinates.
-   *
-   * @param raw
-   * @param processed
-   * @param assertions
-   */
+    * Check the supplied state value aligns with the supplied coordinates.
+    *
+    * @param raw
+    * @param processed
+    * @param assertions
+    */
   private def checkForStateMismatch(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //check matched stateProvince
     if (processed.location.stateProvince != null && raw.location.stateProvince != null) {
@@ -700,19 +701,19 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Check other geospatial details have been supplied.
-   *
-   * @param raw
-   * @param processed
-   * @param assertions
-   * @return
-   */
+    * Check other geospatial details have been supplied.
+    *
+    * @param raw
+    * @param processed
+    * @param assertions
+    * @return
+    */
   def validateGeoreferenceValues(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) = {
     //check for missing geodeticDatum
     if (raw.location.geodeticDatum == null && processed.location.geodeticDatum == null)
       assertions += QualityAssertion(MISSING_GEODETICDATUM, "Missing geodeticDatum")
     else
-      assertions += QualityAssertion(MISSING_GEODETICDATUM,PASSED)
+      assertions += QualityAssertion(MISSING_GEODETICDATUM, PASSED)
     //check for missing georeferencedBy
     if (raw.location.georeferencedBy == null && processed.location.georeferencedBy == null)
       assertions += QualityAssertion(MISSING_GEOREFERNCEDBY, "Missing georeferencedBy")
@@ -722,19 +723,19 @@ class LocationProcessor extends Processor {
     if (raw.location.georeferenceProtocol == null && processed.location.georeferenceProtocol == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL, "Missing georeferenceProtocol")
     else
-      assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL,PASSED)
+      assertions += QualityAssertion(MISSING_GEOREFERENCEPROTOCOL, PASSED)
     //check for missing georeferenceSources
     if (raw.location.georeferenceSources == null && processed.location.georeferenceSources == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES, "Missing georeferenceSources")
     else
-      assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES,PASSED)
+      assertions += QualityAssertion(MISSING_GEOREFERENCESOURCES, PASSED)
     //check for missing georeferenceVerificationStatus
     if (raw.location.georeferenceVerificationStatus == null && processed.location.georeferenceVerificationStatus == null)
       assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS, "Missing georeferenceVerificationStatus")
     else
-      assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS,PASSED)
+      assertions += QualityAssertion(MISSING_GEOREFERENCEVERIFICATIONSTATUS, PASSED)
     //check for missing georeferenceDate
-    if (StringUtils.isBlank(raw.location.georeferencedDate) && !raw.miscProperties.containsKey("georeferencedDate")){
+    if (StringUtils.isBlank(raw.location.georeferencedDate) && !raw.miscProperties.containsKey("georeferencedDate")) {
       assertions += QualityAssertion(MISSING_GEOREFERENCE_DATE)
     } else {
       assertions += QualityAssertion(MISSING_GEOREFERENCE_DATE, PASSED)
@@ -742,8 +743,8 @@ class LocationProcessor extends Processor {
   }
 
   /**
-   * Performs a bunch of the coordinate validations
-   */
+    * Performs a bunch of the coordinate validations
+    */
   def validateCoordinatesValues(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) = {
     //when the locality is Australia latitude needs to be negative and longitude needs to be positive
     //TO DO fix this so that it uses the gazetteer to determine whether or not coordinates
@@ -769,10 +770,10 @@ class LocationProcessor extends Processor {
         } else {
           assertions += QualityAssertion(COORDINATES_OUT_OF_RANGE, "Coordinates are out of range: " +
             processed.location.decimalLatitude + "," + processed.location.decimalLongitude)
-          assertions += QualityAssertion(INVERTED_COORDINATES,PASSED)
+          assertions += QualityAssertion(INVERTED_COORDINATES, PASSED)
         }
       } else {
-        assertions ++= Array(QualityAssertion(INVERTED_COORDINATES,PASSED), QualityAssertion(COORDINATES_OUT_OF_RANGE, PASSED))
+        assertions ++= Array(QualityAssertion(INVERTED_COORDINATES, PASSED), QualityAssertion(COORDINATES_OUT_OF_RANGE, PASSED))
       }
 
       if (lat == 0.0f && lon == 0.0f) {
@@ -780,18 +781,18 @@ class LocationProcessor extends Processor {
         processed.location.decimalLatitude = null
         processed.location.decimalLongitude = null
       } else {
-        assertions += QualityAssertion(ZERO_COORDINATES,PASSED)
+        assertions += QualityAssertion(ZERO_COORDINATES, PASSED)
       }
 
-      if (lat == 0.0f ) {
+      if (lat == 0.0f) {
         assertions += QualityAssertion(AssertionCodes.ZERO_LATITUDE_COORDINATES, "Latitude 0,0")
-      } else{
+      } else {
         assertions += QualityAssertion(AssertionCodes.ZERO_LATITUDE_COORDINATES, PASSED)
       }
 
       if (lon == 0.0f) {
         assertions += QualityAssertion(AssertionCodes.ZERO_LONGITUDE_COORDINATES, "Longitude 0,0")
-      } else{
+      } else {
         assertions += QualityAssertion(AssertionCodes.ZERO_LONGITUDE_COORDINATES, PASSED)
       }
 
@@ -827,7 +828,7 @@ class LocationProcessor extends Processor {
                   hasCoordinateMismatch = false
                 }
 
-                if(hasCoordinateMismatch){
+                if (hasCoordinateMismatch) {
                   assertions += QualityAssertion(COUNTRY_COORDINATE_MISMATCH)
                 } else {
                   //there was no mismatch
@@ -866,6 +867,35 @@ class LocationProcessor extends Processor {
       raw.classification.vernacularName
     else //return the name default name string which will be null
       raw.classification.scientificName
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(LOCATION_NOT_SUPPLIED.code,
+        COUNTRY_INFERRED_FROM_COORDINATES.code, COORDINATES_CENTRE_OF_STATEPROVINCE.code,
+        COORDINATES_CENTRE_OF_COUNTRY.code, MIN_MAX_DEPTH_REVERSED.code, MIN_MAX_ALTITUDE_REVERSED.code,
+        ALTITUDE_OUT_OF_RANGE.code, ALTITUDE_NON_NUMERIC.code, ALTITUDE_IN_FEET.code, DEPTH_OUT_OF_RANGE.code,
+        DEPTH_NON_NUMERIC.code, DEPTH_IN_FEET.code, DECIMAL_COORDINATES_NOT_SUPPLIED.code,
+        DECIMAL_LAT_LONG_CALCULATED_FROM_GRID_REF.code, GEODETIC_DATUM_ASSUMED_WGS84.code,
+        UNRECOGNIZED_GEODETIC_DATUM.code, DECIMAL_LAT_LONG_CONVERSION_FAILED.code, DECIMAL_LAT_LONG_CONVERTED.code,
+        DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED.code, DECIMAL_LAT_LONG_CALCULATED_FROM_VERBATIM.code,
+        UNCERTAINTY_RANGE_MISMATCH.code, UNCERTAINTY_IN_PRECISION.code, MISSING_COORDINATEPRECISION.code,
+        PRECISION_RANGE_MISMATCH.code, COORDINATE_PRECISION_MISMATCH.code, PRECISION_RANGE_MISMATCH.code,
+        UNCERTAINTY_NOT_SPECIFIED.code, COORDINATE_HABITAT_MISMATCH.code, STATE_COORDINATE_MISMATCH.code,
+        MISSING_GEODETICDATUM.code, MISSING_GEOREFERNCEDBY.code, MISSING_GEOREFERENCEPROTOCOL.code,
+        MISSING_GEOREFERENCESOURCES.code, MISSING_GEOREFERENCEVERIFICATIONSTATUS.code, MISSING_GEOREFERENCE_DATE.code,
+        INVERTED_COORDINATES.code, COORDINATES_OUT_OF_RANGE.code, ZERO_COORDINATES.code, ZERO_LATITUDE_COORDINATES.code,
+        ZERO_LONGITUDE_COORDINATES.code, UNKNOWN_COUNTRY_NAME.code, NEGATED_LATITUDE.code, NEGATED_LONGITUDE.code,
+        COUNTRY_COORDINATE_MISMATCH.code))
+
+      //update the details from lastProcessed
+      processed.location = lastProcessed.get.location
+    }
+
+    assertions.toArray
   }
 
   def getName = FullRecordMapper.geospatialQa

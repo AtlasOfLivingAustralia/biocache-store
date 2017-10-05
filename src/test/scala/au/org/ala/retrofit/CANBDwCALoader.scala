@@ -90,7 +90,9 @@ class CANBDwCALoader extends DwCALoader {
 
     println(nonDefaultMapping)
   }
-  val list=List("firstLoaded", "outlierForLayers.p" , "duplicationStatus.p"  ,"duplicationType.p" ,"associatedOccurrences.p"  ,"qualityAssertion",  "userQualityAssertion")
+
+  val list = List("firstLoaded", "outlierForLayers" + Config.persistenceManager.fieldDelimiter + "p", "duplicationStatus" + Config.persistenceManager.fieldDelimiter + "p", "duplicationType" + Config.persistenceManager.fieldDelimiter + "p", "associatedOccurrences" + Config.persistenceManager.fieldDelimiter + "p", "qualityAssertion", "userQualityAssertion")
+
   /**
    * override so that we can have the very customised mapping to get the correct value
    * @param star

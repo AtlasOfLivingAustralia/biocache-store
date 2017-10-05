@@ -1,23 +1,25 @@
 package au.org.ala.biocache.export
 
-import au.org.ala.biocache.util.OptionParser
+import java.io.{File, FileReader, FileWriter}
+
 import au.com.bytecode.opencsv.CSVReader
-import java.io.{FileWriter, FileReader, File}
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.util.OptionParser
 
 /**
- * Utility to export from index based on facet and optional filter.
- */
+  * Utility to export from index based on facet and optional filter.
+  */
 object ExportByFacetQuery extends Tool {
 
   def cmd = "export-facet-query"
-  def desc = "Exports records based a file of inputs and specified field to facet query"
+
+  def desc = "Exports records based a file of inputs and specified field to facet query. From SOLR"
 
   def main(args: Array[String]) {
 
     var facetField = "species_guid"
-    var facetInputFile =  Config.tmpWorkDir + "/facet-output-" + facetField + ".txt"
+    var facetInputFile = Config.tmpWorkDir + "/facet-output-" + facetField + ".txt"
     var recordOutputFile = Config.tmpWorkDir + "/record-output-" + facetField + ".txt"
     var fieldsToExport = Array[String]()
     var filterQueries: Array[String] = Array()
@@ -49,7 +51,8 @@ object ExportByFacetQuery extends Tool {
         Config.indexDAO.pageOverIndex(map => {
           counter += 1
           if (counter % 1000 == 0) {
-            println("Exported :" + counter); fileWriter.flush;
+            println("Exported :" + counter)
+            fileWriter.flush
           }
           val outputLine = fieldsToExport.map(f => getFromMap(map, f))
           fileWriter.write(outputLine.mkString("\t"))
@@ -88,7 +91,8 @@ object ExportByFacetQuery extends Tool {
     Config.indexDAO.pageOverIndex(map => {
       counter += 1
       if (counter % 1000 == 0) {
-        println("Exported :" + counter); fileWriter.flush;
+        println("Exported :" + counter)
+        fileWriter.flush
       }
       val outputLine = fieldsToExport.map(f => getFromMap(map, f))
       fileWriter.write(outputLine.mkString("\t"))

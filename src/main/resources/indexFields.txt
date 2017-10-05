@@ -134,6 +134,7 @@ distance_outside_expert_range	double	distanceOutsideExpertRange_p	F	F		F
 	string	associatedSequences	T	T	F	F
 	string	associatedTaxa	T	T	F	F
 	string	attr_qa	T	T	F	F
+	string	australianHerbariumRegion	F	F	F	F
 	string	bed	F	F	F	F
 	string	behavior	F	F	F	F
 	string	bibliographicCitation	F	F	F	F
@@ -209,6 +210,7 @@ distance_outside_expert_range	double	distanceOutsideExpertRange_p	F	F		F
 	string	georeferenceVerificationStatus_p	F	F	F	F
 	string	geospatialIssue	F	F	F	F
 geospatial_kosher	string	geospatiallyKosher	F	F	F	F
+	string	global	F	F	F	F
 	string	group	F	F	F	F
 	string	gridReference	F	F	F	F
 	string	habitat	F	F	F	F
