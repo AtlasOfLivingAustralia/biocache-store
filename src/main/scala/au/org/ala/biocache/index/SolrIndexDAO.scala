@@ -997,7 +997,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                      docBuilder: DocBuilder = null,
                      lock: Object = null): Long = {
     if (solrServer == null) {
-      columnOrder.init(columnDefinitions, headerAttributes, headerAttributesFix, array_header_idx, array_header_parsed_idx)
+      columnOrder.init(columnDefinitions, headerAttributes, headerAttributesFix, array_header_idx, array_header_parsed_idx, array_header_idx_fix, array_header_parsed_idx_fix)
     }
 
     init
@@ -1624,7 +1624,7 @@ class ColumnOrder {
     formatted
   }
 
-  def init(columnDefinitions: ColumnDefinitions, headerAttributes: List[(String, String, Int, Int)], headerAttributesFix: List[(String, String, Int, Int)], array_header_idx: Array[Integer], array_header_parsed_idx: Array[Integer]) = {
+  def init(columnDefinitions: ColumnDefinitions, headerAttributes: List[(String, String, Int, Int)], headerAttributesFix: List[(String, String, Int, Int)], array_header_idx: Array[Integer], array_header_parsed_idx: Array[Integer], array_header_idx_fix: Array[Integer], array_header_parsed_idx_fix: Array[Integer]) = {
     this.rowKey = columnDefinitions.getIndexOf("rowkey")
     this.taxonConceptIDP = columnDefinitions.getIndexOf("taxonConceptID" + Config.persistenceManager.fieldDelimiter + "p")
     this.deletedColumn = columnDefinitions.getIndexOf(FullRecordMapper.deletedColumn)
@@ -1668,7 +1668,7 @@ class ColumnOrder {
     this.species = columnDefinitions.getIndexOf("species")
     this.infraspecificEpithet = columnDefinitions.getIndexOf("infraspecificEpithet")
     this.subspecies = columnDefinitions.getIndexOf("subspecies")
-    this.dataResourceUid = columnDefinitions.getIndexOf("dataResourceUid")
+
     this.stateConservationP = columnDefinitions.getIndexOf("stateConservation" + Config.persistenceManager.fieldDelimiter + "p")
     this.countryConservationP = columnDefinitions.getIndexOf("countryConservation" + Config.persistenceManager.fieldDelimiter + "p")
     this.taxonRankIDP = columnDefinitions.getIndexOf("taxonRankID" + Config.persistenceManager.fieldDelimiter + "p")
@@ -1735,13 +1735,13 @@ class ColumnOrder {
 
     //TODO: remvoe when headerAttributesFix is not longer required
     (0 until headerAttributesFix.length).foreach(i => {
-      array_header_idx(i) = columnDefinitions.getIndexOf(headerAttributesFix(i)._1)
-      array_header_parsed_idx(i) = columnDefinitions.getIndexOf(headerAttributesFix(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
+      array_header_idx_fix(i) = columnDefinitions.getIndexOf(headerAttributesFix(i)._1)
+      array_header_parsed_idx_fix(i) = columnDefinitions.getIndexOf(headerAttributesFix(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
 
-      if (array_header_idx(i) >= 0)
-        isUsed(array_header_idx(i)) = true
-      if (array_header_parsed_idx(i) >= 0)
-        isUsed(array_header_parsed_idx(i)) = true
+      if (array_header_idx_fix(i) >= 0)
+        isUsed(array_header_idx_fix(i)) = true
+      if (array_header_parsed_idx_fix(i) >= 0)
+        isUsed(array_header_parsed_idx_fix(i)) = true
     })
 
     this.columnNames = columnNames

@@ -1356,9 +1356,17 @@ trait IndexDAO {
     }
   }
 
-  lazy val (array_header_idx, array_header_parsed_idx) = {
+  lazy val (
+    array_header_idx, array_header_parsed_idx) = {
     val actual = new Array[Integer](headerAttributes.length)
     val parsed = new Array[Integer](headerAttributes.length)
+
+    (actual, parsed)
+  }
+
+  lazy val (array_header_idx_fix, array_header_parsed_idx_fix) = {
+    val actual = new Array[Integer](headerAttributesFix.length)
+    val parsed = new Array[Integer](headerAttributesFix.length)
 
     (actual, parsed)
   }
@@ -1406,14 +1414,14 @@ trait IndexDAO {
     val dataGen = getArrayValue(columnOrder.dataGeneralizationsP, array)
     if (StringUtils.isEmpty(dataGen)) {
       for (i <- headerAttributesFix.indices) {
-        val h = headerAttributes(i)
+        val h = headerAttributesFix(i)
         var value: String = {
           if (h._4 == 3) {
-            getArrayValue(array_header_parsed_idx(i), array)
+            getArrayValue(array_header_parsed_idx_fix(i), array)
           } else if (h._4 >= 0) {
-            val v = getArrayValue(array_header_idx(i), array)
+            val v = getArrayValue(array_header_idx_fix(i), array)
             if (StringUtils.isEmpty(v) && h._4 == 0) {
-              getArrayValue(array_header_parsed_idx(i), array)
+              getArrayValue(array_header_parsed_idx_fix(i), array)
             } else {
               v
             }
