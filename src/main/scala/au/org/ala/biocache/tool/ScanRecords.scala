@@ -13,25 +13,26 @@ import org.slf4j.LoggerFactory
 object ScanRecords extends Tool {
 
   def cmd = "scan-node"
+
   def desc = "Scan all records on a node"
 
-  def main(args:Array[String]){
+  def main(args: Array[String]) {
 
-    var threads:Int = 1
+    var threads: Int = 1
     var local = false
-    var csvOutputFile:FileWriter = null
+    var csvOutputFile: FileWriter = null
     val parser = new OptionParser(help) {
-      intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
-      opt("local-only", "Only scan local records",{
+      intOpt("t", "thread", "The number of threads to use", { v: Int => threads = v })
+      opt("local-only", "Only scan local records", {
         local = true
       })
       opt("of", "output-file", "output counts in CSV to the supplied file", {
         v: String => csvOutputFile = new FileWriter(v)
       })
     }
-    if(parser.parse(args)){
+    if (parser.parse(args)) {
       new ScanRecords().scanRecords(threads, local, csvOutputFile)
-      if(csvOutputFile != null){
+      if (csvOutputFile != null) {
         csvOutputFile.flush()
         csvOutputFile.close()
       }
@@ -46,45 +47,45 @@ class ScanRecords {
 
   val logger = LoggerFactory.getLogger("ScanLocalRecords")
 
-  def scanRecords(threads:Int, local:Boolean, csvOutputFile:FileWriter) : Unit = {
+  def scanRecords(threads: Int, local: Boolean, csvOutputFile: FileWriter): Unit = {
 
     val start = System.currentTimeMillis()
     val synchronizedMap = new scala.collection.mutable.LinkedHashMap[String, Int]()
       with scala.collection.mutable.SynchronizedMap[String, Int]
 
-    val totalScanned = if(local) {
+    val totalScanned = if (local) {
       Config.persistenceManager.pageOverLocal("occ", (key, map, tokenRangeIdx) => {
         synchronized {
-          val dr = map.getOrElse("dataresourceuid", "")
+          val dr = map.getOrElse("dataResourceUid", "")
           if (dr != "") {
             val count = synchronizedMap.getOrElse(dr, 0)
             synchronizedMap.put(dr, count + 1)
           }
         }
         true
-      }, threads, Array[String]("rowkey", "dataresourceuid"))
+      }, threads, Array[String]("rowkey", "dataResourceUid"))
     } else {
       Config.persistenceManager.pageOverSelect("occ", (key, map) => {
         synchronized {
-          val dr = map.getOrElse("dataresourceuid", "")
+          val dr = map.getOrElse("dataResourceUid", "")
           if (dr != "") {
             val count = synchronizedMap.getOrElse(dr, 0)
             synchronizedMap.put(dr, count + 1)
           }
         }
         true
-      }, "", "", 1000, "rowkey", "dataresourceuid")
+      }, "", "", 1000, "rowkey", "dataResourceUid")
     }
 
     val end = System.currentTimeMillis()
-    val timeInMinutes = ((end-start).toFloat / 1000f / 60f)
-    val timeInSecs = ((end-start).toFloat / 1000f  )
+    val timeInMinutes = ((end - start).toFloat / 1000f / 60f)
+    val timeInSecs = ((end - start).toFloat / 1000f)
     val numberOfResources = synchronizedMap.size
     logger.info(s"Total records scanned : $totalScanned from $numberOfResources resources in $timeInSecs seconds (or $timeInMinutes minutes)")
 
-    synchronizedMap.foreach { case (dataResource:String, count:Int) =>
+    synchronizedMap.foreach { case (dataResource: String, count: Int) =>
       logger.info(dataResource + " : " + count)
-      if(csvOutputFile != null){
+      if (csvOutputFile != null) {
         csvOutputFile.write(dataResource + "," + count + "\n")
       }
     }

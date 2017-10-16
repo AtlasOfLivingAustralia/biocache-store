@@ -1,16 +1,16 @@
 package au.org.ala.biocache.tool
 
 import au.org.ala.biocache._
-import org.slf4j.LoggerFactory
 import au.org.ala.biocache.index.IndexRecords
 import au.org.ala.biocache.load.Loader
 import au.org.ala.biocache.util.OptionParser
+import org.slf4j.LoggerFactory
 
 /**
- * Reloads/processes an existing data resource records.
- * This deletes the data for a specific resource and then reloads.
- * Only to be used for data resources without stable identifiers.
- */
+  * Reloads/processes an existing data resource records.
+  * This deletes the data for a specific resource and then reloads.
+  * Only to be used for data resources without stable identifiers.
+  */
 object ReloadDataResources {
 
   val logger = LoggerFactory.getLogger("ReloadDataResources")
@@ -28,7 +28,11 @@ object ReloadDataResources {
         v: String => dataResource = v
       })
       opt("all", "perform all phases", {
-        mark = true; load = true; remove = true; process = true; index = true
+        mark = true
+        load = true
+        remove = true
+        process = true
+        index = true
       })
       opt("mark", "mark the occurrences in the data store as deleted", {
         mark = true
@@ -57,7 +61,8 @@ object ReloadDataResources {
     }
   }
 
-  def completeReload(dataResourceUid: String, mark: Boolean = true, load: Boolean = true, process: Boolean = true, index: Boolean = true, remove: Boolean = true) {
+  def completeReload(dataResourceUid: String, mark: Boolean = true, load: Boolean = true, process: Boolean = true,
+                     index: Boolean = true, remove: Boolean = true, threads: Int = 4) {
 
     val deletor = new DataResourceVirtualDelete(dataResourceUid)
     if (mark) {
@@ -71,13 +76,13 @@ object ReloadDataResources {
     }
     //Step 3: Reprocess records
     if (process) {
-      ProcessRecords.processRecords(dataResourceUid, 4) //want to process on the not deleted records
+      ProcessRecords.processRecords0(dr = Some(dataResourceUid), threads = threads) //want to process on the not deleted records
     }
     if (index) {
       //Step4: Remove current records from the index
       deletor.deleteFromIndex
       //Step 5: Reindex dataResource
-      IndexRecords.index(dataResourceUid, 4)
+      IndexRecords.index(Some(dataResourceUid), threads = threads)
     }
     if (remove) {
       //Step 6: Remove "deleted" records from persistence.

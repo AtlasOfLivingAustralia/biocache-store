@@ -2,10 +2,13 @@ package au.org.ala.biocache.util
 
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntity}
-import org.apache.http.entity.mime.content.{StringBody, FileBody}
+import org.apache.http.entity.mime.content.{FileBody, StringBody}
 import org.apache.http.client.methods.HttpPost
+
 import scala.io.Source
 import java.io.File
+import java.net.URL
+
 import org.apache.http.entity.StringEntity
 import org.slf4j.LoggerFactory
 
@@ -13,7 +16,12 @@ object HttpUtil {
 
   val logger = LoggerFactory.getLogger("HttpUtil")
 
-  def postBody(url:String, contentType:String, stringBody:String ) : (Int, String) = {
+  def get(url: String): (String) = {
+    val result = Source.fromURL(new URL(url)).mkString
+    result
+  }
+
+  def postBody(url: String, contentType: String, stringBody: String): (Int, String) = {
     val httpClient = new DefaultHttpClient()
     try {
       val httpPost = new HttpPost(url)

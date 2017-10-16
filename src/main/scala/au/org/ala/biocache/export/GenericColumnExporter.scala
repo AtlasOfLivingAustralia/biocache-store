@@ -1,14 +1,16 @@
 package au.org.ala.biocache.export
 
-import au.org.ala.biocache.util.OptionParser
 import java.io.{File, FileWriter}
+
 import au.com.bytecode.opencsv.CSVWriter
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.util.OptionParser
+
 import scala.collection.mutable.HashSet
 
 /**
- * A util for export a column/field
- */
+  * A util for export a column/field
+  */
 object GenericColumnExporter {
 
   def main(args: Array[String]) {
@@ -35,6 +37,9 @@ object GenericColumnExporter {
     val pm = Config.persistenceManager
     val myset = new HashSet[String]
     var count = 0
+
+    //TODO: update for cassandra3/solr6
+
     pm.pageOverAll(entity, (guid, map) => {
       myset ++= map.keySet
       count += 1

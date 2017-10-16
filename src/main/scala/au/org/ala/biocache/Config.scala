@@ -1,21 +1,22 @@
 package au.org.ala.biocache
 
-import au.org.ala.biocache.caches.SpatialLayerDAO
-import au.org.ala.biocache.util.LayersStore
+import java.io.{File, FileInputStream}
+import java.util.Properties
 import java.util.jar.Attributes
 
-import org.apache.commons.lang3.{BooleanUtils, StringUtils}
-import org.slf4j.LoggerFactory
-import com.google.inject.{Scopes, AbstractModule, Guice, Injector}
+import au.org.ala.biocache.caches.SpatialLayerDAO
+import au.org.ala.biocache.dao._
+import au.org.ala.biocache.index.{IndexDAO, SolrIndexDAO}
+import au.org.ala.biocache.load.{LocalMediaStore, RemoteMediaStore}
+import au.org.ala.biocache.persistence._
+import au.org.ala.biocache.util.LayersStore
 import au.org.ala.names.search.ALANameSearcher
 import au.org.ala.sds.{SensitiveSpeciesFinder, SensitiveSpeciesFinderFactory}
-import java.util.Properties
-import java.io.{File, FileInputStream}
 import com.google.inject.name.Names
-import au.org.ala.biocache.dao._
-import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
-import au.org.ala.biocache.persistence._
-import au.org.ala.biocache.load.{RemoteMediaStore, LocalMediaStore}
+import com.google.inject.{AbstractModule, Guice, Injector, Scopes}
+import org.apache.commons.lang3.{BooleanUtils, StringUtils}
+import org.slf4j.LoggerFactory
+
 import scala.io.Source
 
 /**
@@ -65,6 +66,8 @@ object Config {
 
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
 
+  val volunteerDataProviderUid = configModule.properties.getProperty("volunteer.dp.uid", "")
+
   val collectoryApiKey = configModule.properties.getProperty("registry.api.key","xxxxxxxxxxxxxxxxx")
 
   val loadFileStore = configModule.properties.getProperty("load.dir","/data/biocache-load/")
@@ -94,6 +97,13 @@ object Config {
 
   /** a regex pattern for identifying guids associated with the national checklists */
   val nationalChecklistIdentifierPattern = configModule.properties.getProperty("national.checklist.guid.pattern", """biodiversity.org.au""")
+
+  val taxonProfileCacheAll = configModule.properties.getProperty("taxon.profile.cache.all", "false").toBoolean
+  val taxonProfileCacheSize = configModule.properties.getProperty("taxon.profile.cache.size", "10000").toInt
+  val classificationCacheSize = configModule.properties.getProperty("classification.cache.size", "10000").toInt
+
+  /** To index or only store, by default, all new misc fields */
+  val solrIndexMisc: Boolean = configModule.properties.getProperty("solr.index.misc", "false").toBoolean
 
   private var fieldsToSampleCached = Array[String]()
 
@@ -265,8 +275,8 @@ object Config {
   val sdsEnabled = configModule.properties.getProperty("sds.enabled", "true").toBoolean
 
   //load sensitive data service
-  val sdsFinder:SensitiveSpeciesFinder = synchronized {
-    if(sdsEnabled) {
+  lazy val sdsFinder: SensitiveSpeciesFinder = synchronized {
+    if (sdsEnabled) {
       SpatialLayerDAO
       SensitiveSpeciesFinderFactory.getSensitiveSpeciesFinder(nameIndex)
     } else {
@@ -287,6 +297,9 @@ object Config {
 
   val exportIndexAsCsvPath = configModule.properties.getProperty("export.index.as.csv.path", "")
   val exportIndexAsCsvPathSensitive = configModule.properties.getProperty("export.index.as.csv.path.sensitive", "")
+
+  val caseSensitiveCassandra = configModule.properties.getProperty("cassandra.case.sensitive", "true").toBoolean
+  val createColumnCassandra = configModule.properties.getProperty("cassandra.column.create", "true").toBoolean
 }
 
 /**

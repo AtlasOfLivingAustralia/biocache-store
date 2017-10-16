@@ -19,7 +19,8 @@ class IndexTest extends ConfigFunSuite {
         expectResult(true){indexer.shouldIndex(map, None)}
         expectResult(false){indexer.shouldIndex(map, DateParser.parseStringToDate("2011-08-20T10:00:00Z"))}
         
-        val map2 =Map("lastModifiedTime.p"->"2011-07-17T10:00:00Z")
+    //indexer.shouldIndex expects a minimum map size of 2
+    val map2 = Map("lastModifiedTime.p" -> "2011-07-17T10:00:00Z", "id" -> "01")
         expectResult(true){indexer.shouldIndex(map2, DateParser.parseStringToDate("2011-07-10T10:00:00Z"))}
         expectResult(false){indexer.shouldIndex(map2, DateParser.parseStringToDate("2011-07-20T10:00:00Z"))}
     }

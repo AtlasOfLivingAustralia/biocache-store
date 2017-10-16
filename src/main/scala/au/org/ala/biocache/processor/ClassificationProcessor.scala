@@ -1,20 +1,21 @@
 package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.Config
-import org.slf4j.LoggerFactory
-import scala.collection.JavaConversions
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import au.org.ala.biocache.caches.{AttributionDAO, ClassificationDAO, CommonNameDAO, TaxonProfileDAO}
+import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.model.{Attribution, Classification, FullRecord, QualityAssertion}
+import au.org.ala.biocache.util.BiocacheConversions
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, DwC, Kingdoms}
 import au.org.ala.names.model.LinnaeanRankClassification
 import org.apache.commons.lang.StringUtils
-import au.org.ala.biocache.caches.{CommonNameDAO, TaxonProfileDAO, ClassificationDAO, AttributionDAO}
-import au.org.ala.biocache.util.BiocacheConversions
-import au.org.ala.biocache.model.{Attribution, QualityAssertion, FullRecord, Classification}
-import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.vocab.{AssertionStatus, Kingdoms, DwC, AssertionCodes}
+import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConversions
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 /**
- * A processor of taxonomic information.
- */
+  * A processor of taxonomic information.
+  */
 class ClassificationProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("ClassificationProcessor")
@@ -26,14 +27,15 @@ class ClassificationProcessor extends Processor {
   val affPattern = """([\x00-\x7F\s]*) aff[#!?\\.]?([\x00-\x7F\s]*)""".r
   val cfPattern = """([\x00-\x7F\s]*) cf[#!?\\.]?([\x00-\x7F\s]*)""".r
 
-  import BiocacheConversions._
-  import JavaConversions._
   import AssertionCodes._
   import AssertionStatus._
+  import BiocacheConversions._
+
+  import JavaConversions._
 
   /**
-   * Parse the hints into a usable map with rank -> Set.
-   */
+    * Parse the hints into a usable map with rank -> Set.
+    */
   def parseHints(taxonHints: List[String]): Map[String, Set[String]] = {
     //parse taxon hints into rank : List of
     val rankSciNames = new HashMap[String, Set[String]]
@@ -46,8 +48,8 @@ class ClassificationProcessor extends Processor {
   }
 
   /**
-   * Returns false if the any of the taxonomic hints conflict with the classification
-   */
+    * Returns false if the any of the taxonomic hints conflict with the classification
+    */
   def isMatchValid(cl: LinnaeanRankClassification, hintMap: Map[String, Set[String]]): (Boolean, String) = {
     //are there any conflicts??
     hintMap.keys.foreach { rank =>
@@ -61,7 +63,7 @@ class ClassificationProcessor extends Processor {
           case _ => (false, "")
         }
       }
-      if (conflict){
+      if (conflict) {
         return (false, comment)
       }
     }
@@ -74,31 +76,34 @@ class ClassificationProcessor extends Processor {
 
   private def hasMatchToDefault(rank: String, taxon: String, classification: Classification): Boolean = {
     def term = DwC.matchTerm(rank)
+
     def field = if (term.isDefined) term.get.canonical else rank
+
     taxon != null && taxon.equalsIgnoreCase(classification.getProperty(field).getOrElse(""))
   }
 
   /**
-   * Add the details of the match type to the record.
-   * @param nameMetrics
-   * @param processed
-   * @param assertions
-   */
-  private def setMatchStats(nameMetrics:au.org.ala.names.model.MetricsResultDTO, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
+    * Add the details of the match type to the record.
+    *
+    * @param nameMetrics
+    * @param processed
+    * @param assertions
+    */
+  private def setMatchStats(nameMetrics: au.org.ala.names.model.MetricsResultDTO, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //set the parse type and errors for all results before continuing
-    processed.classification.nameParseType = if(nameMetrics.getNameType != null){
+    processed.classification.nameParseType = if (nameMetrics.getNameType != null) {
       nameMetrics.getNameType.toString
     } else {
       "UNKNOWN"
     }
     //add the taxonomic issues for the match
-    processed.classification.taxonomicIssue = if(nameMetrics.getErrors != null){
+    processed.classification.taxonomicIssue = if (nameMetrics.getErrors != null) {
       nameMetrics.getErrors.toList.map(_.toString).toArray
     } else {
       Array("noIssue")
     }
     //check the name parse tye to see if the scientific name was valid
-    if (processed.classification.nameParseType == "blacklisted"){
+    if (processed.classification.nameParseType == "blacklisted") {
       assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME)
     } else {
       assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME, PASSED)
@@ -106,32 +111,32 @@ class ClassificationProcessor extends Processor {
   }
 
   /**
-   * Perform a set of data quality tests associated with taxonomy.
-   *
-   * @param raw
-   * @param processed
-   * @param assertions
-   */
-  private def doQualityTests(raw:FullRecord, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
+    * Perform a set of data quality tests associated with taxonomy.
+    *
+    * @param raw
+    * @param processed
+    * @param assertions
+    */
+  private def doQualityTests(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
     //test for the missing taxon rank
-    if (StringUtils.isBlank(raw.classification.taxonRank)){
+    if (StringUtils.isBlank(raw.classification.taxonRank)) {
       assertions += QualityAssertion(MISSING_TAXONRANK, "Missing taxonRank")
     } else {
       assertions += QualityAssertion(MISSING_TAXONRANK, PASSED)
     }
 
     //test that a scientific name or vernacular name has been supplied
-    if (StringUtils.isBlank(raw.classification.scientificName) && StringUtils.isBlank(raw.classification.vernacularName)){
+    if (StringUtils.isBlank(raw.classification.scientificName) && StringUtils.isBlank(raw.classification.vernacularName)) {
       assertions += QualityAssertion(NAME_NOT_SUPPLIED, "No scientificName or vernacularName has been supplied. Name match will be based on a constructed name.")
     } else {
       assertions += QualityAssertion(NAME_NOT_SUPPLIED, PASSED)
     }
 
     //test for mismatch in kingdom
-    if (StringUtils.isNotBlank(raw.classification.kingdom)){
+    if (StringUtils.isNotBlank(raw.classification.kingdom)) {
       val matchedKingdom = Kingdoms.matchTerm(raw.classification.kingdom)
-      if (matchedKingdom.isDefined){
+      if (matchedKingdom.isDefined) {
         //the supplied kingdom is recognised
         assertions += QualityAssertion(UNKNOWN_KINGDOM, PASSED)
       } else {
@@ -141,9 +146,9 @@ class ClassificationProcessor extends Processor {
   }
 
   /**
-   * Match the supplied classification for this record to the backbone taxonomy of the system,
-   * and perform a set of data quality tests.
-   */
+    * Match the supplied classification for this record to the backbone taxonomy of the system,
+    * and perform a set of data quality tests.
+    */
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
     var assertions = new ArrayBuffer[QualityAssertion]
 
@@ -173,7 +178,7 @@ class ClassificationProcessor extends Processor {
 
       //do a name match
       val nameMetrics = ClassificationDAO.get(raw.classification).getOrElse(null)
-      if(nameMetrics != null){
+      if (nameMetrics != null) {
 
         val nsr = nameMetrics.getResult
 
@@ -185,16 +190,16 @@ class ClassificationProcessor extends Processor {
 
           //Check to see if the classification fits in with the supplied taxonomic hints
           //get the taxonomic hints from the collection or data resource
-          var attribution:Option[Attribution] = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
-          if(attribution.get.hasMappedCollections){
+          var attribution: Option[Attribution] = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
+          if (attribution.isDefined && attribution.get.hasMappedCollections) {
             attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
           }
-//
-//
-//          var attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
-//          if (attribution.isEmpty) {
-//            attribution = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
-//          }
+          //
+          //
+          //          var attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
+          //          if (attribution.isEmpty) {
+          //            attribution = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
+          //          }
           var hintsPassed = true
           if (!attribution.isEmpty) {
             logger.debug("Checking taxonomic hints")
@@ -206,7 +211,7 @@ class ClassificationProcessor extends Processor {
                 hintsPassed = false
                 processed.classification.nameMatchMetric = "matchFailedHint"
                 assertions += QualityAssertion(RESOURCE_TAXONOMIC_SCOPE_MISMATCH, comment)
-              } else if (!attribution.get.retrieveParseHints.isEmpty){
+              } else if (!attribution.get.retrieveParseHints.isEmpty) {
                 //the taxonomic hints passed
                 assertions += QualityAssertion(RESOURCE_TAXONOMIC_SCOPE_MISMATCH, PASSED)
               }
@@ -221,7 +226,7 @@ class ClassificationProcessor extends Processor {
           }
 
           //store ".p" values if the taxonomic hints passed
-          if(hintsPassed) {
+          if (hintsPassed) {
             processed.classification = nsr
           }
 
@@ -241,7 +246,7 @@ class ClassificationProcessor extends Processor {
               processed.classification.speciesHabitats = taxonProfile.get.habitats
             }
             //second attempt to add common name
-            if (taxonProfile.get.commonName != null && processed.classification.vernacularName == null){
+            if (taxonProfile.get.commonName != null && processed.classification.vernacularName == null) {
               processed.classification.vernacularName = taxonProfile.get.commonName
             }
           }
@@ -266,19 +271,19 @@ class ClassificationProcessor extends Processor {
             assertions += QualityAssertion(NAME_NOT_IN_NATIONAL_CHECKLISTS, PASSED)
           }
 
-        } else if(nameMetrics.getErrors.contains(au.org.ala.names.model.ErrorType.HOMONYM)){
+        } else if (nameMetrics.getErrors.contains(au.org.ala.names.model.ErrorType.HOMONYM)) {
           logger.debug("[QualityAssertion] A homonym was detected (with  no higher level match), classification for Kingdom: " +
             raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
             ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
           processed.classification.nameMatchMetric = "noMatch"
-          setMatchStats(nameMetrics,processed, assertions)
+          setMatchStats(nameMetrics, processed, assertions)
           assertions += QualityAssertion(HOMONYM_ISSUE, "A homonym was detected in supplied classification.")
         } else {
           logger.debug("[QualityAssertion] No match for record, classification for Kingdom: " +
             raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
             ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
           processed.classification.nameMatchMetric = "noMatch"
-          setMatchStats(nameMetrics,processed,assertions)
+          setMatchStats(nameMetrics, processed, assertions)
           assertions += QualityAssertion(NAME_NOTRECOGNISED, "Name not recognised")
         }
       } else {
@@ -291,6 +296,22 @@ class ClassificationProcessor extends Processor {
     } catch {
       case e: Exception => logger.error("Exception during classification match for record " + guid, e)
     }
+    assertions.toArray
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(HOMONYM_ISSUE.code, NAME_NOTRECOGNISED.code,
+        NAME_NOT_IN_NATIONAL_CHECKLISTS.code, INVALID_SCIENTIFIC_NAME.code, MISSING_TAXONRANK.code,
+        NAME_NOT_SUPPLIED.code, UNKNOWN_KINGDOM.code, RESOURCE_TAXONOMIC_SCOPE_MISMATCH.code))
+
+      //update the details from lastProcessed
+      processed.classification = lastProcessed.get.classification
+    }
+
     assertions.toArray
   }
 

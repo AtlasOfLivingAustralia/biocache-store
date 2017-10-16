@@ -1,13 +1,14 @@
 package au.org.ala.biocache.caches
 
 import java.io.FileWriter
-import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 
-import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
-import scala.collection.mutable.HashMap
 import au.org.ala.biocache.model.Location
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.HashMap
+import scala.util.Try
 
 /**
  * DAO for location lookups (lat, long -> locality).
@@ -37,17 +38,21 @@ object LocationDAO {
 
       val guid = getLatLongKey(latitude, longitude)
 
-      val mapBuffer = new HashMap[String, String]
+      if (guid.length > 0) {
+        val mapBuffer = new HashMap[String, String]
 
-      mapBuffer += (latitudeCol -> latitude)
-      mapBuffer += (longitudeCol-> longitude)
-      mapBuffer ++= contextual
-      mapBuffer ++= environmental.map(x => x._1 -> x._2.toString)
+        mapBuffer += (latitudeCol -> latitude)
+        mapBuffer += (longitudeCol -> longitude)
+        mapBuffer ++= contextual
+        mapBuffer ++= environmental.map(x => x._1 -> x._2.toString)
 
-      if (batch) {
-        (guid -> mapBuffer.toMap)
+        if (batch) {
+          (guid -> mapBuffer.toMap)
+        } else {
+          Config.persistenceManager.put(guid, columnFamily, mapBuffer.toMap, true, false)
+          null
+        }
       } else {
-        Config.persistenceManager.put(guid, columnFamily, mapBuffer.toMap, true, false)
         null
       }
     } else {
@@ -78,7 +83,7 @@ object LocationDAO {
   }
 
   def getLatLongKey(latitude:String, longitude:String) : String = {
-    latitude.toFloat.toString.trim + "|" + longitude.toFloat.toString
+    Try { latitude.toFloat.toString.trim + "|" + longitude.toFloat.toString }.getOrElse("")
   }
 
   private def getLatLongKey(latitude:Float, longitude:Float) : String = {
@@ -94,18 +99,20 @@ object LocationDAO {
     if(storedPointCache.contains(uuid)){
       return uuid
     }
-    val map = Map(latitudeCol -> latitude, longitudeCol -> longitude)
-    if(Config.persistPointsFile != ""){
-      synchronized {
-        if(persistPointsFile == null){
-          persistPointsFile = new FileWriter(Config.persistPointsFile)
+    if (uuid.length > 0) {
+      val map = Map(latitudeCol -> latitude, longitudeCol -> longitude)
+      if (Config.persistPointsFile != "") {
+        synchronized {
+          if (persistPointsFile == null) {
+            persistPointsFile = new FileWriter(Config.persistPointsFile)
+          }
+          persistPointsFile.write(longitude + "," + latitude + "\n")
+          persistPointsFile.flush()
         }
-        persistPointsFile.write(longitude + "," + latitude + "\n")
-        persistPointsFile.flush()
+      } else {
+        Config.persistenceManager.put(uuid, columnFamily, map, true, false)
+        storedPointCache.add(uuid)
       }
-    } else {
-      Config.persistenceManager.put(uuid, columnFamily, map, true, false)
-      storedPointCache.add(uuid)
     }
     uuid
   }
@@ -129,37 +136,41 @@ object LocationDAO {
 
     val uuid = getLatLongKey(latitude, longitude)
 
-    val cachedObject = lock.synchronized { lru.get(uuid) }
+    if (uuid.length > 0) {
+      val cachedObject = lock.synchronized { lru.get(uuid) }
 
-    if(cachedObject != null){
+      if(cachedObject != null){
 
-      cachedObject.asInstanceOf[Option[(Location, Map[String, String], Map[String, String])]]
+        cachedObject.asInstanceOf[Option[(Location, Map[String, String], Map[String, String])]]
 
-    } else {
+      } else {
 
-      val map = Config.persistenceManager.get(uuid, columnFamily)
-      map match {
-        case Some(map) => {
-          val location = new Location
-          location.decimalLatitude = latitude
-          location.decimalLongitude = longitude
+        val map = Config.persistenceManager.get(uuid, columnFamily)
+        map match {
+          case Some(map) => {
+            val location = new Location
+            location.decimalLatitude = latitude
+            location.decimalLongitude = longitude
 
-          val el = map.filter(x => x._1.startsWith("el"))
-          val cl = map.filter(x => x._1.startsWith("cl"))
+            val el = map.filter(x => x._1.startsWith("el"))
+            val cl = map.filter(x => x._1.startsWith("cl"))
 
-          val returnValue = Some((location, el, cl))
+            val returnValue = Some((location, el, cl))
 
-          lock.synchronized { lru.put(uuid, returnValue) }
+            lock.synchronized { lru.put(uuid, returnValue) }
 
-          returnValue
-        }
-        case None => {
-          if(!Config.fieldsToSample(false).isEmpty) {
-            logger.warn("Location lookup failed for [" + latitude + "," + longitude + "] - Sampling may need to be re-ran")
+            returnValue
           }
-          None
+          case None => {
+            if(!Config.fieldsToSample(false).isEmpty) {
+              logger.warn("Location lookup failed for [" + latitude + "," + longitude + "] - Sampling may need to be re-ran")
+            }
+            None
+          }
         }
       }
+    } else {
+      None
     }
   }
 }

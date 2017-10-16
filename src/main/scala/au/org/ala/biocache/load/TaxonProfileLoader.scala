@@ -18,6 +18,8 @@ import au.org.ala.names.model.LinnaeanRankClassification
 import au.org.ala.biocache.caches.{WebServiceLoader, TaxonSpeciesListDAO}
 import au.org.ala.biocache.model.{ConservationStatus}
 import scala.util.parsing.json.JSON
+import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import sys.process._
 /**
  * A loader that imports data from IRMNG exports.
@@ -132,17 +134,15 @@ object ConservationListLoader extends NoArgsTool {
   def run() {
 
     var taxonCounter = 0
-    Config.persistenceManager.pageOverAll("taxon", (guid, map) => {
-      taxonCounter += 1
-
-      Config.persistenceManager.deleteColumns(guid, "taxon", "conservation")
-
-      if (taxonCounter % 1000 == 0) {
-        println(taxonCounter + " >> Last key : " + guid )
-      }
-
+    println("empty conservation column")
+    var batch: mutable.Map[String, Map[String, String]] = mutable.Map[String, Map[String, String]]()
+    Config.persistenceManager.pageOverSelect("taxon", (rowkey, map) => {
+      batch.put(rowkey, Map("conservation" -> null))
       true
-    }, "", "~")
+    }, "", "", 1000, "rowkey")
+
+    print("writting")
+    Config.persistenceManager.putBatch("taxon", batch.toMap, false, false)
 
     val listUids = getListsForQuery("isThreatened=eq:true&isAuthoritative=eq:true&max=1000")
 

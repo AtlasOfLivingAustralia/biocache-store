@@ -5,13 +5,13 @@ import org.codehaus.jackson.annotate.JsonIgnore
 
 import scala.beans.BeanProperty
 
-class Qid(@BeanProperty var rowKey:String, @BeanProperty var q:String, @BeanProperty var displayString:String,
-                             @BeanProperty var wkt:String, @BeanProperty var bbox:Array[Double],
-                             @BeanProperty var lastUse:Long, @BeanProperty var fqs: Array[String],
-                             @BeanProperty var maxAge:Long, @BeanProperty var source:String){
+class Qid(@BeanProperty var rowKey: String, @BeanProperty var q: String, @BeanProperty var displayString: String,
+          @BeanProperty var wkt: String, @BeanProperty var bbox: Array[Double],
+          @BeanProperty var lastUse: Long, @BeanProperty var fqs: Array[String],
+          @BeanProperty var maxAge: Long, @BeanProperty var source: String) {
 
   def this(map: Map[String, String] = Map[String, String]()) = {
-    this(map.getOrElse("rowKey", null),
+    this(map.getOrElse("rowkey", null),
       map.getOrElse("q", null),
       map.getOrElse("displayString", null),
       map.getOrElse("wkt", null),
@@ -52,7 +52,7 @@ class Qid(@BeanProperty var rowKey:String, @BeanProperty var q:String, @BeanProp
     size + 8 + 8 + 8
   }
 
-  def toMap : Map[String, String] = Map("rowKey" -> rowKey, "q" -> q, "displayString" -> displayString,
+  def toMap: Map[String, String] = Map("rowkey" -> rowKey, "q" -> q, "displayString" -> displayString,
     "wkt" -> wkt, "bbox" -> Json.toJSON(bbox), "lastUse" -> lastUse.toString, "fqs" -> Json.toJSON(fqs),
     "maxAge" -> maxAge.toString, "source" -> source)
 }

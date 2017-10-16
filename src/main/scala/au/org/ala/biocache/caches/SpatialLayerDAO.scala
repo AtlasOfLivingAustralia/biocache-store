@@ -3,7 +3,7 @@ package au.org.ala.biocache.caches
 import java.io.File
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.model.{Location, FullRecord}
+import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.util.StringHelper
 import au.org.ala.layers.intersect.SimpleShapeFile
 import org.apache.commons.lang.StringUtils
@@ -28,13 +28,11 @@ object SpatialLayerDAO {
   private val lru = new org.apache.commons.collections.map.LRUMap(100000)
   var sdsLayerList:List[String] = List()
 
-  init
-
   /**
    * Load polygon layers from the filesystem into memory to support fast intersect
    * queries.
    */
-  private def init = {
+  lazy val init = {
 
     //SDS layer loading
     logger.info("Loading Layer information from ....." + Config.layersServiceUrl)
@@ -92,6 +90,8 @@ object SpatialLayerDAO {
     if(StringUtils.isNotBlank(Config.localGovLayerID)){
       loadLayer(Config.localGovLayerID, false)
     }
+
+    true
   }
 
   private def loadLayer(layerID: String, errorIfNotAvailable:Boolean = false): Unit ={
@@ -152,6 +152,7 @@ object SpatialLayerDAO {
    * @return
    */
   def intersect(decimalLongitude:Double, decimalLatitude:Double) : collection.Map[String, String] = {
+    init
 
     if(decimalLongitude == null || decimalLatitude == null){
       return Map[String,String]()

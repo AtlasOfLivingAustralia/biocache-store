@@ -1,24 +1,26 @@
 package au.org.ala.biocache.util
 
-import au.org.ala.biocache.cmd.Tool
-import au.org.ala.biocache.Config
 import java.util.Date
-import java.util
+
+import au.org.ala.biocache.Config
+import au.org.ala.biocache.cmd.Tool
+
 import scala.collection.mutable
 
 /**
- * View records with timestamp
- */
+  * View records with timestamp
+  */
 object DebugRecord extends Tool {
 
   def desc = "Retrieve a record details with timestamps"
+
   def cmd = "debug-record"
 
-  def main(args:Array[String]){
+  def main(args: Array[String]) {
     var rowKey = ""
     var entity = "occ"
     val parser = new OptionParser("copy column options") {
-      arg("rowKey", "rowKey.", {
+      arg("rowkey", "rowkey.", {
         v: String => rowKey = v
       })
       opt("e", "entity", "The entity (defaults to occ)", {
@@ -29,15 +31,15 @@ object DebugRecord extends Tool {
 
 
       var lookup = Config.persistenceManager.getColumnsWithTimestamps(rowKey, entity)
-      if(lookup.isEmpty && entity == "occ"){
+      if (lookup.isEmpty && entity == "occ") {
         val lookupByUUID = Config.persistenceManager.getByIndex(rowKey, "occ", "uuid")
-        if(!lookupByUUID.isEmpty && lookupByUUID.get.getOrElse("rowKey", "") != ""){
-          val rowKeyFound = lookupByUUID.get.getOrElse("rowKey", "")
+        if (!lookupByUUID.isEmpty && lookupByUUID.get.getOrElse("rowkey", "") != "") {
+          val rowKeyFound = lookupByUUID.get.getOrElse("rowkey", "")
           lookup = Config.persistenceManager.getColumnsWithTimestamps(rowKeyFound, "occ")
         }
       }
 
-      if(!lookup.isEmpty){
+      if (!lookup.isEmpty) {
         val map = lookup.get
         println("\n## Raw values ## ")
         val loadDates = new mutable.HashSet[Date]()
@@ -45,7 +47,7 @@ object DebugRecord extends Tool {
         val qaDates = new mutable.HashSet[Date]()
 
         map.keySet.toList.sorted.foreach(key =>
-          if(!key.endsWith(".p") && !key.endsWith(".qa")) {
+          if (!key.endsWith(Config.persistenceManager.fieldDelimiter + "p") && !key.endsWith(Config.persistenceManager.fieldDelimiter + "qa")) {
             println(padElementTo25(key) + " updated: " + new Date(map.get(key).get.toLong))
             loadDates.add(new Date(map.get(key).get.toLong))
           }
@@ -53,7 +55,7 @@ object DebugRecord extends Tool {
 
         println("\n## Processed values ## ")
         map.keySet.toList.sorted.foreach(key =>
-          if(key.endsWith(".p")) {
+          if (key.endsWith(Config.persistenceManager.fieldDelimiter + "p")) {
             println(padElementTo25(key) + " updated: " + new Date(map.get(key).get.toLong))
             processedDates.add(new Date(map.get(key).get.toLong))
           }
@@ -61,7 +63,7 @@ object DebugRecord extends Tool {
 
         println("\n## Quality assertion values ## ")
         map.keySet.toList.sorted.foreach(key =>
-          if(key.endsWith(".qa")) {
+          if (key.endsWith(".qa")) {
             println(padElementTo25(key) + " updated: " + new Date(map.get(key).get.toLong))
             qaDates.add(new Date(map.get(key).get.toLong))
           }
@@ -81,5 +83,5 @@ object DebugRecord extends Tool {
 
   def padElementTo25(str: String) = padElement(str, 25)
 
-  def padElement(str: String, width: Int) = str + ( " " * (width - str.length()) )
+  def padElement(str: String, width: Int) = str + (" " * (width - str.length()))
 }

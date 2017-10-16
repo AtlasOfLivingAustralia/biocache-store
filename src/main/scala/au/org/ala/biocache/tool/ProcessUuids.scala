@@ -11,13 +11,14 @@ import org.codehaus.jackson.map.ObjectMapper
 import org.slf4j.LoggerFactory
 
 /**
- * Utility for processing list of records specified by a CSV uuids string.
- */
+  * Utility for processing list of records specified by a CSV uuids string.
+  */
 object ProcessUuids extends Tool {
 
   val logger = LoggerFactory.getLogger("ProcessUuids")
 
   def cmd = "process-uuids"
+
   def desc = "Process a list of records specified by a comma separated uuid string"
 
   def main(args: Array[String]) {
@@ -43,16 +44,15 @@ object ProcessUuids extends Tool {
         records = Config.occurrenceDAO.getAllVersionsByUuid(uuid)
       }
       if (!records.isEmpty) {
-        logger.info("Processing record.....")
+        logger.info("Processing record: " + uuid)
         processor.processRecord(records.get(0), records.get(1))
         val processedRecord = Config.occurrenceDAO.getByRowKey(records.get(1).rowKey, Processed)
         val objectMapper = new ObjectMapper
-        if (!processedRecord.isEmpty)
-          logger.info(objectMapper.writeValueAsString(processedRecord.get))
-        else
-          logger.info("Record not found")
+        if (processedRecord.isEmpty) {
+          logger.info("Record not found: " + uuid)
+        }
       } else {
-        logger.info("UUID or row key not stored....")
+        logger.info("UUID or row key not stored: " + uuid)
       }
     })
     print("\n\nSupply a Row Key for a record: ")

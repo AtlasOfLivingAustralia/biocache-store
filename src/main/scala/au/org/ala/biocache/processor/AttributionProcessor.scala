@@ -1,24 +1,26 @@
 package au.org.ala.biocache.processor
 
-import org.slf4j.LoggerFactory
-import scala.collection.mutable.ArrayBuffer
 import au.org.ala.biocache.caches.AttributionDAO
-import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes}
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus}
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
- * A processor of attribution information.
- */
+  * A processor of attribution information.
+  */
 class AttributionProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("AttributionProcessor")
+
   import AssertionCodes._
   import AssertionStatus._
 
   /**
-   * Retrieve attribution information from collectory and tag the occurrence record.
-   */
-  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
+    * Retrieve attribution information from collectory and tag the occurrence record.
+    */
+  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
     var assertions = new ArrayBuffer[QualityAssertion]
 
     //get the data resource information to check if it has mapped collections
@@ -68,6 +70,21 @@ class AttributionProcessor extends Processor {
           processed.attribution.taxonomicHints = dataResource.get.taxonomicHints
         }
       }
+    }
+
+    assertions.toArray
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(UNRECOGNISED_COLLECTIONCODE.code,
+        UNRECOGNISED_INSTITUTIONCODE.code))
+
+      //update the details from lastProcessed
+      processed.attribution = lastProcessed.get.attribution
     }
 
     assertions.toArray
