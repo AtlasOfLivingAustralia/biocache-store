@@ -517,7 +517,7 @@ class Cassandra3PersistenceManager @Inject()(
   def addFieldToEntity(entityName: String, fieldName: String): Unit = {
     val resultset =
       if (Config.caseSensitiveCassandra) {
-        session.execute("ALTER TABLE " + entityName + " ADD \"" + fieldName + "\" varchar")
+        session.execute("ALTER TABLE " + entityName + " ADD " + fieldName + " varchar")
       } else {
         session.execute(s"ALTER TABLE $entityName ADD $fieldName varchar")
       }
