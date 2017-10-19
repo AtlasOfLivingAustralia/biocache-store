@@ -1,31 +1,23 @@
+
 <assembly>
     <id>distribution</id>
     <formats>
         <format>zip</format>
     </formats>
-    <includeBaseDirectory>false</includeBaseDirectory>
-    <dependencySets>
-        <dependencySet>
-            <useProjectArtifact>true</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <scope>runtime</scope>
-            <fileMode>0755</fileMode>
-            <directoryMode>0755</directoryMode>
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.directory}/appassembler/</directory>
+            <outputDirectory>/</outputDirectory>
             <includes>
-                <include>au.org.ala:biocache-store</include>
+                <include>/**</include>
             </includes>
-        </dependencySet>
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <scope>runtime</scope>
-            <fileMode>0644</fileMode>
-            <directoryMode>0755</directoryMode>
-            <outputDirectory>lib</outputDirectory>
-            <includes></includes>
-        </dependencySet>
-    </dependencySets>
+        </fileSet>
+        <fileSet>
+            <directory>src/main/bin</directory>
+            <includes>
+                <include>environmentSetupFile.sh</include>
+            </includes>
+            <outputDirectory>/bin</outputDirectory>
+        </fileSet>
+    </fileSets>
 </assembly>
-
