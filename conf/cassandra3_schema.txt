@@ -103,7 +103,6 @@ CREATE TABLE occ.qa (
     userentityuid text,
     userid text,
     userrole text,
-    uuid text,
     value text
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -199,14 +198,12 @@ CREATE TABLE occ.occ (
     day_p text,
     decimallatitude text,
     decimallatitude_p text,
-    decimallatitudelatitude text,
     decimallongitude text,
     decimallongitude_p text,
     default_qa text,
     defaultvaluesused text,
     deleted text,
-    disposition text,
-    distanceoutsideexpertrange text,
+    disposition text,0
     distanceoutsideexpertrange_p text,
     duplicates text,
     duplicates_qa text,
@@ -327,9 +324,7 @@ CREATE TABLE occ.occ (
     latestepochorhighestseries text,
     latesteraorhighesterathem text,
     latestperiodorhighestsystem text,
-    left text,
     left_p text,
-    lga text,
     lga_p text,
     license text,
     license_p text,
@@ -380,7 +375,6 @@ CREATE TABLE occ.occ (
     nameaccordingto text,
     nameaccordingto_p text,
     nameaccordingtoid text,
-    namematchmetric text,
     namematchmetric_p text,
     nameparsetype text,
     nameparsetype_p text,
@@ -430,7 +424,6 @@ CREATE TABLE occ.occ (
     phylumid text,
     phylumid_p text,
     pointradiusspatialfit text,
-    portalid text,
     preferredflag text,
     preparations text,
     previousidentifications text,
@@ -450,7 +443,6 @@ CREATE TABLE occ.occ (
     reproductivecondition text,
     resourceid text,
     resourcerelationshipid text,
-    right text,
     right_p text,
     rights text,
     rightsholder text,
@@ -518,7 +510,6 @@ CREATE TABLE occ.occ (
     userid_p text,
     userqualityassertion text,
     userverified text,
-    uuid text,
     validdistribution text,
     verbatimcoordinates text,
     verbatimcoordinatesystem text,
@@ -544,9 +535,8 @@ CREATE TABLE occ.occ (
     year text,
     year_p text,
     zone text,
-    PRIMARY KEY (rowkey, dataresourceuid)
-) WITH CLUSTERING ORDER BY (dataresourceuid ASC)
-    AND bloom_filter_fp_chance = 0.01
+    PRIMARY KEY (rowkey)
+) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
     AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}

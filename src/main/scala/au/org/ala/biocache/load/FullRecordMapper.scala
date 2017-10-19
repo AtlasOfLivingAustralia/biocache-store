@@ -64,8 +64,6 @@ object FullRecordMapper {
     if(fullRecord.cl != null && !fullRecord.cl.isEmpty && version == Processed){
       properties.put(contextualLayersColumn, Json.toJSON(fullRecord.cl))        //store them as JSON array
     }
-    properties.put("uuid", fullRecord.uuid)
-    properties.put("rowKey", fullRecord.rowKey)
     properties.put(FullRecordMapper.defaultValuesColumn, fullRecord.defaultValuesUsed.toString)
     properties.put(FullRecordMapper.locationDeterminedColumn, fullRecord.locationDetermined.toString)
     if(fullRecord.lastModifiedTime != ""){
@@ -138,7 +136,6 @@ object FullRecordMapper {
 
     val fullRecord = new FullRecord
     fullRecord.rowKey = rowKey
-    fullRecord.uuid = fields.getOrElse("uuid", "")
     fullRecord.lastModifiedTime = fields.getOrElse(markNameBasedOnVersion(alaModifiedColumn, version), "")
     fullRecord.firstLoaded = fields.getOrElse(firstLoadedColumn, "")
 

@@ -632,7 +632,7 @@ class LocationProcessor extends Processor {
       val validHabitat = HabitatMap.areTermsCompatible(habitatFromPoint, habitatsForSpecies)
       if (!validHabitat.isEmpty) {
         if (!validHabitat.get) {
-          logger.debug("[QualityAssertion] ******** Biomes incompatible for ROWKEY: " + raw.rowKey + ", processed:"
+          logger.debug("[QualityAssertion] ******** Biomes incompatible for UUID: " + raw.rowKey + ", processed:"
             + processed.location.biome + ", retrieved:" + habitatsAsString
             + ", http://maps.google.com/?ll=" + processed.location.decimalLatitude + ","
             + processed.location.decimalLongitude)

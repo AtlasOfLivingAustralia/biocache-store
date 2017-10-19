@@ -1,5 +1,10 @@
 package au.org.ala.biocache.persistence
 
+import java.util.concurrent.Executor
+
+import com.datastax.driver.core.ResultSet
+import com.google.common.util.concurrent.FutureCallback
+
 /**
  * Trait (interface) for persistence storage in the Biocache.
  * 
@@ -59,6 +64,11 @@ trait PersistenceManager {
    * Put a set of key value pairs.
    */
   def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean): String
+
+  /**
+    * Put a set of key value pairs.
+    */
+  def putAsync(executor: Executor, rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean): String
 
   /**
    * Add a batch of properties.

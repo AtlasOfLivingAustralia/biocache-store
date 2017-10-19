@@ -54,15 +54,15 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
   }
 
-  /**
-   * Get an occurrence with UUID
-   *
-   * @param uuid
-   * @return
-   */
-  def getByUuid(uuid: String, includeSensitive:Boolean): Option[FullRecord] = {
-    getByUuid(uuid, Raw, includeSensitive)
-  }
+//  /**
+//   * Get an occurrence with UUID
+//   *
+//   * @param uuid
+//   * @return
+//   */
+//  def getByUuid(uuid: String, includeSensitive:Boolean): Option[FullRecord] = {
+//    getByRowKey(uuid, Raw, includeSensitive)
+//  }
   /**
    * Get an occurrence with rowKey
    */
@@ -70,21 +70,21 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     getByRowKey(rowKey, Raw, includeSensitive)
   }
 
-  /**
-   * Get all versions of the occurrence with UUID
-   *
-   * @param uuid
-   * @return
-   */
-  def getAllVersionsByUuid(uuid: String, includeSensitive:Boolean=false): Option[Array[FullRecord]] = {
-    //get the rowKey for the uuid
-    val rowKey = getRowKeyFromUuid(uuid)
-    if(rowKey.isDefined){
-      getAllVersionsByRowKey(rowKey.get, includeSensitive)
-    } else {
-      None
-    }
-  }
+//  /**
+//   * Get all versions of the occurrence with UUID
+//   *
+//   * @param uuid
+//   * @return
+//   */
+//  def getAllVersionsByUuid(uuid: String, includeSensitive:Boolean=false): Option[Array[FullRecord]] = {
+//    //get the rowKey for the uuid
+////    val rowKey = getRowKeyFromUuid(uuid)
+////    if(rowKey.isDefined){
+//      getAllVersionsByRowKey(uuid, includeSensitive)
+////    } else {
+////      None
+////    }
+//  }
 
  /**
   * Get all the versions based on a row key
@@ -138,12 +138,12 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    */
   def getByUuid(uuid: String, version: Version, includeSensitive:Boolean=false): Option[FullRecord] = {
     //get the row key from the supplied uuid
-    val rowKey = getRowKeyFromUuid(uuid)
-    if(rowKey.isDefined){
-      getByRowKey(rowKey.get, version,includeSensitive)
-    } else {
-      None
-    }
+//    val rowKey = getRowKeyFromUuid(uuid)
+//    if(rowKey.isDefined){
+      getByRowKey(uuid, version,includeSensitive)
+//    } else {
+//      None
+//    }
   }
 
   /**
@@ -162,16 +162,36 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     if (recordUUID.isEmpty) {
       val newUuid = createUuid
       //The uuid will be added when the record is inserted
-      //persistenceManager.put(uniqueID, "dr", "uuid", newUuid)
+      persistenceManager.put(uniqueID, "occ_uuid", "value", newUuid, true, false)
       (newUuid, true)
     } else {
       (recordUUID.get, false)
     }
   }
 
-  def getUUIDForUniqueID(uniqueID: String) = persistenceManager.get(uniqueID, "occ", "uuid")
+  /**
+    * Creates a unique key for this record using the unique terms for this data resource.
+    *
+    * @param dataResourceUid
+    * @param identifyingTerms
+    * @param stripSpaces
+    * @return
+    */
+  def createUniqueID(dataResourceUid:String, identifyingTerms:Seq[String], stripSpaces:Boolean=false) : String = {
+    val uniqueId = (List(dataResourceUid) ::: identifyingTerms.toList).mkString("|").trim
+    if(stripSpaces)
+      uniqueId.replaceAll("\\s","")
+    else
+      uniqueId
+  }
 
-
+  /**
+   * Retrieve the UUID for a unique record ID
+   *
+   * @param uniqueID
+   * @return
+   */
+  def getUUIDForUniqueID(uniqueID: String) = persistenceManager.get(uniqueID, "occ_uuid", "value")
 
   /**
    * Writes the supplied field values to the writer.  The Writer specifies the format in which the record is
@@ -182,8 +202,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     //TODO fix this in case the value can't be found
     val mfields = fields.toBuffer
     val codes = qaFields.map(value=>AssertionCodes.getByName(value).get.getCode)
-    val firstEL = fields.find(value => {elpattern.findFirstIn(value).nonEmpty})
-    val firstCL = fields.find(value => {clpattern.findFirstIn(value).nonEmpty})
+    val firstEL = fields.find(value => { elpattern.findFirstIn(value).nonEmpty })
+    val firstCL = fields.find(value => { clpattern.findFirstIn(value).nonEmpty })
     val firstMisc = fields.find(value =>{IndexFields.storeMiscFields.contains(value)})
     //user_assertions is boolean in SOLR, FullRecordMapper.userQualityAssertionColumn in Cassandra.
     //because this is a full list it is more useful to have the assertion contents in this requested field.
@@ -255,7 +275,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       }
 
       //now handle the QA fields
-      val failedCodes = getErrorCodes(fieldMap);
+      val failedCodes = getErrorCodes(fieldMap)
       //work way through the codes and add to output
       codes.foreach(code => {
         array += (failedCodes.contains(code)).toString
@@ -524,9 +544,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
 
     persistenceManager.put(fr.rowKey, entityName, properties.toMap, true, deleteIfNullValue)
-
-    //store a secondary index value
-    persistenceManager.put(fr.uuid, entityName + "_uuid", "value", fr.rowKey, true, false)
   }
 
   /**
@@ -555,12 +572,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         }
       }
       batch.put(fr.rowKey, properties.toMap)
-      batchSecondaryIndex.put(fr.uuid, Map("value" -> fr.rowKey))
     }
     //commit
     persistenceManager.putBatch(entityName, batch.toMap, true, removeNullFields)
-
-    persistenceManager.putBatch(entityName + "_uuid", batchSecondaryIndex.toMap, true, false)
   }
 
   /**
@@ -574,7 +588,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
       val associatedMediaBuffer = new ArrayBuffer[String]
       filesToImport.foreach(fileToStore =>
-        Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, None) match {
+        Config.mediaStore.save(fr.rowKey, fr.attribution.dataResourceUid, fileToStore, None) match {
           case Some((filename, filePath)) => associatedMediaBuffer += filePath
           case None => logger.error("Unable to save media: " + fileToStore)
         }

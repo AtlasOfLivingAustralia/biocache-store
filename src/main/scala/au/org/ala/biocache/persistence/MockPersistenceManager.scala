@@ -1,10 +1,14 @@
 package au.org.ala.biocache.persistence
 
-import scala.collection.mutable.{ListBuffer, HashMap}
+import scala.collection.mutable.{HashMap, ListBuffer}
 import au.org.ala.biocache.util.Json
 import java.util.UUID
-import au.org.ala.biocache.dao.{OccurrenceDAOImpl, OccurrenceDAO}
-import au.org.ala.biocache.index.{SolrIndexDAO, IndexDAO}
+import java.util.concurrent.Executor
+
+import au.org.ala.biocache.dao.{OccurrenceDAO, OccurrenceDAOImpl}
+import au.org.ala.biocache.index.{IndexDAO, SolrIndexDAO}
+import com.datastax.driver.core.ResultSet
+import com.google.common.util.concurrent.FutureCallback
 import org.slf4j.LoggerFactory
 
 class MockPersistenceManager extends PersistenceManager {
@@ -74,6 +78,14 @@ class MockPersistenceManager extends PersistenceManager {
   }
 
   def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, deleteIfNullValue: Boolean) = {
+    logger.debug(s"Put for $uuid -  $entityName - $keyValuePairs")
+    val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
+    val recordMap = entityMap.getOrElse(uuid, HashMap[String, String]())
+    entityMap.put(uuid, (recordMap ++ keyValuePairs).asInstanceOf[HashMap[String, String]])
+    uuid
+  }
+
+  def putAsync(executor: Executor, uuid: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, deleteIfNullValue: Boolean) = {
     logger.debug(s"Put for $uuid -  $entityName - $keyValuePairs")
     val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
     val recordMap = entityMap.getOrElse(uuid, HashMap[String, String]())

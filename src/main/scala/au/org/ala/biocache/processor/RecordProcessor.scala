@@ -69,7 +69,7 @@ class RecordProcessor {
         //debug counter
         if (counter % 100 == 0) {
           finishTime = System.currentTimeMillis
-          logger.debug(counter + " >> Last key : " + rp(0).uuid + ", records per sec: " + 100f / (((finishTime - startTime).toFloat) / 1000f))
+          logger.debug(counter + " >> Last key : " + rp(0).rowKey + ", records per sec: " + 100f / (((finishTime - startTime).toFloat) / 1000f))
           startTime = System.currentTimeMillis
         }
       }
@@ -182,7 +182,7 @@ class RecordProcessor {
     val uuid = properties.getOrElse("uuid", UUID.randomUUID().toString)
     val rowKey = dataResourceUid + "|" + uuid
     val raw = FullRecordMapper.createFullRecord(rowKey, properties,Versions.RAW)
-    raw.uuid = uuid
+    raw.rowKey = uuid
     raw.attribution.dataResourceUid = dataResourceUid
     Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
     val processor = new RecordProcessor
@@ -194,7 +194,7 @@ class RecordProcessor {
     val uuid = properties.getOrElse("uuid", UUID.randomUUID().toString)
     val rowKey = dataResourceUid + "|" + uuid
     val raw = FullRecordMapper.createFullRecord(rowKey, properties,Versions.RAW)
-    raw.uuid = uuid
+    raw.rowKey = uuid
     raw.attribution.dataResourceUid = dataResourceUid
     biocache.Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
     val downloaded = biocache.Config.occurrenceDAO.downloadMedia(raw)

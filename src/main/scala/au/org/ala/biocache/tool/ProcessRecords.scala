@@ -94,7 +94,7 @@ object ProcessRecords extends Tool with IncrementalTool {
           //debug counter
           if (counter % 1000 == 0) {
             finishTime = System.currentTimeMillis
-            logger.info(counter + " >> Last key : " + rp(0).uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
+            logger.info(counter + " >> Last key : " + rp(0).rowKey + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
             startTime = System.currentTimeMillis
           }
         }

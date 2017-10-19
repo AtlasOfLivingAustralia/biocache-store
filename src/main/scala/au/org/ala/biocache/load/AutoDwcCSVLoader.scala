@@ -280,7 +280,7 @@ class AutoDwcCSVLoader extends DataLoader {
         })
 
         val uniqueTermsValues = uniqueTerms.map(t => map.getOrElse(t, ""))
-        listbuf += createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces)
+        listbuf += Config.occurrenceDAO.createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces)
         currentLine = reader.readNext()
       }
     }
