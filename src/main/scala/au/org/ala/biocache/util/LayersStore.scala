@@ -27,6 +27,7 @@ class LayersStore ( layersStoreUrl: String) {
    */
   def sample(strings: Array[String], doubles: Array[Array[Double]], callback: IntersectCallback = null): java.io.Reader = {
     var retries = Config.layerServiceRetries
+    var waitTime = Config.layerServiceRetryWait
     //format inputs
     val doublesString: StringBuilder = new StringBuilder()
     for ( i <- 0 until doubles.length ) {
@@ -46,8 +47,8 @@ class LayersStore ( layersStoreUrl: String) {
     //start
     val statusUrl = samplingStart(stringsString.toString(), doublesString.toString())
 
-    //monitor (sleep 3s if > 1000 points, else 1s)
-    val sleepLength = if (doubles.length < 1000) 1000 else 3000
+    //monitor (sleep waitTime if > 1000 points, else 1s)
+    val sleepLength = if (doubles.length < 1000) 1000 else waitTime
     var (respCode, respBody, retry) = samplingStatus(statusUrl)
 
     while( retry && retries > 0 ) {
@@ -58,7 +59,7 @@ class LayersStore ( layersStoreUrl: String) {
       retry = r._3
 
       if (respCode != HttpStatus.SC_OK) {
-        logger.warn("Problem getting sampling status: " + r + " retries=" + retries)
+        logger.error("Problem getting sampling status: " + r + " retries=" + retries)
         
         //count down retries if status is not OK
         retries -= 1
@@ -176,7 +177,7 @@ class LayersStore ( layersStoreUrl: String) {
       try {
         val result = response.getStatusLine()
         val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-        logger.debug("Response code: " + result.getStatusCode)
+        logger.error("Response code: " + result.getStatusCode)
         val json = Json.toMap(responseBody)
 
         val status = json.get("status").get
@@ -192,11 +193,11 @@ class LayersStore ( layersStoreUrl: String) {
       }
     } catch {
       case ex:ConnectException => {
-        logger.debug("Connection exception to " + statusUrl, ex)
+        logger.error("Connection exception to " + statusUrl, ex)
         (HttpStatus.SC_SERVICE_UNAVAILABLE, null, true)
       }
       case ex:Exception => {
-        logger.debug("Exception connecting to " + statusUrl, ex)
+        logger.error("Exception connecting to " + statusUrl, ex)
         (HttpStatus.SC_INTERNAL_SERVER_ERROR, null, false)
       }
     } finally {

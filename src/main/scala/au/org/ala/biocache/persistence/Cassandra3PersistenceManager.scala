@@ -98,10 +98,23 @@ class Cassandra3PersistenceManager @Inject()(
           case missing: com.datastax.driver.core.exceptions.InvalidQueryException if missing.getMessage().startsWith("Undefined column name") => {
             if (Config.createColumnCassandra) {
               //automatically create missing columns
-              val columnName = missing.getMessage().replace("Undefined column name", "").trim()
-              logger.error(s"adding missing column '${columnName}' to '$table' for error: ${missing.getMessage()}")
-              tryQuery = true
-              addFieldToEntity(table, columnName)
+              val columnName = missing.getMessage().replace("Undefined column name", "").replaceAll("\"", "").trim()
+              val lcase = columnName.toLowerCase
+
+              //does this column already exist?
+              val correctCase = listFieldsForEntity(table).find( fieldName => {
+                fieldName.toLowerCase == lcase
+              })
+
+              if (correctCase.isEmpty || !Config.caseSensitiveCassandra) {
+                logger.error(s"adding missing column '${columnName}' to '$table' for error: ${missing.getMessage()}")
+                tryQuery = true
+                addFieldToEntity(table, columnName)
+              } else {
+                logger.error(s"Incorrect column case. requested: '${columnName}', actual: '${correctCase}, query: " + query)
+                logger.error(missing.getMessage, missing)
+                throw missing
+              }
             } else {
               logger.error("problem creating a statement for query: " + query)
               logger.error(missing.getMessage, missing)
@@ -605,7 +618,7 @@ class Cassandra3PersistenceManager @Inject()(
     * @param proc
     * @param threads
     */
-  private def pageOverLocalNotAsync(entityName: String, proc: ((String, Map[String, String], String) => Boolean),
+  def pageOverLocalNotAsync(entityName: String, proc: ((String, Map[String, String], String) => Boolean),
                                     threads: Int, columns: Array[String] = Array(), rowKeyFile: File = null,
                                     indexedField: String = "", indexedFieldValue: String = "",
                                     localOnly: Boolean = true,
@@ -710,7 +723,8 @@ class Cassandra3PersistenceManager @Inject()(
             }
 
             val columnsString = if (columns.nonEmpty) {
-              mkString(columns)
+              if (columns.contains("rowkey")) mkString(columns)
+              else mkString(columns) + ",rowkey"
             } else {
               "*"
             }

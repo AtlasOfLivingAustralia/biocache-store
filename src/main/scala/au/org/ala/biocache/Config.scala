@@ -186,6 +186,8 @@ object Config {
 
   lazy val layerServiceRetries = configModule.properties.getProperty("layers.service.retries", "10").toInt
 
+  lazy val layerServiceRetryWait = configModule.properties.getProperty("layers.service.retry.wait", "30000").toInt
+
   lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
 
   lazy val solrBatchSize = configModule.properties.getProperty("solr.batch.size", "1000").toInt

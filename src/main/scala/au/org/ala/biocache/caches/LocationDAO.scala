@@ -33,7 +33,7 @@ object LocationDAO {
    *
    * For return values when batch == true commit with writeLocBatch
    */
-  def addLayerIntersects (latitude:String, longitude:String, contextual:Map[String,String], environmental:Map[String,Float], batch:Boolean = false) : (String, Map[String, String]) = {
+  def addLayerIntersects (latitude:String, longitude:String, contextual:String, environmental:String, batch:Boolean = false) : (String, Map[String, String]) = {
     if (latitude != null && latitude.trim.length > 0 && longitude != null && longitude.trim.length > 0){
 
       val guid = getLatLongKey(latitude, longitude)
@@ -43,8 +43,8 @@ object LocationDAO {
 
         mapBuffer += (latitudeCol -> latitude)
         mapBuffer += (longitudeCol -> longitude)
-        mapBuffer ++= contextual
-        mapBuffer ++= environmental.map(x => x._1 -> x._2.toString)
+        mapBuffer += ("cl" -> contextual)
+        mapBuffer += ("el" -> environmental)
 
         if (batch) {
           (guid -> mapBuffer.toMap)
@@ -128,7 +128,7 @@ object LocationDAO {
    * Get location information for point.
    * For geo spatial requirements we don't want to round the latitude , longitudes
    */
-  def getSamplesForLatLon(latitude:String, longitude:String) : Option[(Location, collection.Map[String,String], collection.Map[String,String])] = {
+  def getSamplesForLatLon(latitude:String, longitude:String) : Option[(Location, String, String)] = {
 
     if (latitude == null || longitude == null || latitude.trim.length == 0 || longitude.trim.length == 0){
       return None
@@ -141,7 +141,7 @@ object LocationDAO {
 
       if(cachedObject != null){
 
-        cachedObject.asInstanceOf[Option[(Location, Map[String, String], Map[String, String])]]
+        cachedObject.asInstanceOf[Option[(Location, String, String)]]
 
       } else {
 
@@ -152,8 +152,8 @@ object LocationDAO {
             location.decimalLatitude = latitude
             location.decimalLongitude = longitude
 
-            val el = map.filter(x => x._1.startsWith("el"))
-            val cl = map.filter(x => x._1.startsWith("cl"))
+            val el = map.getOrElse("el", "")
+            val cl = map.getOrElse("cl", "")
 
             val returnValue = Some((location, el, cl))
 

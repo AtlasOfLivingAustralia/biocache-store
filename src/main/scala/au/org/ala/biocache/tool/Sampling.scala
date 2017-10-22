@@ -157,8 +157,8 @@ object Sampling extends Tool with IncrementalTool {
         if (!point.isEmpty) {
           val (location, environmentalLayers, contextualLayers) = point.get
           Config.persistenceManager.put(guid, "occ", Map(
-            "el" + Config.persistenceManager.fieldDelimiter + "p" -> Json.toJSON(environmentalLayers),
-            "cl" + Config.persistenceManager.fieldDelimiter + "p" -> Json.toJSON(contextualLayers)),
+            "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
+            "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
             false,
             false
           )
@@ -532,10 +532,10 @@ class Sampling {
       while (line != null) {
         try {
           val map = (header zip line).filter(x => !StringUtils.isEmpty(x._2.trim) && x._1 != "latitude" && x._1 != "longitude").toMap
-          val el = map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
+          val el = Json.toJSON(map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
             y._1 -> y._2.toFloat
-          })
-          val cl = map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap
+          }))
+          val cl = Json.toJSON(map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap)
           if (batches.size == batchSize) {
             LocationDAO.writeLocBatch(batches)
             batches.clear()
@@ -680,10 +680,10 @@ class LoadSamplingConsumer(batches: LinkedBlockingQueue[String]) extends Thread 
           while (line != null) {
             try {
               val map = (header zip line).filter(x => !StringUtils.isEmpty(x._2.trim) && x._1 != "latitude" && x._1 != "longitude").toMap
-              val el = map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
+              val el = Json.toJSON(map.filter(x => x._1.startsWith("el") && x._2 != "n/a").map(y => {
                 y._1 -> y._2.toFloat
-              }).toMap
-              val cl = map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap
+              }).toMap)
+              val cl = Json.toJSON(map.filter(x => x._1.startsWith("cl") && x._2 != "n/a").toMap)
               if (batches.size == batchSize) {
                 LocationDAO.writeLocBatch(batches.toMap)
                 batches.clear()
