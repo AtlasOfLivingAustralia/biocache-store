@@ -58,7 +58,9 @@ class LocationProcessor extends Processor {
       processed.location.lga  = intersectValues.getOrElse(Config.localGovLayerID, null)
       processed.location.country = intersectValues.getOrElse(Config.countriesLayerID, null)
 
-      if (processed.location.country == null && processed.location.stateProvince != null) {
+      // Typically layer.state.province is higher resolution than layer.countries.
+      // Always override when there is a defaultCountry.
+      if (processed.location.stateProvince != null && StringUtils.isNotEmpty(Config.defaultCountry)) {
         processed.location.country = Config.defaultCountry
       }
 
