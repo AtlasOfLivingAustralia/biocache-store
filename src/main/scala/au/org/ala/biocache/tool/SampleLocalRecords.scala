@@ -168,12 +168,12 @@ class SampleLocalRecords {
     * @param sampleOnly
     * @param drs
     * @param skipDrs
-    * @param useFullScan
+    * @param _useFullScan
     * @param startTokenRangeIdx
     * @param layers
     */
   def sampleRecords(workingDir: String, threads: Int, keepFiles: Boolean, loadOccOnly: Boolean, sampleOnly: Boolean,
-                    drs: Seq[String], skipDrs: Seq[String], useFullScan: Boolean, startTokenRangeIdx: Int,
+                    drs: Seq[String], skipDrs: Seq[String], _useFullScan: Boolean, startTokenRangeIdx: Int,
                     layers: Seq[String], allNodes: Boolean = false): Unit = {
 
     val start = System.currentTimeMillis()
@@ -193,6 +193,9 @@ class SampleLocalRecords {
     } else {
       null
     }
+
+    // do not use full scan when no -dr or -edr
+    val useFullScan = !(skipDrs.isEmpty && drs.isEmpty) && _useFullScan
 
     if (rowKeyFile != null && rowKeyFile.exists()) {
       println("Using rowKeyFile " + rowKeyFile.getPath)
