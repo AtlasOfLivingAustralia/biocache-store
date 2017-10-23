@@ -272,7 +272,9 @@ class SampleLocalRecords {
         }, threads, Array(dlat, dlon), localOnly = !allNodes, indexedField = "dataResourceUid", indexedFieldValue = dataResourceUid)
       }
       rowkeys = JavaConverters.asScalaIterableConverter(_rowkeys).asScala.toSeq
-    } else {
+    } else if (!loadOccOnly) {
+      // --load-occ-only does not require a queue of lat lon
+      // --sampling-only does require a queue of lat lon but does not require a list of row keys
       Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("loc", (key, map, _) => {
         //rowkey is lon,lat
         val rowkey = map.getOrElse("rowkey", "")
