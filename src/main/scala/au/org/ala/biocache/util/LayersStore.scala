@@ -198,7 +198,7 @@ class LayersStore ( layersStoreUrl: String) {
       }
       case ex:Exception => {
         logger.error("Exception connecting to " + statusUrl, ex)
-        (HttpStatus.SC_INTERNAL_SERVER_ERROR, null, false)
+        (HttpStatus.SC_INTERNAL_SERVER_ERROR, null, true)
       }
     } finally {
       httpClient.close()
