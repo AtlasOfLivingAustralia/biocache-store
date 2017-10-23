@@ -182,10 +182,8 @@ class MiscellaneousProcessor extends Processor {
 
     //get the data resource information to check if it has mapped collections
     if (lastProcessed.isDefined) {
-      assertions ++= lastProcessed.get.findAssertions(Array())
-
-      //update the details from lastProcessed
-      processed.location = lastProcessed.get.location
+      //MiscellaneousProcessor has low overhead, do not skip
+      process(guid, raw, processed, lastProcessed)
     }
 
     assertions.toArray
