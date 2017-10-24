@@ -282,7 +282,10 @@ class SampleLocalRecords {
         //rowkey is lon,lat
         val rowkey = map.getOrElse("rowkey", "")
         if (rowkey.length > 0) {
-          queue.add(rowkey + "\n")
+          val latlon = rowkey.split("\\|")
+          if (latlon.length == 2) {
+            queue.add(latlon(1) + "," + latlon(0) +"\n")
+          }
         }
         true
       }, threads, Array("rowkey"), localOnly = !allNodes)
