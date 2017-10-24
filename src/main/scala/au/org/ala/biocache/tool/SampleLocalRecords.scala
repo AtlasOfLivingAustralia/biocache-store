@@ -278,17 +278,38 @@ class SampleLocalRecords {
     } else if (!loadOccOnly) {
       // --load-occ-only does not require a queue of lat lon
       // --sampling-only does require a queue of lat lon but does not require a list of row keys
-      Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("loc", (key, map, _) => {
+//      Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("loc", (key, map, _) => {
+//        //rowkey is lon,lat
+//        val rowkey = map.getOrElse("rowkey", "")
+//        if (rowkey.length > 0) {
+//          val latlon = rowkey.split("\\|")
+//          if (latlon.length == 2) {
+//            queue.add(latlon(1) + "," + latlon(0) +"\n")
+//          }
+//        }
+//        true
+//      }, threads, Array("rowkey"), localOnly = !allNodes)
+      Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("occ", (key, map, _) => {
         //rowkey is lon,lat
-        val rowkey = map.getOrElse("rowkey", "")
-        if (rowkey.length > 0) {
-          val latlon = rowkey.split("\\|")
-          if (latlon.length == 2) {
-            queue.add(latlon(1) + "," + latlon(0) +"\n")
-          }
+        val lon = map.getOrElse(dlon, "")
+        val lat = map.getOrElse(dlat, "")
+        if (lat != "" && lon != "") {
+          queue.add(lon + "," + lat + "\n")
+          updateCount += 1
         }
+        readCount += 1
+
+        if (updateCount % 10000 == 0) {
+          val end = System.currentTimeMillis()
+          val timeInSecs = ((end - lastLog).toFloat / 10000f)
+          val recordsPerSec = Math.round(10000f / timeInSecs)
+          logger.info(s"Total processed : $updateCount, total read: $readCount Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
+          lastLog = end
+          ZookeeperUtil.setStatus("SAMPING", "RUNNING", updateCount)
+        }
+
         true
-      }, threads, Array("rowkey"), localOnly = !allNodes)
+      }, threads, Array("rowkey", dlat, dlon), localOnly = !allNodes)
     }
 
     logger.info(s"found ${queue.size} unique coordinates for sampling")
