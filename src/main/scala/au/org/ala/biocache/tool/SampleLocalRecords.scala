@@ -362,8 +362,6 @@ class SampleLocalRecords {
           if (!point.isEmpty) {
             val (location, environmentalLayers, contextualLayers) = point.get
             Config.persistenceManager.put(guid, "occ", Map(
-//              "el" + Config.persistenceManager.fieldDelimiter + "p" -> Json.toJSON(environmentalLayers),
-//              "cl" + Config.persistenceManager.fieldDelimiter + "p" -> Json.toJSON(contextualLayers)),
               "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
               "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
               false,
@@ -378,7 +376,7 @@ class SampleLocalRecords {
           }
         }
         true
-      }, threads, Array("rowkey", dlat, dlon), localOnly = allNodes)
+      }, threads, Array("rowkey", dlat, dlon), localOnly = !allNodes)
     }
   }
 }

@@ -47,6 +47,8 @@ class LayersStore ( layersStoreUrl: String) {
     //start
     val statusUrl = samplingStart(stringsString.toString(), doublesString.toString())
 
+    logger.info("Sampling status URL: " + statusUrl)
+
     //monitor (sleep waitTime if > 1000 points, else 1s)
     val sleepLength = if (doubles.length < 1000) 1000 else waitTime
     var (respCode, respBody, retry) = samplingStatus(statusUrl)
@@ -177,7 +179,7 @@ class LayersStore ( layersStoreUrl: String) {
       try {
         val result = response.getStatusLine()
         val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-        logger.error("Response code: " + result.getStatusCode)
+        logger.debug("Response code: " + result.getStatusCode)
         val json = Json.toMap(responseBody)
 
         val status = json.get("status").get
