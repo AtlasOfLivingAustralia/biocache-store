@@ -1018,28 +1018,52 @@ class Cassandra3PersistenceManager @Inject()(
       cleanedFields.mkString(",")
     }
     val statement = session.prepare(s"SELECT $fieldsList FROM $entityName where rowkey = ?")
-    val futures = new ListBuffer[ResultSetFuture]
-    rowkeys.foreach { rowkey =>
-      val resultSetFuture = session.executeAsync(statement.bind(rowkey))
-      futures.add(resultSetFuture)
-    }
 
-    futures.foreach { future =>
-      val rows = future.getUninterruptibly()
-      val row = rows.one()
-      val mapBuilder = collection.mutable.Map[String, String]()
-      if (Config.caseSensitiveCassandra) {
-        fields.foreach { field =>
-          mapBuilder.put(field, row.getString(field))
-        }
-      } else {
-        fields.foreach { field =>
-          mapBuilder.put(field, row.getString(field.toLowerCase))
+    // set futures max size relative to threads
+    val threads = 8
+    val futures = new LinkedBlockingQueue[ResultSetFuture](threads * 2)
+    val finished = new AtomicBoolean(false)
+
+    //consumer
+    val consumer:Thread = new Thread() {
+      override def run(): Unit = {
+        while (!finished.get() || futures.size() > 0) {
+          val future = futures.poll(100, TimeUnit.MILLISECONDS)
+          if (future != null) {
+            val rows = future.getUninterruptibly()
+            val row = rows.one()
+            val mapBuilder = collection.mutable.Map[String, String]()
+            if (Config.caseSensitiveCassandra) {
+              fields.foreach { field =>
+                mapBuilder.put(field, row.getString(field))
+              }
+            } else {
+              fields.foreach { field =>
+                mapBuilder.put(field, row.getString(field.toLowerCase))
+              }
+            }
+
+            proc(mapBuilder.toMap)
+          }
         }
       }
-
-      proc(mapBuilder.toMap)
     }
+
+    //producer
+    val producer:Thread = new Thread() {
+      override def run(): Unit = {
+        rowkeys.foreach { rowkey =>
+          val resultSetFuture = session.executeAsync(statement.bind(rowkey))
+          futures.put(resultSetFuture)
+        }
+      }
+    }
+
+    producer.start()
+    consumer.start()
+
+    producer.join()
+    consumer.join()
   }
 
   def shutdown = {
