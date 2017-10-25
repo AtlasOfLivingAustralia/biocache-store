@@ -25,7 +25,7 @@ class QueryDelete(query: String) extends RecordDeletor {
     out.close
     file.foreachLine { line =>
       //use the occ DAO to delete so that the record is added to the dellog cf
-      occurrenceDAO.deleteByUuid(line, false, true)
+      occurrenceDAO.delete(line, false, true)
       count = count + 1
     }
     val finished = System.currentTimeMillis
@@ -33,5 +33,5 @@ class QueryDelete(query: String) extends RecordDeletor {
     logger.info("Deleted " + count + " records in " + (finished - start).toFloat / 60000f + " minutes.")
   }
 
-  override def deleteFromIndex = indexer.removeByQuery(query)
+  override def deleteFromIndex = {  indexer.removeByQuery(query)  }
 }

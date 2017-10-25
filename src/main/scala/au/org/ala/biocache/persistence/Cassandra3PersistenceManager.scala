@@ -238,7 +238,9 @@ class Cassandra3PersistenceManager  @Inject() (
     * Only retrieves the supplied fields for the record.
     */
   def getSelected(rowkey:String, entityName:String, propertyNames:Seq[String]):Option[Map[String,String]] = {
-    val select = QueryBuilder.select(propertyNames:_*).from(entityName)
+    val select = QueryBuilder.select(propertyNames:_*)
+      .from(entityName)
+      .where(QueryBuilder.eq("rowkey", rowkey))
     val rs = session.execute(select)
     val iter = rs.iterator()
     if(iter.hasNext){
@@ -272,10 +274,13 @@ class Cassandra3PersistenceManager  @Inject() (
     * Store the supplied batch of maps of properties as separate columns in cassandra.
     */
   def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean) = {
+
+    val executor = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(4).asInstanceOf[ThreadPoolExecutor])
+
     batch.keySet.foreach { rowkey =>
       val map = batch.get(rowkey)
       if(!map.isEmpty) {
-        put(rowkey, entityName, map.get, newRecord, removeNullFields)
+        putAsync(executor, rowkey, entityName, map.get, newRecord, removeNullFields)
       }
     }
   }
@@ -291,7 +296,7 @@ class Cassandra3PersistenceManager  @Inject() (
       rowkey
     } catch {
       case e:Exception => {
-        logger.error("Problem persisting the following to " + entityName + " - " + e.getMessage)
+        logger.error("Problem persisting the following to " + entityName + " - " + e.getMessage, e)
         keyValuePairs.foreach({case(key, value) => logger.error(s"$key = $value")})
         throw e
       }
@@ -365,7 +370,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
     statement.setIdempotent(true) // this will allow retries
 
-    boundStatement.setConsistencyLevel(ConsistencyLevel.ONE)
+//    boundStatement.setConsistencyLevel(ConsistencyLevel.ONE)
     boundStatement
   }
 

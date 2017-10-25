@@ -79,7 +79,7 @@ class MiscellaneousProcessor extends Processor {
     if (StringUtils.isNotBlank(raw.occurrence.recordedBy)) {
       val parsedCollectors = CollectorNameParser.parseForList(raw.occurrence.recordedBy)
       if (parsedCollectors.isDefined) {
-        processed.occurrence.recordedBy = parsedCollectors.get.mkString("|")
+        processed.occurrence.recordedBy = parsedCollectors.get.filter(_ != null).mkString("|")
         assertions += QualityAssertion(RECORDED_BY_UNPARSABLE, 1)
       } else {
         //println("Unable to parse: " + raw.occurrence.recordedBy)

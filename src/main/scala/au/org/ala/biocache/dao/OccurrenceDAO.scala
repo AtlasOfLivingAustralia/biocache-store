@@ -93,9 +93,7 @@ trait OccurrenceDAO extends DAO {
 
   def reIndex(rowKey: String)
 
-  def delete(rowKey: String, removeFromIndex:Boolean=true, logDeleted:Boolean=false) : Boolean
-
-  def deleteByUuid(uuid: String, removeFromIndex:Boolean=true, logDeleted:Boolean=false) : Boolean
+  def delete(rowKey: String, removeFromIndex:Boolean = true, logDeleted:Boolean = false) : Boolean
 
   def downloadMedia(fr:FullRecord) : Boolean
 

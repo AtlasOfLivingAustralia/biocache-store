@@ -31,10 +31,15 @@ object RemapUniqueKey extends Tool {
       Config.persistenceManager.pageOverLocal("occ", (rowkey, map, tokenRangeId) => {
         val dr = map.getOrElse("dataresourceuid", "")
         if(dataResourceUIDs.contains(dr)){
-          val identifyingTerms = fieldsToUse.map { field => map.getOrElse(field, "")}
-          //generate the key
-          Config.occurrenceDAO.createUniqueID(dr,identifyingTerms ,true)
-          //insert into table
+          val identifyingTerms = fieldsToUse.map { field => map.getOrElse(field.toLowerCase, "")}
+          if(!identifyingTerms.filter { value => value != null && value != ""}.isEmpty){
+            //generate the key
+            val uniqueID = Config.occurrenceDAO.createUniqueID(dr, identifyingTerms, true)
+            //insert into table
+            Config.persistenceManager.put(uniqueID, "occ_uuid", "value", rowkey, newRecord = true, deleteIfNullValue = false)
+          } else {
+            println(s"Empty values for identifier for $rowkey")
+          }
         }
         true
       }, threads, Array("rowkey", "dataresourceuid") ++ fieldsToUse )

@@ -5,7 +5,7 @@ import au.org.ala.biocache.index.{BulkProcessor, IndexMergeTool, IndexRecords, O
 import au.org.ala.biocache.load._
 import au.org.ala.biocache.tool._
 import au.org.ala.biocache.outliers.ReverseJacknifeProcessor
-import au.org.ala.biocache.util.{DebugRecord, ExportLocalNode, ImageExport}
+import au.org.ala.biocache.util.{DebugRecord, ExportLocalNode, ImageExport, RemapUniqueKey}
 import au.org.ala.biocache.export._
 import au.org.ala.biocache.qa.ValidationRuleRunner
 
@@ -237,13 +237,13 @@ object CMD2 {
     ProcessRecords,
     ReprocessIndexSelect,
     ResourceCleanupTask,
+    RemapUniqueKey,
     Sampling,
     SampleLocalRecords,
     ShowConfig,
     SyncLocTable,
     ReverseJacknifeProcessor,
     Thumbnailer,
-//    BulkProcessor,
     ValidationRuleRunner,
     MigrateMedia,
     LoadMediaReferences,

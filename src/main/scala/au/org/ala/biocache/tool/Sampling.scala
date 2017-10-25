@@ -109,6 +109,7 @@ object Sampling extends Tool with IncrementalTool {
         }
 
         val samplingFilePath = workingDir + "/sampling-" + fileSuffix + ".txt"
+        logger.info(s"Running sampling...writing to file: $samplingFilePath")
         //generate sampling
         s.sampling(locFilePath,
           samplingFilePath,
@@ -253,26 +254,36 @@ class Sampling {
     }
 
     //legacy storage of old lat/long original values before SDS processing - superceded by originalSensitiveValues
-    val originalDecimalLatitude = map.getOrElse("originalDecimalLatitude", "")
-    val originalDecimalLongitude = map.getOrElse("originalDecimalLongitude", "")
-    if (originalDecimalLatitude != "" && originalDecimalLongitude != "") {
+    val originalDecimalLatitude = map.getOrElse("originalDecimalLatitude", null)
+    val originalDecimalLongitude = map.getOrElse("originalDecimalLongitude", null)
+    if (originalDecimalLatitude != null && originalDecimalLongitude != null) {
       coordinates += (originalDecimalLongitude + "," + originalDecimalLatitude)
     }
 
     //add the processed values
-    val processedDecimalLatitude = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-    val processedDecimalLongitude = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-    if (processedDecimalLatitude != "" && processedDecimalLongitude != "") {
+    val processedDecimalLatitude = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", null)
+    val processedDecimalLongitude = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p", null)
+    if (processedDecimalLatitude != null && processedDecimalLongitude != null) {
       coordinates += (processedDecimalLongitude + "," + processedDecimalLatitude)
     }
   }
 
   val properties = Array(
-    "decimalLatitude", "decimalLongitude",
-    "decimalLatitude.p", "decimalLongitude.p",
-    "verbatimLatitude", "verbatimLongitude",
-    "originalDecimalLatitude", "originalDecimalLongitude", "originalSensitiveValues",
-    "geodeticDatum", "verbatimSRS", "easting", "northing", "zone")
+    "decimalLatitude",
+    "decimalLongitude",
+    "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p",
+    "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p",
+    "verbatimLatitude",
+    "verbatimLongitude",
+    "originalDecimalLatitude",
+    "originalDecimalLongitude",
+    "originalSensitiveValues",
+    "geodeticDatum",
+    "verbatimSRS",
+    "easting",
+    "northing",
+    "zone"
+  )
 
   def getDistinctCoordinatesForRowKey(rowKey:String){
     val values = Config.persistenceManager.getSelected(rowKey, "occ", properties)
@@ -304,7 +315,9 @@ class Sampling {
         passed += 1
       }
     }
-
+    val noOfCoordinates = coordinates.size
+    logger.info(s"Created distinct list of coordinates for row keys in $rowKeyFile. Number of coordinates: $noOfCoordinates")
+    logger.info(s"Writing to file: $locFilePath")
     try {
       val fw = new FileWriter(locFilePath)
       coordinates.foreach { c =>
@@ -313,9 +326,11 @@ class Sampling {
       }
       fw.flush
       fw.close
+      logger.info(s"Finished writing to file: $locFilePath")
     } catch {
       case e:Exception =>  logger.error("Failed to write - " + e.getMessage, e)
     }
+
   }
 
   /**
@@ -339,69 +354,14 @@ class Sampling {
     } catch {
       case e:Exception =>  logger.error(e.getMessage,e)
     }
-
-//
-
-//    val startUuid: String = {
-//      if (dataResourceUid == "") ""
-//      else dataResourceUid + "|"
-//    }
-//    val endUuid: String = {
-//      if (dataResourceUid == "") ""
-//      else dataResourceUid + "|~"
-//    }
-
-//    val (query, start, end) = if (dataResourceUid != "") {
-//      ("data_resource_uid:" + dataResourceUid, dataResourceUid + "|", dataResourceUid + "|~")
-//    } else {
-//      ("*:*", "", "")
-//    }
-
-//    val ranges = calculateRanges(numThreads, query, start, end)
-
-//    val ranges = Array((startUuid, endUuid))
-//  val ranges = Array((startUuid, endUuid))
-
-//    var counter = 0
-//    val threads = new ArrayBuffer[LocColumnExporter]
-//    val solrDirs = new ArrayBuffer[String]
-//    ranges.foreach { case (startKey, endKey) =>
-//      logger.info("start: " + startKey + ", end key: " + endKey)
-//
-//      val t = new LocColumnExporter(counter, dataResourceUid, handleRecordMap)
-//
-//      t.start
-//      threads += t
-//      counter += 1
-//    }
-//
-//    //wait for threads to complete and merge all indexes
-//    threads.foreach(thread => thread.join)
-//
-//    var coordinates: Set[String] = Set()
-//    threads.foreach(t => {
-//      coordinates ++= t.coordinates
-//      t.coordinates.clear()
-//    })
-//    logger.info("All unique coordinates size: " + coordinates.size)
-
-//    try {
-//      val fw = new FileWriter(locFilePath)
-//      coordinates.foreach(c => {
-//        fw.write(c)
-//        fw.write("\n")
-//      })
-//      fw.flush
-//      fw.close
-//    } catch {
-//      case e:Exception =>  logger.error(e.getMessage,e)
-//    }
   }
 
   /**
    * Run the sampling with a file
    */
   def sampling(filePath: String, outputFilePath: String, callback:IntersectCallback = null, singleLayerName: String = "",batchSize:Int= 100000, concurrentLoading: Boolean=false, keepFiles: Boolean=true) {
+
+    new SyncLocTable().sync
 
     logger.info("********* START - TEST BATCH SAMPLING FROM FILE ***************")
     //load the CSV of points into memory
