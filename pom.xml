@@ -611,6 +611,12 @@
             <groupId>org.gbif.crawler</groupId>
             <artifactId>crawler</artifactId>
             <version>0.27</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>logback-classic</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
     <organization>

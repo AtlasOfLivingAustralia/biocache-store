@@ -29,6 +29,7 @@ class DefaultValuesProcessor extends Processor {
             if (raw.getProperty(key).isEmpty) {
               //set the processed value to the default value
               processed.setProperty(key, value)
+              raw.setProperty(key, value)
               if (!processed.getDefaultValuesUsed && !processed.getProperty(key).isEmpty){
                 processed.setDefaultValuesUsed(true)
               }
