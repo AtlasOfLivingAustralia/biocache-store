@@ -253,7 +253,7 @@ object RemoteMediaStore extends MediaStore {
   def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
 
     //is the supplied URL an image service URL ?? If so extract imageID and return.....
-    if(urlToMedia.startsWith(Config.remoteMediaStoreUrl)){
+    if(urlToMedia.startsWith(Config.remoteMediaStoreUrl) || urlToMedia.startsWith(Config.remoteMediaStoreUrlAlternate)){
       logger.info("Remote media store host recognised: " + urlToMedia)
       val uri = new URI(urlToMedia)
       var imageId = Some("")

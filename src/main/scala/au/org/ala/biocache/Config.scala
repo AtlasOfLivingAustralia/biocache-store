@@ -1,6 +1,7 @@
 package au.org.ala.biocache
 
 import java.io.{File, FileInputStream}
+import java.net.{URI, URL}
 import java.util.Properties
 import java.util.jar.Attributes
 
@@ -54,6 +55,25 @@ object Config {
     } else {
       logger.debug("Using remote media store")
       RemoteMediaStore
+    }
+  }
+
+  val remoteMediaStoreUrlAlternate = {
+    if(StringUtils.isBlank(remoteMediaStoreUrl)){
+      logger.debug("Using local media store")
+      ""
+    } else {
+      logger.debug("Using remote media store")
+      val parsedUrl = new URL(remoteMediaStoreUrl)
+      val protocol = parsedUrl.getProtocol()
+      val result = remoteMediaStoreUrl.replaceFirst(protocol + ":", "")
+      // Switch protocols so we are not biased against one or the other for matching purposes
+      // Still use the configured remoteMediaStoreUrl when constructing URLs to resolve
+      if (protocol.equalsIgnoreCase("https")) {
+        "http:" + result
+      } else {
+        "https:" + result
+      }
     }
   }
 

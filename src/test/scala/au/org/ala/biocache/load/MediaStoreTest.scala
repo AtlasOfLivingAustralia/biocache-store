@@ -186,13 +186,19 @@ class MediaStoreTest extends ConfigFunSuite {
 
     val tests = List(
       ("test valid image/proxyImage", Config.remoteMediaStoreUrl + "/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf",true),
-      ("test invalid image/proxyImage, no imageId",Config.remoteMediaStoreUrl + "/image/proxyImageThumbnailLarge?id=119d85b5-76cb-4d1d-af30-e141706be8bf", false),
-      ("test invalid image/proxyImage, bad UUID",Config.remoteMediaStoreUrl + "/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-1d-af30-e141706be8bf", false),
+      ("test invalid image/proxyImage, no imageId", Config.remoteMediaStoreUrl + "/image/proxyImageThumbnailLarge?id=119d85b5-76cb-4d1d-af30-e141706be8bf", false),
+      ("test invalid image/proxyImage, bad UUID", Config.remoteMediaStoreUrl + "/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-1d-af30-e141706be8bf", false),
       ("test valid image/proxyImage uppercase", Config.remoteMediaStoreUrl + "/image/proxyImageThumbnailLarge?imageId=119D85B5-76CB-4D1D-AF30-E141706BE8BF",true),
-      ("test valid store" ,Config.remoteMediaStoreUrl + "/store/e/7/f/3/eb024033-4da4-4124-83f7-317365783f7e/original", true),
-      ("test valid store uppercase" ,Config.remoteMediaStoreUrl + "/store/e/7/f/3/EB024033-4DA4-4124-83F7-317365783F7E/original", true),
-      ("test invalid store, bad UUID",Config.remoteMediaStoreUrl + "/store/e/7/f/3/eb024033-4da4-414-83f7-317365783f7e/original", false),
-      ("test invalid store, no UUID",Config.remoteMediaStoreUrl + "/store/e/7/f/3/31736578/original", false)
+      ("test valid image/proxyImage alternate protocol", Config.remoteMediaStoreUrlAlternate + "/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf",true),
+      ("test valid image/proxyImage default protocol", Config.remoteMediaStoreUrl + "/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf",true),
+
+      ("test valid store" , Config.remoteMediaStoreUrl + "/store/e/7/f/3/eb024033-4da4-4124-83f7-317365783f7e/original", true),
+      ("test valid store uppercase" , Config.remoteMediaStoreUrl + "/store/e/7/f/3/EB024033-4DA4-4124-83F7-317365783F7E/original", true),
+      ("test invalid store, bad UUID", Config.remoteMediaStoreUrl + "/store/e/7/f/3/eb024033-4da4-414-83f7-317365783f7e/original", false),
+      ("test invalid store, no UUID", Config.remoteMediaStoreUrl + "/store/e/7/f/3/31736578/original", false),
+      ("test valid store uppercase alternate protocol" , Config.remoteMediaStoreUrlAlternate + "/store/e/7/f/3/EB024033-4DA4-4124-83F7-317365783F7E/original", true),
+      ("test valid store uppercase default protocol" , Config.remoteMediaStoreUrl + "/store/e/7/f/3/EB024033-4DA4-4124-83F7-317365783F7E/original", true)
+
     )
 
     tests.foreach { it =>
