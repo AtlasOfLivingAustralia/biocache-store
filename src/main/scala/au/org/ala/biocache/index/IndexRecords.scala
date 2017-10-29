@@ -363,6 +363,6 @@ object IndexRecords extends Tool with IncrementalTool {
 
     logger.info("Finalising index.....")
     indexer.finaliseIndex(false, true)
-    logger.info("Finalised index.")
+    logger.info("Finalised index. Total records indexed: " + counter)
   }
 }
