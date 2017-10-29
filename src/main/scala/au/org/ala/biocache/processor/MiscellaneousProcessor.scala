@@ -176,17 +176,7 @@ class MiscellaneousProcessor extends Processor {
   }
 
   def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
-    var assertions = new ArrayBuffer[QualityAssertion]
-
-    //get the data resource information to check if it has mapped collections
-    if (lastProcessed.isDefined) {
-      assertions ++= lastProcessed.get.findAssertions(Array())
-
-      //update the details from lastProcessed
-      processed.location = lastProcessed.get.location
-    }
-
-    assertions.toArray
+    process(guid, raw, processed, lastProcessed)
   }
 
   def getName = "image"

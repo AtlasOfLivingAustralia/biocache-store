@@ -286,14 +286,14 @@ class SensitivityProcessor extends Processor {
       //update the details from lastProcessed
       processed.location.coordinateUncertaintyInMeters = lastProcessed.get.location.coordinateUncertaintyInMeters
       processed.location.decimalLatitude = lastProcessed.get.location.decimalLatitude
-      processed.location.decimalLongitude = lastProcessed.get.location.decimalLatitude
+      processed.location.decimalLongitude = lastProcessed.get.location.decimalLongitude
       processed.location.northing = lastProcessed.get.location.northing
       processed.location.easting = lastProcessed.get.location.easting
       processed.location.bbox = lastProcessed.get.location.bbox
       processed.occurrence.informationWithheld = lastProcessed.get.occurrence.informationWithheld
       processed.occurrence.dataGeneralizations = lastProcessed.get.occurrence.dataGeneralizations
-      processed.event.day = lastProcessed.get.event.eventDateEnd
-      processed.event.eventDate = lastProcessed.get.event.eventDateEnd
+      processed.event.day = lastProcessed.get.event.day
+      processed.event.eventDate = lastProcessed.get.event.eventDate
       processed.event.eventDateEnd = lastProcessed.get.event.eventDateEnd
     }
 

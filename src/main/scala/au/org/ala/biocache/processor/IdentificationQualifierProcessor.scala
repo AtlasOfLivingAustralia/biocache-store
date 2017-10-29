@@ -129,7 +129,7 @@ class IdentificationQualifierProcessor extends Processor {
 
       //update the details from lastProcessed
       processed.identification.identificationQualifier = lastProcessed.get.identification.identificationQualifier
-      processed.identification.abcdIdentificationQualifier = lastProcessed.get.identification.identificationQualifier
+      processed.identification.abcdIdentificationQualifier = lastProcessed.get.identification.abcdIdentificationQualifier
     }
 
     assertions.toArray
