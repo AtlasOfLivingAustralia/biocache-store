@@ -250,15 +250,22 @@ object RemoteMediaStore extends MediaStore {
    * @param urlToMedia
    * @return
    */
-  def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
+  def save(uuid: String, resourceUID: String, originalUrlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
+
+    var patchedUrl = originalUrlToMedia
 
     //is the supplied URL an image service URL ?? If so extract imageID and return.....
-    if(urlToMedia.startsWith(Config.remoteMediaStoreUrl) || urlToMedia.startsWith(Config.remoteMediaStoreUrlAlternate)){
-      logger.info("Remote media store host recognised: " + urlToMedia)
-      val uri = new URI(urlToMedia)
+    if(patchedUrl.startsWith(Config.remoteMediaStoreUrl) || patchedUrl.startsWith(Config.remoteMediaStoreUrlAlternate)){
+      logger.info("Remote media store host recognised: " + patchedUrl)
+      
+      if(patchedUrl.startsWith(Config.remoteMediaStoreUrlAlternate)) {
+        patchedUrl = Config.remoteMediaStoreUrl + patchedUrl.substring(Config.remoteMediaStoreUrlAlternate.length())
+        logger.info("Rewrote URL to use the preferred media store protocol: " + patchedUrl)
+      }
+      val uri = new URI(patchedUrl)
       var imageId = Some("")
       
-      if(urlToMedia.contains("/image/proxy")) {
+      if(patchedUrl.contains("/image/proxy")) {
       // Case 1:
       //   http://images.ala.org.au/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf
         val params:java.util.List[NameValuePair] = URLEncodedUtils.parse(uri, "UTF-8")
@@ -275,7 +282,7 @@ object RemoteMediaStore extends MediaStore {
       }
       // Case 2:
       //   http://images.ala.org.au/store/e/7/f/3/eb024033-4da4-4124-83f7-317365783f7e/original
-      else if (urlToMedia.contains("/store/")) {
+      else if (patchedUrl.contains("/store/")) {
         for (pathSegment <- uri.getPath().split("/")) {
           // Do not attempt parsing short segments
           if(pathSegment.length() > 10) {
@@ -296,7 +303,7 @@ object RemoteMediaStore extends MediaStore {
       }
       
       if(imageId.isEmpty || imageId.get.isEmpty) {
-        logger.info("Did not recognise URL pattern for remote media store: {}", urlToMedia)
+        logger.info("Did not recognise URL pattern for remote media store: {}", patchedUrl)
         return None
       } else {
         val metadata = getMetadata(imageId.get)
@@ -305,11 +312,11 @@ object RemoteMediaStore extends MediaStore {
     }
 
     //already stored?
-    val (stored, fileName, imageId) = alreadyStored(uuid, resourceUID, urlToMedia)
+    val (stored, fileName, imageId) = alreadyStored(uuid, resourceUID, patchedUrl)
 
     //if already stored, just update metadata
     if(stored){
-      logger.info("Media file " + urlToMedia + " already stored at " + imageId)
+      logger.info("Media file " + patchedUrl + " already stored at " + imageId)
       if(media.isDefined){
         logger.info("Updating metadata for image " + imageId)
         updateMetadata(imageId, media.get)
@@ -317,13 +324,13 @@ object RemoteMediaStore extends MediaStore {
       Some((fileName, imageId))
     } else {
       //download to temp file and upload image
-      downloadToTmpFile(resourceUID, uuid, urlToMedia) match {
+      downloadToTmpFile(resourceUID, uuid, patchedUrl) match {
         case Some(tmpFile) => {
           try {
-            val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile, media)
-            logger.info("Media file " + urlToMedia + " stored to " + imageId)
+            val imageId = uploadImage(uuid, resourceUID, patchedUrl, tmpFile, media)
+            logger.info("Media file " + patchedUrl + " stored to " + imageId)
             if(imageId.isDefined){
-              Some((extractFileName(urlToMedia), imageId.getOrElse("")))
+              Some((extractFileName(patchedUrl), imageId.getOrElse("")))
             } else {
               None
             }
