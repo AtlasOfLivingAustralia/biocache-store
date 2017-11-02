@@ -24,7 +24,7 @@
     <properties>
         <scala.version>2.10.4</scala.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <org.springframework.version>3.0.6.RELEASE</org.springframework.version>
+        <org.springframework.version>3.2.18.RELEASE</org.springframework.version>
         <solr.version>4.10.4</solr.version>
         <jts.version>1.13</jts.version>
         <jackson.version>2.9.0</jackson.version>
@@ -149,7 +149,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>sds</artifactId>
-            <version>1.4-SNAPSHOT</version>
+            <version>1.4.1-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-lang</groupId>
