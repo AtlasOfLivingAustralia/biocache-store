@@ -3,11 +3,13 @@ package au.org.ala.biocache.tool
 import java.io.{File, FileWriter}
 import java.util
 
-import au.org.ala.biocache.{Config, Store}
 import au.org.ala.biocache.caches.LocationDAO
-import au.org.ala.biocache.index.BulkProcessor._
+import au.org.ala.biocache.index.BulkProcessor.{logger, _}
 import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
-import au.org.ala.biocache.util.{Json, OptionParser, ZookeeperUtil}
+import au.org.ala.biocache.util.{OptionParser, ZookeeperUtil}
+import au.org.ala.biocache.{Config, Store}
+import org.apache.commons.io.FileUtils
+import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters
@@ -36,11 +38,31 @@ object SampleLocalRecords extends au.org.ala.biocache.cmd.Tool {
     var useFullScan = false
     var startTokenRangeIdx = 0
     var taxaFile = ""
+    var rowKeyFile = ""
 
     var allNodes = false
+    var checkRowKeyFile = false
+    var abortIfNotRowKeyFile = false
 
     val parser = new OptionParser(help) {
-      opt("cf", "coordinates-file", "the file containing coordinates", {
+      opt("rk", "key", "the single rowkey to sample", {
+        v: String => {
+          val tmpFile = File.createTempFile("singleRowKey", ".csv")
+          FileUtils.writeStringToFile(tmpFile, v)
+          rowKeyFile = tmpFile.getPath
+        }
+      })
+      opt("crk", "check for row key file", {
+        checkRowKeyFile = true
+      })
+      opt("acrk", "abort if no row key file found", {
+        abortIfNotRowKeyFile = true
+      })
+      opt("rf", "row-key-file", "The row keys which to sample", {
+        v: String => rowKeyFile = v
+      })
+
+      opt("cf", "coordinates-file", "the file containing coordinates. CSV with decimal longitude,latitude", {
         v: String => locFilePath = v
       })
       opt("keep", "Keep the files produced from the sampling", {
@@ -99,34 +121,61 @@ object SampleLocalRecords extends au.org.ala.biocache.cmd.Tool {
       })
     }
 
+    if (checkRowKeyFile) {
+      def file = if (drs.size == 1) {
+        Store.rowKeyFile(drs.find { _ => true }.get)
+      } else {
+        new File(rowKeyFile)
+      }
+
+      if (file.exists()) {
+        logger.info("using row key file: " + file.getPath)
+      } else {
+        logger.info("row key file does not exist: " + file.getPath)
+        if (abortIfNotRowKeyFile) {
+          logger.info("aborting because row key file does not exist")
+          return
+        }
+      }
+    }
+
     if (parser.parse(args)) {
-      new SampleLocalRecords().sampleRecords(workingDir, numThreads, keepFiles, loadOccOnly, sampleOnly, drs, skipDrs, useFullScan, startTokenRangeIdx, layers, allNodes)
+      new SampleLocalRecords().sampleRecords(workingDir, numThreads, keepFiles, loadOccOnly, sampleOnly, drs, skipDrs, useFullScan, startTokenRangeIdx, layers, allNodes, locFilePath, rowKeyFile)
     }
   }
 }
 
 class SampleLocalRecords {
 
-  def sample(workingDir: String, threads: Int, keepFiles: Boolean, loadOccOnly: Boolean, sampleOnly: Boolean,
-             queue: util.HashSet[String], rowkeys: Seq[String], layers: Seq[String], allNodes: Boolean): Unit = {
+  /**
+    * sampling and loading
+    *
+    * Sampling sends a unique list of latitude and longitude for sampling. A list of row keys is produced for loading
+    * into 'occ'.
+    *
+    * - use coordinates from a row key file, e.g. DR row key file created during 'load'. (-dr dr1)
+    * - use coordinates from list of DRs. (-dr dr1,dr2,dr3)
+    * - use coordinates from all except some DRs. (-edr dr1,dr2,dr3)
+    * - use all coordinates from loc table. (no -dr or -edr)
+    *
+    * @param workingDir e.g. Config.tmpWorkDir
+    * @param threads    Defaults to 4.
+    * @param keepFiles  Defaults to false so temporary files are deleted.
+    * @param layers     Non-null Seq. Use an empty Seq for sampling of all layers.
+    */
+  def sample(workingDir: String, threads: Int, keepFiles: Boolean,
+             rowkeys: Seq[String], layers: Seq[String], allNodes: Boolean,
+             locFile: File): Unit = {
 
-    val samplingFilePath = workingDir + "/sampling-local.txt"
-    val locFilePath = workingDir + "/loc-local.txt"
+    // Use unique temporary files
+    val samplingFile = File.createTempFile("sampling-local", ".txt", new File(workingDir))
 
-    if (!loadOccOnly) {
-      val fw = new FileWriter(locFilePath)
-      val iter = queue.iterator()
-      while (iter.hasNext) {
-        fw.write(iter.next())
-      }
-      fw.flush
-      fw.close
-
+    if (locFile != null) {
       //run sampling
       val sampling = new Sampling()
       //generate sampling
-      sampling.sampling(locFilePath,
-        samplingFilePath,
+      sampling.sampling(locFile.getPath,
+        samplingFile.getPath,
         batchSize = 100000,
         concurrentLoading = true,
         keepFiles = true,
@@ -134,7 +183,7 @@ class SampleLocalRecords {
       )
     }
 
-    if (!sampleOnly) {
+    if (rowkeys != null) {
       //load sampling to occurrence records
       logger.info("Loading sampling into occ table")
       loadSamplingIntoOccurrences(threads, rowkeys, allNodes)
@@ -142,39 +191,122 @@ class SampleLocalRecords {
     }
 
     //clean up the file
-    if (!keepFiles && !loadOccOnly) {
-      logger.info(s"Removing temporary file: $samplingFilePath")
-      (new File(samplingFilePath)).delete()
-      if (new File(locFilePath).exists()) (new File(locFilePath)).delete()
+    if (!keepFiles) {
+      logger.info(s"Removing temporary file: ${samplingFile.getPath}")
+      FileUtils.deleteQuietly(samplingFile)
     }
 
-    ZookeeperUtil.setStatus("PROCESSING", "COMPLETED", queue.size())
+    ZookeeperUtil.setStatus("PROCESSING", "COMPLETED", 0)
   }
 
+
+  def produceLocFile(workingDir: String, locFilePath: String, queue: util.HashSet[String]): File = {
+    val locFileProvided = new File(locFilePath)
+    val locFile = if (locFileProvided.exists()) {
+      locFileProvided
+    } else {
+      File.createTempFile("loc-local", ".txt", new File(workingDir))
+    }
+    // do not write to locFile if it is a provided locFile
+    if (locFileProvided.exists()) {
+      val fw = new FileWriter(locFile)
+      val iter = queue.iterator()
+      while (iter.hasNext) {
+        fw.write(iter.next())
+      }
+      fw.flush
+      fw.close
+    }
+
+    locFile
+  }
 
   /**
     * sampling and loading
     *
-    * Sampling sends a unique list of latitude and longitude for sampling.
+    * Sampling sends a unique list of latitude and longitude for sampling. A list of row keys is produced for loading
+    * into 'occ'.
+    *
     * - use coordinates from a row key file, e.g. DR row key file created during 'load'. (-dr dr1)
     * - use coordinates from list of DRs. (-dr dr1,dr2,dr3)
     * - use coordinates from all except some DRs. (-edr dr1,dr2,dr3)
     * - use all coordinates from loc table. (no -dr or -edr)
     *
-    * @param workingDir
+    * @param workingDir         e.g. Config.tmpWorkDir
+    * @param threads            Defaults to 4.
+    * @param keepFiles          Defaults to false so temporary files are deleted.
+    * @param skipSampling       Defaults to false
+    * @param skipOccLoad        Defaults to false
+    * @param drs                Non-null Seq of dataResourceUids. Can be empty Seq.
+    * @param skipDrs            Non-null Seq of dataResourceUids. Can be empty Seq.
+    * @param _useFullScan       Defaults to false. Set to True when using many dataResourceUids for performance reasons.
+    * @param startTokenRangeIdx For continuing from a token range after a failure.
+    * @param layers             Non-null Seq. Use an empty Seq for sampling of all layers.
+    * @param allNodes           Defaults to false. Use True when running once to run across all cassandra cluster nodes
+    * @param locFilePath        Use this loc file path instead of generating
+    * @param rowKeyFilePath     Use this row key file path instead of generating
+    */
+  def sampleRecords(workingDir: String, threads: Int = 4, keepFiles: Boolean = false, skipSampling: Boolean = false,
+                    skipOccLoad: Boolean = false, drs: Seq[String] = Seq(), skipDrs: Seq[String] = Seq(),
+                    _useFullScan: Boolean = false, startTokenRangeIdx: Int = 0, layers: Seq[String] = Seq(),
+                    allNodes: Boolean = false, locFilePath: String = "", rowKeyFilePath: String = ""): Unit = {
+
+    val (queue, rowkeys) = getUniqueCoordsAndRowKeys(threads ,skipSampling, drs,skipDrs, _useFullScan,
+      startTokenRangeIdx, allNodes, locFilePath, rowKeyFilePath)
+
+    //produce loc file or null to skip sampling
+    val locFile: File = if (!skipSampling) {
+      if (StringUtils.isNotEmpty(locFilePath)) {
+        logger.info(s"using file ${locFilePath} for sampling")
+      } else {
+        logger.info(s"using ${queue.size} unique coordinates for sampling")
+      }
+
+      produceLocFile(workingDir, locFilePath, queue)
+    } else {
+      logger.info("skip sampling")
+      null
+    }
+
+    // use rowkeys array (size == 0 for loading all occurrences) or null to skip loading occ
+    val rks = if (!skipOccLoad) {
+      if (rowkeys.size > 0) {
+        logger.info(s"found ${rowkeys.size} rowkeys for loading into occ")
+      } else {
+        logger.info(s"loading into all of occ")
+      }
+      rowkeys
+    } else {
+      logger.info("skip loading into occ")
+      null
+    }
+
+    sample(workingDir, threads, keepFiles, rks, layers, allNodes, locFile)
+
+    if (!keepFiles && locFile != null && locFile.getPath != locFilePath) {
+      logger.info(s"Removing temporary file: ${locFile.getPath}")
+      FileUtils.deleteQuietly(locFile)
+    }
+  }
+
+  /**
+    * No row keys are returned when sampling everything
+    *
     * @param threads
-    * @param keepFiles
-    * @param loadOccOnly
-    * @param sampleOnly
+    * @param skipSampling
     * @param drs
     * @param skipDrs
     * @param _useFullScan
     * @param startTokenRangeIdx
-    * @param layers
+    * @param allNodes
+    * @param locFilePath
+    * @param rowKeyFilePath
+    * @return (HashSet of lat lon, Seq of row keys)
     */
-  def sampleRecords(workingDir: String, threads: Int, keepFiles: Boolean, loadOccOnly: Boolean, sampleOnly: Boolean,
-                    drs: Seq[String], skipDrs: Seq[String], _useFullScan: Boolean, startTokenRangeIdx: Int,
-                    layers: Seq[String], allNodes: Boolean = false): Unit = {
+  def getUniqueCoordsAndRowKeys(threads: Int = 4,skipSampling: Boolean = false, drs: Seq[String] = Seq(),
+                                skipDrs: Seq[String] = Seq(), _useFullScan: Boolean = false,
+                                startTokenRangeIdx: Int = 0, allNodes: Boolean = false, locFilePath: String = "",
+                                rowKeyFilePath: String = ""): (util.HashSet[String], Seq[String]) = {
 
     val start = System.currentTimeMillis()
     var lastLog = System.currentTimeMillis()
@@ -188,8 +320,10 @@ class SampleLocalRecords {
     val dlat = "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p"
     val dlon = "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
 
-    val rowKeyFile : File = if (drs.size == 1) {
-      Store.rowKeyFile(drs.iterator.next())
+    val rowKeyFile: File = if (StringUtils.isNotEmpty(rowKeyFilePath)) {
+      new File(rowKeyFilePath)
+    } else if (drs.size == 1) {
+      Store.rowKeyFile(drs.find { _ => true }.get)
     } else {
       null
     }
@@ -201,21 +335,24 @@ class SampleLocalRecords {
       println("Using rowKeyFile " + rowKeyFile.getPath)
       rowkeys = scala.io.Source.fromFile(rowKeyFile, "UTF-8").getLines().toSeq
 
-      Config.persistenceManager.selectRows(rowkeys, "occ", Array(dlat, dlon), (map) => {
-        readCount += 1
+      //do not fetch lat lon when there is a locFilePath provided
+      if (StringUtils.isEmpty(locFilePath)) {
+        Config.persistenceManager.selectRows(rowkeys, "occ", Array(dlat, dlon), (map) => {
+          readCount += 1
 
-        val lat = map.getOrElse(dlat, "")
-        val lon = map.getOrElse(dlon, "")
-        if (lat != "" && lon != "") {
-          queue.add(lon + "," + lat + "\n")
-        }
+          val lat = map.getOrElse(dlat, "")
+          val lon = map.getOrElse(dlon, "")
+          if (lat != "" && lon != "") {
+            queue.add(lon + "," + lat + "\n")
+          }
 
-        if (readCount % 1000 == 0) {
-          logger.info("record coordinates read: " + readCount)
-        }
+          if (readCount % 1000 == 0) {
+            logger.info("record coordinates read: " + readCount)
+          }
 
-        true
-      })
+          true
+        })
+      }
       queue.size()
     } else if (useFullScan) {
       val _rowkeys = new util.ArrayList[String]()
@@ -230,7 +367,10 @@ class SampleLocalRecords {
             val lon = map.getOrElse(dlon, "")
             if (lat != "" && lon != "") {
               _rowkeys.add(rowkey)
-              queue.add(lon + "," + lat + "\n")
+              //do not fetch lat lon when there is a locFilePath provided
+              if (StringUtils.isEmpty(locFilePath)) {
+                queue.add(lon + "," + lat + "\n")
+              }
             }
 
             updateCount += 1
@@ -259,7 +399,10 @@ class SampleLocalRecords {
           val lon = map.getOrElse(dlon, "")
           if (lat != "" && lon != "") {
             _rowkeys.add(rowkey)
-            queue.add(lon + "," + lat + "\n")
+            //do not fetch lat lon when there is a locFilePath provided
+            if (StringUtils.isEmpty(locFilePath)) {
+              queue.add(lon + "," + lat + "\n")
+            }
             updateCount += 1
           }
 
@@ -275,48 +418,51 @@ class SampleLocalRecords {
         }, threads, Array(dlat, dlon), localOnly = !allNodes, indexedField = "dataResourceUid", indexedFieldValue = dataResourceUid)
       }
       rowkeys = JavaConverters.asScalaIterableConverter(_rowkeys).asScala.toSeq
-    } else if (!loadOccOnly) {
-      // --load-occ-only does not require a queue of lat lon
-      // --sampling-only does require a queue of lat lon but does not require a list of row keys
-//      Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("loc", (key, map, _) => {
-//        //rowkey is lon,lat
-//        val rowkey = map.getOrElse("rowkey", "")
-//        if (rowkey.length > 0) {
-//          val latlon = rowkey.split("\\|")
-//          if (latlon.length == 2) {
-//            queue.add(latlon(1) + "," + latlon(0) +"\n")
-//          }
-//        }
-//        true
-//      }, threads, Array("rowkey"), localOnly = !allNodes)
-      Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("occ", (key, map, _) => {
-        //rowkey is lon,lat
-        val lon = map.getOrElse(dlon, "")
-        val lat = map.getOrElse(dlat, "")
-        if (lat != "" && lon != "") {
-          queue.add(lon + "," + lat + "\n")
-          updateCount += 1
-        }
-        readCount += 1
+    } else if (!skipSampling) {
+      // --load-occ-only for all occurrences does not require a queue of lat lon
+      // --sampling-only for all occurrences does require a queue of lat lon but does not require a list of row keys
 
-        if (updateCount % 10000 == 0) {
-          val end = System.currentTimeMillis()
-          val timeInSecs = ((end - lastLog).toFloat / 10000f)
-          val recordsPerSec = Math.round(10000f / timeInSecs)
-          logger.info(s"Total processed : $updateCount, total read: $readCount Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
-          lastLog = end
-          ZookeeperUtil.setStatus("SAMPING", "RUNNING", updateCount)
-        }
+      //do not fetch lat lon when there is a locFilePath provided
+      if (StringUtils.isEmpty(locFilePath)) {
+        // TODO: add this back when loc table is valid
+        //      Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("loc", (key, map, _) => {
+        //        //rowkey is lon,lat
+        //        val rowkey = map.getOrElse("rowkey", "")
+        //        if (rowkey.length > 0) {
+        //          val latlon = rowkey.split("\\|")
+        //          if (latlon.length == 2) {
+        //            queue.add(latlon(1) + "," + latlon(0) +"\n")
+        //          }
+        //        }
+        //        true
+        //      }, threads, Array("rowkey"), localOnly = !allNodes)
 
-        true
-      }, threads, Array("rowkey", dlat, dlon), localOnly = !allNodes)
+        // TODO: use the above when loc table is valid. The above does the same thing in minutes instead of hours.
+        Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("occ", (key, map, _) => {
+          //rowkey is lon,lat
+          val lon = map.getOrElse(dlon, "")
+          val lat = map.getOrElse(dlat, "")
+          if (lat != "" && lon != "") {
+            queue.add(lon + "," + lat + "\n")
+            updateCount += 1
+          }
+          readCount += 1
+
+          if (updateCount % 10000 == 0) {
+            val end = System.currentTimeMillis()
+            val timeInSecs = ((end - lastLog).toFloat / 10000f)
+            val recordsPerSec = Math.round(10000f / timeInSecs)
+            logger.info(s"Total processed : $updateCount, total read: $readCount Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
+            lastLog = end
+            ZookeeperUtil.setStatus("SAMPING", "RUNNING", updateCount)
+          }
+
+          true
+        }, threads, Array("rowkey", dlat, dlon), localOnly = !allNodes)
+      }
     }
 
-    logger.info(s"found ${queue.size} unique coordinates for sampling")
-    if (rowkeys.size > 0) {
-      logger.info(s"found ${rowkeys.size} rowkeys for sampling")
-    }
-    sample(workingDir, threads, keepFiles, loadOccOnly, sampleOnly, queue, rowkeys, layers, allNodes)
+    (queue, rowkeys)
   }
 
   def loadSamplingIntoOccurrences(threads: Int, rowkeys: Seq[String], allNodes: Boolean): Unit = {

@@ -495,15 +495,17 @@ object Store {
     *
     * @param dataResourceUid
     */
-  def sample(dataResourceUid: java.lang.String) = Sampling.sampleDataResource(dataResourceUid)
+  def sample(dataResourceUid: java.lang.String) = sample(dataResourceUid, null)
 
   /**
     * Run the sampling for this dataset
     *
     * @param dataResourceUid
     */
-  def sample(dataResourceUid: java.lang.String, callback: IntersectCallback) =
-    Sampling.sampleDataResource(dataResourceUid, callback)
+  def sample(dataResourceUid: java.lang.String, callback: IntersectCallback) = {
+    new SampleLocalRecords().sampleRecords(Config.tmpWorkDir, 4, false, false, false, Seq(dataResourceUid), Seq(),
+      false, 0, Array(), true, "", "")
+  }
 
   /**
     * Process records for the supplied resource

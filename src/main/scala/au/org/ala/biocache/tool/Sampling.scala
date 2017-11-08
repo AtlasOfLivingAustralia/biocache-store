@@ -24,167 +24,18 @@ import scala.collection.mutable.{ArrayBuffer, HashSet}
 /**
   * Executable for running the sampling for a data resource.
   */
-object Sampling extends Tool with IncrementalTool {
+object Sampling extends au.org.ala.biocache.cmd.Tool {
+
+  // Use a single source for sampling calls
+  import SampleLocalRecords._
+  import SampleLocalRecords.{main => main_super}
 
   def cmd = "sample"
 
   def desc = "Sample coordinates against geospatial layers"
 
-  protected val logger = LoggerFactory.getLogger("Sampling")
-
   def main(args: Array[String]) {
-
-    var dataResourceUid = ""
-    var locFilePath = ""
-    var singleLayerName = ""
-    var rowKeyFile = ""
-    var keepFiles = false
-    var singleRowKey = ""
-    var workingDir = Config.tmpWorkDir
-    var batchSize = 100000
-    var checkRowKeyFile = true
-    var abortIfNotRowKeyFile = true
-    var numThreads = 8
-
-    val parser = new OptionParser(help) {
-      opt("dr", "data-resource-uid", "the data resource to sample", {
-        v: String => dataResourceUid = v
-      })
-      opt("cf", "coordinates-file", "the file containing coordinates", {
-        v: String => locFilePath = v
-      })
-      opt("l", "single-layer-sample", "sample a single layer only", {
-        v: String => singleLayerName = v
-      })
-      opt("rf", "row-key-file", "The row keys which to sample", {
-        v: String => rowKeyFile = v
-      })
-      opt("keep", "Keep the files produced from the sampling", {
-        keepFiles = true
-      })
-      opt("rk", "key", "the single rowkey to sample", {
-        v: String => singleRowKey = v
-      })
-      opt("wd", "working-dir", "the directory to write temporary files too. Defaults to " + Config.tmpWorkDir, {
-        v: String => workingDir = v
-      })
-      intOpt("bs", "batch-size", "Batch size when processing points. Defaults to " + batchSize, {
-        v: Int => batchSize = v
-      })
-      opt("crk", "check for row key file", {
-        checkRowKeyFile = true
-      })
-      opt("acrk", "abort if no row key file found", {
-        abortIfNotRowKeyFile = true
-      })
-      intOpt("t", "threads", "The number of threads for the unique coordinate extract. The default is " + numThreads, {
-        v: Int => numThreads = v
-      })
-    }
-
-    if (parser.parse(args)) {
-      val s = new Sampling
-
-      if (dataResourceUid != "" && checkRowKeyFile) {
-        val (hasRowKey, retrievedRowKeyFile) = ProcessRecords.hasRowKey(dataResourceUid)
-        rowKeyFile = retrievedRowKeyFile.getOrElse("")
-      }
-
-      if (abortIfNotRowKeyFile && (rowKeyFile == "" || !(new File(rowKeyFile).exists()))) {
-        logger.warn("No rowkey file was found for this sampling. Aborting.")
-      } else {
-        //for this data resource
-        val fileSuffix = {
-          if (dataResourceUid != "") {
-            logger.info("Sampling : " + dataResourceUid)
-            dataResourceUid
-          } else {
-            logger.info("Sampling all records")
-            "all"
-          }
-        }
-
-        if (locFilePath == "") {
-          locFilePath = workingDir + "/loc-" + fileSuffix + ".txt"
-          if (rowKeyFile == "" && singleRowKey == "") {
-            s.getDistinctCoordinatesForResourceThreaded(numThreads, locFilePath, dataResourceUid)
-          } else if (singleRowKey != "") {
-            s.getDistinctCoordinatesForRowKey(singleRowKey)
-            sys.exit
-          } else {
-            s.getDistinctCoordinatesForFile(locFilePath, rowKeyFile)
-          }
-        }
-
-        val samplingFilePath = workingDir + "/sampling-" + fileSuffix + ".txt"
-        //generate sampling
-        s.sampling(locFilePath,
-          samplingFilePath,
-          batchSize = batchSize,
-          concurrentLoading = true,
-          keepFiles = keepFiles,
-          layers = Array(singleLayerName)
-        )
-
-        //load sampling to occurrence records
-        logger.info("Loading sampling into occ table")
-        if (dataResourceUid != null) {
-          loadSamplingIntoOccurrences(dataResourceUid)
-        }
-        logger.info("Completed loading sampling into occ table")
-
-        //clean up the file
-        if (!keepFiles) {
-          logger.info(s"Removing temporary file: $samplingFilePath")
-          (new File(samplingFilePath)).delete()
-          if (new File(locFilePath).exists()) (new File(locFilePath)).delete()
-        }
-      }
-    }
-  }
-
-  /**
-    * Loads the sampling into the occ table.
-    * This single threaded and slow.
-    */
-  def loadSamplingIntoOccurrences(dataResourceUid: String): Unit = {
-    logger.info(s"Starting loading sampling for $dataResourceUid")
-    Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
-      val lat = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-      val lon = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-      if (lat != null && lon != null) {
-        val point = LocationDAO.getSamplesForLatLon(lat, lon)
-        if (!point.isEmpty) {
-          val (location, environmentalLayers, contextualLayers) = point.get
-          Config.persistenceManager.put(guid, "occ", Map(
-            "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
-            "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
-            false,
-            false
-          )
-        }
-        counter += 1
-        if (counter % 1000 == 0) {
-          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
-        }
-      }
-      true
-    }, "dataResourceUid", dataResourceUid, 1000, "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p")
-  }
-
-  def sampleDataResource(dataResourceUid: String, callback: IntersectCallback = null, singleLayerName: String = "") {
-    val locFilePath = Config.tmpWorkDir + "/loc-" + dataResourceUid + ".txt"
-    val s = new Sampling
-    s.getDistinctCoordinatesForResourceThreaded(4, locFilePath, dataResourceUid)
-    val samplingFilePath = Config.tmpWorkDir + "/sampling-" + dataResourceUid + ".txt"
-    //generate sampling
-    s.sampling(locFilePath, samplingFilePath, callback, layers = Array(singleLayerName))
-    //load the loc table
-    s.loadSampling(samplingFilePath, callback)
-    //clean up the file
-    logger.info("Removing temporary file: " + samplingFilePath)
-    (new File(samplingFilePath)).delete()
-    (new File(locFilePath)).delete()
+    main_super(args ++ Array("--all-nodes"))
   }
 }
 
