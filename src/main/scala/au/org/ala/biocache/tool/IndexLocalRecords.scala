@@ -108,8 +108,15 @@ class IndexLocalRecords {
 
       val total = Config.persistenceManager.pageOverLocal("occ", (guid, map, tokenRangeIdx) => {
         try {
+
+
+
+
           indexer.indexFromMap(guid, map, batchID = tokenRangeIdx)
-          count +=1
+
+
+
+          count += 1
           if(count % 100000 == 0){
             ZookeeperUtil.setStatus("INDEXING", "INDEXING", count)
           }

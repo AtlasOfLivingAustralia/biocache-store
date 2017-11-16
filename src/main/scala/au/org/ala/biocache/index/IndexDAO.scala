@@ -99,6 +99,15 @@ trait IndexDAO {
     }
   }
 
+  def getParsedValueIfAvailable(field: String, map: scala.collection.Map[String, String], default:String): String = {
+    val value = getValue(field + Config.persistenceManager.fieldDelimiter + "p", map)
+    if(value == ""){
+      getValue(field, map, default)
+    } else {
+      value
+    }
+  }
+
   def hasParsedValue(field: String, map: scala.collection.Map[String, String]): Boolean = getValue(field + Config.persistenceManager.fieldDelimiter + "p", map) != ""
 
   def getValue(field: String, map: scala.collection.Map[String, String], default:String  = "", checkParsed: Boolean): String = {
@@ -588,7 +597,7 @@ trait IndexDAO {
           getValue("reproductiveCondition", map),
           getParsedValue("license", map),
           getValue("individualCount", map),
-          getValue("datePrecision", map)
+          getParsedValueIfAvailable("datePrecision", map, "")
         ) ::: Config.additionalFieldsToIndex.map(field => getValue(field, map, ""))
       } else {
         return List()

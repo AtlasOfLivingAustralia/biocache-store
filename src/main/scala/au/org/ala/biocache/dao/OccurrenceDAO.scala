@@ -22,10 +22,6 @@ trait OccurrenceDAO extends DAO {
 
   def getRowKeyFromUuid(uuid:String) : Option[String]
 
-//  def getByUuid(uuid: String) : Option[FullRecord] = getByUuid(uuid, false)
-
-//  def getByUuid(uuid: String, includeSensitive:Boolean): Option[FullRecord]
-
   def getByRowKey(rowKey: String) : Option[FullRecord] = getByRowKey(rowKey, false)
 
   def getByRowKey(rowKey: String, includeSensitive:Boolean) : Option[FullRecord]
@@ -33,8 +29,6 @@ trait OccurrenceDAO extends DAO {
   def getAllVersionsByRowKey(rowKey:String, includeSensitive:Boolean=false) : Option[Array[FullRecord]]
 
   def getRawProcessedByRowKey(rowKey:String) : Option[Array[FullRecord]]
-
-//  def getAllVersionsByUuid(uuid: String, includeSenstive:Boolean=false): Option[Array[FullRecord]]
 
   def getByUuid(uuid: String, version: Version, includeSensitive:Boolean=false): Option[FullRecord]
 
@@ -56,22 +50,15 @@ trait OccurrenceDAO extends DAO {
 
   def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), dataResourceUID:String, threads: Int = 4) : Int
 
-  def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), condition:(Map[String,String]=>Boolean), columnsToRetrieve:Array[String],
-                                      dataResourceUID:String="", pageSize: Int = 1000): Unit
-
   def addRawOccurrence(fullRecord: FullRecord,removeNullFields:Boolean): Unit
 
   def addRawOccurrenceBatch(fullRecords: Array[FullRecord], removeNullFields:Boolean=false): Unit
-
-  def updateOccurrence(rowKey: String, fullRecord: FullRecord, version: Version): Unit
 
   def updateOccurrence(rowKey: String, fullRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]], version: Version): Unit
 
   def updateOccurrence(rowKey: String, oldRecord: FullRecord, updatedRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]], version: Version)
 
   def updateOccurrenceBatch(batches: List[Map[String, Object]])
-
-  def updateOccurrence(rowKey: String, anObject: AnyRef, version: Version): Unit
 
   def addSystemAssertion(rowKey: String, qualityAssertion: QualityAssertion, replaceExistCode:Boolean=false, checkExisting:Boolean=true): Unit
 

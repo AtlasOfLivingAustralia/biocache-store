@@ -46,17 +46,17 @@ class DAOLayerTest extends ConfigFunSuite {
 
   }
 
-  test("Write and lookup occ record") {
-    val record = new FullRecord(uuid)
-    record.classification.scientificName = "Test species"
-    occurrenceDAO.updateOccurrence(rowKey, record, Versions.RAW)
-    val newrecord = occurrenceDAO.getByRowKey(rowKey);
-    //val newrecord = occurrenceDAO.getByUuid(uuid)
-
-    expectResult(uuid) {
-      newrecord.get.rowKey
-    }
-  }
+//  test("Write and lookup occ record") {
+//    val record = new FullRecord(uuid)
+//    record.classification.scientificName = "Test species"
+//    occurrenceDAO.updateOccurrence(rowKey, record, Versions.RAW)
+//    val newrecord = occurrenceDAO.getByRowKey(rowKey);
+//    //val newrecord = occurrenceDAO.getByUuid(uuid)
+//
+//    expectResult(uuid) {
+//      newrecord.get.rowKey
+//    }
+//  }
 
   test("Write Double value to processed record then read it out") {
     val record = new FullRecord(uuid)

@@ -143,15 +143,15 @@ object Store {
     }, dataResourceUID, pageSize)
   }
 
-  /**
-   * Adds or updates a raw full record with values that are in the FullRecord
-   * relies on a rowKey being set. This method only loads the record.
-   *
-   * Record is indexed if should index is true
-   */
-  def loadRecord(dataResourceIdentifer:String, properties:java.util.Map[String,String], shouldIndex:Boolean){
-    (new RecordProcessor).addRecord(dataResourceIdentifer, properties.toMap[String,String])
-  }
+//  /**
+//   * Adds or updates a raw full record with values that are in the FullRecord
+//   * relies on a rowKey being set. This method only loads the record.
+//   *
+//   * Record is indexed if should index is true
+//   */
+//  def loadRecord(dataResourceIdentifer:String, properties:java.util.Map[String,String], shouldIndex:Boolean){
+//    (new RecordProcessor).addRecord(dataResourceIdentifer, properties.toMap[String,String])
+//  }
 
   /**
    * Load the record, download any media associated with the record but avoid processing the record.
@@ -257,7 +257,7 @@ object Store {
    */
   def deleteRecords(dataResource:java.lang.String, query:java.lang.String, fromPersistent:Boolean, fromIndex:Boolean) : Unit = {
     val deletor:RecordDeletor = if(dataResource != null) {
-      new DataResourceDelete(dataResource)
+      new QueryDelete("data_resource_uid:" + dataResource)
     } else {
       new QueryDelete(query)
     }

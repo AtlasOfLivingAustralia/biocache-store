@@ -701,7 +701,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                 solrServer.add(currentBatch)
                 currentCommitSize += currentBatch.size()
                 if (commit || currentCommitSize >= HARD_COMMIT_SIZE){
-                  solrServer.commit(false, true, true)
+                  solrServer.commit(false, false, true)
                   currentCommitSize = 0
                 }
                 currentBatch.clear

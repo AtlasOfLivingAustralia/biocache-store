@@ -153,7 +153,8 @@ class SensitivityProcessor extends Processor {
             if(raw.location.gridReference != null && raw.location.gridReference != ""){
               osv.put("gridReference", raw.location.gridReference)
             }
-
+            osv.put("eventDate", raw.event.eventDate)
+            osv.put("eventDateEnd", raw.event.eventDateEnd)
             //remove all the el/cl's from the original sensitive values
             SpatialLayerDAO.sdsLayerList.foreach { key => osv.remove(key) }
             val newv = Json.toJSON(osv)
@@ -216,14 +217,20 @@ class SensitivityProcessor extends Processor {
 
         //remove the day from the values if present
         raw.event.day = ""
+        raw.event.eventDate = ""
+        raw.event.eventDateEnd = ""
+
         processed.event.day = ""
         processed.event.eventDate = ""
         if (processed.event.eventDateEnd != null) {
           processed.event.eventDateEnd = ""
         }
 
+        //remove this field values
         stringMap.put("easting", "")
         stringMap.put("northing", "")
+        stringMap.put("eventDate", "")
+        stringMap.put("eventDateEnd", "")
 
         //update the raw record with whatever is left in the stringMap - change to use DAO method...
         if(StringUtils.isNotBlank(raw.rowKey)){

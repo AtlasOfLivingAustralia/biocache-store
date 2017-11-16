@@ -95,7 +95,7 @@ object ImportUtil extends Tool {
         val map = (fieldsToImport zip columns).toMap[String, String].filter {
           case (key, value) => value != null && value.toString.trim.length > 0
         }
-        Config.persistenceManager.putAsync(executor, columns(idColumnIdx), entity, map, true, false)
+        Config.persistenceManager.putAsync(columns(idColumnIdx), entity, map, true, false)
         counter += 1
       } else {
         println("Problem loading line: " + counter + ", cols:fields = " + columns.length + ":" + fieldsToImport.length)

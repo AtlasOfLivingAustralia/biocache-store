@@ -63,6 +63,8 @@ object Config {
 
   val solrUpdateThreads = configModule.properties.getProperty("solr.update.threads", "4").toInt
 
+  val cassandraUpdateThreads = configModule.properties.getProperty("cassandra.update.threads", "8").toInt
+
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
 
   val collectoryApiKey = configModule.properties.getProperty("registry.api.key","xxxxxxxxxxxxxxxxx")
@@ -212,7 +214,6 @@ object Config {
       println(name.toString() + " = " + configModule.properties.getProperty(name.toString(), "NOT DEFINED"))
     }
   }
-
   //layer defaults
   val stateProvinceLayerID = configModule.properties.getProperty("layer.state.province", "cl927")
   val terrestrialLayerID = configModule.properties.getProperty("layer.terrestrial", "cl1048")

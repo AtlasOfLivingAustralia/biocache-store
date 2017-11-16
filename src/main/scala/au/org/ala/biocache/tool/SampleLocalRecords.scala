@@ -78,7 +78,7 @@ class SampleLocalRecords {
           queue.add(lon + "," + lat + "\n")
         }
         true
-      }, "", "", 1000, "rowkey", "lat", "lon")
+      },  1000, 1, "rowkey", "lat", "lon")
 
       val iter = queue.iterator()
 

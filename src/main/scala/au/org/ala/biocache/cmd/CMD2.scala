@@ -5,7 +5,7 @@ import au.org.ala.biocache.index.{BulkProcessor, IndexMergeTool, IndexRecords, O
 import au.org.ala.biocache.load._
 import au.org.ala.biocache.tool._
 import au.org.ala.biocache.outliers.ReverseJacknifeProcessor
-import au.org.ala.biocache.util.{DebugRecord, ExportLocalNode, ImageExport, RemapUniqueKey}
+import au.org.ala.biocache.util.{DebugRecord, ExportLocalNode, RemapUniqueKey}
 import au.org.ala.biocache.export._
 import au.org.ala.biocache.qa.ValidationRuleRunner
 
@@ -207,6 +207,7 @@ object CMD2 {
     DownloadMedia,
     DuplicationDetection,
     DwCALoader,
+    DwCACreator,
     DwcCSVLoader,
     DebugRecord,
     ExpertDistributionOutlierTool,
@@ -220,7 +221,6 @@ object CMD2 {
     GBIFOrgCSVCreator,
     HabitatLoader,
     Healthcheck,
-    ImageExport,
     ImportUtil,
     IndexRecords,
     IndexLocalRecords,
@@ -230,7 +230,6 @@ object CMD2 {
     Loader,
     OptimiseIndex,
     ProcessLocalRecords,
-    ProcessRecords,
     ScanRecords,
     ProcessSingleRecord,
     ProcessUuids,

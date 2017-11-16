@@ -18,11 +18,55 @@ import au.org.ala.biocache.cmd.Tool
  */
 object DwCACreator extends Tool {
 
-  def cmd = "createdwc"
+  def cmd = "create-dwc"
 
   def desc = "Create Darwin Core Archive for a data resource"
 
   val logger = LoggerFactory.getLogger("DwCACreator")
+
+  val defaultFields = List(
+    "rowkey",
+    "dataresourceuid",
+    "catalognumber",
+    "collectioncode",
+    "institutioncode",
+    "scientificname_p",
+    "recordedby",
+    "taxonconceptid_p",
+    "taxonrank_p",
+    "kingdom_p",
+    "phylum_p",
+    "classs_p",
+    "order_p",
+    "family_p",
+    "genus_p",
+    "decimallatitude_p",
+    "decimallongitude_p",
+    "coordinateuncertaintyinmeters_p",
+    "maximumelevationinmeters",
+    "minimumelevationinmeters",
+    "minimumdepthinmeters",
+    "maximumdepthinmeters",
+    "geodeticdatum_p",
+    "country_p",
+    "stateprovince_p",
+    "locality",
+    "occurrencestatus_p",
+    "year_p",
+    "month_p",
+    "day_p",
+    "eventdate_p",
+    "eventdateend_p",
+    "basisofrecord_p",
+    "identifiedby",
+    "occurrenceremarks",
+    "locationremarks",
+    "recordnumber",
+    "vernacularname_p",
+    "individualcount",
+    "eventid",
+    "datageneralizations_p"
+  )
 
   def main(args: Array[String]): Unit = {
 
@@ -39,17 +83,84 @@ object DwCACreator extends Tool {
     }
     if(parser.parse(args)){
       val dwcc = new DwCACreator
-      if("all".equalsIgnoreCase(resourceUid)){
-        try {
-          getDataResourceUids.foreach( dwcc.create(directory, _) )
-        } catch {
-          case e:Exception => logger.error(e.getMessage(), e)
+      try {
+        val dataResource2OutputStreams = getDataResourceUids.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
+        Config.persistenceManager.pageOverSelect("occ", (key, map) => {
+          synchronized {
+            val dr = map.getOrElse("dataresourceuid", "")
+            if (dr != "") {
+              val (zop, csv) = dataResource2OutputStreams.get(dr).get.get
+              synchronized {
+
+                val eventDate = {
+                  val eventDate = map.getOrElse("eventdate_p", "")
+                  val eventDateEnd = map.getOrElse("eventdateend_p", "")
+                  if(eventDateEnd != "" && eventDate != "" && eventDate != eventDateEnd){
+                    eventDate + "/" + eventDateEnd
+                  } else {
+                    eventDate
+                  }
+                }
+                csv.writeNext(Array(
+                  cleanValue(map.getOrElse("rowkey", "")),
+                  cleanValue(map.getOrElse("catalognumber",  "")),
+                  cleanValue(map.getOrElse("collectioncode", "")),
+                  cleanValue(map.getOrElse("institutioncode", "")),
+                  cleanValue(map.getOrElse("recordnumber", "")),
+                  cleanValue(map.getOrElse("basisofrecord_p", "")),
+                  cleanValue(map.getOrElse("recordedby", "")),
+                  cleanValue(map.getOrElse("occurrencestatus_p", "")),
+                  cleanValue(map.getOrElse("individualcount", "")),
+                  cleanValue(map.getOrElse("scientificname_p", "")),
+                  cleanValue(map.getOrElse("taxonconceptid_p", "")),
+                  cleanValue(map.getOrElse("taxonrank_p", "")),
+                  cleanValue(map.getOrElse("kingdom_p", "")),
+                  cleanValue(map.getOrElse("phylum_p", "")),
+                  cleanValue(map.getOrElse("classs_p", "")),
+                  cleanValue(map.getOrElse("order_p", "")),
+                  cleanValue(map.getOrElse("family_p", "")),
+                  cleanValue(map.getOrElse("genus_p", "")),
+                  cleanValue(map.getOrElse("vernacularname_p", "")),
+                  cleanValue(map.getOrElse("decimallatitude_p", "")),
+                  cleanValue(map.getOrElse("decimallongitude_p", "")),
+                  cleanValue(map.getOrElse("geodeticdatum_p", "")),
+                  cleanValue(map.getOrElse("coordinateuncertaintyinmeters_p", "")),
+                  cleanValue(map.getOrElse("maximumelevationinmeters", "")),
+                  cleanValue(map.getOrElse("minimumelevationinmeters", "")),
+                  cleanValue(map.getOrElse("minimumdepthinmeters", "")),
+                  cleanValue(map.getOrElse("maximumdepthinmeters", "")),
+                  cleanValue(map.getOrElse("country_p", "")),
+                  cleanValue(map.getOrElse("stateprovince_p", "")),
+                  cleanValue(map.getOrElse("locality", "")),
+                  cleanValue(map.getOrElse("locationRemarks", "")),
+                  cleanValue(map.getOrElse("year_p", "")),
+                  cleanValue(map.getOrElse("month_p", "")),
+                  cleanValue(map.getOrElse("day_p", "")),
+                  cleanValue(eventDate),
+                  cleanValue(map.getOrElse("eventid", "")),
+                  cleanValue(map.getOrElse("identifiedby", "")),
+                  cleanValue(map.getOrElse("occurrenceremarks", "")),
+                  cleanValue(map.getOrElse("datageneralizations_p", ""))
+                ))
+                csv.flush()
+              }
+            }
+          }
+          true
+        }, 4, 1000, defaultFields:_*)
+
+        dataResource2OutputStreams.values.foreach { zopAndCsv =>
+          zopAndCsv.get._1.flush()
+          zopAndCsv.get._1.closeEntry()
+          zopAndCsv.get._1.close()
         }
-      } else {
-        dwcc.create(directory, resourceUid)
+      } catch {
+        case e:Exception => logger.error(e.getMessage(), e)
       }
     }
   }
+
+  def cleanValue(input:String) = if(input == null) "" else input.replaceAll("[\\t\\n\\r]", " ").trim
 
   // pattern to extract a data resource uid from a filter query , because the label show i18n value
   val dataResourcePattern = "(?:[\"]*)?(?:[a-z_]*_uid:\")([a-z0-9]*)(?:[\"]*)?".r
@@ -80,22 +191,8 @@ class DwCACreator {
 
   val logger = LoggerFactory.getLogger("DwCACreator")
 
-  val defaultFields = List("uuid", "catalogNumber", "collectionCode", "institutionCode", "scientificName", "recordedBy",
-      "taxonRank", "kingdom", "phylum", "class", "order", "family", "genus", "specificEpithet", "infraspecificEpithet",
-      "decimalLatitude", "decimalLongitude", "coordinatePrecision", "coordinateUncertaintyInMeters", "maximumElevationInMeters", "minimumElevationInMeters",
-      "minimumDepthInMeters", "maximumDepthInMeters", "continent", "country", "stateProvince", "county", "locality", "year", "month",
-      "day", "basisOfRecord", "identifiedBy", "dateIdentified", "occurrenceRemarks", "locationRemarks", "recordNumber",
-      "vernacularName", "identificationQualifier", "individualCount", "eventID", "geodeticDatum", "eventTime", "associatedSequences",
-      "eventDate")
 
-  //The compulsory mapping fields for GBIF.
-  // This indicates that the data resource name may need to be assigned at load time instead of processing
-  val compulsoryFields = Map (
-    "catalogNumber" -> "uuid",
-    "collectionCode" -> "dataResourceName.p",
-    "institutionCode" -> "dataResourceName.p")
-
-  def create(directory:String, dataResource:String) {
+  def createOutputForCSV(directory:String, dataResource:String) : Option[(ZipOutputStream, CSVWriter)] = {
 
     logger.info("Creating archive for " + dataResource)
     val zipFile = new java.io.File (
@@ -104,24 +201,25 @@ class DwCACreator {
       dataResource +
       System.getProperty("file.separator") +
       dataResource +
-      "_ror_dwca.zip"
+      ".zip"
     )
 
     FileUtils.forceMkdir(zipFile.getParentFile)
     val zop = new ZipOutputStream(new FileOutputStream(zipFile))
     if(addEML(zop, dataResource)){
       addMeta(zop)
-      addCSV(zop, dataResource)
-      zop.close
+      zop.putNextEntry(new ZipEntry("occurrence.csv"))
+      val writer = new CSVWriter(new OutputStreamWriter(zop))
+      Some((zop, writer))
     } else {
       //no EML implies that a DWCA should not be generated.
       zop.close()
       FileUtils.deleteQuietly(zipFile)
+      None
     }
   }
 
   def addEML(zop:ZipOutputStream, dr:String):Boolean ={
-    //query from the collectory to get the EML file
     try {
       zop.putNextEntry(new ZipEntry("eml.xml"))
       val content = Source.fromURL(Config.registryUrl + "/eml/" + dr).mkString
@@ -142,33 +240,51 @@ class DwCACreator {
             <location>occurrence.csv</location>
       </files>
             <id index="0"/>
-            <field index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
-            {defaultFields.tail.map(f =>  <field index={defaultFields.indexOf(f).toString} term={"http://rs.tdwg.org/dwc/terms/"+f}/>)}
+            <field index="0"  term="http://rs.tdwg.org/dwc/terms/occurrenceID" />
+            <field index="1"  term="http://rs.tdwg.org/dwc/terms/catalogNumber" />
+            <field index="2"  term="http://rs.tdwg.org/dwc/terms/collectionCode" />
+            <field index="3"  term="http://rs.tdwg.org/dwc/terms/institutionCode" />
+            <field index="4"  term="http://rs.tdwg.org/dwc/terms/recordNumber" />
+            <field index="5"  term="http://rs.tdwg.org/dwc/terms/basisOfRecord" default="HumanObservation" />
+            <field index="6"  term="http://rs.tdwg.org/dwc/terms/recordedBy" />
+            <field index="7"  term="http://rs.tdwg.org/dwc/terms/occurrenceStatus" />
+            <field index="8"  term="http://rs.tdwg.org/dwc/terms/individualCount" />
+            <field index="9"  term="http://rs.tdwg.org/dwc/terms/scientificName" />
+            <field index="10" term="http://rs.tdwg.org/dwc/terms/taxonConceptID" />
+            <field index="11" term="http://rs.tdwg.org/dwc/terms/taxonRank" />
+            <field index="12" term="http://rs.tdwg.org/dwc/terms/kingdom" />
+            <field index="13" term="http://rs.tdwg.org/dwc/terms/phylum" />
+            <field index="14" term="http://rs.tdwg.org/dwc/terms/class" />
+            <field index="15" term="http://rs.tdwg.org/dwc/terms/order" />
+            <field index="16" term="http://rs.tdwg.org/dwc/terms/family" />
+            <field index="17" term="http://rs.tdwg.org/dwc/terms/genus" />
+            <field index="18" term="http://rs.tdwg.org/dwc/terms/vernacularName" />
+            <field index="19" term="http://rs.tdwg.org/dwc/terms/decimalLatitude" />
+            <field index="20" term="http://rs.tdwg.org/dwc/terms/decimalLongitude" />
+            <field index="21" term="http://rs.tdwg.org/dwc/terms/geodeticDatum" />
+            <field index="22" term="http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters" />
+            <field index="23" term="http://rs.tdwg.org/dwc/terms/maximumElevationInMeters" />
+            <field index="24" term="http://rs.tdwg.org/dwc/terms/minimumElevationInMeters" />
+            <field index="25" term="http://rs.tdwg.org/dwc/terms/minimumDepthInMeters" />
+            <field index="26" term="http://rs.tdwg.org/dwc/terms/maximumDepthInMeters" />
+            <field index="27" term="http://rs.tdwg.org/dwc/terms/country" />
+            <field index="28" term="http://rs.tdwg.org/dwc/terms/stateProvince" />
+            <field index="29" term="http://rs.tdwg.org/dwc/terms/locality" />
+            <field index="30" term="http://rs.tdwg.org/dwc/terms/locationRemarks" />
+            <field index="31" term="http://rs.tdwg.org/dwc/terms/year" />
+            <field index="32" term="http://rs.tdwg.org/dwc/terms/month" />
+            <field index="33" term="http://rs.tdwg.org/dwc/terms/day" />
+            <field index="34" term="http://rs.tdwg.org/dwc/terms/eventDate" />
+            <field index="35" term="http://rs.tdwg.org/dwc/terms/eventID" />
+            <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
+            <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
+            <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
       </core>
     </archive>
     //add the XML
     zop.write("""<?xml version="1.0"?>""".getBytes)
     zop.write("\n".getBytes)
     zop.write(metaXml.mkString("\n").getBytes)
-    zop.flush
-    zop.closeEntry
-  }
-
-  def addCSV(zop:ZipOutputStream, dr:String) ={
-    zop.putNextEntry(new ZipEntry("occurrence.csv"))
-    val startUuid = dr + "|"
-    val endUuid = startUuid + "~"
-    ExportUtil.export(
-      new CSVWriter(new OutputStreamWriter(zop)),
-      "occ",
-      defaultFields,
-      List("uuid"),
-      List("uuid"),
-      Some(compulsoryFields),
-      startUuid,
-      endUuid,
-      Integer.MAX_VALUE,
-      includeRowKey=false)
     zop.flush
     zop.closeEntry
   }

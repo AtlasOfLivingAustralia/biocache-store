@@ -135,7 +135,13 @@ object IndexRecords extends Tool with IncrementalTool {
       counter += 1
       val map = persistenceManager.get(rowKey, "occ")
       val shouldcommit = counter % 10000 == 0
-      if (!map.isEmpty) indexer.indexFromMap(rowKey, map.get, commit = shouldcommit, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
+      if (!map.isEmpty) indexer.indexFromMap(
+        rowKey,
+        map.get,
+        commit = shouldcommit,
+        csvFileWriter = csvFileWriter,
+        csvFileWriterSensitive = csvFileWriterSensitive
+      )
       if (counter % 100 == 0) {
         finishTime = System.currentTimeMillis
         logger.debug(counter + " >> Last key : " + rowKey + ", records per sec: " + 100f / (((finishTime - startTime).toFloat) / 1000f))

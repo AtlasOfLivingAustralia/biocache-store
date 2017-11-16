@@ -85,7 +85,7 @@ class MockPersistenceManager extends PersistenceManager {
     uuid
   }
 
-  def putAsync(executor: Executor, uuid: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, deleteIfNullValue: Boolean) = {
+  def putAsync(uuid: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, deleteIfNullValue: Boolean) = {
     logger.debug(s"Put for $uuid -  $entityName - $keyValuePairs")
     val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
     val recordMap = entityMap.getOrElse(uuid, HashMap[String, String]())
@@ -140,7 +140,7 @@ class MockPersistenceManager extends PersistenceManager {
     //throw new RuntimeException("not implemented yet")
   }
 
-  def pageOverSelect(entityName: String, proc: (String, Map[String, String]) => Boolean, startUuid: String, endUuid: String, pageSize: Int, columnName: String*) =
+  def pageOverSelect(entityName: String, proc: (String, Map[String, String]) => Boolean, pageSize: Int, threads:Int, columnName: String*) =
     throw new RuntimeException("not implemented yet")
 
   def selectRows(uuids: Seq[String], entityName: String, propertyNames: Seq[String], proc: (Map[String, String]) => Unit) =

@@ -54,37 +54,12 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
   }
 
-//  /**
-//   * Get an occurrence with UUID
-//   *
-//   * @param uuid
-//   * @return
-//   */
-//  def getByUuid(uuid: String, includeSensitive:Boolean): Option[FullRecord] = {
-//    getByRowKey(uuid, Raw, includeSensitive)
-//  }
   /**
    * Get an occurrence with rowKey
    */
   def getByRowKey(rowKey:String, includeSensitive:Boolean): Option[FullRecord] ={
     getByRowKey(rowKey, Raw, includeSensitive)
   }
-
-//  /**
-//   * Get all versions of the occurrence with UUID
-//   *
-//   * @param uuid
-//   * @return
-//   */
-//  def getAllVersionsByUuid(uuid: String, includeSensitive:Boolean=false): Option[Array[FullRecord]] = {
-//    //get the rowKey for the uuid
-////    val rowKey = getRowKeyFromUuid(uuid)
-////    if(rowKey.isDefined){
-//      getAllVersionsByRowKey(uuid, includeSensitive)
-////    } else {
-////      None
-////    }
-//  }
 
  /**
   * Get all the versions based on a row key
@@ -492,37 +467,37 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
   }
 
-  /**
-   * Iterate over the occurrence which match a condition.
-   * Prevents overhead of processing records that are deleted. Also it is quicker to get a smaller
-   * number of columns.  Thus only get all the columns for record that need to be processed.
-   *
-   * The shouldProcess function should take the map and determine based on conditions whether or not to retrieve the complete record
-   */
-  def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean),
-                                      condition:(Map[String,String]=>Boolean),
-                                      columnsToRetrieve:Array[String],
-                                      dataResourceUID:String = "",
-                                      pageSize: Int = 1000){
-
-    val columns = columnsToRetrieve ++ Array(UUID, ROW_KEY)
-    persistenceManager.pageOverSelect(entityName, (guid, map) => {
-      if(condition(map)){
-        if(map.contains(ROW_KEY)){
-          val recordmap = persistenceManager.get(map.get(ROW_KEY).get,entityName)
-          if(!recordmap.isEmpty){
-            val raw = FullRecordMapper.createFullRecord(guid, recordmap.get, Versions.RAW)
-            val processed = FullRecordMapper.createFullRecord(guid, recordmap.get, Versions.PROCESSED)
-            //pass all version to the procedure, wrapped in the Option
-            proc(Some(raw, processed))
-          }
-        } else {
-          logger.info("Unable to page over records : " +guid)
-        }
-      }
-      true
-    }, "dataResourceUID", dataResourceUID, pageSize, columns: _*)
-  }
+//  /**
+//   * Iterate over the occurrence which match a condition.
+//   * Prevents overhead of processing records that are deleted. Also it is quicker to get a smaller
+//   * number of columns.  Thus only get all the columns for record that need to be processed.
+//   *
+//   * The shouldProcess function should take the map and determine based on conditions whether or not to retrieve the complete record
+//   */
+//  def conditionalPageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean),
+//                                      condition:(Map[String,String]=>Boolean),
+//                                      columnsToRetrieve:Array[String],
+//                                      dataResourceUID:String = "",
+//                                      pageSize: Int = 1000){
+//
+//    val columns = columnsToRetrieve ++ Array(UUID, ROW_KEY)
+//    persistenceManager.pageOverSelect(entityName, (guid, map) => {
+//      if(condition(map)){
+//        if(map.contains(ROW_KEY)){
+//          val recordmap = persistenceManager.get(map.get(ROW_KEY).get,entityName)
+//          if(!recordmap.isEmpty){
+//            val raw = FullRecordMapper.createFullRecord(guid, recordmap.get, Versions.RAW)
+//            val processed = FullRecordMapper.createFullRecord(guid, recordmap.get, Versions.PROCESSED)
+//            //pass all version to the procedure, wrapped in the Option
+//            proc(Some(raw, processed))
+//          }
+//        } else {
+//          logger.info("Unable to page over records : " +guid)
+//        }
+//      }
+//      true
+//    }, "dataResourceUID", dataResourceUID, pageSize, columns: _*)
+//  }
 
   /**
    * Update the version of the occurrence record.
@@ -612,119 +587,95 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    * Update the occurrence with the supplied record, setting the correct version.
    * This implementation updates the records and assertions in a single write.
    */
-  def updateOccurrence(rowKey: String, fullRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]], version: Version) {
-
-    //construct a map of properties to write
-    val properties = FullRecordMapper.fullRecord2Map(fullRecord, version)
-
-    if (!assertions.isEmpty) {
-      properties ++= convertAssertionsToMap(rowKey, assertions.get)
-
-      var assertionsToPersist = new ListBuffer[QualityAssertion] //getSystemAssertions(uuid)
-      assertions.get.values.foreach(x => { assertionsToPersist ++= x })
-      val assertionsAsJson = Json.toJSONWithGeneric(assertionsToPersist)
-      properties ++= Map(FullRecordMapper.qualityAssertionColumn -> assertionsAsJson)
-    }
-
-    //commit to cassandra
-    persistenceManager.put(rowKey, entityName, properties.toMap, false, false)
+  def updateOccurrence(guid: String, fullRecord: FullRecord, assertions: Option[Map[String,Array[QualityAssertion]]], version: Version) {
+    updateOccurrenceBatch(List(
+      Map("rowKey" -> guid,
+        "oldRecord" -> null,
+        "newRecord" -> fullRecord,
+        "assertions" -> assertions,
+        "version" -> version)
+    ))
   }
 
   /**
    * Update the occurrence with the supplied record, setting the correct version
    */
-  def updateOccurrence(rowKey: String, oldRecord: FullRecord, newRecord: FullRecord,
+  def updateOccurrence(guid: String, oldRecord: FullRecord, newRecord: FullRecord,
                        assertions: Option[Map[String,Array[QualityAssertion]]], version: Version) {
 
-    //construct a map of properties to write
-    val oldproperties = FullRecordMapper.fullRecord2Map(oldRecord, version)
-    val properties = FullRecordMapper.fullRecord2Map(newRecord, version)
-
-    //only write changes.........
-    var propertiesToPersist = properties.filter({
-      case (key, value) => {
-        if (oldproperties.contains(key)) {
-          val oldValue = oldproperties.get(key).get
-          oldValue != value
-        } else {
-          true
-        }
-      }
-    })
-
-    //check for deleted properties
-    val deletedProperties = oldproperties.filter { case (key, value) => !properties.contains(key) }
-
-    propertiesToPersist ++= deletedProperties.map { case (key, value) => key -> "" }
-
-    val timeCol = FullRecordMapper.markNameBasedOnVersion(FullRecordMapper.alaModifiedColumn, version)
-
-    if(!assertions.isEmpty){
-      initAssertions(newRecord, assertions.get)
-      //only add  the assertions if they are different OR the properties to persist contain more than the last modified time stamp
-      if((oldRecord.assertions.toSet != newRecord.assertions.toSet)
-        || !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")
-      ){
-        //only add the assertions if they have changed since the last time or the number of records to persist >1
-        propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get)
-        updateSystemAssertions(rowKey, assertions.get)
-      }
-    }
-
-    //commit to cassandra if changes exist - changes exist if the properties to persist contain more info than the lastModifedTime
-    if(!propertiesToPersist.isEmpty && !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")){
-      persistenceManager.put(rowKey, entityName, propertiesToPersist.toMap, false, false)
-    }
+    updateOccurrenceBatch(List(
+      Map("rowKey" -> guid,
+        "oldRecord" -> oldRecord,
+        "newRecord" -> newRecord,
+        "assertions" -> assertions,
+        "version" -> version)
+    ))
   }
 
   /**
    * Update the occurrence with the supplied record, setting the correct version
    */
-  def updateOccurrenceBatch(batches: List[Map[String, Object]]) {
+  def updateOccurrenceBatch(batch: List[Map[String, Object]]) {
     //make list
     val all = scala.collection.mutable.Map[String, Map[String, String]]()
 
-    batches.filter(_ != null).foreach { case (values) if values != null =>
+    batch.filter(_ != null).foreach { values =>
+
       val rowKey = values.get("rowKey").get.asInstanceOf[String]
       val oldRecord = values.get("oldRecord").get.asInstanceOf[FullRecord]
       val version = values.get("version").get.asInstanceOf[Version]
       val newRecord = values.get("newRecord").get.asInstanceOf[FullRecord]
       val assertions = values.get("assertions").get.asInstanceOf[Option[Map[String, Array[QualityAssertion]]]]
 
-      //construct a map of properties to write
-      val oldproperties = FullRecordMapper.fullRecord2Map(oldRecord, version)
-      val properties = FullRecordMapper.fullRecord2Map(newRecord, version)
 
-      //only write changes.........
-      var propertiesToPersist = properties.filter({
-        case (key, value) => {
-          if (oldproperties.contains(key)) {
-            val oldValue = oldproperties.get(key).get
-            oldValue != value
-          } else {
-            true
+      var propertiesToPersist = if(oldRecord != null) {
+        //construct a map of properties to write
+        val oldproperties = FullRecordMapper.fullRecord2Map(oldRecord, version)
+        val properties = FullRecordMapper.fullRecord2Map(newRecord, version)
+
+        //only write changes.........
+        var propertiesToPersist = properties.filter {
+          case (key, value) => {
+            if(!oldproperties.containsKey(key) && value == "") {
+              false
+            } else if (oldproperties.contains(key)) {
+              val oldValue = oldproperties.get(key).get
+              oldValue != value
+            } else {
+              true
+            }
           }
         }
-      })
+        //check for deleted properties
+        val deletedProperties = oldproperties.filter {
+          case (key, value) => !properties.contains(key)
+        }
 
-      //check for deleted properties
-      val deletedProperties = oldproperties.filter({
-        case (key, value) => !properties.contains(key)
-      })
+        propertiesToPersist ++= deletedProperties.map {
+          case (key, value) => key -> ""
+        }
 
-      propertiesToPersist ++= deletedProperties.map({
-        case (key, value) => key -> ""
-      })
+        propertiesToPersist
+
+      } else {
+        FullRecordMapper.fullRecord2Map(newRecord, version)
+      }
 
       val timeCol = FullRecordMapper.markNameBasedOnVersion(FullRecordMapper.alaModifiedColumn, version)
 
       if (!assertions.isEmpty) {
         initAssertions(newRecord, assertions.get)
         //only add  the assertions if they are different OR the properties to persist contain more than the last modified time stamp
-        if ((oldRecord.assertions.toSet != newRecord.assertions.toSet) || !(propertiesToPersist.size == 1 && propertiesToPersist.getOrElse(timeCol, "") != "")) {
+        if (
+          oldRecord == null ||
+          oldRecord.assertions.toSet != newRecord.assertions.toSet ||
+          propertiesToPersist.size > 1  //i.e. theres more than just the timestamp to update
+        ) {
           //only add the assertions if they have changed since the last time or the number of records to persist >1
           propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get)
-          updateSystemAssertions(rowKey, assertions.get)
+          val x = assertions.get.values.filter{!_.isEmpty}.flatten.toList
+
+          propertiesToPersist ++= Map(FullRecordMapper.qualityAssertionColumn ->  Json.toJSONWithGeneric(x))
         }
       }
 
@@ -740,10 +691,10 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   }
 
   private def initAssertions(processed:FullRecord, assertions:Map[String, Array[QualityAssertion]]){
-    assertions.values.foreach(array => {
+    assertions.values.foreach { array =>
       val failedQas = array.filter(_.qaStatus==0).map(_.getName)
       processed.assertions = processed.assertions ++ failedQas
-    })
+    }
   }
 
   def doesListContainCode(list:List[QualityAssertion], code:Int) = !list.filter(ua => ua.code ==code).isEmpty
@@ -826,18 +777,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   }
 
   /**
-   * Update an occurrence entity. E.g. Occurrence, Classification, Taxon
-   *
-   *  IS this being used?
-   *
-   * @param anObject
-   */
-  def updateOccurrence(rowKey: String, anObject: AnyRef, version: Version) {
-    val map = FullRecordMapper.mapObjectToProperties(anObject, version)
-    persistenceManager.put(rowKey, entityName, map, false, false)
-  }
-
-  /**
    * Adds a quality assertion to the row with the supplied UUID.
    *
    * @param qualityAssertion
@@ -872,13 +811,11 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
   /**
    * Set the system systemAssertions for a record, overwriting existing systemAssertions
-   * TODO change this so that it is updating the contents not replacing - will need this functionality when
-   * particular processing phases can be run separately
    *
    * Please NOTE a verified record will still have a list of SystemAssertions that failed. But there will be no corresponding qa codes.
    */
   def updateSystemAssertions(rowKey: String, qualityAssertions: Map[String, Array[QualityAssertion]]) {
-    var assertions = new ListBuffer[QualityAssertion] //getSystemAssertions(uuid)
+    var assertions = new ListBuffer[QualityAssertion]
     qualityAssertions.values.foreach(x => { assertions ++= x })
     persistenceManager.putList(rowKey, entityName, FullRecordMapper.qualityAssertionColumn, assertions.toList, classOf[QualityAssertion], false, true, false)
   }
@@ -1256,7 +1193,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     if(uuid.startsWith("dr")){
       Some(uuid)
     } else {
-      val list = Config.indexDAO.getRowKeysForQuery("id:" + uuid,1)
+      val list = Config.indexDAO.getRowKeysForQuery("id:" + uuid, 1)
       if(list.isDefined){
         list.get.headOption
       } else {
@@ -1284,7 +1221,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
   }
 
-
   /**
    * Delete the record for the supplied UUID.
    *
@@ -1298,12 +1234,14 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     if (rowKey != "") {
       if (logDeleted) {
         val map = persistenceManager.get(rowKey, entityName)
-        val stringValue = Json.toJSON(map.get)
-        //log the deleted record to history
-        //get the map version of the record
-        val deletedTimestamp = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd HH:mm:ss")
-        val values = Map("id" -> rowKey, "value" -> stringValue)
-        persistenceManager.put(deletedTimestamp, "dellog", values, true, false)
+        if (map !=null && !map.isEmpty){
+          val stringValue = Json.toJSON(map.get)
+          //log the deleted record to history
+          //get the map version of the record
+          val deletedTimestamp = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd HH:mm:ss")
+          val values = Map("id" -> rowKey, "value" -> stringValue)
+          persistenceManager.put(deletedTimestamp, "dellog", values, true, false)
+        }
       }
       //delete from the data store
       persistenceManager.delete(rowKey, entityName)

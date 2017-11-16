@@ -78,9 +78,10 @@ object ProcessRecords extends Tool with IncrementalTool {
   def processFileOfRowKeys(file: java.io.File, threads: Int) {
     val queue = new ArrayBlockingQueue[String](100)
     var ids = 0
+    var counter = 0
     val recordProcessor = new RecordProcessor
     val pool: Array[StringConsumer] = Array.fill(threads) {
-      var counter = 0
+
       var startTime = System.currentTimeMillis
       var finishTime = System.currentTimeMillis
 
@@ -107,5 +108,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     file.foreachLine(line => queue.put(line.trim))
     pool.foreach(t => t.shouldStop = true)
     pool.foreach(_.join)
+
+    logger.info("Total records processed: " + counter)
   }
 }

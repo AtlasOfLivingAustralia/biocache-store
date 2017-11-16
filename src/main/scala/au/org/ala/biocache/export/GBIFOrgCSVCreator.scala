@@ -93,7 +93,7 @@ class GBIFOrgCSVCreator {
       val url = map("websiteUrl")
 
       val accessPointURL = map("publicArchiveUrl")
-      writer.writeNext(Array(organisationName, organisationDescription, "Technical",Config.technicalContact, "au", name, description,url,"Technical",Config.technicalContact, accessPointURL))
+      writer.writeNext(Array(organisationName, organisationDescription, "Technical", Config.technicalContact, "au", name, description,url,"Technical",Config.technicalContact, accessPointURL))
     })
     writer.flush
     writer.close

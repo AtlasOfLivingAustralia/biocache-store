@@ -80,25 +80,25 @@ object CopyDataNewColumn extends Tool {
           }
           line  = reader.readNext()
         }
-      } else {
-
-        var count = 0
-        var startTime = System.currentTimeMillis
-        persistenceManager.pageOverSelect(sourceColumnFamily, (guid, map) => {
-          copyData(guid, map, sourceColumnFamily, source, targetColumnFamily, target, delete)
-          if (count % 1000 == 0) {
-            val finishTime = System.currentTimeMillis
-            println(count
-              + " >> Last key : " + guid
-              + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
-              + ", time taken for " + 1000 + " records: " + (finishTime - startTime).toFloat / 1000f
-              + ", total time: " + (finishTime - originalStartTime).toFloat / 60000f + " minutes"
-            )
-            startTime = System.currentTimeMillis
-          }
-          count = count + 1
-          true
-        }, startUuid, endUuid, 1000, "rowKey", "uuid", source)
+//      } else {
+//
+//        var count = 0
+//        var startTime = System.currentTimeMillis
+//        persistenceManager.pageOverSelect(sourceColumnFamily, (guid, map) => {
+//          copyData(guid, map, sourceColumnFamily, source, targetColumnFamily, target, delete)
+//          if (count % 1000 == 0) {
+//            val finishTime = System.currentTimeMillis
+//            println(count
+//              + " >> Last key : " + guid
+//              + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f)
+//              + ", time taken for " + 1000 + " records: " + (finishTime - startTime).toFloat / 1000f
+//              + ", total time: " + (finishTime - originalStartTime).toFloat / 60000f + " minutes"
+//            )
+//            startTime = System.currentTimeMillis
+//          }
+//          count = count + 1
+//          true
+//        }, startUuid, endUuid, 1000, "rowKey", "uuid", source)
       }
     }
     //shutdown the persistence

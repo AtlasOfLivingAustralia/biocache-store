@@ -18,6 +18,9 @@ object DateParser {
 
   def parseDate(dateStr: String, maxYear: Option[Int] = None, minYear: Option[Int] = None): Option[EventDate] = {
 
+    if(dateStr == null)
+      return None
+
     val dateStrNormalised = dateStr.trim
     //assume ISO
     val eventDateWithOption = parseISODate(dateStrNormalised)
@@ -142,7 +145,7 @@ object DateParser {
 }
 
 case class EventDate(parsedStartDate: Date, startDate: String, startDay: String, startMonth: String, startYear: String,
-                     pasedEndDate: Date, endDate: String, endDay: String, endMonth: String, endYear: String, singleDate: Boolean)
+                     parsedEndDate: Date, endDate: String, endDay: String, endMonth: String, endYear: String, singleDate: Boolean)
 
 /** Extractor for the format yyyy-MM-dd */
 object NonISODateTime {

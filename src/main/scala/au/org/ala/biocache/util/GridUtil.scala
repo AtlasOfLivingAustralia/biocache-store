@@ -353,7 +353,7 @@ object GridUtil {
     val osGridRefWithQuadRegex = """([A-Z]{2})\s*([0-9]+)\s*([0-9]+)\s*([NW|NE|SW|SE]{2})$""".r
 
     // validate & parse format
-    val (gridletters:String, easting:String, northing:String, twoKRef:String, quadRef:String, coordinateUncertainty:Option[Int]) = gridRef.trim() match {
+    val (gridletters:String, easting:String, northing:String, twoKRef:String, quadRef:String, coordinateUncertainty:Option[Int]) = gridRef.toUpperCase().trim() match {
       case osGridRefRegex1Number(gridletters, oneNumber) => {
         val gridDigits = oneNumber.toString
         val en = Array(gridDigits.substring(0, gridDigits.length / 2), gridDigits.substring(gridDigits.length / 2))

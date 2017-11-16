@@ -58,7 +58,7 @@ class ProcessEventTest extends ConfigFunSuite {
     expectResult("12"){ processed.event.month }
     expectResult("1978"){ processed.event.year }
 
-    //identical start and end dates cause eventDateEnd not set 
+    //identical start and end dates cause eventDateEnd not set
     expectResult(null){ processed.event.eventDateEnd }
   }
 
@@ -429,9 +429,9 @@ class ProcessEventTest extends ConfigFunSuite {
     (new EventProcessor).process("1234", raw, processed)
 
     expectResult("1978-12-31"){ processed.event.eventDate }
-    expectResult("31"){ processed.event.day }
-    expectResult("12"){ processed.event.month }
-    expectResult("1978"){ processed.event.year }
+    expectResult(null){ processed.event.day }
+    expectResult(null){ processed.event.month }
+    expectResult(null){ processed.event.year }
     expectResult("1979-01-02"){ processed.event.eventDateEnd }
   }
 
@@ -446,9 +446,9 @@ class ProcessEventTest extends ConfigFunSuite {
     (new EventProcessor).process("1234", raw, processed)
 
     expectResult("1978-12-31"){ processed.event.eventDate }
-    expectResult("31"){ processed.event.day }
-    expectResult("12"){ processed.event.month }
-    expectResult("1978"){ processed.event.year }
+    expectResult(null){ processed.event.day }
+    expectResult(null){ processed.event.month }
+    expectResult(null){ processed.event.year }
     expectResult("1979-01-02"){ processed.event.eventDateEnd }
   }
 
@@ -472,5 +472,87 @@ class ProcessEventTest extends ConfigFunSuite {
 
     expectResult("1978-12-31"){ processed.event.eventDate }
     expectResult("1979-01-02"){ processed.event.eventDateEnd }
+  }
+
+  test("separate start end end dates") {
+
+    val raw = new FullRecord("1234")
+    raw.event.eventDate = "31/12/1978"
+    raw.event.eventDateEnd = "02/01/1979"
+    val processed = raw.clone
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("1978-12-31"){ processed.event.eventDate }
+    expectResult("1979-01-02"){ processed.event.eventDateEnd }
+  }
+
+  test("separate start end dates - month precision") {
+
+    val raw = new FullRecord("1234")
+    raw.event.eventDate = "01/12/1978"
+    raw.event.eventDateEnd = "31/12/1978"
+    raw.event.datePrecision = "M"
+    val processed = raw.clone
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("1978-12"){ processed.event.eventDate }
+    expectResult("1978-12"){ processed.event.eventDateEnd }
+    expectResult("Month"){ processed.event.datePrecision }
+  }
+
+  test("separate start end dates - day precision") {
+
+    val raw = new FullRecord("1234")
+    raw.event.eventDate = "01/12/1978"
+    raw.event.eventDateEnd = "01/12/1978"
+    raw.event.datePrecision = "D"
+    val processed = raw.clone
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("1978-12-01"){ processed.event.eventDate }
+    expectResult("1978-12-01"){ processed.event.eventDateEnd }
+    expectResult("Day"){ processed.event.datePrecision }
+    expectResult("01"){ processed.event.day }
+    expectResult("12"){ processed.event.month }
+    expectResult("1978"){ processed.event.year }
+  }
+
+  test("separate start end dates - day precision 2") {
+
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
+    raw.event.eventDate = "04/08/2009"
+    raw.event.eventDateEnd = "04/08/2009"
+    raw.event.datePrecision = "Day"
+
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("2009-08-04"){ processed.event.eventDate }
+    expectResult("2009-08-04"){ processed.event.eventDateEnd }
+    expectResult("Day"){ processed.event.datePrecision }
+    expectResult("04"){ processed.event.day }
+    expectResult("08"){ processed.event.month }
+    expectResult("2009"){ processed.event.year }
+  }
+
+//01/01/2005
+// 31/12/2009
+
+  test("separate start end dates - day precision 2 - year range") {
+
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
+    raw.event.eventDate = "01/01/2005"
+    raw.event.eventDateEnd = "31/12/2009"
+    raw.event.datePrecision = "YY"
+
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("2005"){ processed.event.eventDate }
+    expectResult("2009"){ processed.event.eventDateEnd }
+    expectResult("Year Range"){ processed.event.datePrecision }
+    expectResult(null){ processed.event.day }
+    expectResult(null){ processed.event.month }
+    expectResult(null){ processed.event.year }
   }
 }

@@ -138,29 +138,29 @@ class ColumnExporter(centralCounter: Counter, threadId: Int, startKey: String, e
 
   def run {
 
-    val outWriter = new FileWriter(new File( Config.tmpWorkDir + "/fullexport" + threadId + ".txt"))
-    val writer = new CSVWriter(outWriter, separator, '"', '\\')
-    if (includeRowkey) writer.writeNext(Array("rowKey") ++ columns.toArray[String])
-    else writer.writeNext(columns.toArray[String])
-    val start = System.currentTimeMillis
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
-    var counter = 0
-    val pageSize = 10000
-    Config.persistenceManager.pageOverSelect("occ", (key, map) => {
-      counter += 1
-      exportRecord(writer, columns, key, map, includeRowkey)
-      if (counter % pageSize == 0 && counter > 0) {
-        centralCounter.addToCounter(pageSize)
-        finishTime = System.currentTimeMillis
-        centralCounter.printOutStatus(threadId, key, "Column Reporter")
-        startTime = System.currentTimeMillis
-      }
-      true
-    }, startKey, endKey, 1000, columns: _*)
-    writer.flush()
-    val fin = System.currentTimeMillis
-    logger.info("[Exporter Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+//    val outWriter = new FileWriter(new File( Config.tmpWorkDir + "/fullexport" + threadId + ".txt"))
+//    val writer = new CSVWriter(outWriter, separator, '"', '\\')
+//    if (includeRowkey) writer.writeNext(Array("rowKey") ++ columns.toArray[String])
+//    else writer.writeNext(columns.toArray[String])
+//    val start = System.currentTimeMillis
+//    var startTime = System.currentTimeMillis
+//    var finishTime = System.currentTimeMillis
+//    var counter = 0
+//    val pageSize = 10000
+//    Config.persistenceManager.pageOverSelect("occ", (key, map) => {
+//      counter += 1
+//      exportRecord(writer, columns, key, map, includeRowkey)
+//      if (counter % pageSize == 0 && counter > 0) {
+//        centralCounter.addToCounter(pageSize)
+//        finishTime = System.currentTimeMillis
+//        centralCounter.printOutStatus(threadId, key, "Column Reporter")
+//        startTime = System.currentTimeMillis
+//      }
+//      true
+//    }, startKey, endKey, 1000, columns: _*)
+//    writer.flush()
+//    val fin = System.currentTimeMillis
+//    logger.info("[Exporter Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
   }
 
   def exportRecord(writer: CSVWriter, fieldsToExport: List[String], guid: String, map: Map[String, String], includeRowkey:Boolean) {
@@ -247,7 +247,7 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
         startTime = System.currentTimeMillis
       }
       true
-    }, startKey, endKey, pageSize, "qualityAssertion", "rowKey", "uuid", "duplicationStatus.p", "associatedOccurrences.p")
+    }, pageSize, 1, "qualityAssertion", "rowKey", "uuid", "duplicationStatus.p", "associatedOccurrences.p")
   }
 
   val qaphases = Array("loc.qa", "offline.qa", "class.qa", "bor.qa", "type.qa", "attr.qa", "image.qa", "event.qa")
@@ -279,58 +279,58 @@ class RepairRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Stri
   }
 }
 
-/**
- * A one off class used to repair datum properties.
-  *
-  * @param centralCounter
- * @param threadId
- * @param startKey
- * @param endKey
- */
-class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
-  val logger = LoggerFactory.getLogger("DatumRecordsRunner")
-  val processor = new RecordProcessor
-  var ids = 0
-  val threads = 2
-  var batches = 0
-
-  def run {
-    val pageSize = 1000
-    var counter = 0
-    var numIssue = 0
-    val start = System.currentTimeMillis
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
-
-    logger.info("Starting thread " + threadId + " from " + startKey + " to " + endKey)
-    def locProcess = new LocationProcessor
-    Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
-      counter += 1
-
-      if (StringUtils.isNotBlank(map.getOrElse("geodeticDatum", ""))) {
-        //check the precision of the lat/lon
-        def lat = map.getOrElse("decimalLatitude", "0")
-        def lon = map.getOrElse("decimalLongitude", "0")
-        def locqa = Json.toIntArray(map.getOrElse("loc.qa", "[]"))
-        if (locProcess.getNumberOfDecimalPlacesInDouble(lat) != locProcess.getNumberOfDecimalPlacesInDouble(lon) && locqa.contains(45)) {
-          numIssue += 1
-          logger.info("FIXME from THREAD " + threadId + "\t" + guid)
-        }
-      }
-
-      if (counter % pageSize == 0 && counter > 0) {
-        centralCounter.addToCounter(pageSize)
-        finishTime = System.currentTimeMillis
-        centralCounter.printOutStatus(threadId, guid, "Datum")
-        startTime = System.currentTimeMillis
-      }
-      true
-    }, startKey, endKey, 1000, "decimalLatitude", "decimalLongitude", "rowKey", "uuid", "geodeticDatum", "loc.qa")
-    val fin = System.currentTimeMillis
-    logger.info("[Datum Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
-    logger.info("Finished.")
-  }
-}
+///**
+// * A one off class used to repair datum properties.
+//  *
+//  * @param centralCounter
+// * @param threadId
+// * @param startKey
+// * @param endKey
+// */
+//class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: String, endKey: String) extends Runnable {
+//  val logger = LoggerFactory.getLogger("DatumRecordsRunner")
+//  val processor = new RecordProcessor
+//  var ids = 0
+//  val threads = 2
+//  var batches = 0
+//
+//  def run {
+//    val pageSize = 1000
+//    var counter = 0
+//    var numIssue = 0
+//    val start = System.currentTimeMillis
+//    var startTime = System.currentTimeMillis
+//    var finishTime = System.currentTimeMillis
+//
+//    logger.info("Starting thread " + threadId + " from " + startKey + " to " + endKey)
+//    def locProcess = new LocationProcessor
+//    Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
+//      counter += 1
+//
+//      if (StringUtils.isNotBlank(map.getOrElse("geodeticDatum", ""))) {
+//        //check the precision of the lat/lon
+//        def lat = map.getOrElse("decimalLatitude", "0")
+//        def lon = map.getOrElse("decimalLongitude", "0")
+//        def locqa = Json.toIntArray(map.getOrElse("loc.qa", "[]"))
+//        if (locProcess.getNumberOfDecimalPlacesInDouble(lat) != locProcess.getNumberOfDecimalPlacesInDouble(lon) && locqa.contains(45)) {
+//          numIssue += 1
+//          logger.info("FIXME from THREAD " + threadId + "\t" + guid)
+//        }
+//      }
+//
+//      if (counter % pageSize == 0 && counter > 0) {
+//        centralCounter.addToCounter(pageSize)
+//        finishTime = System.currentTimeMillis
+//        centralCounter.printOutStatus(threadId, guid, "Datum")
+//        startTime = System.currentTimeMillis
+//      }
+//      true
+//    }, startKey, endKey, 1000, "decimalLatitude", "decimalLongitude", "rowKey", "uuid", "geodeticDatum", "loc.qa")
+//    val fin = System.currentTimeMillis
+//    logger.info("[Datum Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
+//    logger.info("Finished.")
+//  }
+//}
 
 ///**
 //  * A class that can be used to reload sampling values for all records.
@@ -416,8 +416,6 @@ class DatumRecordsRunner(centralCounter: Counter, threadId: Int, startKey: Strin
  *
  * @param centralCounter
  * @param threadId
- * @param startKey
- * @param endKey
  */
 class LoadSamplingRunner(centralCounter: Counter, threadId: Int, dataResourceUID: String) extends Runnable {
 
@@ -447,7 +445,7 @@ class LoadSamplingRunner(centralCounter: Counter, threadId: Int, dataResourceUID
         }
       }
       true
-    }, "dataResourceUID", dataResourceUID, 1000, "decimalLatitude" + Config.persistenceManager.fieldDelimiter+ "p", "decimalLongitude" +Config.persistenceManager.fieldDelimiter+"p" )
+    },  1000, 1, "decimalLatitude" + Config.persistenceManager.fieldDelimiter+ "p", "decimalLongitude" +Config.persistenceManager.fieldDelimiter+"p" )
     val fin = System.currentTimeMillis
     logger.info("[LoadSamplingRunner Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
     logger.info("Finished.")

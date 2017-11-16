@@ -3,7 +3,7 @@ package au.org.ala.biocache.persistence
 import java.io.{File, FileWriter}
 import java.{lang, util}
 import java.util.{Date, UUID}
-import java.util.concurrent._
+import java.util.concurrent.{Executors, _}
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.Json
@@ -30,8 +30,8 @@ class Cassandra3PersistenceManager  @Inject() (
                   @Named("cassandra.hosts") val host:String = "localhost",
                   @Named("cassandra.port") val port:Int = 9042,
                   @Named("cassandra.pool") val poolName:String = "biocache-store-pool",
-                  @Named("cassandra.keyspace") val keyspace:String = "occ"
-                                              ) extends PersistenceManager {
+                  @Named("cassandra.keyspace") val keyspace:String = "occ",
+                  @Named("cassandra.async.updates.threads") val noOfUpdateThreads:String = "8") extends PersistenceManager {
 
   import JavaConversions._
 
@@ -54,6 +54,8 @@ class Cassandra3PersistenceManager  @Inject() (
   val session = cluster.connect(keyspace)
 
   val map = new MapMaker().weakValues().makeMap[String, PreparedStatement]()
+
+  val updateThreadPool = Executors.newFixedThreadPool(noOfUpdateThreads.toInt).asInstanceOf[ThreadPoolExecutor]
 
   private def getPreparedStmt(query:String) : PreparedStatement = {
 
@@ -270,17 +272,17 @@ class Cassandra3PersistenceManager  @Inject() (
     }
   }
 
+
+
   /**
     * Store the supplied batch of maps of properties as separate columns in cassandra.
     */
   def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean) = {
 
-    val executor = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(4).asInstanceOf[ThreadPoolExecutor])
-
     batch.keySet.foreach { rowkey =>
       val map = batch.get(rowkey)
       if(!map.isEmpty) {
-        putAsync(executor, rowkey, entityName, map.get, newRecord, removeNullFields)
+        putAsync(rowkey, entityName, map.get, newRecord, removeNullFields)
       }
     }
   }
@@ -307,7 +309,6 @@ class Cassandra3PersistenceManager  @Inject() (
     * Async put implementation.
     * Note this current implementation doesnt use retries.
     *
-    * @param executor
     * @param rowkey
     * @param entityName
     * @param keyValuePairs
@@ -315,9 +316,10 @@ class Cassandra3PersistenceManager  @Inject() (
     * @param removeNullFields
     * @return
     */
-  def putAsync(executor:Executor,  rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean) = {
+  def putAsync(rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean) = {
 
     try {
+      val executor = MoreExecutors.getExitingExecutorService(updateThreadPool)
       val stmt: BoundStatement = createPutStatement(rowkey, entityName, keyValuePairs)
       val future = session.executeAsync(stmt)
       Futures.addCallback(future, new IngestCallback, executor)
@@ -355,10 +357,10 @@ class Cassandra3PersistenceManager  @Inject() (
     val statement = getPreparedStmt(sql)
 
     val boundStatement = if (keyValuePairsToUse.size == 1) {
-      val values = Array(rowkey, keyValuePairsToUse.values.head)
+      val values = Array(rowkey, keyValuePairsToUse.values.head).map {x => new String(x.getBytes("UTF-8")) }
       statement.bind(values: _*)
     } else {
-      val values = Array(rowkey) ++ keyValuePairsToUse.values.toArray[String]
+      val values = (Array(rowkey) ++ keyValuePairsToUse.values.toArray[String]).map {x => new String(x.getBytes("UTF-8")) }
       if (values == null) {
         throw new Exception("keyValuePairsToUse are null...")
       }
@@ -486,47 +488,78 @@ class Cassandra3PersistenceManager  @Inject() (
     *
     * @param columnName The names of the columns that need to be provided for processing by the proc
     */
-  def pageOverSelect(entityName:String, proc:((String, Map[String,String]) => Boolean), indexedField:String,
-                     indexedFieldValue:String, pageSize:Int, columnName:String*) : Int = {
+  def pageOverSelect(entityName:String, proc:((String, Map[String,String]) => Boolean), pageSize:Int, threads:Int, columnName:String*) : Int = {
 
     val columnsString = "rowkey," + columnName.mkString(",")
 
     logger.debug("Start: Testing paging over all")
 
     val columns = Array(columnName:_*).mkString(",")
+    val tokenRanges = getTokenRanges
+    val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
+    val callables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
 
-    //get token value
-    val pagingQuery = if(StringUtils.isNotEmpty(indexedFieldValue)) {
-      s"SELECT rowkey,$columns FROM $entityName where $indexedField = '$indexedFieldValue' allow filtering"
-    } else {
-      s"SELECT rowkey,$columns FROM $entityName"
-    }
+    tokenRanges.foreach { tokenRange =>
 
-    val rs: ResultSet = session.execute(pagingQuery)
-    val rows: util.Iterator[Row] = rs.iterator
-    var counter: Int = 0
-    val start: Long = System.currentTimeMillis
-    while (rows.hasNext) {
-      val row = rows.next
-      val rowkey = row.getString("rowkey")
-      counter += 1
-      val map = new util.HashMap[String, String]()
-      columnName.foreach { name =>
-        val value = row.getString(name)
-        if(value != null){
-          map.put(name, value)
+      val scanTask = new Callable[Int] {
+        def call() : Int = {
+          val startToken = tokenRange.getStart
+          val endToken = tokenRange.getEnd
+
+          val pagingQuery = s"SELECT * FROM $entityName where " +
+            s"token(rowkey) > $startToken AND token(rowkey) <= $endToken " +
+            s"allow filtering"
+
+          val stmt = new SimpleStatement(pagingQuery)
+          stmt.setFetchSize(100)
+          stmt.setIdempotent(true)
+          stmt.setReadTimeoutMillis(60000)
+          stmt.setConsistencyLevel(ConsistencyLevel.ONE)
+
+          val rs: ResultSet = session.execute(stmt)
+          val rows: util.Iterator[Row] = rs.iterator
+          var counter = 0
+          val start = System.currentTimeMillis
+          while (rows.hasNext) {
+            val row = rows.next
+            val rowkey = row.getString("rowkey")
+            counter += 1
+            val map = new util.HashMap[String, String]()
+            row.getColumnDefinitions.foreach { defin =>
+              val value = row.getString(defin.getName)
+              if (value != null) {
+                map.put(defin.getName, value)
+              }
+            }
+
+            val currentTime = System.currentTimeMillis
+            val currentRowKey = row.getString(0)
+            val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
+            val timeInSec = (currentTime - start) / 1000
+
+            logger.debug(s"$currentRowKey - records read: $counter.  Records per sec: $recordsPerSec,  Time taken: $timeInSec")
+
+            proc(rowkey, map.toMap)
+          }
+          0
         }
       }
-
-      val currentTime: Long = System.currentTimeMillis
-      logger.debug(row.getString(0) + " - records read: " + counter + ".  Records per sec: " + (counter.toFloat) / ((currentTime - start).toFloat / 1000f) + "  Time taken: " + ((currentTime - start) / 1000))
-
-      proc(rowkey, map.toMap)
+      callables.add(scanTask)
     }
+
+    logger.info("Starting threads...number of callables " + callables.size())
+    val futures: util.List[Future[Int]] = es.invokeAll(callables)
+    logger.info("All threads have completed paging")
+
+    var grandTotal: Int = 0
+    for (f <- futures) {
+      val count:Int = f.get.asInstanceOf[Int]
+      grandTotal += count
+    }
+
     //get token ranges....
     //iterate through each token range....
-    logger.info(s"Finished: Testing paging over all. Records paged over: $counter")
-    counter
+    grandTotal
   }
 
   private def getTokenValue(rowkey:String, entityName:String) : Long = {
@@ -875,11 +908,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * @return
     */
   def pageOverLocal(entityName:String, proc:(String, Map[String, String], String) => Boolean, threads:Int, columns:Array[String] = Array()) : Int = {
-//    if(useAsyncPaging){
-//      pageOverLocalAsync(entityName, proc, threads, columns)
-//    } else {
-      pageOverLocalNotAsync(entityName, proc, threads, columns)
-//    }
+    pageOverLocalNotAsync(entityName, proc, threads, columns)
   }
 
 

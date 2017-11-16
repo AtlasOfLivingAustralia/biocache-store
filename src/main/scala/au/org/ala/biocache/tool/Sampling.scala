@@ -162,7 +162,7 @@ object Sampling extends Tool with IncrementalTool {
         }
       }
       true
-    }, "dataResourceUID", dataResourceUid, 1000, "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p" )
+    },  1000, 1, "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p" )
   }
 
   def sampleDataResource(dataResourceUid: String, callback:IntersectCallback = null, singleLayerName: String = "") {
@@ -606,7 +606,7 @@ class LocColumnExporter(threadId: Int, dataResourceUid:String, handleRecordMap: 
         counter += 1
         Integer.MAX_VALUE > counter
 
-      },"","", 1000, "decimalLatitude",
+      }, 1000, 1, "decimalLatitude",
         "decimalLongitude",
         "decimalLatitude"  + Config.persistenceManager.fieldDelimiter + "p",
         "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p",

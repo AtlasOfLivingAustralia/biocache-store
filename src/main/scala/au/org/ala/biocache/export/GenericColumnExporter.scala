@@ -26,7 +26,7 @@ object GenericColumnExporter {
       val cols = getColumns(entity)
       val outWriter = new FileWriter(new File(filePath))
       val writer = new CSVWriter(outWriter, '\t', '"')
-      ExportUtil.export(writer, entity, cols, List(), List(), maxRecords = Integer.MAX_VALUE)
+//      ExportUtil.export(writer, entity, cols, List(), List(), maxRecords = Integer.MAX_VALUE)
     }
   }
 

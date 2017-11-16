@@ -68,7 +68,7 @@ trait PersistenceManager {
   /**
     * Put a set of key value pairs.
     */
-  def putAsync(executor: Executor, rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean): String
+  def putAsync(rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean): String
 
   /**
    * Add a batch of properties.
@@ -110,7 +110,7 @@ trait PersistenceManager {
   /**
    * Page over the records, retrieving the supplied columns only.
    */
-  def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), indexedField:String, indexedFieldValue:String, pageSize:Int, columnName:String*) : Int
+  def pageOverSelect(entityName:String, proc:((String, Map[String,String])=>Boolean), pageSize:Int, threads:Int, columnName:String*) : Int
 
   /**
    * Page over the records, retrieving the supplied columns range.

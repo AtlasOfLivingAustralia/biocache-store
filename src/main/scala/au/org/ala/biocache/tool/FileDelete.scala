@@ -11,7 +11,7 @@ import au.org.ala.biocache.Config
 /**
  * A record deletor that takes a file of rowkeys to delete.
  */
-class FileDelete(fileName: String, useUUID: Boolean  = false, hasHeader:Boolean = false) extends RecordDeletor {
+class FileDelete(fileName: String, hasHeader:Boolean = false) extends RecordDeletor {
 
   import FileHelper._
 
@@ -31,7 +31,7 @@ class FileDelete(fileName: String, useUUID: Boolean  = false, hasHeader:Boolean 
     logger.info("deleteFromIndex - Using file name: " + fileName)
     var counter = 0
     val buf = new ArrayBuffer[String]
-    val fieldName = if (useUUID) "id" else "row_key"
+    val fieldName = "id"
     getRemoteFile(fileName).foreachLine(line => {
       buf += line
       counter += 1

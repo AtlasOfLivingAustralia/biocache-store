@@ -73,7 +73,7 @@ class ScanRecords {
           }
         }
         true
-      }, "", "", 1000, "rowkey", "dataresourceuid")
+      }, 1000, 1, "rowkey", "dataresourceuid")
     }
 
     val end = System.currentTimeMillis()

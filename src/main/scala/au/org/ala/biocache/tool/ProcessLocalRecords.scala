@@ -136,26 +136,25 @@ class ProcessLocalRecords {
       Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
         if (!record.isEmpty) {
           val raw = record.get._1
+          val processed = record.get._2
           val uuid = raw.rowKey
           readCount += 1
+
           if ((drs.isEmpty || drs.contains(raw.attribution.dataResourceUid)) &&
             !skipDrs.contains(raw.attribution.dataResourceUid)) {
-            val (processed, assertions) = processor.processRecord(raw)
-            //set the last processed time
-            processed.lastModifiedTime = org.apache.commons.lang.time.DateFormatUtils.format(
-              new Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
-            Config.occurrenceDAO.updateOccurrence(uuid, processed, Some(assertions), Versions.PROCESSED)
+            processor.processRecord(raw, processed, false, true)
             updateCount += 1
           }
-          if (updateCount % 10000 == 0) {
 
+          if (updateCount % 10000 == 0) {
             val end = System.currentTimeMillis()
-            val timeInSecs = ((end - lastLog).toFloat / 10000f)
+            val timeInSecs = ((end - lastLog).toFloat / 1000f)
             val recordsPerSec = Math.round(10000f / timeInSecs)
             logger.info(s"Total processed : $updateCount, total read: $readCount Last rowkey: $uuid  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
             lastLog = end
             ZookeeperUtil.setStatus("PROCESSING", "RUNNING", updateCount)
           }
+
         }
         true
       }, null, threads)

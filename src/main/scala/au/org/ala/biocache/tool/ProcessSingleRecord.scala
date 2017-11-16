@@ -39,7 +39,8 @@ object ProcessSingleRecord extends Tool {
     var records = Config.occurrenceDAO.getAllVersionsByRowKey(uuid)
     if (!records.isEmpty) {
       logger.info("Processing record.....")
-      processor.processRecord(records.get(0), records.get(1))
+      processor.processRecord(records.get(0), records.get(1), false, true)
+
       val processedRecord = Config.occurrenceDAO.getByRowKey(records.get(1).rowKey, Processed)
       val objectMapper = new ObjectMapper
       if (!processedRecord.isEmpty)

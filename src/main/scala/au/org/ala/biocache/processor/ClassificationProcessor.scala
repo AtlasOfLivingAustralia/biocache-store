@@ -85,11 +85,12 @@ class ClassificationProcessor extends Processor {
    * @param assertions
    */
   private def setMatchStats(nameMetrics:au.org.ala.names.model.MetricsResultDTO, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
+
     //set the parse type and errors for all results before continuing
     processed.classification.nameParseType = if(nameMetrics.getNameType != null){
       nameMetrics.getNameType.toString
     } else {
-      "UNKNOWN"
+      null
     }
     //add the taxonomic issues for the match
     processed.classification.taxonomicIssue = if(nameMetrics.getErrors != null){
@@ -189,12 +190,7 @@ class ClassificationProcessor extends Processor {
           if(attribution.get.hasMappedCollections){
             attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
           }
-//
-//
-//          var attribution = AttributionDAO.getByCodes(raw.occurrence.institutionCode, raw.occurrence.collectionCode)
-//          if (attribution.isEmpty) {
-//            attribution = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
-//          }
+
           var hintsPassed = true
           if (!attribution.isEmpty) {
             logger.debug("Checking taxonomic hints")
