@@ -88,7 +88,7 @@ class GBIFOrgDwCACreator {
       "minimumDepthInMeters", "maximumDepthInMeters", "continent", "country", "stateProvince", "county", "locality", "year", "month",
       "day", "basisOfRecord", "identifiedBy", "dateIdentified", "occurrenceRemarks", "locationRemarks", "recordNumber",
       "vernacularName", "identificationQualifier", "individualCount", "eventID", "geodeticDatum", "eventTime", "associatedSequences",
-      "eventDate", "collectionID" , "datasetID" , "datasetName" , "language" , "modified" , "rightsHolder" , "fieldNumber" , 
+      "verbatimEventDate", "eventDate", "collectionID" , "datasetID" , "datasetName" , "language" , "modified" , "rightsHolder" , "fieldNumber" , 
       "georeferencedDate" , "higherClassification" , "higherGeography" , "institutionID" , "lifeStage" , "municipality" , "occurrenceStatus" ,
       "ownerInstitutionCode" , "preparations" , "sex" , "subgenus" , "typeStatus" , "verbatimLocality" , "scientificNameAuthorship")
 
