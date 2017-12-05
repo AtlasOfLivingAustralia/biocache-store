@@ -14,8 +14,8 @@ import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
 /**
-  * A tool for processing local records.
-  */
+ * A tool for processing records that are local to a node.
+ */
 object ProcessLocalRecords extends Tool {
 
   def cmd = "process-local-node"
@@ -51,18 +51,14 @@ object ProcessLocalRecords extends Tool {
       opt("tl", "taxa-list", "file containing a list of taxa to reprocess", {
         v: String => taxaFile = v
       })
-      opt("use-full-scan", "Use a full table scan. This is faster if most of the data needs to be processed", {
-        useFullScan = true
-      })
-      opt("use-resource-scan", "Scan by data resource. This is slower for very large datasets (> 5 million record), but faster for smaller", {
-        useFullScan = false
-      })
       intOpt("stk", "start-token-range-idx", "the idx of the token range to start at. Typically a value between 0 and 1024." +
         "This is useful when a long running process fails for some reason.", {
         v: Int => startTokenRangeIdx = v
       })
     }
 
+    if(parser.parse(args)){
+      if(taxaFile != ""){
     if (skipDrs.isEmpty && drs.size == 1) {
       useFullScan = false
     }
@@ -75,7 +71,7 @@ object ProcessLocalRecords extends Tool {
       if (taxaFile != "") {
         new ProcessLocalRecords().processTaxaOnly(threads, taxaFile, startTokenRangeIdx, checkpointFile)
       } else {
-        new ProcessLocalRecords().processRecords(threads, drs, skipDrs, useFullScan, startTokenRangeIdx, checkpointFile)
+        new ProcessLocalRecords().processRecords(threads, drs, skipDrs, startTokenRangeIdx, checkpointFile)
       }
     }
   }
@@ -140,8 +136,8 @@ class ProcessLocalRecords {
     logger.info("Finished reprocessing. Total matched and reprocessed: " + count)
   }
 
-  def processRecords(threads: Int, drs: Seq[String], skipDrs: Seq[String], useFullScan: Boolean,
-                     startTokenRangeIdx: Int, checkpointFile: String): Unit = {
+  def processRecords(threads:Int, drs:Seq[String], skipDrs:Seq[String],
+                     startTokenRangeIdx:Int, checkpointFile:String) : Unit = {
 
     val processor = new RecordProcessor
     val start = System.currentTimeMillis()
@@ -154,12 +150,12 @@ class ProcessLocalRecords {
 
     setCheckpoints(startTokenRangeIdx, checkpointFile)
 
-    val total = if (useFullScan) {
+    val total = {
       logger.info("Using a full scan...")
       Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
         if (!record.isEmpty) {
           val raw = record.get._1
-          val rowKey = raw.rowKey
+          val uuid = raw.rowKey
           readCount += 1
           if ((drs.isEmpty || drs.contains(raw.attribution.dataResourceUid)) &&
             !skipDrs.contains(raw.attribution.dataResourceUid)) {
@@ -167,7 +163,7 @@ class ProcessLocalRecords {
             //set the last processed time
             processed.lastModifiedTime = org.apache.commons.lang.time.DateFormatUtils.format(
               new Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
-            Config.occurrenceDAO.updateOccurrence(rowKey, processed, Some(assertions), Versions.PROCESSED)
+            Config.occurrenceDAO.updateOccurrence(uuid, processed, Some(assertions), Versions.PROCESSED)
             updateCount += 1
           }
           if (updateCount % 10000 == 0) {
@@ -175,41 +171,13 @@ class ProcessLocalRecords {
             val end = System.currentTimeMillis()
             val timeInSecs = ((end - lastLog).toFloat / 10000f)
             val recordsPerSec = Math.round(10000f / timeInSecs)
-            logger.info(s"Total processed : $updateCount, total read: $readCount Last rowkey: $rowKey  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
+            logger.info(s"Total processed : $updateCount, total read: $readCount Last rowkey: $uuid  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
             lastLog = end
             ZookeeperUtil.setStatus("PROCESSING", "RUNNING", updateCount)
           }
         }
         true
       }, null, threads)
-    } else {
-      logger.info("Using a sequential scan by data resource...")
-      var total = 0
-      drs.foreach { dataResourceUid =>
-        logger.info(s"Using a sequential scan by data resource...starting $dataResourceUid")
-        total = total + Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
-          if (!record.isEmpty) {
-            val raw = record.get._1
-            val rowKey = raw.rowKey
-            updateCount += 1
-            val (processed, assertions) = processor.processRecord(raw)
-            processed.lastModifiedTime = org.apache.commons.lang.time.DateFormatUtils.format(
-              new Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
-            Config.occurrenceDAO.updateOccurrence(rowKey, processed, Some(assertions), Versions.PROCESSED)
-
-            if (updateCount % 100 == 0 && updateCount > 0) {
-              val end = System.currentTimeMillis()
-              val timeInSecs = ((end - lastLog).toFloat / updateCount.toFloat)
-              val recordsPerSec = Math.round(updateCount.toFloat / timeInSecs)
-              logger.info(s"Total processed : $updateCount, Last rowkey: $rowKey  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
-              lastLog = end
-            }
-          }
-          true
-        }, dataResourceUid, threads)
-      }
-      //sequential scan for each resource
-      total
     }
 
     //Move checkpoint file if complete

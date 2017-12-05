@@ -21,7 +21,7 @@ class MapDataLoader extends DataLoader {
    * @return
    */
   def load(dataResourceUid:String, values:List[java.util.Map[String,String]], uniqueTerms:List[String]):List[String] = {
-    val rowKeys = new ArrayBuffer[String]
+    val uuids = new ArrayBuffer[String]
     values.foreach(jmap =>{
       val map = jmap.toMap[String,String]
       val uniqueTermsValues = uniqueTerms.map(t => map.getOrElse(t,""))
@@ -32,8 +32,8 @@ class MapDataLoader extends DataLoader {
       val dwcMap = map.map{case (k,v) => (keysToDwcMap.getOrElse(k,k), v)}
       val fr = FullRecordMapper.createFullRecord("", dwcMap, Versions.RAW)
       load(dataResourceUid, fr, uniqueTermsValues, true, true, false)
-      rowKeys += fr.rowKey
+      uuids += fr.rowKey
     })
-    rowKeys.toList
+    uuids.toList
   }
 }

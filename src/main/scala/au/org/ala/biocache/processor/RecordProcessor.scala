@@ -174,7 +174,7 @@ class RecordProcessor {
     val uuid = properties.getOrElse("uuid", UUID.randomUUID().toString)
     val rowKey = dataResourceUid + "|" + uuid
     val raw = FullRecordMapper.createFullRecord(rowKey, properties, Versions.RAW)
-    raw.uuid = uuid
+    raw.rowKey = uuid
     raw.attribution.dataResourceUid = dataResourceUid
     Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
     val processor = new RecordProcessor
@@ -185,8 +185,8 @@ class RecordProcessor {
   def addRecord(dataResourceUid: String, properties: Map[String, String]): String = {
     val uuid = properties.getOrElse("uuid", UUID.randomUUID().toString)
     val rowKey = dataResourceUid + "|" + uuid
-    val raw = FullRecordMapper.createFullRecord(rowKey, properties, Versions.RAW)
-    raw.uuid = uuid
+    val raw = FullRecordMapper.createFullRecord(rowKey, properties,Versions.RAW)
+    raw.rowKey = uuid
     raw.attribution.dataResourceUid = dataResourceUid
     biocache.Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, Versions.RAW)
     val downloaded = biocache.Config.occurrenceDAO.downloadMedia(raw)

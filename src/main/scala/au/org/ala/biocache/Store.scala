@@ -52,32 +52,33 @@ object Store {
 
   import JavaConversions._
   import scala.collection.JavaConverters._
+  import BiocacheConversions._
 
   /**
-    * A java API friendly version of the getByUuid that does not require knowledge of a scala type.
-    */
+   * A java API friendly version of the getByUuid that does not require knowledge of a scala type.
+   */
   def getByUuid(uuid: java.lang.String, version: Version): FullRecord =
-    occurrenceDAO.getByUuid(uuid, version).getOrElse(null)
+    occurrenceDAO.getByRowKey(uuid, version).getOrElse(null)
 
-  def getSensitiveByUuid(uuid: java.lang.String, version: Version): FullRecord =
-    occurrenceDAO.getByUuid(uuid, version, true).getOrElse(null)
-
-  /**
-    * A java API friendly version of the getByUuid that doesnt require knowledge of a scala type.
-    */
-  def getByUuid(uuid: java.lang.String): FullRecord = occurrenceDAO.getByUuid(uuid, Raw).getOrElse(null)
+  def getSensitiveByUuid(uuid:java.lang.String, version:Version):FullRecord =
+    occurrenceDAO.getByRowKey(uuid, version, true).getOrElse(null)
 
   /**
-    * Retrieve all versions of the record with the supplied UUID.
-    */
-  def getAllVersionsByUuid(uuid: java.lang.String, includeSensitive: java.lang.Boolean): Array[FullRecord] =
-    occurrenceDAO.getAllVersionsByUuid(uuid, includeSensitive).getOrElse(null)
+   * A java API friendly version of the getByUuid that doesnt require knowledge of a scala type.
+   */
+  def getByUuid(uuid: java.lang.String): FullRecord = occurrenceDAO.getByRowKey(uuid, Raw).getOrElse(null)
 
   /**
-    * Get the raw processed comparison based on the uuid for the occurrence.
-    */
-  def getComparisonByUuid(uuid: java.lang.String): java.util.Map[String, java.util.List[ProcessedValue]] =
-    getComparison(occurrenceDAO.getAllVersionsByUuid(uuid).getOrElse(null))
+   * Retrieve all versions of the record with the supplied UUID.
+   */
+  def getAllVersionsByUuid(uuid: java.lang.String, includeSensitive:java.lang.Boolean) : Array[FullRecord] =
+    occurrenceDAO.getAllVersionsByRowKey(uuid, includeSensitive).getOrElse(null)
+
+  /**
+   * Get the raw processed comparison based on the uuid for the occurrence.
+   */
+  def getComparisonByUuid(uuid: java.lang.String) : java.util.Map[String,java.util.List[ProcessedValue]] =
+    getComparison(occurrenceDAO.getAllVersionsByRowKey(uuid).getOrElse(null))
 
   /**
     * Generate a comparison of the supplied records.
@@ -98,9 +99,9 @@ object Store {
 
         val (rawPoso, procPoso) = rawAndProcessed
         val listBuff = new java.util.LinkedList[ProcessedValue]
-
+        
         rawPoso.getPropertyNames.foreach { name =>
-          if (!Config.sensitiveFields.contains(name)) {
+          if(!Config.sensitiveFields.contains(name)){
             val rawValue = rawPoso.getProperty(name)
             val procValue = procPoso.getProperty(name)
             if (!rawValue.isEmpty || !procValue.isEmpty) {
@@ -109,7 +110,7 @@ object Store {
             }
           }
         }
-
+        
         val name = rawPoso.getClass().getName().substring(rawPoso.getClass().getName().lastIndexOf(".") + 1)
         map.put(name, listBuff)
       })
@@ -163,26 +164,26 @@ object Store {
   }
 
   /**
-    * Load the record, download any media associated with the record but avoid processing the record.
-    */
-  def loadRecordOnly(dataResourceUid: String, fr: FullRecord, identifyingTerms: java.util.List[String]) {
+   * Load the record, download any media associated with the record but avoid processing the record.
+   */
+  def loadRecordOnly(dataResourceUid:String, fr:FullRecord, identifyingTerms:java.util.List[String]){
     fr.lastModifiedTime = new Date()
     (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true, false)
   }
 
   /**
-    * Load the record, download any media associated with the record.
-    */
-  def loadRecord(dataResourceUid: String, fr: FullRecord, identifyingTerms: java.util.List[String], shouldIndex: Boolean = true) {
+   * Load the record, download any media associated with the record.
+   */
+  def loadRecord(dataResourceUid:String, fr:FullRecord, identifyingTerms:java.util.List[String], shouldIndex:Boolean = true){
     fr.lastModifiedTime = new Date()
     (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true, false)
     val processor = new RecordProcessor
     processor.processRecordAndUpdate(fr)
-    if (shouldIndex) {
+    if(shouldIndex){
       occurrenceDAO.reIndex(fr.rowKey)
     }
   }
-
+  
   /**
     * Loads a batch of records based on being supplied in a list of maps.
     *

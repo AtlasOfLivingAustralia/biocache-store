@@ -40,9 +40,6 @@ object ProcessUuids extends Tool {
     val processor = new RecordProcessor
     uuids.split(",").foreach(uuid => {
       var records = Config.occurrenceDAO.getAllVersionsByRowKey(uuid)
-      if (records.isEmpty) {
-        records = Config.occurrenceDAO.getAllVersionsByUuid(uuid)
-      }
       if (!records.isEmpty) {
         logger.info("Processing record: " + uuid)
         processor.processRecord(records.get(0), records.get(1))

@@ -37,7 +37,7 @@ object MigrateMedia extends Tool {
           val uuid = line(0)
           val dataResourceUid = line(1)
 
-          Config.occurrenceDAO.getByUuid(uuid) match {
+          Config.occurrenceDAO.getByRowKey(uuid) match {
             case Some(record) => {
               val filesToSave = record.occurrence.associatedMedia.split(";")
               filesToSave.foreach(filePath => {

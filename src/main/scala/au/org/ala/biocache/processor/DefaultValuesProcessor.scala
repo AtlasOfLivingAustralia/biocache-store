@@ -27,8 +27,9 @@ class DefaultValuesProcessor extends Processor {
         dr.get.defaultDwcValues.foreach {
           case (key, value) => {
             if (raw.getProperty(key).isEmpty) {
-              //set the processed value to the default value
+              //set the processed and raw value to the default value
               processed.setProperty(key, value)
+              raw.setProperty(key, value)
               if (!processed.getDefaultValuesUsed && !processed.getProperty(key).isEmpty) {
                 processed.setDefaultValuesUsed(true)
               }

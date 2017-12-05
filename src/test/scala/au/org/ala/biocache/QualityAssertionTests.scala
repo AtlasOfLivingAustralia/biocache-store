@@ -21,7 +21,6 @@ class QualityAssertionTests extends FunSuite {
 
     val uuid = "test-uuid-qa-delete1"
     val fr = new FullRecord
-    fr.uuid = uuid
     fr.rowKey = uuid
     occurrenceDAO.addRawOccurrenceBatch(Array(fr))
 
@@ -41,7 +40,7 @@ class QualityAssertionTests extends FunSuite {
     expectResult(1){ userAssertions.size }
 
     //retrieve the record and check assertion is set and kosher values
-    val fullRecord = occurrenceDAO.getByUuid("test-uuid-qa-delete1").get
+    val fullRecord = occurrenceDAO.getByRowKey("test-uuid-qa-delete1").get
     val found = fullRecord.assertions.find(ass => { ass equals AssertionCodes.COORDINATE_HABITAT_MISMATCH.name  })
     expectResult(AssertionCodes.COORDINATE_HABITAT_MISMATCH.name){ found.get }
     expectResult(false){ fullRecord.geospatiallyKosher }

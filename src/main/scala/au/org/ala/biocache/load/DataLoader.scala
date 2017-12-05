@@ -156,19 +156,19 @@ trait DataLoader {
     terms.map(term => termFactory.findTerm(term))
   }
 
-  def exists(dataResourceUid: String, identifyingTerms: List[String]): Boolean = {
-    !Config.occurrenceDAO.getUUIDForUniqueID(createUniqueID(dataResourceUid, identifyingTerms)).isEmpty
+  def exists(dataResourceUid:String, identifyingTerms:List[String]) : Boolean = {
+    !Config.occurrenceDAO.getUUIDForUniqueID(Config.occurrenceDAO.createUniqueID(dataResourceUid, identifyingTerms)).isEmpty
   }
 
   /**
-    * Creates a unique key for this record using the unique terms for this data resource.
-    *
-    * @param dataResourceUid
-    * @param identifyingTerms
-    * @param stripSpaces
-    * @return
-    */
-  protected def createUniqueID(dataResourceUid: String, identifyingTerms: Seq[String], stripSpaces: Boolean = false): String = {
+   * Creates a unique key for this record using the unique terms for this data resource.
+   *
+   * @param dataResourceUid
+   * @param identifyingTerms
+   * @param stripSpaces
+   * @return
+   */
+  def createUniqueID(dataResourceUid:String, identifyingTerms:Seq[String], stripSpaces:Boolean=false) : String = {
     val uniqueId = (List(dataResourceUid) ::: identifyingTerms.toList).mkString("|").trim
     if (stripSpaces)
       uniqueId.replaceAll("\\s", "")
@@ -212,13 +212,13 @@ trait DataLoader {
     val uniqueID = if (identifyingTerms.isEmpty) {
       None
     } else {
-      Some(createUniqueID(dataResourceUid, identifyingTerms, stripSpaces))
+      Some(Config.occurrenceDAO.createUniqueID(dataResourceUid, identifyingTerms, stripSpaces))
     }
 
     //lookup the column
     val (recordUuid, isNew) = {
-      if (fr.uuid != null && fr.uuid.trim != "") {
-        (fr.uuid, false)
+      if(fr.rowKey != null && fr.rowKey.trim != ""){
+        (fr.rowKey, false)
       } else {
         uniqueID match {
           case Some(value) => Config.occurrenceDAO.createOrRetrieveUuid(value)
@@ -227,18 +227,12 @@ trait DataLoader {
       }
     }
 
-    //add the full record
-    fr.uuid = recordUuid
     //The row key is the uniqueID for the record. This will always start with the dataResourceUid
-    fr.rowKey = if (uniqueID.isEmpty) {
-      dataResourceUid + "|" + recordUuid
-    } else {
-      uniqueID.get
-    }
+    fr.rowKey = recordUuid
 
     //write the rowkey to file if a writer is provided. allows large data resources to be
     //incrementally updated and only process/index changes
-    if (rowKeyWriter.isDefined) {
+    if(rowKeyWriter.isDefined){
       rowKeyWriter.get.write(fr.rowKey + "\n")
     }
 
@@ -312,7 +306,7 @@ trait DataLoader {
       }
 
       // save() checks to see if the media has already been stored
-      val savedTo = Config.mediaStore.save(fr.uuid, fr.attribution.dataResourceUid, fileToStore, media)
+      val savedTo = Config.mediaStore.save(fr.rowKey, fr.attribution.dataResourceUid, fileToStore, media)
       savedTo match {
         case Some((savedFilename, savedFilePathOrId)) => {
           val metadata = Config.mediaStore.getMetadata(savedFilePathOrId)

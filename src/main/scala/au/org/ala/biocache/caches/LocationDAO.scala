@@ -68,17 +68,9 @@ object LocationDAO {
   def writeLocBatch(batch: collection.Map[String, Map[String, String]]) {
     var retries = 0
     var processedOK = false
-    while (!processedOK && retries < 6) {
-      try {
+    while (!processedOK) {
         Config.persistenceManager.putBatch(columnFamily, batch.toMap, true, false)
         processedOK = true
-      } catch {
-        case e: Exception => {
-          logger.error("Error processing record batch with length: '" + batch.size + "',  sleeping for 20 secs before retries", e)
-          Thread.sleep(20000)
-          retries += 1
-        }
-      }
     }
   }
 

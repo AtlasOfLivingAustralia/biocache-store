@@ -119,7 +119,7 @@ object IngestTool extends Tool {
     }
     if (!skipSampling) {
       logger.info("Sampling: " + uid)
-      Sampling.main(Array("-dr", uid))
+      Sampling.main(Array("-dr", uid, "--crk"))
     } else {
       logger.info("Skipping sampling: " + uid)
     }

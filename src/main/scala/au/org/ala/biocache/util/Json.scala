@@ -1,9 +1,14 @@
 package au.org.ala.biocache.util
 
-import org.codehaus.jackson.map.`type`.TypeFactory
-import org.codehaus.jackson.map.{DeserializationConfig, ObjectMapper}
-import org.codehaus.jackson.map.annotate.JsonSerialize
+//import org.codehaus.jackson.map.`type`.TypeFactory
+//import org.codehaus.jackson.map.{DeserializationConfig, ObjectMapper}
+//import org.codehaus.jackson.map.annotate.JsonSerialize
 import java.util.ArrayList
+
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.`type`.TypeFactory
+import com.fasterxml.jackson.databind.{DeserializationConfig, ObjectMapper}
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
 
 object Json {
 
@@ -11,8 +16,7 @@ object Json {
 
   //object mapper is thread safe
   val mapper = new ObjectMapper
-  mapper.getSerializationConfig().setSerializationInclusion(JsonSerialize.Inclusion.NON_NULL)
-  mapper.getDeserializationConfig().set(DeserializationConfig.Feature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+  mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)
 
   def toJSONWithGeneric[A](list:Seq[A]) : String = {
     mapper.writeValueAsString(list.asJava)
@@ -66,7 +70,7 @@ object Json {
    */
   def toStringArray(jsonString:String) : Array[String] = {
     if(jsonString != null && jsonString != ""){
-      val valueType = TypeFactory.arrayType(classOf[java.lang.String])
+      val valueType = TypeFactory.defaultInstance().constructArrayType(classOf[java.lang.String])
       mapper.readValue[Array[String]](jsonString, valueType)
     } else {
       Array()
@@ -77,7 +81,7 @@ object Json {
    * Converts a string to the supplied array type
    */
   def toArray(jsonString:String, theClass:java.lang.Class[AnyRef]) : Array[AnyRef] ={
-    val valueType = TypeFactory.arrayType(theClass)
+    val valueType = TypeFactory.defaultInstance().constructArrayType(theClass)
     mapper.readValue[Array[AnyRef]](jsonString, valueType)
   }
 
@@ -86,7 +90,7 @@ object Json {
    */
   def toList(jsonString:String, theClass:java.lang.Class[AnyRef]) : List[AnyRef] = {
 
-      val valueType = TypeFactory.collectionType(classOf[ArrayList[AnyRef]], theClass)
+      val valueType = TypeFactory.defaultInstance().constructCollectionType(classOf[ArrayList[AnyRef]], theClass)
       val listOfObject = mapper.readValue[ArrayList[AnyRef]](jsonString, valueType)
       listOfObject.asScala.toList
   }

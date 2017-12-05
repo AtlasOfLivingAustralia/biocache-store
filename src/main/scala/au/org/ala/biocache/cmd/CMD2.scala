@@ -1,15 +1,14 @@
 package au.org.ala.biocache.cmd
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.index.{IndexMergeTool, BulkProcessor, OptimiseIndex, IndexRecords}
+import au.org.ala.biocache.index.{BulkProcessor, IndexMergeTool, IndexRecords, OptimiseIndex}
 import au.org.ala.biocache.load._
 import au.org.ala.biocache.tool._
 import au.org.ala.biocache.outliers.ReverseJacknifeProcessor
-import au.org.ala.biocache.util.{DebugRecord, ImageExport}
+import au.org.ala.biocache.util.{DebugRecord, ExportLocalNode, ImageExport, RemapUniqueKey}
 import au.org.ala.biocache.export._
-import scala.Some
 import au.org.ala.biocache.qa.ValidationRuleRunner
-import org.drools.core.factmodel.traits.Trait
+
 import scala.collection.JavaConversions
 
 /**
@@ -217,6 +216,7 @@ object CMD2 {
     ExportFromIndex,
     ExportFromIndexStream,
     ExportAllSpatialSpecies,
+    ExportLocalNode,
     GBIFOrgCSVCreator,
     GBIFOrgDwCACreator,
     HabitatLoader,
@@ -239,13 +239,13 @@ object CMD2 {
     ProcessRecords,
     ReprocessIndexSelect,
     ResourceCleanupTask,
+    RemapUniqueKey,
     Sampling,
     SampleLocalRecords,
     ShowConfig,
     SyncLocTable,
     ReverseJacknifeProcessor,
     Thumbnailer,
-    BulkProcessor,
     ValidationRuleRunner,
     MigrateMedia,
     LoadMediaReferences,

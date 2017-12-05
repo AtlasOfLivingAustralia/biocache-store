@@ -18,7 +18,6 @@ import scala.beans.BeanProperty
 @JsonIgnoreProperties(Array("propertyNames"))
 class FullRecord(
                   @BeanProperty var rowKey: String,
-                  @BeanProperty var uuid: String,
                   @BeanProperty var occurrence: Occurrence,
                   @BeanProperty var classification: Classification,
                   @BeanProperty var location: Location,
@@ -72,25 +71,24 @@ class FullRecord(
 
   def objectArray: Array[POSO] = Array(occurrence, classification, location, event, attribution, identification, measurement)
 
-  def this(rowKey: String, uuid: String) = this(rowKey, uuid, new Occurrence, new Classification, new Location, new Event, new Attribution, new Identification,
-    new Measurement)
+  def this(rowKey:String) = this(rowKey,new Occurrence,new Classification,new Location,new Event,new Attribution,new Identification,
+      new Measurement)
 
-  def this() = this(null, null, new Occurrence, new Classification, new Location, new Event, new Attribution, new Identification,
-    new Measurement)
+  def this() = this(null,new Occurrence,new Classification,new Location,new Event,new Attribution,new Identification,
+      new Measurement)
 
   /**
-    * Creates an empty new Full record based on this one to be used in Processing.
-    * Initialises the userVerified and ids for use in processing
-    */
-  def createNewProcessedRecord: FullRecord = {
-    val record = new FullRecord(this.rowKey, this.uuid)
+   * Creates an empty new Full record based on this one to be used in Processing.
+   * Initialises the userVerified and ids for use in processing
+   */
+  def createNewProcessedRecord : FullRecord = {
+    val record = new FullRecord(this.rowKey)
     record.userVerified = this.userVerified
     record
   }
 
   override def clone: FullRecord = new FullRecord(
     this.rowKey,
-    this.uuid,
     occurrence.clone,
     classification.clone,
     location.clone,
@@ -105,7 +103,7 @@ class FullRecord(
     */
   override def equals(that: Any) = that match {
     case other: FullRecord => {
-      if (this.uuid != other.uuid) false
+      if (this.rowKey != other.rowKey) false
       else if (!EqualsBuilder.reflectionEquals(this.occurrence, other.occurrence)) false
       else if (!EqualsBuilder.reflectionEquals(this.classification, other.classification)) false
       else if (!EqualsBuilder.reflectionEquals(this.location, other.location)) false

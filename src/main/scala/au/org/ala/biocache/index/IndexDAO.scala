@@ -335,9 +335,9 @@ trait IndexDAO {
     ("modified", "raw_modified_date", 0, 2)) // NEW
 
   /**
-    * The header values for the CSV file.
-    */
-  lazy val header = List("id", "row_key", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
+   * The header values for the CSV file.
+   */
+  lazy val header = List("id", "occurrence_id", "data_hub_uid", "data_hub", "data_provider_uid", "data_provider", "data_resource_uid",
     "data_resource", "institution_uid", "institution_code", "institution_name",
     "collection_uid", "collection_code", "collection_name", "catalogue_number",
     "taxon_concept_lsid", "occurrence_date", "occurrence_date_end_dt", "occurrence_year", "occurrence_decade_i", "taxon_name", "common_name", "names_and_lsid", "common_name_and_lsid",
@@ -641,8 +641,7 @@ trait IndexDAO {
 
         //the returned list needs to match up with the CSV header
         return List[String](
-          getValue("uuid", map),
-          getValue("rowkey", map),
+          getValue("rowKey", map),
           getValue("occurrenceID", map),
           dataHubUids.mkString("|"),
           getParsedValue("dataHub", map),

@@ -2,6 +2,9 @@ package au.org.ala.biocache.persistence
 
 import java.io.{File, FileWriter}
 import java.util
+import java.io.{File, FileWriter}
+import java.{lang, util}
+import java.util.{Date, UUID}
 import java.util.concurrent._
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import java.util.{Date, UUID}
@@ -13,15 +16,14 @@ import com.datastax.driver.core.policies._
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import com.datastax.driver.extras.codecs.MappingCodec
 import com.google.common.collect.MapMaker
-import com.google.common.util.concurrent._
+import com.google.common.util.concurrent.{FutureCallback, Futures, MoreExecutors}
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.time.DateUtils
 import org.slf4j.LoggerFactory
-
-import scala.collection.JavaConversions
 import scala.collection.mutable.ListBuffer
+import scala.collection.{mutable, JavaConversions}
 
 /**
   * Cassandra 3 based implementation of a persistence manager.
@@ -60,8 +62,6 @@ class Cassandra3PersistenceManager @Inject()(
     "class" -> "classs"
   )
 
-
-  val updateThreadService = null
 
   val session = cluster.connect(keyspace)
 
@@ -140,7 +140,7 @@ class Cassandra3PersistenceManager @Inject()(
   }
 
   /**
-    * Retrieve the a list of key value pairs for the supplied UUID.
+    * Retrieve the a list of key value pairs for the supplied rowkey.
     *
     * @param rowKey
     * @param entityName
@@ -171,9 +171,9 @@ class Cassandra3PersistenceManager @Inject()(
     *
     * This will support removing columns that were not updated during a reload
     */
-  def getColumnsWithTimestamps(uuid: String, entityName: String): Option[Map[String, Long]] = {
+  def getColumnsWithTimestamps(rowkey:String, entityName:String): Option[Map[String, Long]] = {
     val stmt = getPreparedStmt(s"SELECT * FROM $entityName where rowkey = ?", entityName)
-    val boundStatement = stmt bind uuid
+    val boundStatement = stmt bind rowkey
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
     if (rows.hasNext()) {
@@ -193,7 +193,7 @@ class Cassandra3PersistenceManager @Inject()(
 
       //retrieve column timestamps
       val wtStmt = getPreparedStmt(s"SELECT $selectClause FROM $entityName where rowkey = ?", entityName)
-      val wtBoundStatement = wtStmt bind uuid
+      val wtBoundStatement = wtStmt bind rowkey
       val rs2 = session.execute(wtBoundStatement)
       val writeTimeRow = rs2.iterator.next()
 
@@ -272,13 +272,13 @@ class Cassandra3PersistenceManager @Inject()(
   /**
     * Retrieve the column value.
     */
-  def get(uuid: String, entityName: String, propertyName: String) = {
+  def get(rowkey: String, entityName: String, propertyName: String) = {
     val stmt = if (Config.caseSensitiveCassandra) {
       getPreparedStmt("SELECT \"" + propertyName + "\" FROM " + entityName  + " where rowkey = ?", entityName)
     } else {
       getPreparedStmt("SELECT $propertyName FROM $entityName where rowkey = ?", entityName)
     }
-    val boundStatement = stmt bind uuid
+    val boundStatement = stmt bind rowkey
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
     if (rows.hasNext()) {
@@ -297,8 +297,10 @@ class Cassandra3PersistenceManager @Inject()(
   /**
     * Only retrieves the supplied fields for the record.
     */
-  def getSelected(uuid: String, entityName: String, propertyNames: Seq[String]): Option[Map[String, String]] = {
-    val select = QueryBuilder.select(propertyNames: _*).from(entityName)
+  def getSelected(rowkey:String, entityName:String, propertyNames:Seq[String]):Option[Map[String,String]] = {
+    val select = QueryBuilder.select(propertyNames:_*)
+      .from(entityName)
+      .where(QueryBuilder.eq("rowkey", rowkey))
     val rs = session.execute(select)
     val iter = rs.iterator()
     if (iter.hasNext) {
@@ -318,8 +320,8 @@ class Cassandra3PersistenceManager @Inject()(
   /**
     * Retrieve the column value, and parse from JSON to Array
     */
-  def getList[A](uuid: String, entityName: String, propertyName: String, theClass: java.lang.Class[_]): List[A] = {
-    val column = get(uuid, entityName, propertyName)
+  def getList[A](rowkey:String, entityName:String, propertyName:String, theClass:java.lang.Class[_]): List[A] = {
+    val column = get(rowkey, entityName, propertyName)
     if (column.isEmpty) {
       List()
     } else {
@@ -331,11 +333,14 @@ class Cassandra3PersistenceManager @Inject()(
   /**
     * Store the supplied batch of maps of properties as separate columns in cassandra.
     */
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord: Boolean, removeNullFields: Boolean) = {
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean) = {
+
+    val executor = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(4).asInstanceOf[ThreadPoolExecutor])
+
     batch.keySet.foreach { rowkey =>
       val map = batch.get(rowkey)
-      if (!map.isEmpty) {
-        put(rowkey, entityName, map.get, newRecord, removeNullFields)
+      if(!map.isEmpty) {
+        putAsync(executor, rowkey, entityName, map.get, newRecord, removeNullFields)
       }
     }
   }
@@ -346,11 +351,52 @@ class Cassandra3PersistenceManager @Inject()(
   def put(rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord: Boolean, removeNullFields: Boolean) = {
 
     try {
+      val boundStatement: BoundStatement = createPutStatement(rowkey, entityName, keyValuePairs)
+      executeWithRetries(session, boundStatement)
+      rowkey
+    } catch {
+      case e:Exception => {
+        logger.error("Problem persisting the following to " + entityName + " - " + e.getMessage, e)
+        keyValuePairs.foreach({case(key, value) => logger.error(s"$key = $value")})
+        throw e
+      }
+    }
+  }
 
-      val keyValuePairsToUse = collection.mutable.Map(keyValuePairs.toSeq: _*)
+  /***
+    * Async put implementation.
+    * Note this current implementation doesnt use retries.
+    *
+    * @param executor
+    * @param rowkey
+    * @param entityName
+    * @param keyValuePairs
+    * @param newRecord
+    * @param removeNullFields
+    * @return
+    */
+  def putAsync(executor:Executor,  rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, removeNullFields: Boolean) = {
 
-      if (keyValuePairsToUse.containsKey("rowkey")) {
-        keyValuePairsToUse.remove("rowkey")
+    try {
+      val stmt: BoundStatement = createPutStatement(rowkey, entityName, keyValuePairs)
+      val future = session.executeAsync(stmt)
+      Futures.addCallback(future, new IngestCallback, executor)
+      rowkey
+    } catch {
+      case e:Exception => {
+        logger.error("Problem persisting the following to " + entityName + " - " + e.getMessage)
+        keyValuePairs.foreach({case(key, value) => logger.error(s"$key = $value")})
+        throw e
+      }
+    }
+  }
+
+  private def createPutStatement(rowkey: String, entityName: String, keyValuePairs: Map[String, String]) = {
+    val keyValuePairsToUse = collection.mutable.Map(keyValuePairs.toSeq: _*)
+
+      if(keyValuePairsToUse.containsKey("rowkey") || keyValuePairsToUse.containsKey("rowKey")){
+        keyValuePairsToUse.remove("rowKey")
+        keyValuePairsToUse.remove("rowkey") //cassandra 3 is case insensitive, and returns columns lower case
       }
 
       if (!Config.caseSensitiveCassandra) {
@@ -363,13 +409,7 @@ class Cassandra3PersistenceManager @Inject()(
         }
       }
 
-      //TEMPORARY WORKAROUND  - for clustered key issue with cassandra 3
-      if (entityName == "occ" && !keyValuePairsToUse.contains("dataResourceUid")) {
-        val dataResourceUid = rowkey.split("\\|")(0)
-        keyValuePairsToUse.put("dataResourceUid", dataResourceUid)
-      }
-
-      val placeHolders = ",?" * keyValuePairsToUse.size
+    val placeHolders = ",?" * keyValuePairsToUse.size
 
       val sql =
         s"INSERT INTO $entityName (rowkey," + mkString(keyValuePairsToUse.keySet.toSeq) + ") VALUES (?" + placeHolders + ")"
@@ -390,31 +430,13 @@ class Cassandra3PersistenceManager @Inject()(
         statement.bind(values: _*)
       }
 
-      boundStatement.setConsistencyLevel(ConsistencyLevel.ONE)
-      executeWithRetries(session, boundStatement)
+    statement.setIdempotent(true) // this will allow retries
 
-      rowkey
-    } catch {
-      case e: Exception => {
-        logger.error("Problem persisting the following to " + entityName + " - " + e.getMessage)
-        keyValuePairs.foreach({ case (key, value) => logger.error(s"$key = $value") })
-        throw e
-      }
-    }
+//    boundStatement.setConsistencyLevel(ConsistencyLevel.ONE)
+    boundStatement
   }
 
-  //  import com.datastax.driver.mapping.Mapper.Option._;
-  //
-  //  def fixType(entity:String, value:String) : Object ={
-  //    if(entity == "dellog"){
-  ////      timestamp()
-  //    } else {
-  //      value
-  //    }
-  //  }
-
-
-  private def executeWithRetries(session: Session, stmt: Statement): ResultSet = {
+  private def executeWithRetries(session:Session, stmt:Statement) : ResultSet = {
 
     val MAX_QUERY_RETRIES = 10
     var retryCount = 0
@@ -449,27 +471,24 @@ class Cassandra3PersistenceManager @Inject()(
   def put(rowKey: String, entityName: String, propertyName: String, propertyValue: String, newRecord: Boolean, removeNullFields: Boolean) = {
     val insertCQL = {
       if (Config.caseSensitiveCassandra) {
+        //TODO: update for 'occ' schema change that removes 'dataResourceUid' from primary key
         if (entityName == "occ") {
           "INSERT INTO " + entityName + " (rowkey, \"dataResourceUid\", \"" + propertyName + "\") VALUES (?,?,?)"
         } else {
           "INSERT INTO " + entityName + " (rowkey, \"" + propertyName + "\") VALUES (?,?)"
         }
       } else {
-        if (entityName == "occ") {
-          s"INSERT INTO $entityName (rowkey, dataResourceUid, $propertyName) VALUES (?,?,?)"
-        } else {
-          s"INSERT INTO $entityName (rowkey, $propertyName) VALUES (?,?)"
-        }
+        s"INSERT INTO $entityName (rowkey, $propertyName) VALUES (?,?)"
       }
     }
     val statement = getPreparedStmt(insertCQL, entityName)
-    //FIXME a hack to factor out
-    val boundStatement = if (entityName == "occ") {
-      val dataResourceUid = rowKey.split("\\|")(0)
-      statement.bind(rowKey, dataResourceUid, propertyValue)
-    } else {
-      statement.bind(rowKey, propertyValue)
-    }
+//    //FIXME a hack to factor out
+//    val boundStatement = if(entityName == "occ"){
+//      val dataResourceUid = rowKey.split("\\|")(0)
+//      statement.bind(rowKey, dataResourceUid, propertyValue)
+//    } else {
+     val boundStatement = statement.bind(rowKey, propertyValue)
+//    }
     val future = session.execute(boundStatement)
     rowKey
   }
@@ -477,27 +496,25 @@ class Cassandra3PersistenceManager @Inject()(
   /**
     * Store arrays in a single column as JSON.
     */
-  def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass: java.lang.Class[_],
+  def putList[A](rowkey: String, entityName: String, propertyName: String, newList: Seq[A], theClass:java.lang.Class[_],
                  newRecord: Boolean, overwrite: Boolean, removeNullFields: Boolean) = {
 
-    val recordId = {
-      if (uuid != null) uuid else UUID.randomUUID.toString
-    }
+    val recordId = { if(rowkey != null) rowkey else UUID.randomUUID.toString }
 
     if (overwrite) {
       //val json = Json.toJSON(newList)
-      val json: String = Json.toJSONWithGeneric(newList)
-      put(uuid, entityName, propertyName, json, newRecord, removeNullFields)
+      val json:String = Json.toJSONWithGeneric(newList)
+      put(rowkey, entityName, propertyName, json, newRecord, removeNullFields)
 
     } else {
 
       //retrieve existing values
-      val column = get(uuid, entityName, propertyName)
+      val column = get(rowkey, entityName, propertyName)
       //if empty, write, if populated resolve
       if (column.isEmpty) {
         //write new values
-        val json: String = Json.toJSONWithGeneric(newList)
-        put(uuid, entityName, propertyName, json, newRecord, removeNullFields)
+        val json:String = Json.toJSONWithGeneric(newList)
+        put(rowkey, entityName, propertyName, json, newRecord, removeNullFields)
       } else {
         //retrieve the existing objects
         val currentList = Json.toListWithGeneric(column.get, theClass)
@@ -515,8 +532,8 @@ class Cassandra3PersistenceManager @Inject()(
 
         // check equals
         //val newJson = Json.toJSON(buffer.toList)
-        val newJson: String = Json.toJSONWithGeneric(buffer.toList)
-        put(uuid, entityName, propertyName, newJson, newRecord, removeNullFields)
+        val newJson:String = Json.toJSONWithGeneric(buffer.toList)
+        put(rowkey, entityName, propertyName, newJson, newRecord, removeNullFields)
       }
     }
     recordId
@@ -569,8 +586,8 @@ class Cassandra3PersistenceManager @Inject()(
   /**
     * Pages over the records returns the columns that fit within the startColumn and endColumn range
     */
-  def pageOverColumnRange(entityName: String, proc: ((String, Map[String, String]) => Boolean), startUuid: String = "", endUuid: String = "", pageSize: Int = 1000, startColumn: String = "", endColumn: String = ""): Unit =
-    throw new RuntimeException("Not supported")
+  def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startUuid:String = "", endUuid:String = "", pageSize:Int=1000, startColumn:String="", endColumn:String = "") : Unit =
+    throw new RuntimeException("Not supported - and cant be supported by cassandra 3 with the MurmmurPartitioner....")
 
   /**
     * Iterate over all occurrences, passing the objects to a function.
@@ -1142,4 +1159,11 @@ class Cassandra3PersistenceManager @Inject()(
     }
   }
 
+  //callback class
+  class IngestCallback extends FutureCallback[ResultSet] {
+    override def onSuccess(result: ResultSet): Unit = { /*happy days */ }
+    override def onFailure(t: Throwable): Unit = {
+      throw new RuntimeException(t)
+    }
+  }
 }

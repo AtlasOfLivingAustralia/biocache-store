@@ -23,7 +23,7 @@ import au.org.ala.biocache.util.DateUtil
 class ProcessEventTest extends ConfigFunSuite {
 
   test("00 month test"){
-    val raw = new FullRecord("1234","1234")
+    val raw = new FullRecord("1234")
     raw.event.day ="0"
     raw.event.month = "0"
     raw.event.year = "0"
@@ -34,7 +34,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("yyyy-dd-mm correctly sets year, month, day values in process object") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
     raw.event.eventDate = "1978-12-31"
     val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
@@ -48,7 +48,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("yyyy-dd-mm verbatim date correctly sets year, month, day values in process object") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
     raw.event.verbatimEventDate = "1978-12-31/1978-12-31"
     val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
@@ -64,7 +64,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("if year, day, month supplied, eventDate is correctly set") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
     raw.event.year = "1978"
     raw.event.month = "12"
     raw.event.day = "31"
@@ -79,7 +79,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("if year supplied in 'yy' format, eventDate is correctly set") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
     raw.event.year = "78"
     raw.event.month = "12"
     raw.event.day = "31"
@@ -94,7 +94,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("day month transposed") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
     raw.event.year = "78"
     raw.event.month = "16"
     raw.event.day = "6"
@@ -111,8 +111,8 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("invalid month test") {
 
-    val raw = new FullRecord("1234", "1234")
-    val processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord( "1234")
+    val processed = new FullRecord("1234")
     raw.event.year = "78"
     raw.event.month = "16"
     raw.event.day = "16"
@@ -130,8 +130,8 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("invalid month test > 12") {
 
-    val raw = new FullRecord("1234", "1234")
-    val processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
     raw.event.year = "1978"
     raw.event.month = "40"
     raw.event.day = "16"
@@ -149,8 +149,8 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("year = 11, month = 02, day = 01") {
 
-    val raw = new FullRecord("1234", "1234")
-    val processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
     raw.event.year = "11"
     raw.event.month = "02"
     raw.event.day = "01"
@@ -168,8 +168,8 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("1973-10-14") {
 
-    val raw = new FullRecord("1234", "1234")
-    val processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
     raw.event.eventDate = "1973-10-14"
 
     val assertions = (new EventProcessor).process("1234", raw, processed)
@@ -184,8 +184,8 @@ class ProcessEventTest extends ConfigFunSuite {
   }
 
   test("today"){
-    val raw = new FullRecord("1234", "1234")
-    val processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
     val sf = new SimpleDateFormat("yyyy-MM-dd")
     raw.event.eventDate = sf.format(new Date())
     val assertions = (new EventProcessor).process("1234", raw, processed)
@@ -195,8 +195,8 @@ class ProcessEventTest extends ConfigFunSuite {
   }
 
   test("tomorrow"){
-    val raw = new FullRecord("1234", "1234")
-    val processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
     val sf = new SimpleDateFormat("yyyy-MM-dd")
     raw.event.eventDate = sf.format(DateUtils.addDays(new Date(),1))
     val assertions = (new EventProcessor).process("1234", raw, processed)
@@ -206,8 +206,8 @@ class ProcessEventTest extends ConfigFunSuite {
   }
 
   test("a digit year which gives a future date") {
-    val raw = new FullRecord("1234", "1234")
-    val processed = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
     val futureDate = DateUtils.addDays(new Date(),2)
 
     val twoDigitYear =(new SimpleDateFormat("yy")).format(futureDate)
@@ -420,7 +420,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("if year, day, month, eventDate supplied, eventDate is used for eventDateEnd") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord( "1234")
     raw.event.year = "1978"
     raw.event.month = "12"
     raw.event.day = "31"
@@ -437,7 +437,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("if year, day, month, verbatimEventDate supplied, verbatimEventDate is used for eventDateEnd") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
     raw.event.year = "1978"
     raw.event.month = "12"
     raw.event.day = "31"
@@ -454,7 +454,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("if eventDate supplied, eventDate is used for eventDateEnd") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
     raw.event.eventDate = "1978-12-31/1979-01-02"
     val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
@@ -465,7 +465,7 @@ class ProcessEventTest extends ConfigFunSuite {
 
   test("if verbatimEventDate supplied, verbatimEventDate is used for eventDateEnd") {
 
-    val raw = new FullRecord("1234", "1234")
+    val raw = new FullRecord("1234")
     raw.event.verbatimEventDate = "1978-12-31/1979-01-02"
     val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)

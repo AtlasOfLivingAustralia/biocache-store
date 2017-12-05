@@ -112,26 +112,36 @@ class Sampling {
     }
 
     //legacy storage of old lat/long original values before SDS processing - superceded by originalSensitiveValues
-    val originalDecimalLatitude = map.getOrElse("originalDecimalLatitude", "")
-    val originalDecimalLongitude = map.getOrElse("originalDecimalLongitude", "")
-    if (originalDecimalLatitude != "" && originalDecimalLongitude != "") {
+    val originalDecimalLatitude = map.getOrElse("originalDecimalLatitude", null)
+    val originalDecimalLongitude = map.getOrElse("originalDecimalLongitude", null)
+    if (originalDecimalLatitude != null && originalDecimalLongitude != null) {
       coordinates += (originalDecimalLongitude + "," + originalDecimalLatitude)
     }
 
     //add the processed values
-    val processedDecimalLatitude = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-    val processedDecimalLongitude = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-    if (processedDecimalLatitude != "" && processedDecimalLongitude != "") {
+    val processedDecimalLatitude = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", null)
+    val processedDecimalLongitude = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p", null)
+    if (processedDecimalLatitude != null && processedDecimalLongitude != null) {
       coordinates += (processedDecimalLongitude + "," + processedDecimalLatitude)
     }
   }
 
   val properties = Array(
-    "decimalLatitude", "decimalLongitude",
-    "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p",
-    "verbatimLatitude", "verbatimLongitude",
-    "originalDecimalLatitude", "originalDecimalLongitude", "originalSensitiveValues",
-    "geodeticDatum", "verbatimSRS", "easting", "northing", "zone")
+    "decimalLatitude",
+    "decimalLongitude",
+    "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p",
+    "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p",
+    "verbatimLatitude",
+    "verbatimLongitude",
+    "originalDecimalLatitude",
+    "originalDecimalLongitude",
+    "originalSensitiveValues",
+    "geodeticDatum",
+    "verbatimSRS",
+    "easting",
+    "northing",
+    "zone"
+  )
 
   def getDistinctCoordinatesForRowKey(rowKey: String) {
     val values = Config.persistenceManager.getSelected(rowKey, "occ", properties)
@@ -164,7 +174,9 @@ class Sampling {
         passed += 1
       }
     }
-
+    val noOfCoordinates = coordinates.size
+    logger.info(s"Created distinct list of coordinates for row keys in $rowKeyFile. Number of coordinates: $noOfCoordinates")
+    logger.info(s"Writing to file: $locFilePath")
     try {
       val fw = new FileWriter(locFilePath)
       coordinates.foreach { c =>
@@ -173,9 +185,11 @@ class Sampling {
       }
       fw.flush
       fw.close
+      logger.info(s"Finished writing to file: $locFilePath")
     } catch {
       case e: Exception => logger.error("Failed to write - " + e.getMessage, e)
     }
+
   }
 
   /**
@@ -207,6 +221,8 @@ class Sampling {
   def sampling(filePath: String, outputFilePath: String, callback: IntersectCallback = null,
                batchSize: Int = 100000, concurrentLoading: Boolean = false,
                keepFiles: Boolean = true, layers: Seq[String]) {
+
+    new SyncLocTable().sync
 
     logger.info("********* START - TEST BATCH SAMPLING FROM FILE ***************")
     //load the CSV of points into memory

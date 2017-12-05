@@ -1,6 +1,8 @@
 CREATE KEYSPACE occ WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '2'}  AND durable_writes = true;
 
-CREATE TABLE occ.loc (
+USE occ;
+
+CREATE TABLE loc (
     rowkey text PRIMARY KEY,
     decimallatitude text,
     decimallongitude text,
@@ -21,7 +23,7 @@ CREATE TABLE occ.loc (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.distribution_outliers (
+CREATE TABLE distribution_outliers (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -38,7 +40,7 @@ CREATE TABLE occ.distribution_outliers (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.attr (
+CREATE TABLE attr (
     rowkey text PRIMARY KEY,
     citation text,
     collectionname text,
@@ -69,7 +71,7 @@ CREATE TABLE occ.attr (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.duplicates (
+CREATE TABLE duplicates (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -86,7 +88,7 @@ CREATE TABLE occ.duplicates (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.qa (
+CREATE TABLE qa (
     rowkey text PRIMARY KEY,
     code text,
     comment text,
@@ -103,7 +105,6 @@ CREATE TABLE occ.qa (
     userentityuid text,
     userid text,
     userrole text,
-    uuid text,
     value text
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -120,7 +121,7 @@ CREATE TABLE occ.qa (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.occ (
+CREATE TABLE occ (
     rowkey text,
     dataresourceuid text,
     abcdidentificationqualifier_p text,
@@ -199,14 +200,12 @@ CREATE TABLE occ.occ (
     day_p text,
     decimallatitude text,
     decimallatitude_p text,
-    decimallatitudelatitude text,
     decimallongitude text,
     decimallongitude_p text,
     default_qa text,
     defaultvaluesused text,
     deleted text,
     disposition text,
-    distanceoutsideexpertrange text,
     distanceoutsideexpertrange_p text,
     duplicates text,
     duplicates_qa text,
@@ -327,9 +326,7 @@ CREATE TABLE occ.occ (
     latestepochorhighestseries text,
     latesteraorhighesterathem text,
     latestperiodorhighestsystem text,
-    left text,
     left_p text,
-    lga text,
     lga_p text,
     license text,
     license_p text,
@@ -380,7 +377,6 @@ CREATE TABLE occ.occ (
     nameaccordingto text,
     nameaccordingto_p text,
     nameaccordingtoid text,
-    namematchmetric text,
     namematchmetric_p text,
     nameparsetype text,
     nameparsetype_p text,
@@ -430,7 +426,6 @@ CREATE TABLE occ.occ (
     phylumid text,
     phylumid_p text,
     pointradiusspatialfit text,
-    portalid text,
     preferredflag text,
     preparations text,
     previousidentifications text,
@@ -450,7 +445,6 @@ CREATE TABLE occ.occ (
     reproductivecondition text,
     resourceid text,
     resourcerelationshipid text,
-    right text,
     right_p text,
     rights text,
     rightsholder text,
@@ -518,7 +512,6 @@ CREATE TABLE occ.occ (
     userid_p text,
     userqualityassertion text,
     userverified text,
-    uuid text,
     validdistribution text,
     verbatimcoordinates text,
     verbatimcoordinatesystem text,
@@ -544,9 +537,8 @@ CREATE TABLE occ.occ (
     year text,
     year_p text,
     zone text,
-    PRIMARY KEY (rowkey, dataresourceuid)
-) WITH CLUSTERING ORDER BY (dataresourceuid ASC)
-    AND bloom_filter_fp_chance = 0.01
+    PRIMARY KEY (rowkey)
+) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
     AND compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}
@@ -561,7 +553,7 @@ CREATE TABLE occ.occ (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.queryassert (
+CREATE TABLE queryassert (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -578,7 +570,7 @@ CREATE TABLE occ.queryassert (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.taxon (
+CREATE TABLE taxon (
     rowkey text PRIMARY KEY,
     commonname text,
     conservation text,
@@ -598,7 +590,7 @@ CREATE TABLE occ.taxon (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.upload (
+CREATE TABLE upload (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -615,7 +607,7 @@ CREATE TABLE occ.upload (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.occ_duplicates (
+CREATE TABLE occ_duplicates (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -632,7 +624,7 @@ CREATE TABLE occ.occ_duplicates (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.occ_outliers (
+CREATE TABLE occ_outliers (
     rowkey text PRIMARY KEY,
     jackknife text
 ) WITH bloom_filter_fp_chance = 0.01
@@ -650,7 +642,7 @@ CREATE TABLE occ.occ_outliers (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.occ_uuid (
+CREATE TABLE occ_uuid (
     rowkey text PRIMARY KEY,
     value text
 ) WITH bloom_filter_fp_chance = 0.01
@@ -668,7 +660,7 @@ CREATE TABLE occ.occ_uuid (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.qid (
+CREATE TABLE qid (
     rowkey text PRIMARY KEY,
     bbox text,
     displaystring text,
@@ -693,7 +685,7 @@ CREATE TABLE occ.qid (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.outliers (
+CREATE TABLE outliers (
     rowkey text PRIMARY KEY,
     jackknifeoutliers text,
     jackknifestats text
@@ -712,7 +704,7 @@ CREATE TABLE occ.outliers (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.dellog (
+CREATE TABLE dellog (
     rowkey text PRIMARY KEY,
     id text,
     value text

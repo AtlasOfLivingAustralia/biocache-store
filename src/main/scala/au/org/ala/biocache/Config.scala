@@ -208,9 +208,6 @@ object Config {
 
   val zookeeperUpdatesEnabled = configModule.properties.getProperty("zookeeper.updates.enabled", "false").toBoolean
 
-  /** Whether or not full replication is in use in the cassandra cluster */
-  val usingFullReplication = configModule.properties.getProperty("using.full.replication", "true").toBoolean
-
   /** The node number. Not these are indexed from 0  */
   val nodeNumber = configModule.properties.getProperty("node.number", "0").toInt
 

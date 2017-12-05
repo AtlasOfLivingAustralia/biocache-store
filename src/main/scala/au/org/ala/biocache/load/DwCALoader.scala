@@ -149,7 +149,7 @@ class DwCALoader extends DataLoader {
 
   def getUuid(uniqueID:Option[String], star:StarRecord, uniqueTerms:Seq[Term], mappedProperties:Option[Map[String,String]]) : ((String, Boolean), Option[Map[String,String]]) = {
     uniqueID match {
-      case Some(value) => (Config.occurrenceDAO.createOrRetrieveUuid(value),mappedProperties)
+      case Some(value) => (Config.occurrenceDAO.createOrRetrieveUuid(value), mappedProperties)
       case None => ((Config.occurrenceDAO.createUuid, true), mappedProperties)
     }
   }
@@ -261,11 +261,9 @@ class DwCALoader extends DataLoader {
       //lookup the column
       val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, star, uniqueTerms, None)
       if(mappedProps.isDefined && uniqueID.isDefined){
-        Config.persistenceManager.put(uniqueID.get, "occ", mappedProps.get, isNew, removeNullFields)
+        Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
       }
 
-      //add the record uuid to the map
-      fieldTuples += ("uuid" -> recordUuid)
       //add the data resource uid
       fieldTuples += ("dataResourceUid" -> resourceUid)
       //add last load time
@@ -279,18 +277,19 @@ class DwCALoader extends DataLoader {
       val multimedia = loadMultimedia(star, DwCALoader.IMAGE_TYPE, imageBase) ++
         loadMultimedia(star, DwCALoader.MULTIMEDIA_TYPE, imageBase)
 
-      // If there are no unique terms, use the UUID as a key
-      // This isnt ideal and will stop any reloading
-      val rowKey = if(uniqueID.isEmpty) {
-        logger.warn("Unable to construct a unique key for this data resource. No unique terms defined.")
-        resourceUid + "|" + recordUuid
-      } else {
-        uniqueID.get
-      }
+//      // If there are no unique terms, use the UUID as a key
+//      // This isnt ideal and will stop any reloading
+//      val rowKey = if(uniqueID.isEmpty) {
+//        logger.warn("Unable to construct a unique key for this data resource. No unique terms defined.")
+//        resourceUid + "|" + recordUuid
+//      } else {
+//        uniqueID.get
+//      }
 
       //check whether the records should be loaded
       val toBeLoaded = if (loadMissingOnly) {
-        !Config.occurrenceDAO.rowKeyExists(rowKey)
+//        !Config.occurrenceDAO.rowKeyExists(rowKey)
+        true
       } else {
         true
       }
@@ -300,11 +299,11 @@ class DwCALoader extends DataLoader {
         count += 1
 
         if (rowKeyWriter.isDefined) {
-          rowKeyWriter.get.write(rowKey + "\n")
+          rowKeyWriter.get.write(recordUuid + "\n")
         }
 
         if (!testFile) {
-          val fullRecord = FullRecordMapper.createFullRecord(rowKey, fieldTuples.toArray, Raw)
+          val fullRecord = FullRecordMapper.createFullRecord(recordUuid, fieldTuples.toArray, Raw)
           processMedia(resourceUid, fullRecord, multimedia)
           currentBatch += fullRecord
         }

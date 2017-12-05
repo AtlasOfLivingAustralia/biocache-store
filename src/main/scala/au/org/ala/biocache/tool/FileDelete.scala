@@ -21,11 +21,7 @@ class FileDelete(fileName: String, useUUID: Boolean  = false, hasHeader:Boolean 
     var counter = 0
     getRemoteFile(fileName).foreachLine(line => {
       logger.info("Deleting ID : " + line)
-      if (useUUID){
-        occurrenceDAO.deleteByUuid(line, false, true)
-      } else {
-        occurrenceDAO.delete(line, false, true)
-      }
+      occurrenceDAO.delete(line, false, true)
       counter += 1
     })
     logger.info("Records deleted: " + counter)

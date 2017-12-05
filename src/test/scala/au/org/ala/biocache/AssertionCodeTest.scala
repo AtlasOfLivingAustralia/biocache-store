@@ -99,8 +99,7 @@ class AssertionCodeTest extends ConfigFunSuite {
     val processed = new FullRecord
     processed.location.decimalLatitude = "123.123"
     processed.location.decimalLongitude = "123.123"
-    processed.rowKey = rowKey
-    processed.uuid = uuid
+    processed.rowKey = uuid
     val assertions = Some(Map("loc" -> Array(QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE))))
     occurrenceDAO.updateOccurrence(rowKey, processed, assertions, Versions.PROCESSED)
     expectResult(1) {
@@ -180,8 +179,7 @@ class AssertionCodeTest extends ConfigFunSuite {
     val processed = new FullRecord
     processed.location.decimalLatitude = "123.123"
     processed.location.decimalLongitude = "123.123"
-    processed.rowKey = rowKey
-    processed.uuid = uuid
+    processed.rowKey = uuid
     val assertions = Some(Map("loc" -> Array(QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE)), "event" -> Array[QualityAssertion]()))
     occurrenceDAO.updateOccurrence(rowKey, processed, assertions, Versions.PROCESSED)
     expectResult(true) {
@@ -211,8 +209,7 @@ class AssertionCodeTest extends ConfigFunSuite {
     val processed = new FullRecord
     processed.location.decimalLatitude = "123.123"
     processed.location.decimalLongitude = "123.123"
-    processed.rowKey = rowKey
-    processed.uuid = uuid
+    processed.rowKey = uuid
     val assertions = Some(Map("loc" -> Array(QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE))))
     occurrenceDAO.updateOccurrence(rowKey2, processed, assertions, Versions.PROCESSED)
     //println(Config.persistenceManager)
@@ -253,8 +250,7 @@ class AssertionCodeTest extends ConfigFunSuite {
 
   test("user assertion flag") {
     val processed = new FullRecord
-    processed.rowKey = rowKey3
-    processed.uuid = uuid
+    processed.rowKey = uuid
     occurrenceDAO.updateOccurrence(rowKey3, processed, None, Versions.PROCESSED)
     val qa1 = QualityAssertion(AssertionCodes.TAXONOMIC_ISSUE, "", AssertionStatus.QA_UNCONFIRMED)
     qa1.userId = "Natasha.Carter@csiro.au"

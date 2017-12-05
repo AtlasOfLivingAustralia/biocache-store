@@ -232,7 +232,7 @@ class DwcCSVLoader extends DataLoader {
           if(test){
             newInstCodes.add(map.getOrElse("institutionCode", "<NULL>"))
             newCollCodes.add(map.getOrElse("collectionCode", "<NULL>"))
-            val (uuid, isnew) = Config.occurrenceDAO.createOrRetrieveUuid(createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces))
+            val (uuid, isnew) = Config.occurrenceDAO.createOrRetrieveUuid(Config.occurrenceDAO.createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces))
             if(isnew) {
               newCount += 1
             }

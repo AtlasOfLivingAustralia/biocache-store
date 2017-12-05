@@ -68,7 +68,7 @@ object DownloadMedia extends Tool {
     imageUrls.foreach(imageUrl => {
       //download it, store it update processed
       try {
-        Config.mediaStore.save(raw.uuid, raw.attribution.dataResourceUid, imageUrl, None) match {
+        Config.mediaStore.save(raw.rowKey, raw.attribution.dataResourceUid, imageUrl, None) match {
           case Some((filename, filepath)) => mediaStorePaths += filepath
         }
       } catch {

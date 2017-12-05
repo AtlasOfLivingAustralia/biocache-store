@@ -242,8 +242,8 @@ class SensitivityProcessor extends Processor {
           }
         }
 
-      } else if (!outcome.isLoadable() && Config.obeySDSIsLoadable) {
-        logger.warn("SDS isLoadable status is currently not being used. Would apply to: " + processed.uuid)
+      } else if (!outcome.isLoadable() && Config.obeySDSIsLoadable){
+        logger.warn("SDS isLoadable status is currently not being used. Would apply to: " + processed.rowKey)
       }
 
       if (outcome.getReport().getMessages() != null) {

@@ -2,6 +2,7 @@ package au.org.ala.biocache.tool
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
+import au.org.ala.biocache.tool.SyncLocTable.logger
 import org.slf4j.LoggerFactory
 
 /**
@@ -16,7 +17,14 @@ object SyncLocTable extends au.org.ala.biocache.cmd.Tool {
   protected val logger = LoggerFactory.getLogger("SyncLocTable")
 
   def main(args: Array[String]) {
+    new SyncLocTable().sync
+    Config.persistenceManager.shutdown
+  }
+}
 
+class SyncLocTable {
+
+  def sync  {
     val fields = Config.fieldsToSample(true)
 
     val pm = Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager]
@@ -33,6 +41,5 @@ object SyncLocTable extends au.org.ala.biocache.cmd.Tool {
       }
     }
     logger.info("Sync complete")
-    Config.persistenceManager.shutdown
   }
 }

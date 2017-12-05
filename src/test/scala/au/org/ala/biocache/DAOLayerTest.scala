@@ -47,22 +47,19 @@ class DAOLayerTest extends ConfigFunSuite {
   }
 
   test("Write and lookup occ record") {
-    val record = new FullRecord(rowKey, uuid)
+    val record = new FullRecord(uuid)
     record.classification.scientificName = "Test species"
     occurrenceDAO.updateOccurrence(rowKey, record, Versions.RAW)
     val newrecord = occurrenceDAO.getByRowKey(rowKey);
     //val newrecord = occurrenceDAO.getByUuid(uuid)
 
-    expectResult(rowKey) {
-      newrecord.get.getRowKey
-    }
     expectResult(uuid) {
-      newrecord.get.uuid
+      newrecord.get.rowKey
     }
   }
 
   test("Write Double value to processed record then read it out") {
-    val record = new FullRecord(rowKey, uuid)
+    val record = new FullRecord(uuid)
     val processedRecord = record.createNewProcessedRecord
     processedRecord.location.setProperty("distanceOutsideExpertRange", "1.23456")
     val retrievedDistance = processedRecord.location.getProperty("distanceOutsideExpertRange")
@@ -72,7 +69,7 @@ class DAOLayerTest extends ConfigFunSuite {
   }
 
   test("Write map value to processed record then read it out") {
-    val record = new FullRecord(rowKey, uuid)
+    val record = new FullRecord(uuid)
     val processedRecord = record.createNewProcessedRecord
     processedRecord.occurrence.setProperty("originalSensitiveValues", "{\"a\":\"1\",\"b\":\"2\"}")
     val retrievedMap = processedRecord.occurrence.getProperty("originalSensitiveValues")
