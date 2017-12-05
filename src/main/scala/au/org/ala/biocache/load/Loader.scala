@@ -60,11 +60,12 @@ object Loader extends Tool {
       opt("lu", "lastUpdated", "(FlickerLoader only) A limit to load last updated in yyyy-MM-dd format", {
         v: String => lastUpdated = DateParser.parseStringToDate(v)
       })
-      opt("l", "local", "(DwCALoader only) skip the download and use local file", { v: String => localFilePath = Some(v) })
+      opt("l", "local", "(DwCALoader only) skip the download and use local file", {
+        v: String => localFilePath = Some(v)
+      })
       booleanOpt("b", "bypassConnParamLookup", "(DwCALoader only) bypass connection parameter lookup in the registry (collectory)", {
         v: Boolean => bypassConnParamLookup = v
-      }
-      )
+      })
       opt("log", "(DwCALoader only) log row keys to file - allows processing/indexing of changed records", {
         logRowKeys = true
       })

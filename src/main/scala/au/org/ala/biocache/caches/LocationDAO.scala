@@ -66,12 +66,7 @@ object LocationDAO {
    * @param batch
    */
   def writeLocBatch(batch: collection.Map[String, Map[String, String]]) {
-    var retries = 0
-    var processedOK = false
-    while (!processedOK) {
-        Config.persistenceManager.putBatch(columnFamily, batch.toMap, true, false)
-        processedOK = true
-    }
+      Config.persistenceManager.putBatch(columnFamily, batch.toMap, true, false)
   }
 
   def getLatLongKey(latitude:String, longitude:String) : String = {

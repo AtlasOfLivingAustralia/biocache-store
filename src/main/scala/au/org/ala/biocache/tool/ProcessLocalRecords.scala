@@ -57,16 +57,6 @@ object ProcessLocalRecords extends Tool {
       })
     }
 
-    if(parser.parse(args)){
-      if(taxaFile != ""){
-    if (skipDrs.isEmpty && drs.size == 1) {
-      useFullScan = false
-    }
-
-    if (drs.isEmpty || !skipDrs.isEmpty) {
-      useFullScan = true
-    }
-
     if (parser.parse(args)) {
       if (taxaFile != "") {
         new ProcessLocalRecords().processTaxaOnly(threads, taxaFile, startTokenRangeIdx, checkpointFile)

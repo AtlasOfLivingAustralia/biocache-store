@@ -1,14 +1,10 @@
 package au.org.ala.biocache.util
 
-//import org.codehaus.jackson.map.`type`.TypeFactory
-//import org.codehaus.jackson.map.{DeserializationConfig, ObjectMapper}
-//import org.codehaus.jackson.map.annotate.JsonSerialize
 import java.util.ArrayList
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.`type`.TypeFactory
 import com.fasterxml.jackson.databind.{DeserializationConfig, ObjectMapper}
-import com.fasterxml.jackson.databind.annotation.JsonSerialize
 
 object Json {
 

@@ -237,7 +237,7 @@ class SensitivityProcessor extends Processor {
             }
           } catch {
             case e: Exception => {
-              logger.error("Error storing point for sampling for SDS record: " + raw.rowKey + " " + processed.uuid, e)
+              logger.error("Error storing point for sampling for SDS record: " + raw.rowKey + " " + processed.rowKey, e)
             }
           }
         }

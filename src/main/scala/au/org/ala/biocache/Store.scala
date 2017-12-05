@@ -292,8 +292,7 @@ object Store {
     * @return
     */
   def getSystemAssertions(uuid: java.lang.String): java.util.List[QualityAssertion] = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
-    occurrenceDAO.getSystemAssertions(rowKey).filter(_.qaStatus == 0).asJava
+    occurrenceDAO.getSystemAssertions(uuid).filter(_.qaStatus == 0).asJava
   }
 
   /**
@@ -303,8 +302,7 @@ object Store {
     */
   def getAllSystemAssertions(uuid: java.lang.String): java.util.Map[String, java.util.List[QualityAssertion]] = {
     //system assertions are handled using row keys - this is unlike user assertions.
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
-    val list = occurrenceDAO.getSystemAssertions(rowKey)
+    val list = occurrenceDAO.getSystemAssertions(uuid)
     val unchecked = AssertionCodes.getMissingCodes((list.map(it => AssertionCodes.getByCode(it.code).getOrElse(null))).toSet)
 
     ((list ++ unchecked.map(it => QualityAssertion(it, AssertionStatus.UNCHECKED))).groupBy {
@@ -323,8 +321,7 @@ object Store {
     * Retrieve the user supplied systemAssertions.
     */
   def getUserAssertion(uuid: java.lang.String, assertionUuid: java.lang.String): QualityAssertion = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
-    occurrenceDAO.getUserAssertions(rowKey).find(ass => {
+    occurrenceDAO.getUserAssertions(uuid).find(ass => {
       ass.uuid == assertionUuid
     }).getOrElse(null)
   }
@@ -333,8 +330,7 @@ object Store {
     * Retrieve the user supplied systemAssertions.
     */
   def getUserAssertions(uuid: java.lang.String): java.util.List[QualityAssertion] = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
-    occurrenceDAO.getUserAssertions(rowKey).asJava
+    occurrenceDAO.getUserAssertions(uuid).asJava
   }
 
   /**
@@ -344,9 +340,8 @@ object Store {
     */
   def addUserAssertion(uuid: java.lang.String, qualityAssertion: QualityAssertion) {
     if (!readOnly) {
-      val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
-      occurrenceDAO.addUserAssertion(rowKey, qualityAssertion)
-      occurrenceDAO.reIndex(rowKey)
+      occurrenceDAO.addUserAssertion(uuid, qualityAssertion)
+      occurrenceDAO.reIndex(uuid)
     } else {
       throw new Exception("In read only model. Please try again later")
     }
@@ -365,9 +360,8 @@ object Store {
         case (uuid, qa) => {
           count += 1
           //apply the assertion and add to the reindex list
-          val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
-          occurrenceDAO.addUserAssertion(rowKey, qa)
-          arrayBuffer += rowKey
+          occurrenceDAO.addUserAssertion(uuid, qa)
+          arrayBuffer += uuid
         }
       })
       // now reindex
@@ -400,9 +394,8 @@ object Store {
     */
   def deleteUserAssertion(uuid: java.lang.String, assertionUuid: java.lang.String) {
     if (!readOnly) {
-      val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid);
-      occurrenceDAO.deleteUserAssertion(rowKey, assertionUuid)
-      occurrenceDAO.reIndex(rowKey)
+      occurrenceDAO.deleteUserAssertion(uuid, assertionUuid)
+      occurrenceDAO.reIndex(uuid)
     } else {
       throw new Exception("In read only model. Please try again later")
     }
@@ -496,16 +489,16 @@ object Store {
     *
     * @param dataResourceUid
     */
-  def sample(dataResourceUid: java.lang.String) = sample(dataResourceUid, null)
+  def sample(dataResourceUid: java.lang.String) : Unit = sample(dataResourceUid, null)
 
   /**
     * Run the sampling for this dataset
     *
     * @param dataResourceUid
     */
-  def sample(dataResourceUid: java.lang.String, callback: IntersectCallback) = {
+  def sample(dataResourceUid: java.lang.String, callback: IntersectCallback) : Unit = {
     new SampleLocalRecords().sampleRecords(Config.tmpWorkDir, 4, false, false, false, Seq(dataResourceUid), Seq(),
-      false, 0, Array(), true, "", "")
+      false, 0, Seq(), true, "", "")
   }
 
   /**

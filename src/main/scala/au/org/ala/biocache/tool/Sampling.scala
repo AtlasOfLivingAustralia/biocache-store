@@ -222,7 +222,8 @@ class Sampling {
                batchSize: Int = 100000, concurrentLoading: Boolean = false,
                keepFiles: Boolean = true, layers: Seq[String]) {
 
-    new SyncLocTable().sync
+    // sync not required due to loc schema change
+    // new SyncLocTable().sync
 
     logger.info("********* START - TEST BATCH SAMPLING FROM FILE ***************")
     //load the CSV of points into memory

@@ -18,13 +18,9 @@ trait OccurrenceDAO extends DAO {
 
   def setDeleted(rowKey: String, del: Boolean, dateTime:Option[String]=None) : Unit
 
-  def rowKeyExists(uuid:String) : Boolean
+  def rowKeyExists(rowKey:String) : Boolean
 
   def getRowKeyFromUuid(uuid:String) : Option[String]
-
-//  def getByUuid(uuid: String) : Option[FullRecord] = getByUuid(uuid, false)
-
-//  def getByUuid(uuid: String, includeSensitive:Boolean): Option[FullRecord]
 
   def getByRowKey(rowKey: String) : Option[FullRecord] = getByRowKey(rowKey, false)
 
@@ -34,9 +30,7 @@ trait OccurrenceDAO extends DAO {
 
   def getRawProcessedByRowKey(rowKey:String) : Option[Array[FullRecord]]
 
-//  def getAllVersionsByUuid(uuid: String, includeSenstive:Boolean=false): Option[Array[FullRecord]]
-
-  def getByUuid(uuid: String, version: Version, includeSensitive:Boolean=false): Option[FullRecord]
+  //def getByUuid(uuid: String, version: Version, includeSensitive:Boolean=false): Option[FullRecord]
 
   def getByRowKey(rowKey: String, version:Version, includeSensitive:Boolean=false): Option[FullRecord]
 

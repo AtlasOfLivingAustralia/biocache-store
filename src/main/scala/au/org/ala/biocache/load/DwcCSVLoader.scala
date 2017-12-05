@@ -276,7 +276,7 @@ class DwcCSVLoader extends DataLoader {
             finishTime = System.currentTimeMillis
             logger.info(counter + ", >> last key : " + dataResourceUid + "|" +
               uniqueTermsValues.mkString("|") + ", records per sec: " +
-              1000 / (((finishTime - startTime).toFloat) / 1000f))
+              1000 / ((finishTime - startTime).toFloat / 1000f))
             startTime = System.currentTimeMillis
           }
         } else {

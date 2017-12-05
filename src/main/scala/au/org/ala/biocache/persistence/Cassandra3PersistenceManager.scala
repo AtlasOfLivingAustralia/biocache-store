@@ -96,7 +96,8 @@ class Cassandra3PersistenceManager @Inject()(
           result = preparedStatement
         } catch {
           case missing: com.datastax.driver.core.exceptions.InvalidQueryException if missing.getMessage().startsWith("Undefined column name") => {
-            if (Config.createColumnCassandra) {
+            // always insert columns that may be missing into table loc to remove need for sync.
+            if (Config.createColumnCassandra || "loc".equalsIgnoreCase(table)) {
               //automatically create missing columns
               val columnName = missing.getMessage().replace("Undefined column name", "").replaceAll("\"", "").trim()
               val lcase = columnName.toLowerCase

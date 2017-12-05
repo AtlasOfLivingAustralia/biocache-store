@@ -1,487 +1,11 @@
 CREATE KEYSPACE occ WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '2'}  AND durable_writes = true;
 
-CREATE TABLE occ.loc (
+USE occ;
+
+CREATE TABLE loc (
     rowkey text PRIMARY KEY,
-    cl1048 text,
-    cl1049 text,
-    cl1050 text,
-    cl1050b text,
-    cl1051 text,
-    cl1051b text,
-    cl1052 text,
-    cl1053 text,
-    cl1054 text,
-    cl1057 text,
-    cl1058 text,
-    cl1059 text,
-    cl1062 text,
-    cl1063 text,
-    cl1064 text,
-    cl1065 text,
-    cl1066 text,
-    cl1067 text,
-    cl1068 text,
-    cl1069 text,
-    cl1070 text,
-    cl1071 text,
-    cl1076a text,
-    cl10829 text,
-    cl10831 text,
-    cl10832 text,
-    cl10833 text,
-    cl10834 text,
-    cl10835 text,
-    cl1084 text,
-    cl10847 text,
-    cl10848 text,
-    cl1085 text,
-    cl10872 text,
-    cl10874 text,
-    cl10900 text,
-    cl10902 text,
-    cl10903 text,
-    cl13001 text,
-    cl1918 text,
-    cl20 text,
-    cl2009 text,
-    cl2010 text,
-    cl2012 text,
-    cl2013 text,
-    cl2015 text,
-    cl2020 text,
-    cl2021 text,
-    cl2022 text,
-    cl2045 text,
-    cl2048 text,
-    cl2049 text,
-    cl2050 text,
-    cl2052 text,
-    cl2076 text,
-    cl2077 text,
-    cl2078 text,
-    cl2079 text,
-    cl2080 text,
-    cl2081 text,
-    cl2083 text,
-    cl2084 text,
-    cl2085 text,
-    cl2086 text,
-    cl2087 text,
-    cl21 text,
-    cl2105 text,
-    cl2109 text,
-    cl2110 text,
-    cl2111 text,
-    cl2113 text,
-    cl2115 text,
-    cl2116 text,
-    cl2117 text,
-    cl2120 text,
-    cl2124 text,
-    cl2125 text,
-    cl22 text,
-    cl23 text,
-    cl3003 text,
-    cl3004 text,
-    cl3005 text,
-    cl604 text,
-    cl605 text,
-    cl606 text,
-    cl611 text,
-    cl612 text,
-    cl613 text,
-    cl614 text,
-    cl617 text,
-    cl618 text,
-    cl619 text,
-    cl620 text,
-    cl664 text,
-    cl678 text,
-    cl900 text,
-    cl901 text,
-    cl914 text,
-    cl916 text,
-    cl917 text,
-    cl923 text,
-    cl925 text,
-    cl926 text,
-    cl927 text,
-    cl928 text,
-    cl929 text,
-    cl930 text,
-    cl932 text,
-    cl935 text,
-    cl936 text,
-    cl938 text,
-    cl939 text,
-    cl940 text,
-    cl941 text,
-    cl942 text,
-    cl958 text,
-    cl959 text,
-    cl960 text,
-    cl961 text,
-    cl962 text,
-    cl963 text,
-    cl964 text,
-    cl965 text,
-    cl966 text,
-    cl987 text,
-    cl988 text,
-    cl990 text,
-    cl991 text,
-    el1000 text,
-    el1001 text,
-    el1002 text,
-    el1003 text,
-    el1004 text,
-    el1005 text,
-    el1006 text,
-    el1007 text,
-    el1008 text,
-    el1009 text,
-    el1010 text,
-    el1011 text,
-    el1012 text,
-    el1013 text,
-    el1014 text,
-    el1015 text,
-    el1016 text,
-    el1017 text,
-    el1018 text,
-    el1019 text,
-    el1020 text,
-    el1021 text,
-    el1022 text,
-    el1023 text,
-    el1024 text,
-    el1025 text,
-    el1026 text,
-    el1027 text,
-    el1028 text,
-    el1029 text,
-    el1030 text,
-    el1031 text,
-    el1032 text,
-    el1033 text,
-    el1034 text,
-    el1035 text,
-    el1036 text,
-    el1037 text,
-    el1038 text,
-    el1039 text,
-    el1040 text,
-    el1041 text,
-    el1042 text,
-    el1043 text,
-    el1044 text,
-    el1045 text,
-    el1046 text,
-    el1047 text,
-    el1055 text,
-    el1056 text,
-    el1072 text,
-    el1073 text,
-    el1074 text,
-    el1077 text,
-    el1078 text,
-    el1079 text,
-    el1080 text,
-    el1081 text,
-    el2016 text,
-    el2017 text,
-    el2018 text,
-    el2042 text,
-    el2043 text,
-    el2044 text,
-    el2088 text,
-    el2089 text,
-    el2090 text,
-    el2091 text,
-    el2092 text,
-    el2093 text,
-    el2094 text,
-    el2095 text,
-    el2096 text,
-    el2097 text,
-    el2098 text,
-    el2099 text,
-    el2100 text,
-    el2101 text,
-    el2102 text,
-    el2103 text,
-    el2104 text,
-    el2119 text,
-    el2121 text,
-    el2122 text,
-    el2126 text,
-    el586 text,
-    el591 text,
-    el593 text,
-    el594 text,
-    el595 text,
-    el596 text,
-    el597 text,
-    el598 text,
-    el599 text,
-    el600 text,
-    el601 text,
-    el602 text,
-    el603 text,
-    el607 text,
-    el608 text,
-    el609 text,
-    el610 text,
-    el615 text,
-    el616 text,
-    el642 text,
-    el643 text,
-    el644 text,
-    el645 text,
-    el646 text,
-    el647 text,
-    el648 text,
-    el649 text,
-    el650 text,
-    el651 text,
-    el652 text,
-    el653 text,
-    el654 text,
-    el655 text,
-    el656 text,
-    el658 text,
-    el659 text,
-    el660 text,
-    el661 text,
-    el662 text,
-    el663 text,
-    el665 text,
-    el666 text,
-    el667 text,
-    el668 text,
-    el669 text,
-    el670 text,
-    el671 text,
-    el672 text,
-    el673 text,
-    el674 text,
-    el675 text,
-    el676 text,
-    el680 text,
-    el681 text,
-    el682 text,
-    el683 text,
-    el704 text,
-    el705 text,
-    el706 text,
-    el707 text,
-    el708 text,
-    el709 text,
-    el710 text,
-    el711 text,
-    el712 text,
-    el713 text,
-    el714 text,
-    el715 text,
-    el716 text,
-    el717 text,
-    el718 text,
-    el719 text,
-    el720 text,
-    el721 text,
-    el722 text,
-    el723 text,
-    el724 text,
-    el725 text,
-    el726 text,
-    el727 text,
-    el728 text,
-    el729 text,
-    el730 text,
-    el731 text,
-    el732 text,
-    el733 text,
-    el734 text,
-    el735 text,
-    el736 text,
-    el737 text,
-    el738 text,
-    el739 text,
-    el740 text,
-    el741 text,
-    el742 text,
-    el743 text,
-    el744 text,
-    el745 text,
-    el746 text,
-    el747 text,
-    el748 text,
-    el749 text,
-    el750 text,
-    el751 text,
-    el752 text,
-    el753 text,
-    el754 text,
-    el755 text,
-    el756 text,
-    el757 text,
-    el758 text,
-    el759 text,
-    el760 text,
-    el761 text,
-    el762 text,
-    el763 text,
-    el764 text,
-    el765 text,
-    el766 text,
-    el767 text,
-    el768 text,
-    el769 text,
-    el770 text,
-    el771 text,
-    el772 text,
-    el773 text,
-    el774 text,
-    el775 text,
-    el776 text,
-    el777 text,
-    el778 text,
-    el779 text,
-    el781 text,
-    el782 text,
-    el783 text,
-    el784 text,
-    el785 text,
-    el786 text,
-    el787 text,
-    el788 text,
-    el789 text,
-    el790 text,
-    el791 text,
-    el792 text,
-    el793 text,
-    el794 text,
-    el795 text,
-    el796 text,
-    el797 text,
-    el798 text,
-    el799 text,
-    el800 text,
-    el801 text,
-    el802 text,
-    el803 text,
-    el804 text,
-    el805 text,
-    el806 text,
-    el807 text,
-    el808 text,
-    el809 text,
-    el810 text,
-    el811 text,
-    el812 text,
-    el813 text,
-    el814 text,
-    el815 text,
-    el816 text,
-    el817 text,
-    el818 text,
-    el819 text,
-    el820 text,
-    el821 text,
-    el822 text,
-    el823 text,
-    el824 text,
-    el825 text,
-    el826 text,
-    el827 text,
-    el828 text,
-    el829 text,
-    el830 text,
-    el831 text,
-    el832 text,
-    el833 text,
-    el834 text,
-    el835 text,
-    el836 text,
-    el837 text,
-    el838 text,
-    el839 text,
-    el840 text,
-    el841 text,
-    el842 text,
-    el843 text,
-    el844 text,
-    el845 text,
-    el848 text,
-    el849 text,
-    el850 text,
-    el851 text,
-    el852 text,
-    el853 text,
-    el854 text,
-    el855 text,
-    el856 text,
-    el857 text,
-    el858 text,
-    el859 text,
-    el860 text,
-    el861 text,
-    el862 text,
-    el863 text,
-    el864 text,
-    el865 text,
-    el866 text,
-    el867 text,
-    el868 text,
-    el869 text,
-    el870 text,
-    el871 text,
-    el872 text,
-    el873 text,
-    el874 text,
-    el875 text,
-    el876 text,
-    el877 text,
-    el878 text,
-    el879 text,
-    el880 text,
-    el881 text,
-    el882 text,
-    el883 text,
-    el884 text,
-    el885 text,
-    el886 text,
-    el887 text,
-    el888 text,
-    el889 text,
-    el890 text,
-    el891 text,
-    el892 text,
-    el893 text,
-    el894 text,
-    el895 text,
-    el898 text,
-    el899 text,
-    el946 text,
-    el947 text,
-    el948 text,
-    el949 text,
-    el950 text,
-    el951 text,
-    el952 text,
-    el954 text,
-    el955 text,
-    el957 text,
-    el967 text,
-    el989 text,
-    el992 text,
-    el993 text,
-    el994 text,
-    el995 text,
-    el996 text,
-    el997 text,
-    el998 text,
-    el999 text,
+    cl text,
+    el text,
     lat text,
     lon text
 ) WITH bloom_filter_fp_chance = 0.01
@@ -499,7 +23,7 @@ CREATE TABLE occ.loc (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.taxon (
+CREATE TABLE taxon (
     rowkey text PRIMARY KEY,
     "commonName" text,
     conservation text,
@@ -519,7 +43,7 @@ CREATE TABLE occ.taxon (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.distribution_outliers (
+CREATE TABLE distribution_outliers (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -536,7 +60,7 @@ CREATE TABLE occ.distribution_outliers (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.attr (
+CREATE TABLE attr (
     rowkey text PRIMARY KEY,
     "collectionName" text,
     "collectionUid" text,
@@ -562,7 +86,7 @@ CREATE TABLE occ.attr (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.duplicates (
+CREATE TABLE duplicates (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -579,7 +103,7 @@ CREATE TABLE occ.duplicates (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.qa (
+CREATE TABLE qa (
     rowkey text,
     "userId" text,
     code text,
@@ -611,7 +135,7 @@ CREATE TABLE occ.qa (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.occ (
+CREATE TABLE occ (
     rowkey text,
     "dataResourceUid" text,
     "IdentificationQualifierProcessor_qa" text,
@@ -1022,9 +546,8 @@ CREATE TABLE occ.occ (
     year text,
     year_p text,
     zone text,
-    PRIMARY KEY (rowkey, "dataResourceUid")
-) WITH CLUSTERING ORDER BY ("dataResourceUid" ASC)
-    AND bloom_filter_fp_chance = 0.01
+    PRIMARY KEY (rowkey)
+) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
     AND comment = ''
     AND compaction = {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}
@@ -1039,7 +562,7 @@ CREATE TABLE occ.occ (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.queryassert (
+CREATE TABLE queryassert (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -1056,7 +579,7 @@ CREATE TABLE occ.queryassert (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.occ_duplicates (
+CREATE TABLE occ_duplicates (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -1073,7 +596,7 @@ CREATE TABLE occ.occ_duplicates (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.occ_outliers (
+CREATE TABLE occ_outliers (
     rowkey text PRIMARY KEY,
     "jackKnife" text
 ) WITH bloom_filter_fp_chance = 0.01
@@ -1091,7 +614,7 @@ CREATE TABLE occ.occ_outliers (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.upload (
+CREATE TABLE upload (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -1105,10 +628,10 @@ CREATE TABLE occ.upload (
     AND max_index_interval = 2048
     AND memtable_flush_period_in_ms = 0
     AND min_index_interval = 128
-    AND read_repair_chance = 0.0
+    AND read_repair_chance =    0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.occ_uuid (
+CREATE TABLE occ_uuid (
     rowkey text PRIMARY KEY,
     value text
 ) WITH bloom_filter_fp_chance = 0.01
@@ -1126,7 +649,7 @@ CREATE TABLE occ.occ_uuid (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.qid (
+CREATE TABLE qid (
     rowkey text PRIMARY KEY,
     bbox text,
     "displayString" text,
@@ -1151,7 +674,7 @@ CREATE TABLE occ.qid (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.outliers (
+CREATE TABLE outliers (
     rowkey text PRIMARY KEY,
     "jackKnifeOutliers" text,
     "jackKnifeStats" text
@@ -1170,7 +693,7 @@ CREATE TABLE occ.outliers (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.dellog (
+CREATE TABLE dellog (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
@@ -1187,7 +710,7 @@ CREATE TABLE occ.dellog (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
-CREATE TABLE occ.loc_new (
+CREATE TABLE loc_new (
     rowkey text PRIMARY KEY
 ) WITH bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}

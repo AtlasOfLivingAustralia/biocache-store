@@ -2,6 +2,7 @@ package au.org.ala.biocache.load
 
 import java.io.{File, FileOutputStream, Writer}
 import java.net.URL
+import java.util
 import java.util.Date
 
 import au.org.ala.biocache.Config
@@ -47,9 +48,26 @@ trait DataLoader {
   }
 
   def deleteOldRowKeys(resourceUid: String) {
+    //maintain a list of all row keys loaded for a data resource
+    def rkFile = new File(Config.tmpWorkDir + "/row_key_" + resourceUid + ".csv")
+    def rkFileAll = new File(Config.tmpWorkDir + "/row_key_all_" + resourceUid + ".csv")
+
+    //ensure that the files exist
+    FileUtils.writeStringToFile(rkFileAll, "", true)
+    FileUtils.writeStringToFile(rkFile, "", true)
+
+    def rkAll = FileUtils.readFileToString(rkFileAll, "UTF-8").split("\n").toList
+    def rkRecent = FileUtils.readFileToString(rkFileAll, "UTF-8").split("\n").toList
+    def rkUnique = (rkAll ++ rkRecent).toSet
+
+    FileUtils.writeStringToFile(rkFileAll, rkUnique.mkString("\n"))
+
+    //create a file for the recent row keys
+    FileUtils.deleteQuietly(new File(Config.tmpWorkDir + "/row_key_" + resourceUid + ".csv"))
+
     //delete the row key file so that it only exists if the load is configured to
     //thus processing and indexing of the data resource should check to see if a file exists first
-    FileUtils.deleteQuietly(new File(Config.tmpWorkDir + "/row_key_" + resourceUid + ".csv"))
+    FileUtils.deleteQuietly(rkFile)
   }
 
   def getRowKeyWriter(resourceUid: String, writeRowKeys: Boolean): Option[java.io.Writer] = {

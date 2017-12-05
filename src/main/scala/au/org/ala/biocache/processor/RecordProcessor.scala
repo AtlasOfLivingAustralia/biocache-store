@@ -182,6 +182,7 @@ class RecordProcessor {
     uuid
   }
 
+  //TODO: use uniform uuid/rowkey generation
   def addRecord(dataResourceUid: String, properties: Map[String, String]): String = {
     val uuid = properties.getOrElse("uuid", UUID.randomUUID().toString)
     val rowKey = dataResourceUid + "|" + uuid

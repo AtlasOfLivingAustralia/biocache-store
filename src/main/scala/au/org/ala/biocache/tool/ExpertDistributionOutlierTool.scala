@@ -467,7 +467,7 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
       val longitude = value.getOrElse("decimalLongitude", "")
       val outKey = latitude + "|" + longitude
       val outValue = outlierDistances.get(outKey)
-      val rowKey = value.getOrElse("rowkey", "").asInstanceOf[String]
+      val rowKey : String = value.getOrElse("rowkey", "").asInstanceOf[String]
       if (outValue.isDefined) {
         //this one may be an outlier perform the tests
         val roundedDistance = scala.math.round(outValue.get)

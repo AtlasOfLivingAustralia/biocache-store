@@ -277,19 +277,9 @@ class DwCALoader extends DataLoader {
       val multimedia = loadMultimedia(star, DwCALoader.IMAGE_TYPE, imageBase) ++
         loadMultimedia(star, DwCALoader.MULTIMEDIA_TYPE, imageBase)
 
-//      // If there are no unique terms, use the UUID as a key
-//      // This isnt ideal and will stop any reloading
-//      val rowKey = if(uniqueID.isEmpty) {
-//        logger.warn("Unable to construct a unique key for this data resource. No unique terms defined.")
-//        resourceUid + "|" + recordUuid
-//      } else {
-//        uniqueID.get
-//      }
-
       //check whether the records should be loaded
       val toBeLoaded = if (loadMissingOnly) {
-//        !Config.occurrenceDAO.rowKeyExists(rowKey)
-        true
+        !Config.occurrenceDAO.rowKeyExists(recordUuid)
       } else {
         true
       }

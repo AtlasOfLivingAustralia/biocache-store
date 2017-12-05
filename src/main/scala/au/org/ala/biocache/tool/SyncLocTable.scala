@@ -12,7 +12,9 @@ object SyncLocTable extends au.org.ala.biocache.cmd.Tool {
 
   def cmd = "sync-loc-table"
 
-  def desc = "Synchronise the loc table with the list of available layers. This needs to be ran prior to sampling."
+  def desc = "Synchronise the loc table with the list of available layers. This needs to be ran prior to sampling. " +
+    "(deprecated, Cassandra3PersistanceManager will always create missing columns for loc) " +
+    "(deprecated, loc schema change that aggregates into 2 fields, el and cl)"
 
   protected val logger = LoggerFactory.getLogger("SyncLocTable")
 

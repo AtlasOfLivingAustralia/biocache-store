@@ -30,7 +30,7 @@ trait IndexDAO {
 
   def getRowKeysForQuery(query: String, limit: Int = 1000): Option[List[String]]
 
-  def getUUIDsForQuery(query: String, limit: Int = 1000): Option[List[String]]
+  //def getUUIDsForQuery(query: String, limit: Int = 1000): Option[List[String]]
 
   def writeRowKeysToStream(query: String, outputStream: OutputStream)
 
@@ -245,13 +245,12 @@ trait IndexDAO {
     ("recordNumber", "record_number", -1, 2),
     ("reproductiveCondition", "reproductive_condition", -1, 2),
     ("rights", "rights", -1, 2),
-    ("rowkey", "row_key", -1, 2),
     ("sex", "raw_sex", -1, 2),
     ("taxonConceptID", "taxon_concept_lsid", -1, 2),
     ("typeStatus", "raw_type_status", -1, 2),
     ("userId", "user_id", -1, 2),
     ("userId", "alau_user_id", -1, 2),
-    ("uuid", "id", -1, 2),
+    ("rowkey", "id", -1, 2),
     ("vernacularName", "raw_common_name", -1, 2),
     ("distanceOutsideExpertRange", "distance_outside_expert_range", -1, 3),
     ("associatedOccurrences", "duplicate_record", -1, 3),
@@ -641,7 +640,7 @@ trait IndexDAO {
 
         //the returned list needs to match up with the CSV header
         return List[String](
-          getValue("rowKey", map),
+          getValue("rowkey", map),
           getValue("occurrenceID", map),
           dataHubUids.mkString("|"),
           getParsedValue("dataHub", map),
@@ -1026,8 +1025,6 @@ trait IndexDAO {
         }
 
         var i: Integer = 0
-        addField(doc, header(i), getValue("uuid", map))
-        i = i + 1
         addField(doc, header(i), getValue("rowkey", map))
         i = i + 1
         addField(doc, header(i), getValue("occurrenceID", map))

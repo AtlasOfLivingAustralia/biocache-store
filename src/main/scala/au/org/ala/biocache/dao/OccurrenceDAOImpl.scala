@@ -43,12 +43,12 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   /**
     * Gets the map for a record based on searching the index for new and old ids
     */
-  def getMapFromIndex(value: String): Option[Map[String, String]] = {
-    persistenceManager.getByIndex(value, entityName, UUID) match {
-      case None => persistenceManager.getByIndex(value, entityName, "portalId") //legacy record ID
-      case Some(map) => Some(map)
-    }
-  }
+//  def getMapFromIndex(value: String): Option[Map[String, String]] = {
+//    persistenceManager.getByIndex(value, entityName, UUID) match {
+//      case None => persistenceManager.getByIndex(value, entityName, "portalId") //legacy record ID
+//      case Some(map) => Some(map)
+//    }
+//  }
 
   /**
     * Get an occurrence with rowKey
@@ -123,15 +123,15 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   /**
     * Get an occurrence, specifying the version of the occurrence.
     */
-  def getByUuid(uuid: String, version: Version, includeSensitive: Boolean = false): Option[FullRecord] = {
-    //get the row key from the supplied uuid
-//    val rowKey = getRowKeyFromUuid(uuid)
-//    if(rowKey.isDefined){
-      getByRowKey(uuid, version,includeSensitive)
-//    } else {
-//      None
-//    }
-  }
+//  def getByUuid(uuid: String, version: Version, includeSensitive: Boolean = false): Option[FullRecord] = {
+//    //get the row key from the supplied uuid
+////    val rowKey = getRowKeyFromUuid(uuid)
+////    if(rowKey.isDefined){
+//      getByRowKey(uuid, version,includeSensitive)
+////    } else {
+////      None
+////    }
+//  }
 
   /**
     * Create or retrieve the UUID for this record. The uniqueID should be a
@@ -410,6 +410,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     * @param dataResourceUid , The data resource to page over.
     */
   def pageOverAllVersions(proc: ((Option[Array[FullRecord]]) => Boolean), dataResourceUid: String, pageSize: Int = 1000) {
+    val threads = 4
 
     persistenceManager.pageOverIndexedField(entityName, (guid, map) => {
       //retrieve all versions
@@ -418,7 +419,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val consensus = FullRecordMapper.createFullRecord(guid, map, Consensus)
       //pass all version to the procedure, wrapped in the Option
       proc(Some(Array(raw, processed, consensus)))
-    }, "dataResourceUid", dataResourceUid, pageSize, false)
+    }, "dataResourceUid", dataResourceUid, threads, localOnly = false)
   }
 
   /**
@@ -428,12 +429,13 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     * @param proc , the function to execute.
     */
   def pageOverAll(version: Version, proc: ((Option[FullRecord]) => Boolean), dataResourceUid: String, pageSize: Int = 1000) {
+    val threads = 4
     persistenceManager.pageOverIndexedField(entityName, (guid, map) => {
       //retrieve all versions
       val fullRecord = FullRecordMapper.createFullRecord(guid, map, version)
       //pass all version to the procedure, wrapped in the Option
       proc(Some(fullRecord))
-    }, "dataResourceUid", dataResourceUid, pageSize, false)
+    }, "dataResourceUid", dataResourceUid, threads, localOnly = false)
   }
 
   /**
@@ -450,7 +452,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val processed = FullRecordMapper.createFullRecord(guid, map, Versions.PROCESSED)
       //pass all version to the procedure, wrapped in the Option
       proc(Some(raw, processed))
-    }, "dataResourceUid", dataResourceUid, pageSize)
+    }, "dataResourceUid", dataResourceUid, threads, localOnly = false)
   }
 
 
@@ -603,6 +605,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   /**
     * Update the occurrence with the supplied record, setting the correct version.
     * This implementation updates the records and assertions in a single write.
+    *
+    * TODO: refactor with updateOccurrenceBatch
     */
   def updateOccurrence(rowKey: String, fullRecord: FullRecord, assertions: Option[Map[String, Array[QualityAssertion]]], version: Version) {
 
@@ -626,6 +630,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
   /**
     * Update the occurrence with the supplied record, setting the correct version
+    *
+    * TODO: refactor with updateOccurrenceBatch
     */
   def updateOccurrence(rowKey: String, oldRecord: FullRecord, newRecord: FullRecord,
                        assertions: Option[Map[String, Array[QualityAssertion]]], version: Version) {
@@ -647,6 +653,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     })
 
     //check for deleted properties
+    //TODO: deleted properties need to include those set to null or ""
     val deletedProperties = oldproperties.filter { case (key, value) => !properties.contains(key) }
 
     propertiesToPersist ++= deletedProperties.map { case (key, value) => key -> "" }
@@ -702,6 +709,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       })
 
       //check for deleted properties
+      //TODO: deleted properties need to include those set to null or ""
       val deletedProperties = oldproperties.filter({
         case (key, value) => !properties.contains(key)
       })
@@ -1271,7 +1279,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     */
   def reIndex(rowKey: String) {
     logger.debug("Reindexing rowkey: " + rowKey)
-    //val map = persistenceManager.getByIndex(uuid, entityName, "uuid")
     val map = persistenceManager.get(rowKey, entityName)
     //index from the map - this should be more efficient
     if (map.isEmpty) {
@@ -1287,13 +1294,16 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       } else {
         null
       }
+
+      //TODO: option to switch from 'all fields' and 'default'
       indexDAO.indexFromMap(rowKey, map.get, batch = false, csvFileWriter = csvFileWriter, csvFileWriterSensitive = csvFileWriterSensitive)
+
       if (csvFileWriter != null) {
-        csvFileWriter.flush();
+        csvFileWriter.flush()
         csvFileWriter.close()
       }
       if (csvFileWriterSensitive != null) {
-        csvFileWriterSensitive.flush();
+        csvFileWriterSensitive.flush()
         csvFileWriterSensitive.close()
       }
     }
@@ -1301,7 +1311,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
 
   /**
-   * Delete the record for the supplied UUID.
+   * Delete the record for the supplied rowKey.
    *
    * @param rowKey
    * @param removeFromIndex

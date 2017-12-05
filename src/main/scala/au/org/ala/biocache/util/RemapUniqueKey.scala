@@ -28,8 +28,9 @@ object RemapUniqueKey extends Tool {
     }
 
     if (parser.parse(args)) {
+      val drField = if (Config.caseSensitiveCassandra) "dataResourceUid" else "dataresourceuid"
       Config.persistenceManager.pageOverLocal("occ", (rowkey, map, tokenRangeId) => {
-        val dr = map.getOrElse("dataresourceuid", "")
+        val dr = map.getOrElse(drField, "")
         if(dataResourceUIDs.contains(dr)){
           val identifyingTerms = fieldsToUse.map { field => map.getOrElse(field.toLowerCase, "")}
           if(!identifyingTerms.filter { value => value != null && value != ""}.isEmpty){
@@ -42,7 +43,7 @@ object RemapUniqueKey extends Tool {
           }
         }
         true
-      }, threads, Array("rowkey", "dataresourceuid") ++ fieldsToUse )
+      }, threads, Array("rowkey", drField) ++ fieldsToUse )
       Config.persistenceManager.shutdown
     }
   }

@@ -1375,32 +1375,32 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     * This causes OOM exceptions at SOLR for large numbers of row keys
     * Use writeRowKeysToStream instead
     */
-  override def getUUIDsForQuery(query: String, limit: Int = 1000): Option[List[String]] = {
-
-    init
-    val solrQuery = new SolrQuery()
-    // Facets
-    solrQuery.setFacet(true)
-    solrQuery.addFacetField("row_key")
-    solrQuery.setQuery(query)
-    solrQuery.setRows(0)
-    solrQuery.setFacetLimit(limit)
-    solrQuery.setFacetMinCount(1)
-    try {
-      val response = solrServer.query(solrQuery)
-      logger.debug("Query " + solrQuery.toString)
-      //now process all the values that are in the row_key facet
-      val rowKeyFacets = response.getFacetField("id")
-      val values = rowKeyFacets.getValues().asScala
-      if (values.size > 0) {
-        Some(values.map(facet => facet.getName).toList)
-      } else {
-        None
-      }
-    } catch {
-      case e: Exception => logger.warn("Unable to get key " + query + "."); None
-    }
-  }
+//  override def getUUIDsForQuery(query: String, limit: Int = 1000): Option[List[String]] = {
+//
+//    init
+//    val solrQuery = new SolrQuery()
+//    // Facets
+//    solrQuery.setFacet(true)
+//    solrQuery.addFacetField("row_key")
+//    solrQuery.setQuery(query)
+//    solrQuery.setRows(0)
+//    solrQuery.setFacetLimit(limit)
+//    solrQuery.setFacetMinCount(1)
+//    try {
+//      val response = solrServer.query(solrQuery)
+//      logger.debug("Query " + solrQuery.toString)
+//      //now process all the values that are in the row_key facet
+//      val rowKeyFacets = response.getFacetField("id")
+//      val values = rowKeyFacets.getValues().asScala
+//      if (values.size > 0) {
+//        Some(values.map(facet => facet.getName).toList)
+//      } else {
+//        None
+//      }
+//    } catch {
+//      case e: Exception => logger.warn("Unable to get key " + query + "."); None
+//    }
+//  }
 
   /**
     * Gets the rowKeys for the query that is supplied

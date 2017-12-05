@@ -35,7 +35,7 @@ object SampleLocalRecords extends au.org.ala.biocache.cmd.Tool {
 
     var drs: Seq[String] = List()
     var skipDrs: Seq[String] = List()
-    var useFullScan = false
+    var useFullScan = true
     var startTokenRangeIdx = 0
     var taxaFile = ""
     var rowKeyFile = ""
@@ -45,10 +45,10 @@ object SampleLocalRecords extends au.org.ala.biocache.cmd.Tool {
     var abortIfNotRowKeyFile = false
 
     val parser = new OptionParser(help) {
-      opt("rk", "key", "the single rowkey to sample", {
+      opt("rk", "key", "comma separated list of rowkeys to sample.", {
         v: String => {
           val tmpFile = File.createTempFile("singleRowKey", ".csv")
-          FileUtils.writeStringToFile(tmpFile, v)
+          FileUtils.writeStringToFile(tmpFile, v.replace(",", "\n"))
           rowKeyFile = tmpFile.getPath
         }
       })
@@ -102,20 +102,15 @@ object SampleLocalRecords extends au.org.ala.biocache.cmd.Tool {
           skipDrs = v.trim.split(",").map {
             _.trim
           }
-          useFullScan = true
         }
       })
       opt("tl", "taxa-list", "file containing a list of taxa to reprocess", {
         v: String => taxaFile = v
       })
-      opt("use-full-scan", "Use a full table scan. This is faster if most of the data needs to be processed. When not used the default is to scan by data resource which is faster for smaller datasets (< 5 million records). ", {
-        useFullScan = true
-      })
       intOpt("stk", "start-token-range-idx", "the idx of the token range to start at. Typically a value between 0 and 1024." +
         "This is useful when a long running process fails for some reason.", {
         v: Int => startTokenRangeIdx = v
       })
-
       opt("all-nodes", "Run on all nodes, not just the local node. For use with --sampling-only to reduce load on the sampling service when many records (> 5 million records).", {
         allNodes = true
       })

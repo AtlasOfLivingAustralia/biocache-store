@@ -61,7 +61,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     var startUuid: Option[String] = None
     var endUuid: Option[String] = None
     var checkDeleted = false
-    var dataResourceUid: Option[String] = None
+    var dataResourceUids: Array[Option[String]] = Array()
     var rowKeys: Array[String] = Array()
     var checkRowKeyFile = true
     var rowKeyFile = ""
@@ -72,7 +72,11 @@ object ProcessRecords extends Tool with IncrementalTool {
       intOpt("t", "thread", "The number of threads to use", { v: Int => threads = v })
       opt("s", "start", "The record to start with in the row key file", { v: String => startUuid = Some(v) })
       opt("e", "end", "The record to end with in the row key file", { v: String => endUuid = Some(v) })
-      opt("dr", "resource", "The data resource to process", { v: String => dataResourceUid = Some(v) })
+      opt("dr", "resource", "Comma separated list of drs to process", {
+        v: String => dataResourceUids = v.trim.split(",").map { dr =>
+          Some(dr.trim)
+        }
+      })
       booleanOpt("cd", "checkDeleted", "Check deleted records", { v: Boolean => checkDeleted = v })
       opt("rk", "comma separated list of rowkeys to process.", { v: String => rowKeys = v.split(",") })
       opt("rf", "path to row key file.", { v: String => rowKeyFile = v })
@@ -87,24 +91,30 @@ object ProcessRecords extends Tool with IncrementalTool {
     }
 
     if (parser.parse(args)) {
-
-      if (!dataResourceUid.isEmpty && checkRowKeyFile && rowKeyFile.isEmpty) {
-        val (hasRowKey, retrievedRowKeyFile) = ProcessRecords.hasRowKey(dataResourceUid.get)
-        rowKeyFile = retrievedRowKeyFile.getOrElse("")
+      // add empty dr value if there is none set
+      if (dataResourceUids.isEmpty) {
+        dataResourceUids = Array(Option(null))
       }
 
-      if (abortIfNotRowKeyFile && (rowKeyFile == "" || !new File(rowKeyFile).exists)) {
-        logger.warn("No rowkey file was found for this processing. Aborting.")
-      } else {
-        var file: File = null
-        if (!rowKeys.isEmpty && rowKeyFile.isEmpty) {
-          file = makeRowKeyFile(rowKeys.toList)
-        } else if (rowKeyFile != "") {
-          file = new java.io.File(rowKeyFile)
+      dataResourceUids.foreach( dataResourceUid => {
+        if (!dataResourceUid.isEmpty && checkRowKeyFile && rowKeyFile.isEmpty) {
+          val (hasRowKey, retrievedRowKeyFile) = ProcessRecords.hasRowKey(dataResourceUid.get)
+          rowKeyFile = retrievedRowKeyFile.getOrElse("")
         }
 
-        processRecords0(file, dataResourceUid, threads, startUuid, endUuid, checkDeleted, processors, null, None)
-      }
+        if (abortIfNotRowKeyFile && (rowKeyFile == "" || !new File(rowKeyFile).exists)) {
+          logger.warn("No rowkey file was found for " + dataResourceUid + ". Skipping.")
+        } else {
+          var file: File = null
+          if (!rowKeys.isEmpty && rowKeyFile.isEmpty) {
+            file = makeRowKeyFile(rowKeys.toList)
+          } else if (rowKeyFile != "") {
+            file = new java.io.File(rowKeyFile)
+          }
+
+          processRecords0(file, dataResourceUid, threads, startUuid, endUuid, checkDeleted, processors, null, None)
+        }
+      })
     }
   }
 
