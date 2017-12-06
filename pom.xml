@@ -24,12 +24,12 @@
     <properties>
         <scala.version>2.10.4</scala.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <org.springframework.version>3.0.6.RELEASE</org.springframework.version>
-        <solr.version>6.4.1</solr.version>
+        <org.springframework.version>3.2.18.RELEASE</org.springframework.version>
+        <solr.version>6.4.2</solr.version>
         <jts.version>1.13</jts.version>
-        <jackson.version>2.9.0</jackson.version>
+        <jackson.version>2.9.2</jackson.version>
         <gt.version>11.1</gt.version>
-        <cassandra.version>3.3.0</cassandra.version>
+        <cassandra.version>3.3.2</cassandra.version>
         <targetJdk>1.8</targetJdk>
         <animal-sniffer-signature.artifact>java18</animal-sniffer-signature.artifact>
         <animal-sniffer-signature.version>1.0</animal-sniffer-signature.version>
@@ -40,7 +40,7 @@
         <maven>3.0.5</maven>
     </prerequisites>
     <description>
-        Scala implementation of biocache backend that uses Cassandra 3.x and SOLR Cloud 5.x
+        Scala implementation of biocache backend that uses Cassandra 3.x and SOLR Cloud 6.x
         This code base manages the loading, processing, sampling and indexing of occurrence records for the ALA.
         There are additional tools to support outlier detection, duplicate detection and extra-limital outliers.
     </description>

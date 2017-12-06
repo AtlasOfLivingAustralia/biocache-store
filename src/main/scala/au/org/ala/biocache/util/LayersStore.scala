@@ -177,7 +177,7 @@ class LayersStore ( layersStoreUrl: String) {
       try {
         val result = response.getStatusLine()
         val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-        logger.error("Response code: " + result.getStatusCode)
+        logger.debug("Sampling status - polling for update - response code: " + result.getStatusCode)
         val json = Json.toMap(responseBody)
 
         val status = json.get("status").get
