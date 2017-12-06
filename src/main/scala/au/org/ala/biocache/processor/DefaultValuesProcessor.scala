@@ -4,6 +4,8 @@ import au.org.ala.biocache.caches.AttributionDAO
 import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
 import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
+import au.org.ala.biocache.parser.DateParser
 
 /**
  * Maps the default values from the data resource configuration in the
@@ -18,7 +20,7 @@ import au.org.ala.biocache.load.FullRecordMapper
  */
 class DefaultValuesProcessor extends Processor {
 
-  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
+  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
 
     //add the default dwc fields if their is no raw value for them.
     val dr = AttributionDAO.getDataResourceByUid(raw.attribution.dataResourceUid)
@@ -43,17 +45,22 @@ class DefaultValuesProcessor extends Processor {
     //covers all values that could have been change - thus allowing event dates to be processed correctly...
     //Only update the values if the record has NOT been reloaded since the last processing.
     val lastLoadedDate = DateParser.parseStringToDate(raw.lastModifiedTime)
-    val lastProcessedDate = if(lastProcessed.isEmpty) {
+    val lastProcessedDate = if (lastProcessed.isEmpty) {
       None
     } else {
       DateParser.parseStringToDate(lastProcessed.get.lastModifiedTime)
     }
 
-    if (raw.occurrence.originalSensitiveValues != null && (lastLoadedDate.isEmpty || lastProcessedDate.isEmpty || lastLoadedDate.get.before(lastProcessedDate.get) )) {
+    if (raw.occurrence.originalSensitiveValues != null && (lastLoadedDate.isEmpty || lastProcessedDate.isEmpty || lastLoadedDate.get.before(lastProcessedDate.get))) {
       FullRecordMapper.mapPropertiesToObject(raw, raw.occurrence.originalSensitiveValues)
     }
 
     Array()
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    //DefaultValuesProcessor has low overhead, do not skip
+    process(guid, raw, processed, lastProcessed)
   }
 
   def getName = "default"

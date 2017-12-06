@@ -1,18 +1,18 @@
 package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.caches.SpatialLayerDAO
-import au.org.ala.biocache.caches.LocationDAO
+import au.org.ala.biocache.caches.{LocationDAO, SpatialLayerDAO}
 import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.model.{Versions, QualityAssertion, FullRecord}
-import au.org.ala.biocache.util.{GISPoint, GridUtil, StringHelper, Json}
-import au.org.ala.biocache.vocab.{AssertionStatus, AssertionCodes, StateProvinces}
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion, Versions}
+import au.org.ala.biocache.util.{GridUtil, Json}
+import au.org.ala.biocache.vocab.StateProvinces
 import au.org.ala.sds.SensitiveDataService
 import com.google.common.cache.CacheBuilder
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions
+import scala.collection.mutable.ArrayBuffer
 
 /**
   * Performs sensitive data processing on the record.
@@ -22,9 +22,6 @@ class SensitivityProcessor extends Processor {
 
   val logger = LoggerFactory.getLogger("SensitivityProcessor")
 
-  import StringHelper._
-  import AssertionCodes._
-  import AssertionStatus._
   import JavaConversions._
 
   //This is being initialised here because it may take some time to load all the XML records...
@@ -43,11 +40,11 @@ class SensitivityProcessor extends Processor {
     * @param lastProcessed
     * @return
     */
-  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None) :
+  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None):
   Array[QualityAssertion] = {
 
     // if SDS disabled, do nothing
-    if(!Config.sdsEnabled){
+    if (!Config.sdsEnabled) {
       return Array()
     }
 
@@ -66,28 +63,33 @@ class SensitivityProcessor extends Processor {
     }
 
     //is the name recognised as sensitive?
-    if(!isSensitive){
+    if (!isSensitive) {
       return Array()
     }
 
     //needs to be performed for all records whether or not they are in Australia
-    //get a map representation of the raw record...
-    val rawMap = new java.util.HashMap[String,String]()
-    raw.objectArray.foreach { poso =>
-      val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
-      rawMap.putAll(map)
+    //get a map representation of the raw record for sdsFlag fields...
+    val rawMap = scala.collection.mutable.Map[String, String]()
+    rawMap.putAll(raw.getRawFields())
+    if (rawMap.isEmpty) {
+      //populate rawMap if raw.rawFields is empty
+      raw.objectArray.foreach { poso =>
+        val map = FullRecordMapper.mapObjectToProperties(poso, Versions.RAW)
+        rawMap ++= map
+      }
     }
+
 
     //use the processed versions of the coordinates for the sensitivity check if raw not available
     //this would be the case when coordinates have been derived from easting/northings or grid references
-    if(!raw.location.hasCoordinates && processed.location.hasCoordinates){
+    if (!raw.location.hasCoordinates && processed.location.hasCoordinates) {
       rawMap.put("decimalLatitude", processed.location.decimalLatitude)
       rawMap.put("decimalLongitude", processed.location.decimalLongitude)
       rawMap.put("coordinatePrecision", processed.location.coordinatePrecision)
       rawMap.put("coordinateUncertaintyInMeters", processed.location.coordinateUncertaintyInMeters)
     }
 
-    if(processed.location.hasCoordinates){
+    if (processed.location.hasCoordinates) {
 
       //do a dynamic lookup for the layers required for the SDS
       val layerIntersect = SpatialLayerDAO.intersect(
@@ -101,9 +103,9 @@ class SensitivityProcessor extends Processor {
       val intersectStateProvince = layerIntersect.getOrElse(Config.stateProvinceLayerID, "")
 
       //reset
-      if(StringUtils.isBlank(intersectStateProvince)){
+      if (StringUtils.isBlank(intersectStateProvince)) {
         val stringMatchState = StateProvinces.matchTerm(raw.location.stateProvince)
-        if(!stringMatchState.isEmpty){
+        if (!stringMatchState.isEmpty) {
           rawMap.put("stateProvince", stringMatchState.get.canonical)
         }
       } else {
@@ -115,15 +117,15 @@ class SensitivityProcessor extends Processor {
     rawMap.put(SensitiveDataService.SAMPLED_VALUES_PROVIDED, "true")
 
     //put the processed event date components in to allow for correct date applications of the rules
-    if(processed.event.day != null)
+    if (processed.event.day != null)
       rawMap("day") = processed.event.day
-    if(processed.event.month != null)
+    if (processed.event.month != null)
       rawMap("month") = processed.event.month
-    if(processed.event.year != null)
+    if (processed.event.year != null)
       rawMap("year") = processed.event.year
 
-    if(logger.isDebugEnabled()){
-      logger.debug("Testing with the following properties: " + rawMap + ", and ID" +  processed.classification.taxonConceptID)
+    if (logger.isDebugEnabled()) {
+      logger.debug("Testing with the following properties: " + rawMap + ", and ID" + processed.classification.taxonConceptID)
     }
 
     //SDS check - now get the ValidationOutcome from the Sensitive Data Service
@@ -150,7 +152,7 @@ class SensitivityProcessor extends Processor {
               osv.put("coordinateUncertaintyInMeters" + Config.persistenceManager.fieldDelimiter + "p",
                 processed.location.coordinateUncertaintyInMeters)
             }
-            if(raw.location.gridReference != null && raw.location.gridReference != ""){
+            if (raw.location.gridReference != null && raw.location.gridReference != "") {
               osv.put("gridReference", raw.location.gridReference)
             }
             osv.put("eventDate", raw.event.eventDate)
@@ -190,7 +192,7 @@ class SensitivityProcessor extends Processor {
         }
 
         //remove other GIS references
-        if(Config.gridRefIndexingEnabled && raw.location.gridReference != null){
+        if (Config.gridRefIndexingEnabled && raw.location.gridReference != null) {
 
           if (generalisationToApplyInMetres.isDefined) {
             //reduce the quality of the grid reference
@@ -217,6 +219,7 @@ class SensitivityProcessor extends Processor {
 
         //remove the day from the values if present
         raw.event.day = ""
+        raw.event.month = ""
         raw.event.eventDate = ""
         raw.event.eventDateEnd = ""
 
@@ -233,16 +236,25 @@ class SensitivityProcessor extends Processor {
         stringMap.put("eventDateEnd", "")
 
         //update the raw record with whatever is left in the stringMap - change to use DAO method...
-        if(StringUtils.isNotBlank(raw.rowKey)){
+        if (StringUtils.isNotBlank(raw.rowKey)) {
           Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap, false, false)
-          LocationDAO.storePointForSampling(processed.location.decimalLatitude, processed.location.decimalLongitude)
+          try {
+            if (StringUtils.isNotBlank(processed.location.decimalLatitude) &&
+              StringUtils.isNotBlank(processed.location.decimalLongitude)) {
+              LocationDAO.storePointForSampling(processed.location.decimalLatitude, processed.location.decimalLongitude)
+            }
+          } catch {
+            case e: Exception => {
+              logger.error("Error storing point for sampling for SDS record: " + raw.rowKey + " " + processed.rowKey, e)
+            }
+          }
         }
 
-      } else if (!outcome.isLoadable() && Config.obeySDSIsLoadable){
+      } else if (!outcome.isLoadable() && Config.obeySDSIsLoadable) {
         logger.warn("SDS isLoadable status is currently not being used. Would apply to: " + processed.rowKey)
       }
 
-      if(outcome.getReport().getMessages() != null){
+      if (outcome.getReport().getMessages() != null) {
         var infoMessage = ""
         outcome.getReport().getMessages().foreach(message => {
           infoMessage += message.getCategory() + "\t" + message.getMessageText() + "\n"
@@ -289,5 +301,30 @@ class SensitivityProcessor extends Processor {
       raw.classification.vernacularName
     else //return the name default name string which will be null
       raw.classification.scientificName
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    val assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      //no assertions
+      //assertions ++= lastProcessed.get.findAssertions(Array())
+
+      //update the details from lastProcessed
+      processed.location.coordinateUncertaintyInMeters = lastProcessed.get.location.coordinateUncertaintyInMeters
+      processed.location.decimalLatitude = lastProcessed.get.location.decimalLatitude
+      processed.location.decimalLongitude = lastProcessed.get.location.decimalLatitude
+      processed.location.northing = lastProcessed.get.location.northing
+      processed.location.easting = lastProcessed.get.location.easting
+      processed.location.bbox = lastProcessed.get.location.bbox
+      processed.occurrence.informationWithheld = lastProcessed.get.occurrence.informationWithheld
+      processed.occurrence.dataGeneralizations = lastProcessed.get.occurrence.dataGeneralizations
+      processed.event.day = lastProcessed.get.event.eventDateEnd
+      processed.event.eventDate = lastProcessed.get.event.eventDateEnd
+      processed.event.eventDateEnd = lastProcessed.get.event.eventDateEnd
+    }
+
+    assertions.toArray
   }
 }

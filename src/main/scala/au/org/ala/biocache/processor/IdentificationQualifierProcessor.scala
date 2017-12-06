@@ -1,11 +1,14 @@
 package au.org.ala.biocache.processor
 
 import java.io.File
+
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
+
 import scala.collection.mutable.ArrayBuffer
+
 /**
   * Created by koh032 on 1/06/2016.
   */
@@ -18,20 +21,20 @@ class IdentificationQualifierProcessor extends Processor {
   val NotRecognised = "Not recognised"
   val NotProvided = "Not provided"
 
-  val (certainKeywordList, unCertainKeywordList) = readFromFile ("/identificationQualifiers.txt")
+  val (certainKeywordList, unCertainKeywordList) = readFromFile("/identificationQualifiers.txt")
 
   def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
 
-    val (translatedIdQualifier, assertions) = processIdentificationQualifier (raw.identification.identificationQualifier)
+    val (translatedIdQualifier, assertions) = processIdentificationQualifier(raw.identification.identificationQualifier)
     processed.identification.identificationQualifier = translatedIdQualifier
 
-    val (translatedAbcdIdQualifier, abcdAssertions) = processIdentificationQualifier (raw.identification.abcdIdentificationQualifier)
+    val (translatedAbcdIdQualifier, abcdAssertions) = processIdentificationQualifier(raw.identification.abcdIdentificationQualifier)
     processed.identification.abcdIdentificationQualifier = translatedAbcdIdQualifier
 
     (assertions ++ abcdAssertions).toArray
   }
 
-  def processIdentificationQualifier(rawIdentificationQualifier:String) : (String, ArrayBuffer[QualityAssertion]) = {
+  def processIdentificationQualifier(rawIdentificationQualifier: String): (String, ArrayBuffer[QualityAssertion]) = {
 
     val assertions = new ArrayBuffer[QualityAssertion]
 
@@ -48,8 +51,8 @@ class IdentificationQualifierProcessor extends Processor {
 
     if (StringUtils.isNotBlank(stringVal)) {
       stringVal.trim.replaceAll("\\s+", " ") toLowerCase match {
-        case UncertainKeywordRegex (keyword)  => logger.debug("Identification Qualifier '" + stringVal + "' is mapped to " + Uncertain); translatedIdQualifier = Uncertain
-        case CertainKeywordRegex (keyword) => logger.debug("Identification Qualifier '" + stringVal + "' is mapped to " + Certain); translatedIdQualifier = Certain
+        case UncertainKeywordRegex(keyword) => logger.debug("Identification Qualifier '" + stringVal + "' is mapped to " + Uncertain); translatedIdQualifier = Uncertain
+        case CertainKeywordRegex(keyword) => logger.debug("Identification Qualifier '" + stringVal + "' is mapped to " + Certain); translatedIdQualifier = Certain
         case _ => logger.debug("Identification Qualifier '" + stringVal + "' is mapped to " + NotRecognised); translatedIdQualifier = NotRecognised
       }
     } else {
@@ -59,7 +62,7 @@ class IdentificationQualifierProcessor extends Processor {
     return (translatedIdQualifier, assertions)
   }
 
-  def readFromFile (filePath: String): (String, String) = {
+  def readFromFile(filePath: String): (String, String) = {
 
     var certainList = ""
     var uncertainList = ""
@@ -102,10 +105,10 @@ class IdentificationQualifierProcessor extends Processor {
     }
   }
 
-  def getSource (filePath: String) : scala.io.Source = {
+  def getSource(filePath: String): scala.io.Source = {
     val overrideFile = new File(Config.vocabDirectory + filePath)
 
-    if(overrideFile.exists){
+    if (overrideFile.exists) {
       //if external file exists, use this
       logger.debug("Reading identificationQualifier file: " + overrideFile.getAbsolutePath)
       scala.io.Source.fromFile(overrideFile, "utf-8")
@@ -115,6 +118,22 @@ class IdentificationQualifierProcessor extends Processor {
       scala.io.Source.fromURL(getClass.getResource(filePath), "utf-8")
     }
 
+  }
+
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      //no assertions
+      //assertions ++= lastProcessed.get.findAssertions(Array())
+
+      //update the details from lastProcessed
+      processed.identification.identificationQualifier = lastProcessed.get.identification.identificationQualifier
+      processed.identification.abcdIdentificationQualifier = lastProcessed.get.identification.identificationQualifier
+    }
+
+    assertions.toArray
   }
 
   def getName = "IdentificationQualifierProcessor"

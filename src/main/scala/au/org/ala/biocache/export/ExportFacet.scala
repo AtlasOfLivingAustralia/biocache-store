@@ -1,17 +1,19 @@
 package au.org.ala.biocache.export
 
-import au.org.ala.biocache.util.OptionParser
-import java.text.SimpleDateFormat
-import org.apache.commons.lang3.time.DateUtils
-import java.util.Date
 import java.io.{File, FileWriter}
+import java.text.SimpleDateFormat
+import java.util.Date
+
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.util.OptionParser
+import org.apache.commons.lang3.time.DateUtils
 
 object ExportFacet extends Tool {
 
   def cmd = "export-facet"
-  def desc = "Exports a facet to file"
+
+  def desc = "Exports a facet to file. From SOLR"
 
   var facetField = "species_guid"
   var facetQuery = "*:*"

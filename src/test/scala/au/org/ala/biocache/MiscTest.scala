@@ -339,6 +339,9 @@ class MiscTest extends ConfigFunSuite {
   test("indexFields.txt column counts") {
     //log row length errors
     scala.io.Source.fromURL(getClass.getResource("/indexFields.txt"), "utf-8").getLines.toList.foreach { row =>
+      if (!row.startsWith("#") && row.split("\t").length != 7) {
+        println("invalid row: " + row)
+      }
       expectResult(true) {row.startsWith("#") || row.split("\t").length == 7}
     }
   }

@@ -5,6 +5,8 @@ import au.org.ala.biocache.cmd.Tool
 
 /**
  * A tool for remapping the unique key for one or more datasets.
+ * This is useful when then field that is used as the unique key has changed in an existing
+ * dataset e.g. from catalogNumber -> occurrenceID.
  */
 object RemapUniqueKey extends Tool {
 

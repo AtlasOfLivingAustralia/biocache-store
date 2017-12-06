@@ -27,7 +27,7 @@ object DwcCSVLoader extends Tool {
     var updateLastChecked = false
     var bypassConnParamLookup = false
     var testFile = false
-    var logRowKeys = false
+    var logRowKeys = true
     val logger = LoggerFactory.getLogger("DwcCSVLoader")
 
     val parser = new OptionParser(help) {
@@ -40,7 +40,6 @@ object DwcCSVLoader extends Tool {
         bypassConnParamLookup = true
       })
       opt("test", "test the file only do not load", { testFile=true })
-      opt("log","log row keys to file - allows processing/indexing of changed records",{ logRowKeys = true })
     }
 
     if(parser.parse(args)){
@@ -48,11 +47,11 @@ object DwcCSVLoader extends Tool {
       l.deleteOldRowKeys(dataResourceUid)
       try {
         if (bypassConnParamLookup && !localFilePath.isEmpty){
-          l.loadFile(new File(localFilePath.get),dataResourceUid, List(), Map(),false,logRowKeys,testFile)
+          l.loadFile(new File(localFilePath.get),dataResourceUid, List(), Map(), false, logRowKeys, testFile)
         } else {
           localFilePath match {
             case None => l.load(dataResourceUid,logRowKeys,testFile)
-            case Some(v) => l.loadLocalFile(dataResourceUid, v,logRowKeys,testFile)
+            case Some(filePath) => l.loadLocalFile(dataResourceUid, filePath, logRowKeys, testFile)
           }
           //initialise the delete/update the collectory information
           if (updateLastChecked){

@@ -1,19 +1,20 @@
 package au.org.ala.biocache.tool
 
+import java.io.{BufferedOutputStream, File, FileOutputStream}
+
 import au.org.ala.biocache._
-import java.io.{BufferedOutputStream, FileOutputStream}
-import java.io.File
-import au.org.ala.biocache.index.{IndexRecords, IndexDAO}
-import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.index.{IndexDAO, IndexRecords}
+import au.org.ala.biocache.util.OptionParser
 
 /**
- * Reprocesses and reindexes a select set of records.  The records will
- * be obtained through a query to the index.
- */
+  * Reprocesses and reindexes a select set of records.  The records will
+  * be obtained through a query to the index.
+  */
 object ReprocessIndexSelect extends Tool {
 
   def cmd = "index-query"
+
   def desc = "Reindex the records that match a query"
 
   def main(args: Array[String]): Unit = {
@@ -27,9 +28,13 @@ object ReprocessIndexSelect extends Tool {
         v: String => query = Some(v)
       })
       intOpt("t", "thread", "The number of threads to use", { v: Int => threads = v })
-      opt("exist", "use the existing list of row keys", { exist = true })
+      opt("exist", "use the existing list of row keys", {
+        exist = true
+      })
       opt("s", "start", "The record to start processing with", { v: String => startUuid = Some(v) })
-      opt("index", "reindex only - do not reprocess", { indexOnly = true })
+      opt("index", "reindex only - do not reprocess", {
+        indexOnly = true
+      })
     }
 
     if (parser.parse(args)) {
@@ -52,7 +57,7 @@ object ReprocessIndexSelect extends Tool {
       out.close
     }
     if (!indexOnly) {
-      ProcessRecords.processFileOfRowKeys(file, threads)
+      ProcessRecords.processFileOfRowKeys(file = file, threads = threads)
     }
     IndexRecords.indexList(file)
   }

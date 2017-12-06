@@ -7,7 +7,7 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.model.Versions
 import au.org.ala.biocache.processor.RecordProcessor
-import au.org.ala.biocache.util.{ZookeeperUtil, OptionParser}
+import au.org.ala.biocache.util.{OptionParser, ZookeeperUtil}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -19,21 +19,26 @@ import scala.io.Source
 object ProcessLocalRecords extends Tool {
 
   def cmd = "process-local-node"
+
   def desc = "Process all records on a local database node"
 
-  def main(args:Array[String]){
+  def main(args: Array[String]) {
 
-    var threads:Int = 1
-    var drs:Seq[String] = List()
-    var skipDrs:Seq[String] = List()
+    var threads: Int = 1
+    var drs: Seq[String] = List()
+    var skipDrs: Seq[String] = List()
+    var useFullScan = false
     var startTokenRangeIdx = 0
     var taxaFile = ""
     val checkpointFile = Config.tmpWorkDir + "/process-local-records-checkpoints.txt"
 
     val parser = new OptionParser(help) {
-      intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
+      intOpt("t", "thread", "The number of threads to use", { v: Int => threads = v })
       opt("dr", "data-resource-list", "comma separated list of drs to process", {
-        v: String => drs = v.trim.split(",").map {_.trim}
+        v: String =>
+          drs = v.trim.split(",").map {
+            _.trim
+          }
       })
       opt("edr", "skip-data-resource-list", "comma separated list of drs to NOT process", {
         v: String => {
@@ -74,7 +79,7 @@ class ProcessLocalRecords {
     * @param startTokenRangeIdx
     * @param checkpointFile
     */
-  def processTaxaOnly(threads:Int, taxaFilePath:String, startTokenRangeIdx:Int, checkpointFile:String): Unit = {
+  def processTaxaOnly(threads: Int, taxaFilePath: String, startTokenRangeIdx: Int, checkpointFile: String): Unit = {
 
     ZookeeperUtil.setStatus("PROCESSING", "STARTING", 0)
     //read the taxa file
@@ -89,13 +94,13 @@ class ProcessLocalRecords {
     setCheckpoints(startTokenRangeIdx, checkpointFile)
 
     Config.persistenceManager.pageOverLocal("occ", (rowkey, map, batchID) => {
-      val taxonConceptID = map.getOrElse("taxonconceptid_p", "")
-      if(taxonConceptID != "" && taxaIDList.contains(taxonConceptID)){
+      val taxonConceptID = map.getOrElse("taxonConceptID" + Config.persistenceManager.fieldDelimiter + "p", "")
+      if (taxonConceptID != "" && taxaIDList.contains(taxonConceptID)) {
         val records = Config.occurrenceDAO.getAllVersionsByRowKey(rowkey)
         if (!records.isEmpty) {
           processor.processRecord(records.get(0), records.get(1))
-          synchronized  {
-            matchedCount +=1
+          synchronized {
+            matchedCount += 1
             lastMatched = rowkey
           }
         }
@@ -106,9 +111,10 @@ class ProcessLocalRecords {
         ZookeeperUtil.setStatus("PROCESSING", "RUNNING", count)
       }
 
-      true },
+      true
+    },
       threads,
-      Array("rowkey", "taxonConceptID_p")
+      Array("rowkey", "taxonConceptID" + Config.persistenceManager.fieldDelimiter + "p")
     )
 
     //Move checkpoint file if complete
@@ -147,6 +153,7 @@ class ProcessLocalRecords {
           }
 
           if (updateCount % 10000 == 0) {
+
             val end = System.currentTimeMillis()
             val timeInSecs = ((end - lastLog).toFloat / 1000f)
             val recordsPerSec = Math.round(10000f / timeInSecs)
@@ -154,7 +161,6 @@ class ProcessLocalRecords {
             lastLog = end
             ZookeeperUtil.setStatus("PROCESSING", "RUNNING", updateCount)
           }
-
         }
         true
       }, null, threads)
@@ -165,8 +171,8 @@ class ProcessLocalRecords {
 
     ZookeeperUtil.setStatus("PROCESSING", "COMPLETED", total)
     val end = System.currentTimeMillis()
-    val timeInMinutes = ((end-start).toFloat / 100f / 60f / 60f)
-    val timeInSecs = ((end-start).toFloat / 1000f  )
+    val timeInMinutes = ((end - start).toFloat / 100f / 60f / 60f)
+    val timeInSecs = ((end - start).toFloat / 1000f)
     logger.info(s"Total records processed : $total in $timeInSecs seconds (or $timeInMinutes minutes)")
   }
 

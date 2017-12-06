@@ -1,24 +1,27 @@
 package au.org.ala.biocache.outliers
+
+import java.io.{File, FileOutputStream, FileReader, FileWriter}
 import java.net.URL
-import au.com.bytecode.opencsv.CSVReader
-import au.org.ala.layers.intersect.Grid
-import au.org.ala.biocache.Config
-import collection.mutable.{ArrayBuffer, ListBuffer}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.fasterxml.jackson.databind.ObjectMapper
-import java.io.{FileWriter, FileOutputStream, File, FileReader}
-import org.slf4j.LoggerFactory
-import java.util.concurrent.ArrayBlockingQueue
-import org.apache.commons.lang3.time.DateUtils
-import java.util.Date
 import java.text.SimpleDateFormat
-import au.org.ala.biocache.vocab.AssertionCodes
-import au.org.ala.biocache.util.{FileHelper, StringConsumer, OptionParser}
-import au.org.ala.biocache.model.QualityAssertion
-import au.org.ala.biocache.index.IndexRecords
+import java.util.Date
+import java.util.concurrent.ArrayBlockingQueue
+
+import au.com.bytecode.opencsv.CSVReader
+import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.index.IndexRecords
+import au.org.ala.biocache.model.QualityAssertion
+import au.org.ala.biocache.util.{FileHelper, OptionParser, StringConsumer}
+import au.org.ala.biocache.vocab.AssertionCodes
+import au.org.ala.layers.intersect.Grid
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.jayway.jsonpath.JsonPath
 import net.minidev.json.JSONArray
+import org.apache.commons.lang3.time.DateUtils
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class Timings {
   val logger = LoggerFactory.getLogger("Timings")
@@ -26,7 +29,7 @@ class Timings {
   val startTime = System.currentTimeMillis()
   var lapTime = startTime
 
-  def checkpoint(comment:String) {
+  def checkpoint(comment: String) {
     val now = System.currentTimeMillis()
     logger.debug("Time taken for [%s] : %f seconds.".format(comment, ((now - lapTime).toFloat / 1000.0f)))
     lapTime = now
@@ -34,13 +37,14 @@ class Timings {
 }
 
 /**
- * Runnable tool for testing for outliers and updating the data store.
- *
- * FIXME remove the hardcoded layers...
- */
+  * Runnable tool for testing for outliers and updating the data store.
+  *
+  * FIXME remove the hardcoded layers...
+  */
 object ReverseJacknifeProcessor extends Tool {
 
   def cmd = "jacknife"
+
   def desc = "Run jacknife processing"
 
   import FileHelper._
@@ -56,58 +60,62 @@ object ReverseJacknifeProcessor extends Tool {
   )
 
   def main(args: Array[String]) {
-    
-    var taxonID:String = ""
-    var taxonIDsFilepath:String = ""
-    var fullDumpFilePath:String = ""
-    var headerForDumpFile:List[String] = List("taxonConceptID","uuid","decimalLatitude","decimalLongitude","el882","el889","el887","el865","el894")
+
+    var taxonID: String = ""
+    var taxonIDsFilepath: String = ""
+    var fullDumpFilePath: String = ""
+    var headerForDumpFile: List[String] = List("taxonConceptID", "uuid", "decimalLatitude", "decimalLongitude", "el882", "el889", "el887", "el865", "el894")
     var idsToIndexFile = Config.tmpWorkDir + "/idsToReIndex.txt"
     var persistResults = false
     var numPassThreadWriters = 16
     var numSourceThreads = 4
     var taxonRank = "species"
     var index = false
-    var lastModifiedDate:Option[String] = None
+    var lastModifiedDate: Option[String] = None
 
     val parser = new OptionParser(help) {
-      opt("t", "taxonID","The LSID of the species to check for outliers. This wll download from LIVE", {v:String => taxonID = v})
-      opt("f","taxonIDsFilepath", "Filepath to taxon IDs. This will perform downloads for each taxonID", {v:String => taxonIDsFilepath = v})
-      opt("fd","fullDumpFile", "Filepath to full extract of data", {v:String => fullDumpFilePath = v})
-      opt("hfd","headerForDumpFile", "The header for the dump file, space separated headings. Default is: 'taxonConceptID uuid decimalLatitude decimalLongitude el882 el889 el887 el865 el894'", {
-        v:String => headerForDumpFile = v.split(' ').toList
+      opt("t", "taxonID", "The LSID of the species to check for outliers. This wll download from LIVE", { v: String => taxonID = v })
+      opt("f", "taxonIDsFilepath", "Filepath to taxon IDs. This will perform downloads for each taxonID", { v: String => taxonIDsFilepath = v })
+      opt("fd", "fullDumpFile", "Filepath to full extract of data", { v: String => fullDumpFilePath = v })
+      opt("hfd", "headerForDumpFile", "The header for the dump file, space separated headings. Default is: 'taxonConceptID uuid decimalLatitude decimalLongitude el882 el889 el887 el865 el894'", {
+        v: String => headerForDumpFile = v.split(' ').toList
       })
-      opt("type","The type either species or subspecies", {v:String => taxonRank = v})
-      intOpt("pt","passThreads","The number of threads to use when writing the passed records to the data store", {v:Int => numPassThreadWriters = v})
-      intOpt("st","sourceThreads", "The number of threads that were used to create the source files.", {v:Int => numSourceThreads = v})
-      opt("if", "indexFilePath", "Filepath to file of IDs to reindex", {v:String => idsToIndexFile = v})
-      opt("persist","persist results to the database",{persistResults = true})
-      opt("index", "index the records that are marked as outliers", {index = true})
-      intOpt("day","numDaysMod","Number of days since the last modified.  This will limit the records that are marked as passed.", { v:Int=>
-          val sfd = new SimpleDateFormat("yyyy-MM-dd")
-          val days:Int = 0 - v
-          lastModifiedDate = Some(sfd.format(DateUtils.addDays(new Date(), days)) + "T00:00:00Z")
+      opt("type", "The type either species or subspecies", { v: String => taxonRank = v })
+      intOpt("pt", "passThreads", "The number of threads to use when writing the passed records to the data store", { v: Int => numPassThreadWriters = v })
+      intOpt("st", "sourceThreads", "The number of threads that were used to create the source files.", { v: Int => numSourceThreads = v })
+      opt("if", "indexFilePath", "Filepath to file of IDs to reindex", { v: String => idsToIndexFile = v })
+      opt("persist", "persist results to the database", {
+        persistResults = true
+      })
+      opt("index", "index the records that are marked as outliers", {
+        index = true
+      })
+      intOpt("day", "numDaysMod", "Number of days since the last modified.  This will limit the records that are marked as passed.", { v: Int =>
+        val sfd = new SimpleDateFormat("yyyy-MM-dd")
+        val days: Int = 0 - v
+        lastModifiedDate = Some(sfd.format(DateUtils.addDays(new Date(), days)) + "T00:00:00Z")
       })
     }
-    if(parser.parse(args)){
+    if (parser.parse(args)) {
       //set up threads
       val queue = new ArrayBlockingQueue[String](200000)
       var ids = 0
-      val pool:Array[StringConsumer] = Array.fill(numPassThreadWriters){
+      val pool: Array[StringConsumer] = Array.fill(numPassThreadWriters) {
         var counter = 0
         var startTime = System.currentTimeMillis
         var finishTime = System.currentTimeMillis
-        val p = new StringConsumer(queue,ids,{uuid =>
-          counter +=1
+        val p = new StringConsumer(queue, ids, { uuid =>
+          counter += 1
 
           //add the details for the records that have passed
           try {
             val rowKey = Config.occurrenceDAO.getRowKeyFromUuid(uuid)
-            if(rowKey.isDefined){
+            if (rowKey.isDefined) {
               //mark the test as passed
-              Config.occurrenceDAO.addSystemAssertion(rowKey.get,QualityAssertion(AssertionCodes.DETECTED_OUTLIER, 1))
+              Config.occurrenceDAO.addSystemAssertion(rowKey.get, QualityAssertion(AssertionCodes.DETECTED_OUTLIER, 1))
             }
           } catch {
-            case e:Exception => logger.error("Unable to markup " + uuid + " as passed. " + e.getMessage)
+            case e: Exception => logger.error("Unable to markup " + uuid + " as passed. " + e.getMessage)
           }
 
           if (counter % 1000 == 0) {
@@ -115,25 +123,28 @@ object ReverseJacknifeProcessor extends Tool {
             logger.info(counter + " >> Last key : " + uuid + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
             startTime = System.currentTimeMillis
           }
-        });ids +=1;p.start;p
+        })
+        ids += 1
+        p.start
+        p
       }
 
-      if (taxonID != ""){
+      if (taxonID != "") {
         testForOutliers(taxonID, persistResults)
-      } else if (taxonIDsFilepath != ""){
+      } else if (taxonIDsFilepath != "") {
         scala.io.Source.fromFile(taxonIDsFilepath).getLines().foreach(line => testForOutliers(taxonID))
       } else if (fullDumpFilePath != "") {
         val file = new File(fullDumpFilePath)
-        if (file.isDirectory){
+        if (file.isDirectory) {
           var dids = 0
           //set the threads up to detect the species outliers.
-          val detectpool:Array[Thread] = Array.fill(numSourceThreads){
+          val detectpool: Array[Thread] = Array.fill(numSourceThreads) {
             val dumpFilePath = fullDumpFilePath + File.separator + dids + File.separator + taxonRank + ".out"
-            val reindexFile =  idsToIndexFile + "." + dids
-            val passFile = fullDumpFilePath + File.separator + dids + File.separator +"layer" + taxonRank + "-outlier-passed.out"
-            val t = new Thread(){
-              override def run(){
-                 runOutlierTestingForDumpFile(dumpFilePath, headerForDumpFile, reindexFile , persistResults, queue, index, lastModifiedDate, taxonRank + "_guid", passFile)
+            val reindexFile = idsToIndexFile + "." + dids
+            val passFile = fullDumpFilePath + File.separator + dids + File.separator + "layer" + taxonRank + "-outlier-passed.out"
+            val t = new Thread() {
+              override def run() {
+                runOutlierTestingForDumpFile(dumpFilePath, headerForDumpFile, reindexFile, persistResults, queue, index, lastModifiedDate, taxonRank + "_guid", passFile)
               }
             }
 
@@ -144,13 +155,13 @@ object ReverseJacknifeProcessor extends Tool {
           detectpool.foreach(_.join)
 
         } else {
-          runOutlierTestingForDumpFile(fullDumpFilePath, headerForDumpFile, idsToIndexFile, persistResults,queue, index,lastModifiedDate, taxonRank+"_guid")
+          runOutlierTestingForDumpFile(fullDumpFilePath, headerForDumpFile, idsToIndexFile, persistResults, queue, index, lastModifiedDate, taxonRank + "_guid")
         }
       } else {
         parser.showUsage
       }
       //stop the threads that are adding the passed outlier information
-      pool.foreach(t =>t.shouldStop = true)
+      pool.foreach(t => t.shouldStop = true)
       pool.foreach(_.join)
     }
 
@@ -158,40 +169,42 @@ object ReverseJacknifeProcessor extends Tool {
     logger.debug("Shutting down indexing...")
     Config.indexDAO.shutdown
     logger.debug("Shutting down cassandra connection...")
-//    Config.persistenceManager.shutdown
+    //    Config.persistenceManager.shutdown
     logger.debug("Finished.")
   }
 
   /**
-   *
-   * @param dumpFilePath
-   * @param columnHeaders
-   */
-  def runOutlierTestingForDumpFile(dumpFilePath:String,
-                                   columnHeaders:List[String] = List(),
-                                   idsToIndexFile:String =  Config.tmpWorkDir + "/idsToReIndex.txt",
-                                   persistResults:Boolean=false,
-                                   queue:ArrayBlockingQueue[String],
-                                   index:Boolean=false,
-                                   lastModifiedDate:Option[String]=None,
-                                   field:String="species_guid",
-                                   passFile:String = Config.tmpWorkDir + "/layer-outlier-pass.out"){
+    *
+    * @param dumpFilePath
+    * @param columnHeaders
+    */
+  def runOutlierTestingForDumpFile(dumpFilePath: String,
+                                   columnHeaders: List[String] = List(),
+                                   idsToIndexFile: String = Config.tmpWorkDir + "/idsToReIndex.txt",
+                                   persistResults: Boolean = false,
+                                   queue: ArrayBlockingQueue[String],
+                                   index: Boolean = false,
+                                   lastModifiedDate: Option[String] = None,
+                                   field: String = "species_guid",
+                                   passFile: String = Config.tmpWorkDir + "/layer-outlier-pass.out") {
 
-    if(new File(dumpFilePath).length()>0L){
+    if (new File(dumpFilePath).length() > 0L) {
       val uuidIndexFile = new File(idsToIndexFile)
       val idsWriter = new FileWriter(uuidIndexFile)
       val passWriter = new FileWriter(passFile)
-      val reader:CSVReader = new CSVReader(new FileReader(dumpFilePath), '\t', '~')
+      val reader: CSVReader = new CSVReader(new FileReader(dumpFilePath), '\t', '~')
 
       val headers = if (columnHeaders.isEmpty) reader.readNext.toList else columnHeaders
 
-      if (!mandatoryHeaders.forall(headers.contains(_))){
+      if (!mandatoryHeaders.forall(headers.contains(_))) {
         throw new RuntimeException("Missing mandatory headers " + mandatoryHeaders.mkString(",") +
           ", Got: " + headers.mkString(","))
       }
 
       //get a list of variables
-      val variables = headers.filter { _.startsWith("el") }// !mandatoryHeaders.contains(_) }
+      val variables = headers.filter {
+        _.startsWith("el")
+      } // !mandatoryHeaders.contains(_) }
 
       //iterate through file
       var finished = false
@@ -204,20 +217,20 @@ object ReverseJacknifeProcessor extends Tool {
       val longitudeIdx = headers.indexOf("decimalLongitude")
       val taxonIDIdx = headers.indexOf("taxonConceptID")
       val uuidIdx = headers.indexOf("uuid")
-      val rowKeyIdx =  headers.indexOf("rowKey")
+      val rowKeyIdx = headers.indexOf("rowkey")
 
-      while(!finished){
+      while (!finished) {
 
-        val (taxonConceptID, lines, nextLine) = readAllForTaxon(reader,nextTaxonConceptID, taxonIDIdx,lastLine)
+        val (taxonConceptID, lines, nextLine) = readAllForTaxon(reader, nextTaxonConceptID, taxonIDIdx, lastLine)
         lastLine = nextLine
 
         logger.info(taxonConceptID + ", records: " + lines.size)
         logger.debug(lines.head.mkString(","))
 
-        val resultsBuffer = new ListBuffer[(String,Seq[SampledRecord],JackKnifeStats)]
+        val resultsBuffer = new ListBuffer[(String, Seq[SampledRecord], JackKnifeStats)]
         val recordIds = new ListBuffer[String]
         var loadedIds = false
-          //run jacknife for each variable
+        //run jacknife for each variable
         variables.foreach(variable => {
           //println("Testing with variable name: " + variable)
 
@@ -233,12 +246,12 @@ object ReverseJacknifeProcessor extends Tool {
           //create a set of points
           lines.foreach(line => {
             val variableValue = line(variableIdx)
-            val latitude = line(latitudeIdx )
+            val latitude = line(latitudeIdx)
             val longitude = line(longitudeIdx)
-            if (!loadedIds){
+            if (!loadedIds) {
               recordIds += line(rowKeyIdx)
             }
-            if (variableValue != "" && variableValue != null && latitude != "" && longitude != ""){
+            if (variableValue != "" && variableValue != null && latitude != "" && longitude != "") {
               val cellId = getCellId(grid, latitude.toFloat, longitude.toFloat)
               pointBuffer += SampledRecord(line(uuidIdx), variableValue.toFloat, cellId, Some(line(rowKeyIdx)))
             }
@@ -246,7 +259,7 @@ object ReverseJacknifeProcessor extends Tool {
 
           //we gots points - lets run that mofo
           val (recordsIDs, stats) = performJacknife(pointBuffer)
-          if (!stats.isEmpty){
+          if (!stats.isEmpty) {
             resultsBuffer += ((variable, recordsIDs, stats.get))
             recordsIDs.foreach { x => idsWriter.write(x.id); idsWriter.write("\n") }
             idsWriter.flush
@@ -255,12 +268,12 @@ object ReverseJacknifeProcessor extends Tool {
           //println("Time taken for [Jacknife]: " + (now - startTime)/1000)
           timings checkpoint "jacknife with " + variable
 
-          if(logger.isDebugEnabled()){
+          if (logger.isDebugEnabled()) {
             logger.debug(">>> For layer: %s we've detected: %d outliers out of %d records tested.".format(variable, recordsIDs.length, lines.size))
           }
 
-          if(recordsIDs.length  >  lines.size){
-            if(logger.isDebugEnabled()){
+          if (recordsIDs.length > lines.size) {
+            if (logger.isDebugEnabled()) {
               logger.debug(">>> records: %d, distinct values: %d".format(recordsIDs.length, recordsIDs.toSet.size))
             }
             throw new RuntimeException("Error in processing")
@@ -272,8 +285,10 @@ object ReverseJacknifeProcessor extends Tool {
         //now identify the records that were not outlier but were tested.
         //If outliers were NOT testsed the resutlsBuffer will be empty.
         val passedRecords = {
-          if(!resultsBuffer.isEmpty){
-            recordIds.toSet &~ resultsBuffer.map{_._2}.foldLeft(ListBuffer[SampledRecord]())(_ ++ _).map(v=>v.rowKey.getOrElse(v.id)).toSet
+          if (!resultsBuffer.isEmpty) {
+            recordIds.toSet &~ resultsBuffer.map {
+              _._2
+            }.foldLeft(ListBuffer[SampledRecord]())(_ ++ _).map(v => v.rowKey.getOrElse(v.id)).toSet
           } else {
             Set[String]()
           }
@@ -281,7 +296,7 @@ object ReverseJacknifeProcessor extends Tool {
 
         logger.info("The records that passed " + passedRecords.size + " " + recordIds.size)
         //store the results for this taxon
-        storeResultsWithStats(taxonConceptID, resultsBuffer, passedRecords,idsWriter, queue,lastModifiedDate,field,passWriter)
+        storeResultsWithStats(taxonConceptID, resultsBuffer, passedRecords, idsWriter, queue, lastModifiedDate, field, passWriter)
 
         if (nextLine == null) {
           finished = true
@@ -296,7 +311,7 @@ object ReverseJacknifeProcessor extends Tool {
       passWriter.close
 
       //reindex the records that have been marked as outliers
-      if(index){
+      if (index) {
         logger.debug("Starting the indexing of marked records....")
         IndexRecords.indexListOfUUIDs(uuidIndexFile)
         logger.debug("Finished the indexing of marked records.")
@@ -305,57 +320,60 @@ object ReverseJacknifeProcessor extends Tool {
   }
 
   /**
-   * Reads all the records for the supplied taxonConceptID
-   * 
-   * @param reader
-   * @param taxonConceptID
-   * @return
-   */
-  def readAllForTaxon(reader:CSVReader, taxonConceptID:String, taxonConceptIDIdx:Int,
-                      lastLine:Array[String] = Array()): (String,  Seq[Array[String]], Array[String]) = {
+    * Reads all the records for the supplied taxonConceptID
+    *
+    * @param reader
+    * @param taxonConceptID
+    * @return
+    */
+  def readAllForTaxon(reader: CSVReader, taxonConceptID: String, taxonConceptIDIdx: Int,
+                      lastLine: Array[String] = Array()): (String, Seq[Array[String]], Array[String]) = {
 
-    var currentLine:Array[String] = reader.readNext()
-    val idForBatch:String = if (taxonConceptID != ""){
+    var currentLine: Array[String] = reader.readNext()
+    val idForBatch: String = if (taxonConceptID != "") {
       taxonConceptID
     } else {
       currentLine(taxonConceptIDIdx)
     }
-    
+
     logger.debug("###### Running for:" + idForBatch)
 
     val buffer = new ListBuffer[Array[String]]
-    if (!lastLine.isEmpty){
+    if (!lastLine.isEmpty) {
       buffer += lastLine
     }
 
-    while(currentLine != null && currentLine(taxonConceptIDIdx) == idForBatch){
+    while (currentLine != null && currentLine(taxonConceptIDIdx) == idForBatch) {
       buffer += currentLine
       currentLine = reader.readNext()
     }
-    
+
     (idForBatch, buffer, currentLine)
   }
 
   /**
-   * This is for adhoc one-off testing of outlier detection.
-   * This method will dynamically download data from the biocache webservices
-   * and run jack knife for a selected group of layers.
-   *
-   * @param lsid
-   */
-  def testForOutliers(lsid:String, persistResults:Boolean = false){
+    * This is for adhoc one-off testing of outlier detection.
+    * This method will dynamically download data from the biocache webservices
+    * and run jack knife for a selected group of layers.
+    *
+    * @param lsid
+    */
+  def testForOutliers(lsid: String, persistResults: Boolean = false) {
     val variablesToTest = Array("el889", "el882", "el887", "el865", "el894")
     val requiredFields = Array("id", "latitude", "longitude") ++ variablesToTest
 
     val u = new URL(Config.biocacheServiceUrl + "/webportal/occurrences.gz?pageSize=3000000&q=lsid:\"" +
-        lsid + "\"&fl=" + requiredFields.mkString(","))
+      lsid + "\"&fl=" + requiredFields.mkString(","))
 
     val in = u.openStream
-    val file = new File( Config.tmpWorkDir + "/occurrences.gz")
+    val file = new File(Config.tmpWorkDir + "/occurrences.gz")
     val out = new FileOutputStream(file)
     val buffer: Array[Byte] = new Array[Byte](1024)
     var numRead = 0
-    while ({ numRead = in.read(buffer); numRead != -1 }) {
+    while ( {
+      numRead = in.read(buffer)
+      numRead != -1
+    }) {
       out.write(buffer, 0, numRead)
       out.flush
     }
@@ -367,18 +385,18 @@ object ReverseJacknifeProcessor extends Tool {
 
     //outlier values for each layer
     val outlierValues: Seq[(String, Seq[SampledRecord])] = variablesToTest.map(variable => {
-     // println("************ test with " + variable)
-      val (list,stats) = performJacknife(variable, extractedFile, requiredFields)
-      logger.info("Variable: %s, Outliers: %d".format(variable,list.size))
+      // println("************ test with " + variable)
+      val (list, stats) = performJacknife(variable, extractedFile, requiredFields)
+      logger.info("Variable: %s, Outliers: %d".format(variable, list.size))
       list.foreach(println(_))
       variable -> list
     })
 
     //create the inverse e.g UUID -> layer1, layer2
-    val record2Layer:Seq[(SampledRecord, String)] = invertLayer2Record(outlierValues)
+    val record2Layer: Seq[(SampledRecord, String)] = invertLayer2Record(outlierValues)
 
     //store this
-    if(persistResults) storeResults(lsid, record2Layer)
+    if (persistResults) storeResults(lsid, record2Layer)
 
     val recordLayerCounts = generateOutlierCounts(record2Layer)
     val outlier5 = recordLayerCounts.filter(x => x._2 == 5).map(x => x._1).toList
@@ -394,9 +412,9 @@ object ReverseJacknifeProcessor extends Tool {
     printLinksForRecords(1, outlier1)
   }
 
-  def storeResultsWithStats(taxonID:String, results:Seq[(String, Seq[SampledRecord], JackKnifeStats)],
-                            passed:Set[String], idsWriter:FileWriter, queue:ArrayBlockingQueue[String],
-                            lastModifiedDate:Option[String], field:String, passedWriter:FileWriter){
+  def storeResultsWithStats(taxonID: String, results: Seq[(String, Seq[SampledRecord], JackKnifeStats)],
+                            passed: Set[String], idsWriter: FileWriter, queue: ArrayBlockingQueue[String],
+                            lastModifiedDate: Option[String], field: String, passedWriter: FileWriter) {
 
     val mapper = new ObjectMapper
     mapper.registerModule(DefaultScalaModule)
@@ -408,12 +426,12 @@ object ReverseJacknifeProcessor extends Tool {
 
     //recordUUID -> list of layers
     val variableResults = results.map(x => (x._1, x._2))
-    val record2OutlierLayer:Seq[(SampledRecord, String)] = invertLayer2Record(variableResults)
+    val record2OutlierLayer: Seq[(SampledRecord, String)] = invertLayer2Record(variableResults)
 
     val previous = try {
       Config.persistenceManager.get(taxonID, "outliers", "jackKnifeOutliers")
     } catch {
-      case _:Exception => None
+      case _: Exception => None
     }
 
     if (!previous.isEmpty) {
@@ -443,19 +461,19 @@ object ReverseJacknifeProcessor extends Tool {
 
     recordStats.groupBy(_.uuid).foreach(x => {
       val rowKey = Config.occurrenceDAO.getRowKeyFromUuid(x._1)
-      if (!rowKey.isEmpty){
+      if (!rowKey.isEmpty) {
         val layerIds = x._2.map(_.layerId).toList
         Config.persistenceManager.put(rowKey.get, "occ", "outlierForLayers" + Config.persistenceManager.fieldDelimiter + "p", mapper.writeValueAsString(layerIds), true, false)
         Config.occurrenceDAO.addSystemAssertion(rowKey.get, QualityAssertion(AssertionCodes.DETECTED_OUTLIER, "Outlier for " + x._2.size + " layers"))
         Config.persistenceManager.put(x._1, "occ_outliers", "jackKnife", mapper.writeValueAsString(x._2), true, false)
       } else {
-        logger.debug("Row key lookup failed for : "  + x._1)
+        logger.debug("Row key lookup failed for : " + x._1)
       }
     })
 
     //reset the records that are no longer considered outliers -
     //do an ID diff between the results
-    val previousIDs:Array[String] = {
+    val previousIDs: Array[String] = {
       if (previous.isDefined) {
         val jsonPath = JsonPath.compile("$..id")
         val idArray = jsonPath.read(previous.get).asInstanceOf[JSONArray]
@@ -466,61 +484,61 @@ object ReverseJacknifeProcessor extends Tool {
     }
 
     logger.debug("previousIDs: " + previousIDs)
-    val currentIDs = record2OutlierLayer.map({case(sampledRecord, id) => sampledRecord.id}).toArray
+    val currentIDs = record2OutlierLayer.map({ case (sampledRecord, id) => sampledRecord.id }).toArray
 
     //IDs in the previous not in current need to be reset
     val newIDs = previousIDs diff currentIDs
     logger.debug("previous : " + previousIDs.size + " current " + currentIDs.size + " new : " + newIDs.size)
     logger.debug("[WARNING] Number of old IDs not marked as outliers anymore: " + newIDs.size)
 
-    newIDs.foreach(recordID =>  {
-      logger.debug("Record " + recordID +" is no longer an outlier")
+    newIDs.foreach(recordID => {
+      logger.debug("Record " + recordID + " is no longer an outlier")
       val rowKey = Config.occurrenceDAO.getRowKeyFromUuid(recordID)
-      if (!rowKey.isEmpty){
+      if (!rowKey.isEmpty) {
         //add the uuid as one that is needing reindexing:
         idsWriter.write(recordID)
         idsWriter.write("\n")
-        Config.persistenceManager.deleteColumns(rowKey.get, "occ", "outlierForLayers.p")
+        Config.persistenceManager.deleteColumns(rowKey.get, "occ", "outlierForLayers" + Config.persistenceManager.fieldDelimiter + "p")
         //remove the system assertions
         //Config.occurrenceDAO.removeSystemAssertion(rowKey.get, AssertionCodes.DETECTED_OUTLIER)
-        Config.occurrenceDAO.addSystemAssertion(rowKey.get,QualityAssertion(AssertionCodes.DETECTED_OUTLIER, 1),replaceExistCode = true)
+        Config.occurrenceDAO.addSystemAssertion(rowKey.get, QualityAssertion(AssertionCodes.DETECTED_OUTLIER, 1), replaceExistCode = true)
       }
     })
 
-    val rowkeys = if(lastModifiedDate.isDefined) {
+    val rowkeys = if (lastModifiedDate.isDefined) {
       Some(getRecordsChangedSince(lastModifiedDate.get, field, taxonID))
     } else {
       None
     }
 
-    passed.foreach(rowKey=>{
-      if(rowkeys.isEmpty || rowkeys.get.contains(rowKey)){
+    passed.foreach(rowKey => {
+      if (rowkeys.isEmpty || rowkeys.get.contains(rowKey)) {
         passedWriter.write(rowKey + "\n")
       }
     })
     passedWriter.flush()
   }
 
-  def getRecordsChangedSince(date:String, field:String, taxonId:String):List[String]={
-    val buf =new ArrayBuffer[String]()
-    Config.indexDAO.pageOverFacet((value,count)=>{
+  def getRecordsChangedSince(date: String, field: String, taxonId: String): List[String] = {
+    val buf = new ArrayBuffer[String]()
+    Config.indexDAO.pageOverFacet((value, count) => {
       buf += value
       true
-    }, "row_key", field +":\"" + taxonId +"\"", Array("last_load_date:["+date + " TO *]"))
+    }, "row_key", field + ":\"" + taxonId + "\"", Array("last_load_date:[" + date + " TO *]"))
     buf.toList
   }
 
-  def storeResults(taxonID:String, record2Layers:Seq[(SampledRecord, String)] ){
+  def storeResults(taxonID: String, record2Layers: Seq[(SampledRecord, String)]) {
     Config.persistenceManager.put(taxonID, "outliers", "current", record2Layers.toString, true, false)
   }
 
-  def invertLayer2Record(layer2Record: Seq[(String, Seq[SampledRecord])]) : Seq[(SampledRecord, String)] = {
+  def invertLayer2Record(layer2Record: Seq[(String, Seq[SampledRecord])]): Seq[(SampledRecord, String)] = {
     //group by recordUuid
     val record2Layer = new ListBuffer[(SampledRecord, String)]
-    
+
     layer2Record.foreach(layer2Record => {
       val (layerId, records) = (layer2Record._1, layer2Record._2)
-      records.foreach(r => record2Layer.append((r, layerId)))  //thi
+      records.foreach(r => record2Layer.append((r, layerId))) //thi
     })
 
     record2Layer
@@ -538,11 +556,11 @@ object ReverseJacknifeProcessor extends Tool {
     logger.info("************************ end of outlier for : " + count + " ******************")
   }
 
-  def generateOutlierCounts(outliers:Seq[(SampledRecord, String)]): Seq[(String, Int)] = {
+  def generateOutlierCounts(outliers: Seq[(SampledRecord, String)]): Seq[(String, Int)] = {
     //convert the map into a map keyed on recordID
     val recordIds = outliers.map(x => x._1.id).toSet.toArray
-    val counts = Array.fill(recordIds.size)(0)    
-    outliers.foreach(r => {       
+    val counts = Array.fill(recordIds.size)(0)
+    outliers.foreach(r => {
       val recordIdx = recordIds.indexOf(r._1.id)
       counts(recordIdx) = counts(recordIdx) + 1
     })
@@ -550,23 +568,23 @@ object ReverseJacknifeProcessor extends Tool {
   }
 
   /**
-   * Returns a list of UUIDs for records which are outliers.
-   *
-   * @param variableName
-   * @param file
-   * @return
-   */
-  def performJacknife(variableName: String, file: File, headersFields:Seq[String] = List.empty): (Seq[SampledRecord],Option[JackKnifeStats]) = {
+    * Returns a list of UUIDs for records which are outliers.
+    *
+    * @param variableName
+    * @param file
+    * @return
+    */
+  def performJacknife(variableName: String, file: File, headersFields: Seq[String] = List.empty): (Seq[SampledRecord], Option[JackKnifeStats]) = {
     val r = new CSVReader(new FileReader(file))
     if (r.readNext() == null) {
       return (List[SampledRecord](), None)
     }
-    val headers = if(headersFields.isEmpty){
+    val headers = if (headersFields.isEmpty) {
       r.readNext().toList
     } else {
       headersFields //if the supplied headers arent empty, assume first line are headers
-    } 
-    
+    }
+
     val grid = new Grid(envLayerMap(variableName))
 
     val points = new ListBuffer[SampledRecord]
@@ -582,7 +600,7 @@ object ReverseJacknifeProcessor extends Tool {
         val elValue = fields(variableName).toFloat
         val cellId = getCellId(x.toDouble, y.toDouble, grid.xmin, grid.xmax, grid.xres, grid.ymin, grid.ymax, grid.yres, grid.nrows, grid.ncols)
 
-        points += SampledRecord(id,elValue,cellId)
+        points += SampledRecord(id, elValue, cellId)
       }
       line = r.readNext()
     }
@@ -592,13 +610,13 @@ object ReverseJacknifeProcessor extends Tool {
   }
 
   /**
-   * Run jacknife on these points, returning the IDs of the records that are outliers.
-   *
-   * @param points
-   * @return a list of UUIDs for records that are outliers
-   */
-  def performJacknife(points:Seq[SampledRecord]) : (Seq[SampledRecord], Option[JackKnifeStats]) = {
-    
+    * Run jacknife on these points, returning the IDs of the records that are outliers.
+    *
+    * @param points
+    * @return a list of UUIDs for records that are outliers
+    */
+  def performJacknife(points: Seq[SampledRecord]): (Seq[SampledRecord], Option[JackKnifeStats]) = {
+
     //we have a points, group by on cellId as we only want to sample once per cell
     val pointsGroupedByCell = points.groupBy(p => p.cellId)
 
@@ -633,26 +651,26 @@ object ReverseJacknifeProcessor extends Tool {
     }
   }
 
-  def getCellId(grid:Grid, latitude:Float, longitude:Float): Int = {
+  def getCellId(grid: Grid, latitude: Float, longitude: Float): Int = {
     getCellId(longitude.toDouble, latitude.toDouble, grid.xmin, grid.xmax, grid.xres, grid.ymin, grid.ymax, grid.yres, grid.nrows, grid.ncols)
   }
 
   /**
-   * Get a cell id
-   *
-   * @param fid e.g. el882
-   * @param latitude
-   * @param longitude
-   * @return
-   */
-  def getCellId(fid:String, latitude:Float, longitude:Float): Int = {
+    * Get a cell id
+    *
+    * @param fid e.g. el882
+    * @param latitude
+    * @param longitude
+    * @return
+    */
+  def getCellId(fid: String, latitude: Float, longitude: Float): Int = {
     val grid = new Grid(envLayerMap(fid))
     getCellId(longitude.toDouble, latitude.toDouble, grid.xmin, grid.xmax, grid.xres, grid.ymin, grid.ymax, grid.yres, grid.nrows, grid.ncols)
   }
 
   /**
-   * Retrieves a cell id within a grid file.
-   */
+    * Retrieves a cell id within a grid file.
+    */
   def getCellId(x: Double, y: Double, xmin: Double, xmax: Double, xres: Double, ymin: Double, ymax: Double, yres: Double, nrows: Int, ncols: Int): Int = {
     //handle invalid inputs
     if (x < xmin || x > xmax || y < ymin || y > ymax) {

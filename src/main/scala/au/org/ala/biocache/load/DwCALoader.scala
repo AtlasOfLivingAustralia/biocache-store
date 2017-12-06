@@ -41,7 +41,6 @@ object DwCALoader extends Tool {
 
   val IMAGE_TYPE = GbifTerm.Image
   val MULTIMEDIA_TYPE = GbifTerm.Multimedia
-//  val IDENTIFICATION_TYPE = GbifTerm.
 
   def cmd = "load-dwca"
   def desc = "Load a Darwin Core Archive"
@@ -50,7 +49,7 @@ object DwCALoader extends Tool {
 
     var resourceUid = ""
     var localFilePath:Option[String] = None
-    var logRowKeys = false
+    var logRowKeys = true
     var testFile = false
     var bypassConnParamLookup = false
     var removeNullFields = false
@@ -61,7 +60,6 @@ object DwCALoader extends Tool {
       booleanOpt("b", "bypassConnParamLookup", "bypass connection parameter lookup in the registry (collectory)", {
         v:Boolean => bypassConnParamLookup = v }
       )
-      opt("log","log row keys to file - allows processing/indexing of changed records",{ logRowKeys = true })
       opt("test", "test the file only do not load", { testFile = true })
       opt("rnf", "remove-null-fields", "Remove the null/Empty fields currently exist in the atlas", { removeNullFields = true })
       opt("lmo", "load-missing-only", "Load missing records only", { loadMissingOnly = true })

@@ -3,12 +3,12 @@ package au.org.ala.biocache.processor
 import au.org.ala.biocache.vocab.AssertionCodes
 
 /**
- * Singleton that maintains the workflow of processors
- */
+  * Singleton that maintains the workflow of processors
+  */
 object Processors {
 
   import AssertionCodes._
-  
+
   def foreach(proc: Processor => Unit) = processorMap.values.foreach(proc)
 
   //need to preserve the ordering of the Processors so that the default values are populated first
@@ -24,7 +24,8 @@ object Processors {
     "LOC" -> new LocationProcessor,
     "SENSITIVE" -> new SensitivityProcessor,
     "TS" -> new TypeStatusProcessor,
-    "IQ" -> new IdentificationQualifierProcessor
+    "IQ" -> new IdentificationQualifierProcessor,
+    "REPROCESSING" -> new ReprocessingProcessor
   )
 
   //TODO A better way to do this. Maybe need to group QA failures by issue type instead of phase.

@@ -9,7 +9,7 @@ import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.{FullRecord, Processed, QualityAssertion, Versions}
 import org.slf4j.LoggerFactory
 
-import scala.Some
+import scala.collection.mutable
 
 /**
  * Runnable for starting record processing.
@@ -52,40 +52,18 @@ class RecordProcessor {
   val processTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
   val duplicates = List("D", "D1", "D2")
 
-  /**
-    * Processes a list of records
-    */
-  def processRecords(rowKeys: List[String]) {
-    logger.debug("Starting to process all the records in the list: " + rowKeys)
-    var counter = 0
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
-    rowKeys.foreach { rowKey =>
-      val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(rowKey)
-      if (!rawProcessed.isEmpty) {
-        val rp = rawProcessed.get
-        processRecord(rp(0), rp(1))
-
-        //debug counter
-        if (counter % 100 == 0) {
-          finishTime = System.currentTimeMillis
-          logger.debug(counter + " >> Last key : " + rp(0).rowKey + ", records per sec: " + 100f / (((finishTime - startTime).toFloat) / 1000f))
-          startTime = System.currentTimeMillis
-        }
-      }
-      counter += 1
-    }
-  }
+  val processTimings: mutable.Map[String, Long] = scala.collection.mutable.Map[String, Long]()
 
   /**
-    * Process a record, adding metadata and records quality systemAssertions.
-    * This version passes the original to optimise updates.
-    *
-    * When it is a batch, the record to be updated is returned for batch commits with writeProcessBatch.
-    *
-    * When it is a firstLoad, there will be no offline assertions
-    */
-  def processRecord(raw: FullRecord, currentProcessed: FullRecord, batch: Boolean = false, firstLoad: Boolean = false): Map[String, Object] = {
+   * Process a record, adding metadata and records quality systemAssertions.
+   * This version passes the original to optimise updates.
+   *
+   * When it is a batch, the record to be updated is returned for batch commits with writeProcessBatch.
+   *
+   * When it is a firstLoad, there will be no offline assertions 
+   */
+  def processRecord(raw: FullRecord, currentProcessed: FullRecord, batch: Boolean = false, firstLoad: Boolean = false,
+                    processors: Option[String] = None): Map[String, Object] = {
     try {
       val guid = raw.rowKey
       val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
@@ -95,12 +73,26 @@ class RecordProcessor {
       var assertions = new scala.collection.mutable.HashMap[String, Array[QualityAssertion]]
 
       //run each processor in the specified order
-      Processors.foreach(processor => {
+      Processors.foreach { processor =>
         // when processing a new record (firstLoad==true), there is no need to include offline processing
         if (!processor.getName.equals("offline") || !firstLoad) {
-          assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+          val start = System.nanoTime()
+          try {
+            if (processors.isEmpty || processors.get.contains(processor.getName)) {
+              assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+            } else {
+              assertions += (processor.getName -> processor.skip(guid, raw, processed, Some(currentProcessed)))
+            }
+          } catch {
+            case e: Exception => {
+              logger.warn("Non-fatal error processing record: " + raw.rowKey + ", processorName: " + processor.getName + ", error: " + e.getMessage(), e)
+            }
+          } finally {
+            val currentTime = (System.nanoTime() - start) + processTimings.getOrElse(processor.getName, 0L)
+            processTimings += (processor.getName -> currentTime)
+          }
         }
-      })
+      }
 
       //mark the processed time
       processed.lastModifiedTime = processTime
@@ -127,10 +119,10 @@ class RecordProcessor {
   }
 
   /**
-    * commits batched records returned by processRecord
-    *
-    * @param batch
-    */
+   * commits batched records returned by processRecord
+   *
+   * @param batch
+   */
   def writeProcessBatch(batch: List[Map[String, Object]]) = {
     val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
 
@@ -151,9 +143,9 @@ class RecordProcessor {
   }
 
   /**
-    * Process a record, adding metadata and records quality systemAssertions
-    */
-  def processRecord(raw: FullRecord): (FullRecord, Map[String, Array[QualityAssertion]]) = {
+   * Process a record, adding metadata and records quality systemAssertions
+   */
+  def processRecord(raw:FullRecord) : (FullRecord, Map[String, Array[QualityAssertion]]) = {
 
     //NC: Changed so that a processed record only contains values that have been processed.
     val processed = raw.createNewProcessedRecord
@@ -174,9 +166,9 @@ class RecordProcessor {
   }
 
   /**
-    * Process a record, adding metadata and records quality systemAssertions
-    */
-  def processRecordAndUpdate(raw: FullRecord) {
+   * Process a record, adding metadata and records quality systemAssertions
+   */
+  def processRecordAndUpdate(raw:FullRecord){
 
     val (processed, assertions) = processRecord(raw)
     val systemAssertions = Some(assertions)

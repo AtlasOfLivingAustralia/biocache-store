@@ -42,13 +42,13 @@ trait OccurrenceDAO extends DAO {
 
   def writeToRecordWriter(writer:RecordWriter, rowKeys: Array[String], fields: Array[String], qaFields:Array[String], includeSensitive:Boolean=false, includeMisc:Boolean=false, miscFields:Array[String]=null, dataToInsert:java.util.Map[String, Array[String]] = null): Array[String]
 
-  def pageOverAllVersions(proc: ((Option[Array[FullRecord]]) => Boolean), dataResourceUID:String, pageSize: Int = 1000): Unit
+  def pageOverAllVersions(proc: ((Option[Array[FullRecord]]) => Boolean), dataResourceUid: String, pageSize: Int = 1000): Unit
 
-  def pageOverAll(version: Version, proc: ((Option[FullRecord]) => Boolean), dataResourceUID:String, pageSize: Int = 1000): Unit
+  def pageOverAll(version: Version, proc: ((Option[FullRecord]) => Boolean), dataResourceUid: String, pageSize: Int = 1000): Unit
 
-  def pageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), dataResourceUID:String, pageSize: Int = 1000): Unit
+  def pageOverRawProcessed(proc: (Option[(FullRecord, FullRecord)] => Boolean), dataResourceUid: String, pageSize: Int = 1000, threads: Int = 4): Unit
 
-  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), dataResourceUID:String, threads: Int = 4) : Int
+  def pageOverRawProcessedLocal(proc: (Option[(FullRecord, FullRecord)] => Boolean), dataResourceUid: String, threads: Int = 4): Int
 
   def addRawOccurrence(fullRecord: FullRecord,removeNullFields:Boolean): Unit
 

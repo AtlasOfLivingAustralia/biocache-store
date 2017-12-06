@@ -1,7 +1,7 @@
 package au.org.ala.biocache.cmd
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.index.{BulkProcessor, IndexMergeTool, IndexRecords, OptimiseIndex}
+import au.org.ala.biocache.index.{IndexMergeTool, IndexRecords, OptimiseIndex}
 import au.org.ala.biocache.load._
 import au.org.ala.biocache.tool._
 import au.org.ala.biocache.outliers.ReverseJacknifeProcessor
@@ -218,12 +218,12 @@ object CMD2 {
     ExportFromIndexStream,
     ExportAllSpatialSpecies,
     ExportLocalNode,
-    GBIFOrgCSVCreator,
     HabitatLoader,
     Healthcheck,
     ImportUtil,
     IndexRecords,
     IndexLocalRecords,
+    IndexLocalRecordsV2,
     IngestTool,
     IndexMergeTool,
     ListResources,

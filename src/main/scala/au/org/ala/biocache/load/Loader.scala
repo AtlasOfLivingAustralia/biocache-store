@@ -1,48 +1,78 @@
 package au.org.ala.biocache.load
 
-import au.org.ala.biocache.Config
-import scala.io.Source
-import scala.util.parsing.json.JSON
-import scala.collection.JavaConversions
-import scala.collection.mutable.HashMap
+import java.util.Date
+
 import au.org.ala.biocache
+import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.{CMD2, NoArgsTool, Tool}
+import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.util.{OptionParser, StringHelper}
 import org.slf4j.LoggerFactory
 
+import scala.collection.JavaConversions
+import scala.collection.mutable.HashMap
+import scala.io.Source
+import scala.util.parsing.json.JSON
+
 /**
- * Runnable loader that just takes a resource UID and delegates based on the protocol.
- */
+  * Runnable loader that just takes a resource UID and delegates based on the protocol.
+  */
 object Loader extends Tool {
 
   val logger = LoggerFactory.getLogger("Loader")
+
   def cmd = "load"
+
   def desc = "Load a data resource"
 
-  def main(args:Array[String]){
+  def main(args: Array[String]) {
 
-    var dataResourceUid:String = ""
+    var dataResourceUid: String = ""
     var forceLoad = false
     var testLoad = false
     var loadAll = false
     var removeNullFields = false
+    var loadMissingOnly = false
+    var lastUpdated: Option[Date] = None
+    var localFilePath: Option[String] = None
+    var logRowKeys = true
+    var testFile = false
+    var bypassConnParamLookup = false
 
     val parser = new OptionParser(help) {
-      arg("data-resource-uid","The data resource to load. Supports a comma separated list. Specify 'all' to load all", {
-        v:String =>
-          if(v == "all"){
+      arg("data-resource-uid", "The data resource to load. Supports a comma separated list. Specify 'all' to load all", {
+        v: String =>
+          if (v == "all") {
             loadAll = true
           } else {
             dataResourceUid = v
           }
       })
-      opt("fl", "force-load", "Force the (re)load of media", { forceLoad = true })
-      opt("t", "test-load", "Test the (re)load of media", { testLoad = true })
-      opt("rnf", "remove-null-fields", "Remove the null/Empty fields currently exist in the atlas", { removeNullFields = true })
+      opt("fl", "force-load", "Force the (re)load of media", {
+        forceLoad = true
+      })
+      opt("t", "test-load", "Test the (re)load of media", {
+        testLoad = true
+      })
+      opt("rnf", "remove-null-fields", "Remove the null/Empty fields currently exist in the atlas", {
+        removeNullFields = true
+      })
+      opt("lu", "lastUpdated", "(FlickerLoader only) A limit to load last updated in yyyy-MM-dd format", {
+        v: String => lastUpdated = DateParser.parseStringToDate(v)
+      })
+      opt("l", "local", "(DwCALoader only) skip the download and use local file", { v: String => localFilePath = Some(v) })
+      booleanOpt("b", "bypassConnParamLookup", "(DwCALoader only) bypass connection parameter lookup in the registry (collectory)", {
+        v: Boolean => bypassConnParamLookup = v
+      }
+      )
+      opt("lmo", "load-missing-only", "Load missing records only", { loadMissingOnly = true })
     }
 
-    if(parser.parse(args)){
-      if(loadAll){
+    Config.indexDAO.init
+
+
+    if (parser.parse(args)) {
+      if (loadAll) {
         val l = new Loader
         l.resourceList.foreach { resource => {
           val uid = resource.getOrElse("uid", "")
@@ -50,19 +80,20 @@ object Loader extends Tool {
           logger.info(s"Loading resource $name, uid: $uid")
           if (uid != "") {
             try {
-              l.load(uid, testLoad, forceLoad, removeNullFields)
+              l.load(uid, testLoad, forceLoad, removeNullFields, None, localFilePath, bypassConnParamLookup, logRowKeys, loadMissingOnly)
             } catch {
-              case e:Exception => logger.error(s"Unable to load data resource with $uid. Exception message: $e.getMessage", e)
+              case e: Exception => logger.error(s"Unable to load data resource with $uid. Exception message: $e.getMessage", e)
             }
           }
-        }}
+        }
+        }
       } else {
 
         logger.info("Starting to load resource: " + dataResourceUid)
         val listOfResources = dataResourceUid.split(",").map(uid => uid.trim())
         val l = new Loader
         listOfResources.foreach {
-          l.load(_, testLoad, forceLoad, removeNullFields)
+          l.load(_, testLoad, forceLoad, removeNullFields, None, localFilePath, bypassConnParamLookup, logRowKeys, loadMissingOnly)
         }
         logger.info("Completed loading resource: " + dataResourceUid)
       }
@@ -72,28 +103,33 @@ object Loader extends Tool {
 
 object Healthcheck extends NoArgsTool {
   def cmd = "healthcheck"
+
   def desc = "Run a health check on the configured resources"
-  def main(args:Array[String]) = proceed(args, () => (new Loader()).healthcheck)
+
+  def main(args: Array[String]) = proceed(args, () => (new Loader()).healthcheck)
 }
 
 object ListResources extends NoArgsTool {
   def cmd = "list"
+
   def desc = "List configured data resources"
-  def main(args:Array[String]) = proceed(args, () => (new Loader()).printResourceList)
+
+  def main(args: Array[String]) = proceed(args, () => (new Loader()).printResourceList)
 }
 
 object DescribeResource extends Tool {
 
   def cmd = "describe"
+
   def desc = "Describe the configuration for a data resource"
 
-  def main(args:Array[String]){
-    var dataResourceUid:String = ""
+  def main(args: Array[String]) {
+    var dataResourceUid: String = ""
     val parser = new OptionParser(help) {
-      arg("data-resource-uid", "The UID data resource to process, e.g. dr1", {v:String => dataResourceUid = v})
+      arg("data-resource-uid", "The UID data resource to process, e.g. dr1", { v: String => dataResourceUid = v })
     }
 
-    if(parser.parse(args)){
+    if (parser.parse(args)) {
       println("Starting to load resource: " + dataResourceUid)
       val l = new Loader
       l.describeResource(List(dataResourceUid))
@@ -105,10 +141,11 @@ object DescribeResource extends Tool {
 
 class Loader extends DataLoader {
 
-  import JavaConversions._
   import StringHelper._
 
-  def describeResource(drlist:List[String]){
+  import JavaConversions._
+
+  def describeResource(drlist: List[String]) {
     drlist.foreach(dr => {
       retrieveConnectionParameters(dr) match {
         case None => println("Unable to retrieve details of " + dr)
@@ -118,31 +155,37 @@ class Loader extends DataLoader {
           println("Protocol: " + dataResourceConfig.protocol)
           println("URL: " + dataResourceConfig.urls.mkString(";"))
           println("Unique terms: " + dataResourceConfig.uniqueTerms.mkString(","))
-          dataResourceConfig.connectionParams.foreach { println(_) }
-          dataResourceConfig.customParams.foreach { println(_) }
+          dataResourceConfig.connectionParams.foreach {
+            println(_)
+          }
+          dataResourceConfig.customParams.foreach {
+            println(_)
+          }
           println("---------------------------------------")
       }
     })
   }
 
   def printResourceList {
-    if(!resourceList.isEmpty){
+    if (!resourceList.isEmpty) {
       CMD2.printTable(resourceList)
     } else {
       println("No resources are registered in the registry.")
     }
   }
 
-  def resourceList : List[Map[String, String]] = {
+  def resourceList: List[Map[String, String]] = {
     val json = Source.fromURL(Config.registryUrl + "/dataResource?resourceType=records").getLines.mkString
     val drs = JSON.parseFull(json).get.asInstanceOf[List[Map[String, String]]]
     drs
   }
 
-  def load(dataResourceUid: String, test:Boolean=false, forceLoad:Boolean=false, removeNullFields:Boolean=false) {
+  def load(dataResourceUid: String, test: Boolean = false, forceLoad: Boolean = false, removeNullFields: Boolean = false,
+           startDate: Option[Date] = None, localFilePath: Option[String] = None,
+           bypassConnParamLookup: Boolean = false, logRowKeys: Boolean = true, loadMissingOnly: Boolean = false) {
     try {
       val config = retrieveConnectionParameters(dataResourceUid)
-      if(config.isEmpty){
+      if (config.isEmpty) {
         logger.info("Unable to retrieve connection details for  " + dataResourceUid)
         return
       }
@@ -156,17 +199,28 @@ class Loader extends DataLoader {
         case "dwc" => {
           logger.info("Darwin core headed CSV loading")
           val l = new DwcCSVLoader
-          l.load(dataResourceUid, true, test, forceLoad, removeNullFields)
+          l.load(dataResourceUid, false, test, forceLoad, removeNullFields)
         }
         case "dwca" => {
           logger.info("Darwin core archive loading")
           val l = new DwCALoader
-          l.load(dataResourceUid, true, test, forceLoad,removeNullFields)
+          l.deleteOldRowKeys(dataResourceUid)
+          if (localFilePath.isEmpty) {
+            l.load(dataResourceUid, logRowKeys, test, forceLoad, removeNullFields, loadMissingOnly)
+          } else {
+            if (bypassConnParamLookup) {
+              l.loadArchive(localFilePath.get, dataResourceUid, List(), None, false, logRowKeys, test, removeNullFields, loadMissingOnly)
+            } else {
+              l.loadLocal(dataResourceUid, localFilePath.get, logRowKeys, test, removeNullFields, loadMissingOnly)
+            }
+          }
+          //initialise the delete & update the collectory information
+          l.updateLastChecked(dataResourceUid)
         }
         case "digir" => {
           logger.info("digir webservice loading")
           val l = new DiGIRLoader
-          if(!test)
+          if (!test)
             l.load(dataResourceUid)
           else
             println("TESTING is not supported for DiGIR")
@@ -174,8 +228,8 @@ class Loader extends DataLoader {
         case "flickr" => {
           logger.info("flickr webservice loading")
           val l = new FlickrLoader
-          if(!test)
-            l.load(dataResourceUid, true)
+          if (!test)
+            l.load(dataResourceUid, startDate, None, true, lastUpdatedDate = None)
           else
             println("TESTING is not supported for Flickr")
         }
@@ -195,7 +249,7 @@ class Loader extends DataLoader {
         }
         case "customwebservice" => {
           logger.info("custom webservice loading")
-          if(!test){
+          if (!test) {
             val className = config.get.customParams.getOrElse("classname", null)
             if (className == null) {
               println("Classname of custom harvester class not present in parameters")
@@ -215,15 +269,15 @@ class Loader extends DataLoader {
         case "autofeed" => {
           logger.info("AutoFeed Darwin core headed CSV loading")
           val l = new AutoDwcCSVLoader
-          if(!test)
-            l.load(dataResourceUid, forceLoad=forceLoad)
+          if (!test)
+            l.load(dataResourceUid, forceLoad = forceLoad)
           else
             logger.warn("TESTING is not supported for auto-feed")
         }
         case "nbn" => {
           logger.info("NBN exchange format loading")
           val l = new NBNFormatLoader
-          if(!test)
+          if (!test)
             l.load(dataResourceUid, true)
           else
             println("TESTING is not supported for NBN exchange format")
@@ -235,7 +289,7 @@ class Loader extends DataLoader {
       case e: Exception => logger.error(e.getMessage(), e); throw e
     }
 
-    if(test){
+    if (test) {
       println("Check the output for any warning/error messages.")
       println("If there are any new institution and collection codes ensure that they are handled correctly in the Collectory.")
       println("""Don't forget to check that number of NEW records.  If this is high for updated data set it may indicate that the "unique values" have changed format.""")
@@ -252,13 +306,13 @@ class Loader extends DataLoader {
 
       val drUid = dr.getOrElse("uid", "")
       val drName = dr.getOrElse("name", "")
-      val connParams  =  dr.getOrElse("connectionParameters", Map[String,AnyRef]()).asInstanceOf[Map[String,AnyRef]]
+      val connParams = dr.getOrElse("connectionParameters", Map[String, AnyRef]()).asInstanceOf[Map[String, AnyRef]]
 
-      if(connParams != null){
+      if (connParams != null) {
         val protocol = connParams.getOrElse("protocol", "").asInstanceOf[String].toLowerCase
 
         val urlsObject = connParams.getOrElse("url", List[String]())
-        val urls:Seq[String] = if(urlsObject.isInstanceOf[Seq[_]]){
+        val urls: Seq[String] = if (urlsObject.isInstanceOf[Seq[_]]) {
           urlsObject.asInstanceOf[Seq[String]]
         } else {
           List(connParams("url").asInstanceOf[String])
@@ -269,46 +323,47 @@ class Loader extends DataLoader {
             case "dwc" => checkArchive(drUid, url)
             case "dwca" => checkArchive(drUid, url)
             case "digir" => {
-              if(url == null || url ==""){
+              if (url == null || url == "") {
                 Map("Status" -> "NOT CONFIGURED")
-              } else if(!digirCache.get(url).isEmpty){
+              } else if (!digirCache.get(url).isEmpty) {
                 digirCache.get(url).get
               } else {
                 val result = checkDigir(drUid, url)
-                digirCache.put(url,result)
+                digirCache.put(url, result)
                 result
               }
             }
             case _ => Map("Status" -> "IGNORED")
           }
 
-          if(status.getOrElse("Status", "NO STATUS") != "IGNORED"){
+          if (status.getOrElse("Status", "NO STATUS") != "IGNORED") {
 
             val fileSize = status.getOrElse("Content-Length", "N/A")
             val displaySize = {
-              if(fileSize!= "N/A"){
-                (fileSize.toInt / 1024).toString +"kB"
+              if (fileSize != "N/A") {
+                (fileSize.toInt / 1024).toString + "kB"
               } else {
                 fileSize
               }
             }
-            println(drUid.fixWidth(5)+ "\t"+protocol.fixWidth(8)+"\t" +
-                    status.getOrElse("Status", "NO STATUS").fixWidth(15) +"\t" + drName.fixWidth(65) + "\t" + url.fixWidth(85) + "\t" +
-                    displaySize)
+            println(drUid.fixWidth(5) + "\t" + protocol.fixWidth(8) + "\t" +
+              status.getOrElse("Status", "NO STATUS").fixWidth(15) + "\t" + drName.fixWidth(65) + "\t" + url.fixWidth(85) + "\t" +
+              displaySize)
           }
         })
       }
     })
   }
 
-  def checkArchive(drUid:String, url:String) : Map[String,String] = {
-    if(url != ""){
+  def checkArchive(drUid: String, url: String): Map[String, String] = {
+    if (url != "") {
       val conn = (new java.net.URL(url)).openConnection()
       val headers = conn.getHeaderFields()
-      val map = new HashMap[String,String]
-      headers.foreach({case(header, values) => {
+      val map = new HashMap[String, String]
+      headers.foreach({ case (header, values) => {
         map.put(header, values.mkString(","))
-      }})
+      }
+      })
       map.put("Status", "OK")
       map.toMap
     } else {
@@ -316,18 +371,19 @@ class Loader extends DataLoader {
     }
   }
 
-  def checkDigir(drUid:String, url:String) : Map[String,String] = {
+  def checkDigir(drUid: String, url: String): Map[String, String] = {
 
     try {
       val conn = (new java.net.URL(url)).openConnection()
       val headers = conn.getHeaderFields()
-      val hdrs = new HashMap[String,String]()
-      headers.foreach( {case(header, values) => {
-          hdrs.put(header,values.mkString(","))
-      }})
+      val hdrs = new HashMap[String, String]()
+      headers.foreach({ case (header, values) => {
+        hdrs.put(header, values.mkString(","))
+      }
+      })
       (hdrs + ("Status" -> "OK")).toMap
     } catch {
-      case e:Exception => {
+      case e: Exception => {
         e.printStackTrace
         Map("Status" -> "UNAVAILABLE")
       }

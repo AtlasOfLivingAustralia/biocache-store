@@ -1,22 +1,24 @@
 package au.org.ala.biocache.load
 
-import au.org.ala.biocache.util.OptionParser
-import au.org.ala.biocache.tool.{ProcessRecords, Sampling}
-import au.org.ala.biocache.index.IndexRecords
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.index.IndexRecords
+import au.org.ala.biocache.tool.{ProcessRecords, Sampling}
+import au.org.ala.biocache.util.OptionParser
 import org.slf4j.LoggerFactory
 
 /**
- * Command line tool for ingesting data resources with options to skip
- * sections of the loading process.
- */
+  * Command line tool for ingesting data resources with options to skip
+  * sections of the loading process.
+  */
 object IngestTool extends Tool {
 
   val logger = LoggerFactory.getLogger("IngestTool")
+
   def cmd = "ingest"
+
   def desc = "Load, sample, process and index a dataset"
 
-  def main(args:Array[String]){
+  def main(args: Array[String]) {
 
     var resources = Array[String]()
     var ingestAll = false
@@ -24,13 +26,15 @@ object IngestTool extends Tool {
     var skipSampling = false
     var skipProcessing = false
     var skipIndexing = false
-    var threads:Int = 4
+    var threads: Int = 4
 
     val parser = new OptionParser(help) {
       opt("dr", "dataResourceUid", "comma separated list of resources (uids) to load, sample, process and index. e.g. dr321,dr123", {
         v: String => resources = v.split(",").map(x => x.trim)
       })
-      opt("all", "all-resources", "flag to indicate all resources should be loaded", { ingestAll = true })
+      opt("all", "all-resources", "flag to indicate all resources should be loaded", {
+        ingestAll = true
+      })
       opt("skip-loading", "Ingest but don't load.", {
         skipLoading = true
       })
@@ -43,13 +47,13 @@ object IngestTool extends Tool {
       opt("skip-indexing", "Ingest but don't indexing.", {
         skipIndexing = true
       })
-      intOpt("t","threads","Number of threads to index from", {v:Int => threads = v})
+      intOpt("t", "threads", "Number of threads to index from", { v: Int => threads = v })
     }
 
-    if(parser.parse(args)){
+    if (parser.parse(args)) {
       val l = new Loader
 
-      if(!resources.isEmpty) {
+      if (!resources.isEmpty) {
         resources.foreach(uid => {
           logger.info(s"Ingesting resource uid: $uid")
           if (uid != "") {
@@ -63,12 +67,12 @@ object IngestTool extends Tool {
             )
           }
         })
-      } else if(ingestAll){
+      } else if (ingestAll) {
         (new Loader()).resourceList.foreach(resource => {
           val uid = resource.getOrElse("uid", "")
           val name = resource.getOrElse("name", "")
           logger.info(s"Ingesting resource $name, uid: $uid")
-          if(uid != ""){
+          if (uid != "") {
             IngestTool.ingestResource(
               uid,
               threads,
@@ -86,42 +90,42 @@ object IngestTool extends Tool {
   }
 
   /**
-   * Ingest a resource.
-   *
-   * @param uid
-   * @param skipIndexing
-   * @param skipLoading
-   * @param skipProcessing
-   * @param skipSampling
-   */
+    * Ingest a resource.
+    *
+    * @param uid
+    * @param skipIndexing
+    * @param skipLoading
+    * @param skipProcessing
+    * @param skipSampling
+    */
   def ingestResource(uid: String,
-                     threads:Int,
-                     skipIndexing:Boolean = false,
-                     skipLoading:Boolean = false,
-                     skipProcessing:Boolean = false,
-                     skipSampling:Boolean = false
-                      ) {
-    if(!skipLoading){
+                     threads: Int,
+                     skipIndexing: Boolean = false,
+                     skipLoading: Boolean = false,
+                     skipProcessing: Boolean = false,
+                     skipSampling: Boolean = false
+                    ) {
+    if (!skipLoading) {
       logger.info("Loading: " + uid)
       (new Loader()).load(uid)
     } else {
       logger.info("Skipping loading: " + uid)
     }
-    if(!skipProcessing){
+    if (!skipProcessing) {
       logger.info("Processing: " + uid)
       ProcessRecords.processRecords(uid, threads)
     } else {
       logger.info("Skipping processing: " + uid)
     }
-    if(!skipSampling){
+    if (!skipSampling) {
       logger.info("Sampling: " + uid)
       Sampling.main(Array("-dr", uid, "--crk"))
     } else {
       logger.info("Skipping sampling: " + uid)
     }
-    if(!skipIndexing){
+    if (!skipIndexing) {
       logger.info("Indexing: " + uid)
-      IndexRecords.index(uid, threads)
+      IndexRecords.index(Some(uid), threads = threads)
     } else {
       logger.info("Skipping indexing: " + uid)
     }

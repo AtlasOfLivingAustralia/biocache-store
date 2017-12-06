@@ -1,25 +1,28 @@
 package au.org.ala.biocache.export
 
-import au.org.ala.biocache.util.{OptionParser, FileHelper}
-import java.io.{FileWriter, File}
-import scala.collection.mutable.ArrayBuffer
-import org.apache.commons.io.FileUtils
+import java.io.{File, FileWriter}
+
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.util.{FileHelper, OptionParser}
+import org.apache.commons.io.FileUtils
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
- * A utility that exports data from the search indexes for offline processes.
- *
- * Uses one streamer to write the spatial species to multiple files based on a number of
- * "threads" that will be used to consume the files.
- */
+  * A utility that exports data from the search indexes for offline processes.
+  *
+  * Uses one streamer to write the spatial species to multiple files based on a number of
+  * "threads" that will be used to consume the files.
+  */
 object ExportAllSpatialSpecies extends Tool {
 
   val logger = LoggerFactory.getLogger("ExportAllSpatialSpecies")
 
   def cmd = "export-by-species"
-  def desc = "Export by species CSV data used by outlier, duplicate detection"
+
+  def desc = "Export by species CSV data used by outlier, duplicate detection. From SOLR"
 
   def main(args: Array[String]) {
 
@@ -46,8 +49,8 @@ object ExportAllSpatialSpecies extends Tool {
 }
 
 /**
- * A utility for exporting spatial data.
- */
+  * A utility for exporting spatial data.
+  */
 class ExportAllSpatialSpecies {
 
   val logger = LoggerFactory.getLogger("ExportAllSpatialSpecies")
@@ -68,13 +71,14 @@ class ExportAllSpatialSpecies {
 
   import FileHelper._
 
-  def export(lastWeek:Boolean, threads:Int, exportDirectory:String): Unit = {
+  def export(lastWeek: Boolean, threads: Int, exportDirectory: String): Unit = {
 
     var validGuids: Option[List[String]] = None
 
     if (lastWeek) {
       //need to obtain a list of species guids that have changed in the last week
       def filename = exportDirectory + File.separator + "delta-species-guids.txt"
+
       logger.info("Export GUIDs of species that have changed in last week to: " + filename)
       val args = Array("species_guid", filename, "--lastWeek", "true", "--open")
       ExportFacet.main(args)

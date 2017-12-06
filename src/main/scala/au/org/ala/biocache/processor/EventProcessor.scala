@@ -1,25 +1,30 @@
 package au.org.ala.biocache.processor
 
-import org.slf4j.LoggerFactory
+import java.util.{Date, GregorianCalendar}
 
 import scala.collection.mutable.ArrayBuffer
 import org.apache.commons.lang.time.{DateFormatUtils, DateUtils}
-import java.util.{Date, GregorianCalendar}
-
+import java.util.{GregorianCalendar, Date}
 import org.apache.commons.lang.StringUtils
 import au.org.ala.biocache.parser.DateParser
-import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
-import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, DatePrecision}
+import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
+import au.org.ala.biocache.vocab.{DatePrecision, AssertionStatus, AssertionCodes}
 import au.org.ala.biocache.util.{DateUtil, StringHelper}
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, DatePrecision}
+import org.apache.commons.lang.StringUtils
+import org.apache.commons.lang.time.{DateFormatUtils, DateUtils}
+import org.slf4j.LoggerFactory
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
- * Processor for event (date) information.
- */
+  * Processor for event (date) information.
+  */
 class EventProcessor extends Processor {
 
-  import StringHelper._
   import AssertionCodes._
   import AssertionStatus._
+  import StringHelper._
 
   val logger = LoggerFactory.getLogger("EventProcessor")
 
@@ -52,7 +57,7 @@ class EventProcessor extends Processor {
       && (raw.event.eventDate == null || raw.event.eventDate.isEmpty)
       && (raw.event.eventDateEnd == null || raw.event.eventDateEnd.isEmpty)
       && (raw.event.verbatimEventDate == null || raw.event.verbatimEventDate.isEmpty)
-    ){
+    ) {
       assertions += QualityAssertion(MISSING_COLLECTION_DATE, "No date information supplied")
     } else {
 
@@ -98,14 +103,14 @@ class EventProcessor extends Processor {
 
       //check for sensible year value
       if (year > 0) {
-        val (newComment,newValidYear,newYear) = runYearValidation(year,currentYear,day,month)
+        val (newComment, newValidYear, newYear) = runYearValidation(year, currentYear, day, month)
         comment = newComment
         validYear = newValidYear
         year = newYear
 
-        if (StringUtils.isNotEmpty(comment)){
+        if (StringUtils.isNotEmpty(comment)) {
           assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
-          addPassedInvalidCollectionDate=false
+          addPassedInvalidCollectionDate = false
         }
       }
 
@@ -166,7 +171,7 @@ class EventProcessor extends Processor {
             year = newYear
           }
 
-          if(StringUtils.isNotBlank(parsedDate.get.startDate)){
+          if (StringUtils.isNotBlank(parsedDate.get.startDate)) {
             //we have a complete date
             dateComplete = true
           }
@@ -221,7 +226,7 @@ class EventProcessor extends Processor {
             year = newYear
           }
 
-          if(StringUtils.isNotBlank(parsedDate.get.startDate)){
+          if (StringUtils.isNotBlank(parsedDate.get.startDate)) {
             //we have a complete date
             dateComplete = true
           }
@@ -256,10 +261,10 @@ class EventProcessor extends Processor {
       }
 
       //check to see if we need add a passed test for the invalid collection dates
-      if(addPassedInvalidCollectionDate)
+      if (addPassedInvalidCollectionDate)
         assertions += QualityAssertion(INVALID_COLLECTION_DATE, PASSED)
 
-      if(dateComplete){
+      if (dateComplete) {
         //add a pass condition for this test
         assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, PASSED)
       } else {
@@ -280,9 +285,9 @@ class EventProcessor extends Processor {
     assertions.toArray
   }
 
-  def runYearValidation(rawyear:Int, currentYear:Int, day:Int=0, month:Int=0):(String,Boolean,Int)={
-    var validYear =true
-    var comment=""
+  def runYearValidation(rawyear: Int, currentYear: Int, day: Int = 0, month: Int = 0): (String, Boolean, Int) = {
+    var validYear = true
+    var comment = ""
     var year = rawyear
     if (year > 0) {
       if (year < 100) {
@@ -321,30 +326,30 @@ class EventProcessor extends Processor {
     (comment, validYear, year)
   }
 
-  def processFirstDates(raw:FullRecord, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
+  def processFirstDates(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
     //check to see if the date is the first of a month
-    if(processed.event.day == "1" || processed.event.day == "01"){
+    if (processed.event.day == "1" || processed.event.day == "01") {
       assertions += QualityAssertion(FIRST_OF_MONTH)
       //check to see if the date is the first of the year
-      if(processed.event.month == "01" || processed.event.month == "1") {
+      if (processed.event.month == "01" || processed.event.month == "1") {
         assertions += QualityAssertion(FIRST_OF_YEAR)
         //check to see if the date is the first of the century
-        if(processed.event.year != null){
+        if (processed.event.year != null) {
           val (year, validYear) = validateNumber(processed.event.year, {
             year => year > 0
           })
-          if(validYear && year % 100 == 0){
+          if (validYear && year % 100 == 0) {
             assertions += QualityAssertion(FIRST_OF_CENTURY)
           } else {
             //the date is NOT the first of the century
             assertions += QualityAssertion(FIRST_OF_CENTURY, PASSED)
           }
         }
-      } else if(processed.event.month != null) {
+      } else if (processed.event.month != null) {
         //the date is not the first of the year
         assertions += QualityAssertion(FIRST_OF_YEAR, PASSED)
       }
-    } else if(processed.event.day != null) {
+    } else if (processed.event.day != null) {
       //the date is not the first of the month
       assertions += QualityAssertion(FIRST_OF_MONTH, PASSED)
     }
@@ -379,16 +384,16 @@ class EventProcessor extends Processor {
         raw.miscProperties.get("georeferencedDate")
       }
       val parsedDate = DateParser.parseDate(rawdate)
-      if (parsedDate.isDefined){
+      if (parsedDate.isDefined) {
         processed.location.georeferencedDate = parsedDate.get.startDate
       }
     }
 
-    if (StringUtils.isNotBlank(processed.event.eventDate)){
+    if (StringUtils.isNotBlank(processed.event.eventDate)) {
       val eventDate = DateParser.parseStringToDate(processed.event.eventDate).get
       //now test if the record was identified before it was collected
-      if(StringUtils.isNotBlank(processed.identification.dateIdentified)){
-        if (DateParser.parseStringToDate(processed.identification.dateIdentified).get.before(eventDate)){
+      if (StringUtils.isNotBlank(processed.identification.dateIdentified)) {
+        if (DateParser.parseStringToDate(processed.identification.dateIdentified).get.before(eventDate)) {
           //the record was identified before it was collected !!
           assertions += QualityAssertion(ID_PRE_OCCURRENCE, "The records was identified before it was collected")
         } else {
@@ -397,8 +402,8 @@ class EventProcessor extends Processor {
       }
 
       //now check if the record was georeferenced after the collection date
-      if(StringUtils.isNotBlank(processed.location.georeferencedDate)) {
-        if(DateParser.parseStringToDate(processed.location.georeferencedDate).get.after(eventDate)){
+      if (StringUtils.isNotBlank(processed.location.georeferencedDate)) {
+        if (DateParser.parseStringToDate(processed.location.georeferencedDate).get.after(eventDate)) {
           //the record was not georeference when it was collected!!
           assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, "The record was not georeferenced when it was collected")
         } else {
@@ -408,6 +413,26 @@ class EventProcessor extends Processor {
     }
   }
 
+  def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
+    var assertions = new ArrayBuffer[QualityAssertion]
+
+    //get the data resource information to check if it has mapped collections
+    if (lastProcessed.isDefined) {
+      assertions ++= lastProcessed.get.findAssertions(Array(GEOREFERENCE_POST_OCCURRENCE.code, ID_PRE_OCCURRENCE.code,
+        MISSING_COLLECTION_DATE.code, DAY_MONTH_TRANSPOSED.code, INVALID_COLLECTION_DATE.code,
+        INCOMPLETE_COLLECTION_DATE.code, FIRST_OF_MONTH.code, FIRST_OF_YEAR.code, FIRST_OF_CENTURY.code))
+
+      //update the details from lastProcessed
+      processed.event = lastProcessed.get.event
+      processed.occurrence.modified = lastProcessed.get.occurrence.modified
+      processed.identification.dateIdentified = lastProcessed.get.identification.dateIdentified
+      processed.location.georeferencedDate = lastProcessed.get.location.georeferencedDate
+    }
+
+    assertions.toArray
+  }
+
+
   /**
     * Check the precision of the supplied date and alter the processed date
     *
@@ -415,7 +440,7 @@ class EventProcessor extends Processor {
     * @param processed
     * @param assertions
     */
-  def checkPrecision(raw:FullRecord, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
+  def checkPrecision(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
 
     if(StringUtils.isNotBlank(raw.event.datePrecision) && StringUtils.isNotBlank(processed.event.eventDate)) {
       val matchedTerm = DatePrecision.matchTerm(raw.event.datePrecision)
@@ -456,8 +481,9 @@ class EventProcessor extends Processor {
     }
   }
 
+
   /**
-    * Reformats the date.
+    * TODO handle all the permutations of year and month ranges.
     *
     * @param processed
     * @param format date format to use
@@ -529,16 +555,16 @@ class EventProcessor extends Processor {
         determinedDatePrecision = DAY_RANGE_PRECISION //assume day range precision, then downgrade as required
 
         if(startDate.get.startDay == endDate.get.startDay && StringUtils.isNotEmpty(startDate.get.startDay)
-           &&  startDate.get.startMonth == endDate.get.startMonth && StringUtils.isNotEmpty(startDate.get.startMonth)
-           &&  startDate.get.startYear == endDate.get.startYear && StringUtils.isNotEmpty(startDate.get.startYear)
+          &&  startDate.get.startMonth == endDate.get.startMonth && StringUtils.isNotEmpty(startDate.get.startMonth)
+          &&  startDate.get.startYear == endDate.get.startYear && StringUtils.isNotEmpty(startDate.get.startYear)
         ){
           determinedDatePrecision = DAY_PRECISION
         }
 
         if(
           (startDate.get.startDay != endDate.get.startDay || (StringUtils.isEmpty(startDate.get.startDay) && StringUtils.isEmpty(endDate.get.startDay)))
-          &&  startDate.get.startMonth == endDate.get.startMonth && StringUtils.isNotEmpty(startDate.get.startMonth)
-          &&  startDate.get.startYear == endDate.get.startYear && StringUtils.isNotEmpty(startDate.get.startYear)
+            &&  startDate.get.startMonth == endDate.get.startMonth && StringUtils.isNotEmpty(startDate.get.startMonth)
+            &&  startDate.get.startYear == endDate.get.startYear && StringUtils.isNotEmpty(startDate.get.startYear)
         ){
           determinedDatePrecision = MONTH_PRECISION
         } else if(
@@ -550,7 +576,7 @@ class EventProcessor extends Processor {
         if(
           (startDate.get.startDay != endDate.get.startDay || (StringUtils.isEmpty(startDate.get.startDay) && StringUtils.isEmpty(endDate.get.startDay)))
             &&
-          (startDate.get.startMonth != endDate.get.startMonth || (StringUtils.isEmpty(startDate.get.startMonth) && StringUtils.isEmpty(endDate.get.startMonth)))
+            (startDate.get.startMonth != endDate.get.startMonth || (StringUtils.isEmpty(startDate.get.startMonth) && StringUtils.isEmpty(endDate.get.startMonth)))
             &&
             startDate.get.startYear == endDate.get.startYear && StringUtils.isNotEmpty(startDate.get.startYear)
         ) {
