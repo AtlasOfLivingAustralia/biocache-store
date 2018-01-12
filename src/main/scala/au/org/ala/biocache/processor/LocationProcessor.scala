@@ -571,13 +571,17 @@ class LocationProcessor extends Processor {
             val pre = if (raw.location.coordinatePrecision.contains(".")) raw.location.coordinatePrecision.split("\\.")(1).length else 0
             val lat = processed.location.decimalLatitude
             val long = processed.location.decimalLongitude
-            val latp = if(lat.contains(".")) lat.split("\\.")(1).length else 0
-            val lonp = if(long.contains(".")) long.split("\\.")(1).length else 0
-            if(pre == latp && pre == lonp){
-              // no coordinate precision mismatch exists
-              assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH, PASSED)
+            if(lat != null && long != null) {
+              val latp = if (lat.contains(".")) lat.split("\\.")(1).length else 0
+              val lonp = if (long.contains(".")) long.split("\\.")(1).length else 0
+              if (pre == latp && pre == lonp) {
+                // no coordinate precision mismatch exists
+                assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH, PASSED)
+              } else {
+                assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH)
+              }
             } else {
-              assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH)
+              assertions += QualityAssertion(COORDINATE_PRECISION_MISMATCH, UNCHECKED)
             }
           } else{
             assertions += QualityAssertion(PRECISION_RANGE_MISMATCH, "Coordinate precision is not between 0 and 1" )
