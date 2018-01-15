@@ -155,8 +155,8 @@ object Sampling extends Tool with IncrementalTool with Counter {
   def loadSamplingIntoOccurrences(dataResourceUid: String): Unit = {
     logger.info(s"Starting loading sampling for $dataResourceUid")
     Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
-      val lat = map.getOrElse("decimallatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-      val lon = map.getOrElse("decimallongitude" + Config.persistenceManager.fieldDelimiter + "p", "")
+      val lat = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
+      val lon = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p", "")
       if (lat != null && lon != null) {
         val point = LocationDAO.getSamplesForLatLon(lat, lon)
         if (!point.isEmpty) {
@@ -176,7 +176,7 @@ object Sampling extends Tool with IncrementalTool with Counter {
       true
     },  1000, 1,
       "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p",
-      "decimallongitude" + Config.persistenceManager.fieldDelimiter + "p"
+      "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
     )
   }
 
@@ -288,7 +288,7 @@ class Sampling  {
   val properties = Array(
     "decimalLatitude",
     "decimalLongitude",
-    "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p",
+    "decimalLatitude"  + Config.persistenceManager.fieldDelimiter + "p",
     "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p",
     "verbatimLatitude",
     "verbatimLongitude",
@@ -307,7 +307,6 @@ class Sampling  {
     if (values.isDefined) {
       val coordinates = new HashSet[String]
       handleRecordMap(values.get, coordinates, new LocationProcessor)
-      println(coordinates)
     }
   }
 

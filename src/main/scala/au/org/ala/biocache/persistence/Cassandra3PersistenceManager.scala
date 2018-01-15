@@ -110,7 +110,7 @@ class Cassandra3PersistenceManager  @Inject() (
                 tryQuery = true
                 addFieldToEntity(table, columnName)
               } else {
-                logger.error(s"Incorrect column case. requested: '${columnName}', actual: '${correctCase}, query: " + query)
+                logger.error(s"Incorrect column case. requested: '${columnName}', actual: '${correctCase.getOrElse(null)}', query: " + query)
                 logger.error(missing.getMessage, missing)
                 throw missing
               }
@@ -293,7 +293,14 @@ class Cassandra3PersistenceManager  @Inject() (
     * Only retrieves the supplied fields for the record.
     */
   def getSelected(rowkey: String, entityName: String, propertyNames: Seq[String]): Option[Map[String, String]] = {
-    val select = QueryBuilder.select(propertyNames: _*)
+
+    val propertyNameToUse: Seq[String] = if(Config.caseSensitiveCassandra){
+      propertyNames.toArray.map { "\"" + _ + "\"" }
+    } else {
+      propertyNames
+    }
+
+    val select = QueryBuilder.select(propertyNameToUse: _*)
       .from(entityName)
       .where(QueryBuilder.eq("rowkey", rowkey))
     val rs = session.execute(select)
@@ -403,8 +410,15 @@ class Cassandra3PersistenceManager  @Inject() (
 
     val placeHolders = ",?" * keyValuePairsToUse.size
 
+    val fieldListForQuery = if (Config.caseSensitiveCassandra){
+      keyValuePairsToUse.keySet.toArray.map("\"" + _ + "\"").mkString(",")
+    } else {
+      keyValuePairsToUse.keySet.mkString(",")
+    }
+
+
     val sql =
-      s"INSERT INTO $entityName (rowkey," + keyValuePairsToUse.keySet.mkString(",") + ") VALUES (?" + placeHolders + ")"
+      s"INSERT INTO $entityName (rowkey," + fieldListForQuery + ") VALUES (?" + placeHolders + ")"
 
     val statement = getPreparedStmt(sql, entityName)
 
@@ -526,13 +540,10 @@ class Cassandra3PersistenceManager  @Inject() (
     tableMetadata.getColumns.map(column => column.getName).toList
   }
 
-  def addFieldToEntity(entityName: String, fieldName: String): Unit = {
-    val resultset =
-      if (Config.caseSensitiveCassandra) {
-        session.execute("ALTER TABLE " + entityName + " ADD \"" + fieldName + "\" varchar")
-      } else {
-        session.execute(s"ALTER TABLE $entityName ADD $fieldName varchar")
-      }
+  def addFieldToEntity(entityName: String, fieldName: String): Unit =  if (Config.caseSensitiveCassandra) {
+    session.execute("ALTER TABLE " + entityName + " ADD \"" + fieldName + "\" varchar")
+  } else {
+    session.execute(s"ALTER TABLE $entityName ADD $fieldName varchar")
   }
 
   /**
@@ -542,9 +553,13 @@ class Cassandra3PersistenceManager  @Inject() (
     */
   def pageOverSelect(entityName: String, proc: ((String, Map[String, String]) => Boolean), pageSize: Int, threads: Int, columnName: String*): Int = {
 
-    val columnsString = "rowkey," + columnName.mkString(",")
+    val columnsString = if(Config.caseSensitiveCassandra){
+      "rowkey," + columnName.toArray.map {"\"" + _ + "\""}.mkString(",")
+    } else {
+      "rowkey," + columnName.mkString(",")
+    }
 
-    logger.debug("Start: Testing paging over all")
+    logger.debug("Start: paging over with select - " + columnsString)
 
     val columns = Array(columnName: _*).mkString(",")
     val tokenRanges = getTokenRanges
@@ -959,10 +974,7 @@ class Cassandra3PersistenceManager  @Inject() (
     *
     * @return
     */
-  private def getTokenRanges: Array[TokenRange]
-
-  =
-  {
+  private def getTokenRanges: Array[TokenRange] = {
 
     val metadata = cluster.getMetadata
     val tokenRanges = unwrapTokenRanges(metadata.getTokenRanges()).toArray(new Array[TokenRange](0))
@@ -980,10 +992,7 @@ class Cassandra3PersistenceManager  @Inject() (
     *
     * @return an array of token ranges for this node.
     */
-  private def getTokenRangesForLocalNode: Array[TokenRange]
-
-  =
-  {
+  private def getTokenRangesForLocalNode: Array[TokenRange] = {
 
     val metadata = cluster.getMetadata
     val allHosts = metadata.getAllHosts
@@ -1037,7 +1046,7 @@ class Cassandra3PersistenceManager  @Inject() (
       }
     }
 
-    var result: ListBuffer[TokenRange] = new ListBuffer[TokenRange]
+    var result : ListBuffer[TokenRange] = new ListBuffer[TokenRange]
     localHosts.foreach { host =>
       result.addAll(replicaCount.get(host))
     }
@@ -1045,10 +1054,7 @@ class Cassandra3PersistenceManager  @Inject() (
     result.toList.toArray
   }
 
-  private def unwrapTokenRanges(wrappedRanges: util.Set[TokenRange]): util.Set[TokenRange]
-
-  =
-  {
+  private def unwrapTokenRanges(wrappedRanges: util.Set[TokenRange]): util.Set[TokenRange] = {
     import scala.collection.JavaConversions._
     val tokenRanges: util.HashSet[TokenRange] = new util.HashSet[TokenRange]
     for (tokenRange <- wrappedRanges) {
@@ -1160,13 +1166,9 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * The field delimiter to use
     */
-  override def fieldDelimiter: Char
+  override def fieldDelimiter: Char = '_'
 
-  = '_'
-
-  override def caseInsensitiveFields
-
-  = true
+  override def caseInsensitiveFields = true
 
   /**
     * Creates and populates a secondary index.

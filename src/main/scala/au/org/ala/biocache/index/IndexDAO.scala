@@ -663,7 +663,7 @@ trait IndexDAO {
 
         //the returned list needs to match up with the CSV header
         return List[String](
-          getValue("rowKey", map),
+          getValue("rowkey", map),
           getValue("occurrenceID", map),
           dataHubUids.mkString("|"),
           getParsedValue("dataHub", map),
