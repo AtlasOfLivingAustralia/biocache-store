@@ -111,7 +111,7 @@ object AssertionCodes {
   val DAY_MONTH_TRANSPOSED = ErrorCode("dayMonthTransposed",30009,false,"Day and month transposed", Warning)
   val INCOMPLETE_COLLECTION_DATE = ErrorCode("incompleteCollectionDate",30010,false,"The date supplied was incomplete, missing the day and/or month component", Warning)
 
-  //verified type - this is a special code
+  //verified type - this is a special code indicating a verification of an existing assertion
   val VERIFIED = ErrorCode("userVerified", 50000, true, "Record Verified by collection manager", Verified)
 
  /* val QA_OPEN_ISSUE = ErrorCode("qaStatusOpen", 50001, true, "Open issue", Verified)

@@ -20,7 +20,7 @@ import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.time.DateUtils
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConversions
+import scala.collection.{JavaConversions, mutable}
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -227,6 +227,32 @@ class Cassandra3PersistenceManager  @Inject() (
       get(rowkey.get, entityName)
     } else {
       None
+    }
+  }
+
+  def getAllByIndex(rowkey:String, entityName:String, idxColumn:String) : Seq[Map[String,String]] = {
+
+    val stmt = getPreparedStmt(s"SELECT * FROM $entityName where $idxColumn = ?", entityName)
+    val boundStatement = stmt bind rowkey
+    val rs = session.execute(boundStatement)
+    val rows = rs.iterator
+    if (rows.hasNext()) {
+      val list = new ListBuffer[Map[String,String]]
+
+      while(rows.hasNext){
+        val row = rows.next()
+        val map = mutable.Map[String, String]()
+        row.getColumnDefinitions.foreach { defin =>
+          val value = row.getString(defin.getName)
+          if (value != null) {
+            map.put(defin.getName, value)
+          }
+        }
+        list.insert(0, map.toMap)
+      }
+      list
+    } else {
+      List()
     }
   }
 
@@ -1160,7 +1186,28 @@ class Cassandra3PersistenceManager  @Inject() (
   def delete(rowKey: String, entityName: String) = {
     val deleteStmt = getPreparedStmt(s"DELETE FROM $entityName where rowkey = ?", entityName)
     val boundStatement = deleteStmt bind rowKey
-    session.execute(boundStatement)
+    val resultSet = session.execute(boundStatement)
+    resultSet
+  }
+
+  /**
+    * Removes the record for the supplied properties from entityName.
+    */
+  def delete(properties: Map[String, String], entityName: String) = {
+
+    val query = "DELETE FROM " + entityName + " where " +
+      properties.keySet.map { "\"" + _ + "\" = ?"}.mkString(" AND ")
+
+    try {
+      val deleteStmt = getPreparedStmt(query, entityName)
+
+      val boundStatement =  deleteStmt.bind(properties.values.toArray:_*)
+
+      val resultSet = session.execute(boundStatement)
+      resultSet
+    } catch {
+      case e:Exception => e.printStackTrace()
+    }
   }
 
   /**

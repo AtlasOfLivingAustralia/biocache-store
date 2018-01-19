@@ -44,6 +44,10 @@ trait PersistenceManager {
    * Gets KVP map for a record based on a value in an index
    */
   def getByIndex(rowkey:String, entityName:String, idxColumn:String) : Option[Map[String,String]]
+  /**
+    * Gets KVP map for a record based on a value in an index
+    */
+  def getAllByIndex(rowkey:String, entityName:String, idxColumn:String) : Seq[Map[String,String]]
 
   /**
    * Gets a single property based on an indexed value.  Returns the value of the "first" matched record.
@@ -138,6 +142,11 @@ trait PersistenceManager {
    * Delete row
    */
   def delete(rowKey:String, entityName:String)
+
+  /**
+    * Delete row with the supplied properties
+    */
+  def delete(properties:Map[String,String], entityName:String)
 
   /**
    * Close db connections etc

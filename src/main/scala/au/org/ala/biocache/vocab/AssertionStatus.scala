@@ -11,11 +11,11 @@ object AssertionStatus {
   val UNCHECKED = 2
 
   // For user assertions
-  val QA_OPEN_ISSUE = 50001
-  val QA_VERIFIED = 50002
-  val QA_CORRECTED = 50003
-  val QA_NONE = 50004
-  val QA_UNCONFIRMED = 50005
+  val QA_OPEN_ISSUE = 50001  //open and unresolved issue with the data - but confirmed as a problem
+  val QA_VERIFIED = 50002    //record has been verified by collection manager as being correct to the best of their knowledge.
+  val QA_CORRECTED = 50003   //the record has been corrected by data custodian - the update may or may not be visible yet
+  val QA_NONE = 50004        //status of a record with no user assertions ??
+  val QA_UNCONFIRMED = 50005 //open issue
 
   def isUserAssertionType(code:Int) :Boolean = {
     (code == QA_OPEN_ISSUE || code == QA_UNCONFIRMED || code == QA_NONE || code == QA_VERIFIED || code == UNCHECKED)

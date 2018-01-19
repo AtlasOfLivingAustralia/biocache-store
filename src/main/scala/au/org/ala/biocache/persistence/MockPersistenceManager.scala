@@ -52,6 +52,10 @@ class MockPersistenceManager extends PersistenceManager {
   def getByIndex(uuid: String, entityName: String, idxColumn: String) =
     throw new RuntimeException("not implemented yet")
 
+  def getAllByIndex(rowkey:String, entityName:String, idxColumn:String) : Seq[Map[String,String]] = {
+    throw new RuntimeException("not implemented yet")
+  }
+
   def getByIndex(uuid: String, entityName: String, idxColumn: String, propertyName: String) =
     throw new RuntimeException("not implemented yet")
 
@@ -153,6 +157,10 @@ class MockPersistenceManager extends PersistenceManager {
     logger.debug(s"delete for  $uuid -  $entityName")
     val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
     entityMap.remove(uuid)
+  }
+
+  def delete(properties: Map[String, String], entityName: String) = {
+    throw new RuntimeException("not implemented yet")
   }
 
   def shutdown = mockStore.clear

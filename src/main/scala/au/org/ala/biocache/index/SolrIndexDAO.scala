@@ -22,7 +22,7 @@ import org.apache.solr.client.solrj.impl.{CloudSolrClient, ConcurrentUpdateSolrC
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.client.solrj.{SolrClient, SolrQuery, StreamingResponseCallback}
 import org.apache.solr.common.params.{CursorMarkParams, MapSolrParams, ModifiableSolrParams}
-import org.apache.solr.common.{SolrDocument, SolrInputDocument}
+import org.apache.solr.common.{SolrDocument, SolrInputDocument, SolrInputField}
 import org.apache.solr.core.CoreContainer
 import org.slf4j.LoggerFactory
 
@@ -109,7 +109,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
             solrServer = new EmbeddedSolrServer(cc, "biocache")
           }
         } else {
-          logger.info("Initialising connection to SOLR server.....")
+          logger.info("Initialising connection to SOLR server..... with solrHome:  " + solrHome)
           solrServer = new ConcurrentUpdateSolrClient.Builder(solrHome).withThreadCount(Config.solrUpdateThreads).withQueueSize(BATCH_SIZE).build()
           logger.info("Initialising connection to SOLR server - done.")
         }
@@ -497,21 +497,29 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
       if (!values.isEmpty) {
 
-        val doc = new SolrInputDocument()
+        val mapToIndex = new java.util.HashMap[String, SolrInputField]()
+
         for (i <- 0 to values.length - 1) {
           if (values(i) != "" && header(i) != "") {
             if (multifields.contains(header(i))) {
               //multiple values in this field
+              val multiValuedField = new SolrInputField(header(i))
               for (value <- values(i).split('|')) {
                 if (value != "") {
-                  doc.addField(header(i), value)
+                  multiValuedField.addValue(value, 1.0f)
                 }
               }
+              mapToIndex.put(header(i), multiValuedField)
+
             } else {
-              doc.addField(header(i), values(i))
+              val singleValuedField = new SolrInputField(header(i))
+              singleValuedField.setValue(values(i), 1.0f)
+              mapToIndex.put(header(i), singleValuedField)
             }
           }
         }
+
+        val doc = new SolrInputDocument(mapToIndex)
 
         //add the misc properties here....
         //NC 2013-04-23: Change this code to support data types in misc fields.
