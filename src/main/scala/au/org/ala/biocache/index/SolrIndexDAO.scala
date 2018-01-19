@@ -527,7 +527,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
-            miscIndexProperties.foreach(prop => {
+            miscIndexProperties.foreach { prop =>
               prop match {
                 case it if it.endsWith("_i") || it.endsWith("_d") || it.endsWith("_s") => {
                   val v = map.get(it.take(it.length - 2))
@@ -560,7 +560,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                   }
                 }
               }
-            })
+            }
           }
         }
 
@@ -568,7 +568,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
-            userProvidedTypeMiscIndexProperties.foreach(prop => {
+            userProvidedTypeMiscIndexProperties.foreach { prop =>
               prop match {
                 case it if it.endsWith("_i") || it.endsWith("_d") || it.endsWith("_s") => {
                   val v = map.get(it)
@@ -601,7 +601,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                   }
                 }
               }
-            })
+            }
           }
         }
 
@@ -610,12 +610,12 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
-            Config.additionalFieldsToIndex.foreach(prop => {
+            Config.additionalFieldsToIndex.foreach { prop =>
               val v = map.get(prop)
               if (v.isDefined) {
                 doc.addField(prop, v.get.toString())
               }
-            })
+            }
           }
         }
 
@@ -623,7 +623,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
             val map = Json.toMap(unparsedJson)
-            arrDefaultMiscFields.foreach(value => {
+            arrDefaultMiscFields.foreach { value =>
               value match {
                 case doublePattern(field) => {
                   //ensure that the value represents a double value before adding to the index.
@@ -676,7 +676,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                   }
                 }
               }
-            })
+            }
           }
         }
 
@@ -801,8 +801,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           if (!batch) {
 
             //if not a batch, add the doc and do a hard commit
-            solrServer.add(doc)
-            solrServer.commit(false, true, true)
+            solrServer.add(doc, 10000)
+            solrServer.commit(false, false, true)
 
             if (csvFileWriter != null) {
               writeDocToCsv(doc, csvFileWriter)
@@ -833,7 +833,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                 solrServer.add(currentBatch)
                 currentCommitSize += currentBatch.size()
                 if (commit || currentCommitSize >= HARD_COMMIT_SIZE) {
-                  solrServer.commit(false, true, true)
+                  solrServer.commit(false, false, true)
                   currentCommitSize = 0
                 }
                 currentBatch.clear

@@ -177,4 +177,23 @@ class RecordProcessor {
     //store the occurrence
     Config.occurrenceDAO.updateOccurrence(raw.rowKey, processed, systemAssertions, Processed)
   }
+
+  /**
+    * Add a record. This is only used by sandbox uploads.
+    *
+    * @param dataResourceUid
+    * @param properties
+    * @return
+    */
+  def addRecord(dataResourceUid:String, properties:Map[String,String]) : String = {
+    val uuid =  UUID.randomUUID().toString
+    val raw = FullRecordMapper.createFullRecord(uuid, properties,Versions.RAW)
+    raw.attribution.dataResourceUid = dataResourceUid
+    Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, None, Versions.RAW)
+    val downloaded = Config.occurrenceDAO.downloadMedia(raw)
+    if (downloaded){
+      Config.occurrenceDAO.updateOccurrence(raw.rowKey, raw, None, Versions.RAW)
+    }
+    uuid
+  }
 }

@@ -6,7 +6,7 @@ import java.util.Date
 
 import au.org.ala.biocache.dao.{OccurrenceDAO, OutlierStatsDAO}
 import au.org.ala.biocache.index.{IndexFields, IndexRecords}
-import au.org.ala.biocache.load.{FullRecordMapper, Loader, MapDataLoader, SimpleLoader}
+import au.org.ala.biocache.load._
 import au.org.ala.biocache.model._
 import au.org.ala.biocache.outliers.{JackKnifeStats, RecordJackKnifeStats, SampledRecord}
 import au.org.ala.biocache.parser.ProcessedValue
@@ -140,16 +140,6 @@ object Store {
     }, dataResourceUid, pageSize)
   }
 
-//  /**
-//   * Adds or updates a raw full record with values that are in the FullRecord
-//   * relies on a rowKey being set. This method only loads the record.
-//   *
-//   * Record is indexed if should index is true
-//   */
-//  def loadRecord(dataResourceIdentifer:String, properties:java.util.Map[String,String], shouldIndex:Boolean){
-//    (new RecordProcessor).addRecord(dataResourceIdentifer, properties.toMap[String,String])
-//  }
-
   def rowKeyFile(dataResourceIdentifer: String): File = {
     new File(Config.tmpWorkDir + "/row_key_" + dataResourceIdentifer + ".csv")
   }
@@ -160,6 +150,16 @@ object Store {
   def loadRecordOnly(dataResourceUid: String, fr: FullRecord, identifyingTerms: java.util.List[String]) {
     fr.lastModifiedTime = new Date()
     (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true, false)
+  }
+
+  /**
+    * Adds or updates a raw full record with values that are in the FullRecord
+    * relies on a rowKey being set. This method only loads the record.
+    *
+    * Record is indexed if should index is true
+    */
+  def loadRecord(dataResourceIdentifer:String, properties:java.util.Map[String,String], shouldIndex:Boolean){
+    (new RecordProcessor).addRecord(dataResourceIdentifer, properties.toMap[String,String])
   }
 
   /**
@@ -175,22 +175,22 @@ object Store {
     }
   }
 
-//  /**
-//    * Loads a batch of records based on being supplied in a list of maps.
-//    *
-//    * It relies on identifyFields supplying a list dwc terms that make up the unique identifier for the data resource
-//    */
-//  def loadRecords(dataResourceUid: String, recordsProperties: java.util.List[java.util.Map[String, String]],
-//                  identifyFields: java.util.List[String], shouldIndex: Boolean = true) {
-//    val loader = new MapDataLoader
-//    val rowKeys = loader.load(dataResourceUid, recordsProperties.toList, identifyFields.toList)
-//    if (!rowKeys.isEmpty) {
-//      ProcessRecords.processRecords(rowKeys, 1)
-//      if (shouldIndex) {
-//        IndexRecords.indexList(rowKeys)
-//      }
-//    }
-//  }
+  /**
+    * Loads a batch of records based on being supplied in a list of maps.
+    *
+    * It relies on identifyFields supplying a list dwc terms that make up the unique identifier for the data resource
+    */
+  def loadRecords(dataResourceUid: String, recordsProperties: java.util.List[java.util.Map[String, String]],
+                  identifyFields: java.util.List[String], shouldIndex: Boolean = true) {
+    val loader = new MapDataLoader
+    val rowKeys = loader.load(dataResourceUid, recordsProperties.toList, identifyFields.toList)
+    if (!rowKeys.isEmpty) {
+      ProcessRecords.processRowKeys(rowKeys)
+      if (shouldIndex) {
+        IndexRecords.indexList(rowKeys)
+      }
+    }
+  }
 
   /**
     * Adds or updates a raw full record with values that are in the FullRecord
@@ -315,9 +315,9 @@ object Store {
     */
   def getUserAssertion(uuid: java.lang.String, assertionUuid: java.lang.String): QualityAssertion = {
     val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
-    occurrenceDAO.getUserAssertions(rowKey).find(ass => {
+    occurrenceDAO.getUserAssertions(rowKey).find { ass =>
       ass.uuid == assertionUuid
-    }).getOrElse(null)
+    }.getOrElse(null)
   }
 
   /**
@@ -439,15 +439,6 @@ object Store {
     //      IndexRecords.index(Some(dataResource), false, false, startDate = Some(startDate))
     //    } else {
     //      throw new Exception("Must supply data resource and start date")
-    //    }
-  }
-
-  def reindexRange(startKey: java.lang.String, endKey: java.lang.String) {
-    throw new RuntimeException("Not supported")
-    //    if(startKey != null && endKey != null) {
-    //      IndexRecords.index(Some(startKey), Some(endKey), None, false, false, None)
-    //    } else {
-    //      throw new Exception("Start and end key must be supplied")
     //    }
   }
 
@@ -628,35 +619,15 @@ object Store {
     //when null is provided as a argument we need to get a list of the available data resources
     val l = new Loader
     if (dataResources != null) {
-      dataResources.foreach(dr => performIngest(dr, l, numThreads))
+      dataResources.foreach { dr => IngestTool.ingestResource(dr, numThreads) }
     } else {
-      l.resourceList.foreach(resource => {
+      l.resourceList.foreach { resource =>
         val uid = resource.getOrElse("uid", "")
         val name = resource.getOrElse("name", "")
         logger.info(s"Ingesting resource $name, uid: $uid")
-        performIngest(uid, l, numThreads)
-      })
+        IngestTool.ingestResource(uid, numThreads)
+      }
     }
-  }
-
-  /**
-    * Perform the ingest for a singel data resource
-    *
-    * @param uid
-    * @param l
-    * @param numThreads
-    */
-  def performIngest(uid: String, l: Loader, numThreads: Int) {
-    //    //load
-    //    logger.info("Loading : " + uid)
-    //    l.load(uid)
-    //    logger.info("Sampling " + uid)
-    //    Sampling.main(Array("-dr", uid))
-    //    logger.info("Processing " + uid)
-    //    ProcessRecords.processRecords(numThreads, None, Some(uid))
-    //    logger.info("Indexing " +uid)
-    //    IndexRecords.index(Some(uid), false, false)
-    throw new RuntimeException("Not supported")
   }
 
   /**

@@ -71,6 +71,28 @@ object ProcessRecords extends Tool with IncrementalTool {
   }
 
   /**
+    * Process a set of records with keys in the supplied file
+    * @param rowkeys
+    */
+  def processRowKeys(rowkeys:List[String]) {
+
+    val queue = rowkeys
+    var ids = 0
+    var counter = 0
+    val recordProcessor = new RecordProcessor
+    rowkeys.foreach { guid =>
+      counter += 1
+      val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
+      if (!rawProcessed.isEmpty) {
+        val rp = rawProcessed.get
+        recordProcessor.processRecord(rp(0), rp(1))
+      }
+    }
+
+    logger.info("Total records processed: " + counter)
+  }
+
+  /**
    * Process a set of records with keys in the supplied file
    * @param file
    * @param threads
