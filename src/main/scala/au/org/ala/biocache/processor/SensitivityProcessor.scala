@@ -69,7 +69,7 @@ class SensitivityProcessor extends Processor {
 
     //needs to be performed for all records whether or not they are in Australia
     //get a map representation of the raw record for sdsFlag fields...
-    val rawMap = scala.collection.mutable.Map[String, String]()
+    val rawMap = new java.util.HashMap[String, String]()
     rawMap.putAll(raw.getRawFields())
     if (rawMap.isEmpty) {
       //populate rawMap if raw.rawFields is empty
@@ -78,7 +78,6 @@ class SensitivityProcessor extends Processor {
         rawMap ++= map
       }
     }
-
 
     //use the processed versions of the coordinates for the sensitivity check if raw not available
     //this would be the case when coordinates have been derived from easting/northings or grid references
