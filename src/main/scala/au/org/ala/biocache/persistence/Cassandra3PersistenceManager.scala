@@ -976,7 +976,7 @@ class Cassandra3PersistenceManager  @Inject() (
         val count: Int = f.get
         grandTotal += count
       } catch {
-        case e: Exception => println("Index already exists...")
+        case e: Exception => logger.error("Exception thrown during paging: " + e.getMessage, e)
       }
     }
     grandTotal
@@ -1230,7 +1230,7 @@ class Cassandra3PersistenceManager  @Inject() (
       val stmt = new SimpleStatement("CREATE TABLE occ_uuid (rowkey varchar, value varchar, PRIMARY KEY (rowkey));")
       val rs = session.execute(stmt)
     } catch {
-      case e: com.datastax.driver.core.exceptions.AlreadyExistsException => println("Index already exists...")
+      case e: com.datastax.driver.core.exceptions.AlreadyExistsException => logger.error("Index already exists...")
     }
 
     var counter = 0
@@ -1240,7 +1240,7 @@ class Cassandra3PersistenceManager  @Inject() (
       //insert into secondary index
       map.get("uuid") match {
         case Some(uuid) => put(uuid, entityName + "_" + indexField, "value", guid, true, false)
-        case None => println(s"Record with guid: $guid missing $indexField value")
+        case None => logger.error(s"Record with guid: $guid missing $indexField value")
       }
       counter += 1
       if (counter % 10000 == 0) {
