@@ -752,8 +752,6 @@ class Cassandra3PersistenceManager  @Inject() (
     val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
     val callables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
 
-    val continue = new AtomicBoolean(true)
-
     //generate a set of callable tasks, each with their own token range...
     for (tokenRangeIdx <- startRange until tokenRanges.length) {
 
@@ -820,10 +818,6 @@ class Cassandra3PersistenceManager  @Inject() (
 
           def call(): Int = {
 
-            if (!continue.get()) {
-              return 0
-            }
-
             val columnsString = if (columns.nonEmpty) {
               if (columns.contains("rowkey")) mkString(columns)
               else mkString(columns) + ",rowkey"
@@ -853,7 +847,7 @@ class Cassandra3PersistenceManager  @Inject() (
               List(tokenRangeToUse)
             }
 
-            tokenRangesSplits.iterator.takeWhile(_ => continue.get).foreach { tokenRange =>
+            tokenRangesSplits.foreach { tokenRange =>
               val startToken = tokenRange.getStart()
               val endToken = tokenRange.getEnd()
 
@@ -896,15 +890,13 @@ class Cassandra3PersistenceManager  @Inject() (
                 val start = System.currentTimeMillis()
 
                 //need retries
-                while (hasNextWithRetries(rows) && continue.get) {
+                while (hasNextWithRetries(rows)) {
                   val row = getNextWithRetries(rows)
                   val rowkey = row.getString("rowkey")
                   if (procArray != null) {
                     //process response as an array to avoid conversion to Map
                     try {
-                      if (!procArray(rowkey, row, row.getColumnDefinitions)) {
-                        continue.set(false)
-                      }
+                      procArray(rowkey, row, row.getColumnDefinitions)
                     } catch {
                       case e: Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
                     }
@@ -919,9 +911,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
                     try {
                       //processing - does this want to be on a separate thread ??
-                      if (!proc(rowkey, map.toMap, tokenRangeIdx.toString)) {
-                        continue.set(false)
-                      }
+                      proc(rowkey, map.toMap, tokenRangeIdx.toString)
                     } catch {
                       case e: Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
                     }
