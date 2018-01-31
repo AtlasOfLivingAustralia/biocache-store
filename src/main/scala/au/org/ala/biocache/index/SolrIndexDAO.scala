@@ -44,6 +44,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   val nameRegex = """(?:name":")([a-zA-z0-9]*)""".r
   val codeRegex = """(?:code":)([0-9]*)""".r
   val qaStatusRegex = """(?:qaStatus":)([0-9]*)""".r
+  val userIdRegex = """(?:userId":)"([0-9]*)"""".r
+
 
   val arrDefaultMiscFields = if (defaultMiscFields == null) {
     Array[String]()
@@ -466,6 +468,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     (codes, assertions)
   }
 
+  def extractUserIds(json: String): Set[String] = {
+    userIdRegex.findAllMatchIn(json).map(_.group(1)).toSet
+  }
+
   /**
     * A SOLR specific implementation of indexing from a map.
     */
@@ -521,8 +527,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
         val doc = new SolrInputDocument(mapToIndex)
 
-        //add the misc properties here....
-        //NC 2013-04-23: Change this code to support data types in misc fields.
+        //Sandbox dynamic field indexing - add the misc properties here....
         if (!miscIndexProperties.isEmpty) {
           val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
@@ -564,6 +569,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           }
         }
 
+        // Configurable field indexing of misc properties
         if (!userProvidedTypeMiscIndexProperties.isEmpty) {
           val unparsedJson = getValue(FullRecordMapper.miscPropertiesColumn, map, "")
           if (unparsedJson != "") {
@@ -703,14 +709,15 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           }
         }
 
+        //index unchecked assertions
         val unchecked = AssertionCodes.getMissingByCode(qa)
-        unchecked.foreach(ec => doc.addField("assertions_unchecked", ec.name))
+        unchecked.foreach { ec => doc.addField("assertions_unchecked", ec.name) }
 
+        // indicate if a record has system assertions
         doc.addField("system_assertions", sa)
 
-        //load the species lists that are configured for the matched guid.
+        //Species lists - load the species lists that are configured for the matched guid.
         val taxonConceptID = getParsedValue("taxonConceptID", map)
-
         if (taxonConceptID != "") {
           val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(taxonConceptID)
           speciesLists.foreach { v =>
@@ -745,13 +752,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         }
         /** UK NBN **/
 
-        // user if userQA = true
+        // add a list of userIDs that have provided assertions
         val hasUserAssertions = getValue(FullRecordMapper.userQualityAssertionColumn, map)
-        if (!"".equals(hasUserAssertions)) {
-          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(guid)
-          assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
+        if (hasUserAssertions != "") {
+          val assertionUserIds = extractUserIds(hasUserAssertions)
+          assertionUserIds.foreach {  doc.addField("assertion_user_id", _) }
         }
 
+        // add query assertions
         val queryAssertions = Json.toStringMap(getValue(FullRecordMapper.queryAssertionColumn, map, "{}"))
         var suitableForModelling = true
         queryAssertions.foreach {
@@ -762,6 +770,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
               suitableForModelling = false
           }
         }
+
         //this will not exist for all records until a complete reindex is performed...
         doc.addField("suitable_modelling", suitableForModelling.toString)
 
@@ -774,8 +783,9 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         cls.foreach {
           case (key, value) => doc.addField(key, value)
         }
-
-        //index the additional species information - ie species groups
+        
+        
+        //Species groups - index the additional species information - ie species groups
         val lft = getParsedValue("left", map)
         val rgt = getParsedValue("right", map)
         if (lft != "" && rgt != "") {
@@ -845,6 +855,24 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     }
   }
 
+  /**
+    * New indexing implementation
+    * 
+    * @param guid
+    * @param map
+    * @param batch
+    * @param startDate
+    * @param commit
+    * @param miscIndexProperties
+    * @param userProvidedTypeMiscIndexProperties
+    * @param test
+    * @param batchID
+    * @param csvFileWriter
+    * @param csvFileWriterSensitive
+    * @param docBuilder
+    * @param lock
+    * @return
+    */
   def indexFromMapNew(guid: String,
                       map: scala.collection.Map[String, String],
                       batch: Boolean = true,
@@ -900,7 +928,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
         /**
           * Additional indexing for grid references.
-          * TODO refactor so that additional indexing is pluggable without core changes.
           */
         if (Config.gridRefIndexingEnabled) {
           val bboxString = getParsedValue("bbox", map)
@@ -928,7 +955,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         // user if userQA = true
         val hasUserAssertions = getValue(FullRecordMapper.userQualityAssertionColumn, map)
         if (StringUtils.isNotEmpty(hasUserAssertions)) {
-          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(getValue("rowkey", map))
+          val assertionUserIds = extractUserIds(hasUserAssertions)
           assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
         }
 

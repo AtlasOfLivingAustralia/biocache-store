@@ -888,7 +888,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       persistenceManager.put(qaRowKey, qaEntityName, qaMap, true, false)
       val systemAssertions = getSystemAssertions(rowKey)
       val userAssertions = getUserAssertions(rowKey)
-      updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions)
+      updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions :+ qualityAssertion)
       //set the last user assertion date
       persistenceManager.put(rowKey, entityName, FullRecordMapper.lastUserAssertionDateColumn, qualityAssertion.created, false, false)
       //when the user assertion is verified need to add extra value
