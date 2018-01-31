@@ -1108,7 +1108,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         // user if userQA = true
         val hasUserAssertions = getArrayValue(columnOrder.userQualityAssertionColumn, array)
         if (StringUtils.isNotEmpty(hasUserAssertions)) {
-          val assertionUserIds = Config.occurrenceDAO.getUserIdsForAssertions(getArrayValue(columnOrder.rowKey, array))
+          val assertionUserIds = extractUserIds(hasUserAssertions)
           assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
         }
 
