@@ -19,7 +19,7 @@ import scala.io.Source
   */
 object IndexLocalRecords extends Tool {
 
-  def cmd = "index-local-node"
+  def cmd = "index-local-node-old"
   def desc = "Index all records on a local node"
 
   def main(args:Array[String]){

@@ -10,7 +10,7 @@ import au.org.ala.biocache.util.OptionParser
   */
 object IndexLocalRecordsV2 extends Tool {
 
-  def cmd = "index-local-node-v2"
+  def cmd = "index-local-node"
 
   def desc = "Index all records on a local node"
 
