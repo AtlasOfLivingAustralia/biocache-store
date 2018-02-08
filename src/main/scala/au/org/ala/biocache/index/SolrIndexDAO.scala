@@ -1045,6 +1045,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
       try {
         doc.newDoc(guid)
+        doc.addField("id", guid)
 
         writeOccIndexArrayToDoc(doc, guid, array)
 
@@ -1719,6 +1720,7 @@ class ColumnOrder {
     this.elP = columnDefinitions.getIndexOf("el" + Config.persistenceManager.fieldDelimiter + "p")
     this.clP = columnDefinitions.getIndexOf("cl" + Config.persistenceManager.fieldDelimiter + "p")
     this.rowKey = columnDefinitions.getIndexOf("rowkey")
+    this.uuid = columnDefinitions.getIndexOf("rowkey")
     this.leftP = columnDefinitions.getIndexOf("left" + Config.persistenceManager.fieldDelimiter + "p")
     this.rightP = columnDefinitions.getIndexOf("right" + Config.persistenceManager.fieldDelimiter + "p")
 
@@ -1795,6 +1797,7 @@ class ColumnOrder {
       default
     }
   }
+  var uuid: Int = -1
 
   var dataGeneralizationsP: Int = -1
 
