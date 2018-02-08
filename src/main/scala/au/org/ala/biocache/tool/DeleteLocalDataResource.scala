@@ -9,7 +9,8 @@ object DeleteLocalDataResource extends Tool {
 
   def cmd = "delete-resource-local-node"
 
-  def desc = "Delete records on a local database node"
+  def desc = "Delete records on a local database node. This does a full table scan and should be ran" +
+    " on each node in the cluster."
 
   def main(args: Array[String]) {
 

@@ -12,7 +12,7 @@ import au.org.ala.biocache.cmd.Tool
 object ExportLocalNode extends Tool {
 
   def cmd = "export-local-node"
-  def desc = "Export data from local node"
+  def desc = "Export data from local node to a tab delimited file."
 
   def main(args:Array[String]): Unit = {
 

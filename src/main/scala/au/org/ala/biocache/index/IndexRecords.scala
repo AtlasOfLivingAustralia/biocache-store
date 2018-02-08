@@ -41,7 +41,7 @@ object IndexRecords extends Tool with IncrementalTool {
 
   def cmd = "index"
 
-  def desc = "Index records. Not suitable for full re-indexing (>5m)"
+  def desc = "Index records for a data resource. Not suitable for full re-indexing (>5m)"
 
   import FileHelper._
 
@@ -67,7 +67,6 @@ object IndexRecords extends Tool with IncrementalTool {
       opt("empty", "empty the index first", {
         empty = true
       })
-
       opt("check", "check to see if the record is deleted before indexing", {
         check = true
       })

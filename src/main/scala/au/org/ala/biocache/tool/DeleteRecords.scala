@@ -11,7 +11,7 @@ import au.org.ala.biocache.cmd.Tool
 object DeleteRecords extends Tool {
 
   def cmd = "delete-records"
-  def desc = "Delete records from the system via query, resource or file of IDs"
+  def desc = "Delete records from the system via query to SOLR, resource or file of IDs. "
 
   val occurrenceDAO = Config.occurrenceDAO
   val persistenceManager = Config.persistenceManager
