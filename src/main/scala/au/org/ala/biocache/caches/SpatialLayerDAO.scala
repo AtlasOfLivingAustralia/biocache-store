@@ -34,23 +34,26 @@ object SpatialLayerDAO {
    */
   lazy val init = {
 
-    //SDS layer loading
-    logger.info("Loading Layer information from ....." + Config.layersServiceUrl)
-    val layersJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/layers")
-    val fieldsJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/fields")
+    if (StringUtils.isNotEmpty(Config.layersServiceUrl) && (Config.layersServiceSampling || Config.sdsEnabled)){
 
-    //layers
-    val layers = JSON.parseFull(layersJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
-    logger.info("Number of layers loaded ....." + layers.size)
-    layers.foreach { layer =>
-      idNameLookup.put(layer.getOrElse("id", -1).asInstanceOf[Double].toInt.toString(), layer.getOrElse("name", ""))
-    }
+      //SDS layer loading
+      logger.info("Loading Layer information from ....." + Config.layersServiceUrl)
+      val layersJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/layers")
+      val fieldsJson = WebServiceLoader.getWSStringContent(Config.layersServiceUrl + "/fields")
 
-    //fields
-    val fields = JSON.parseFull(fieldsJson).getOrElse(List[Map[String,String]]()).asInstanceOf[List[Map[String,String]]]
-    logger.info("Number of fields loaded ....." + fields.size)
-    fields.foreach { field =>
-      nameFieldLookup.put(field.getOrElse("spid", "-1"), field.getOrElse("sname", ""))
+      //layers
+      val layers = JSON.parseFull(layersJson).getOrElse(List[Map[String, String]]()).asInstanceOf[List[Map[String, String]]]
+      logger.info("Number of layers loaded ....." + layers.size)
+      layers.foreach { layer =>
+        idNameLookup.put(layer.getOrElse("id", -1).asInstanceOf[Double].toInt.toString(), layer.getOrElse("name", ""))
+      }
+
+      //fields
+      val fields = JSON.parseFull(fieldsJson).getOrElse(List[Map[String, String]]()).asInstanceOf[List[Map[String, String]]]
+      logger.info("Number of fields loaded ....." + fields.size)
+      fields.foreach { field =>
+        nameFieldLookup.put(field.getOrElse("spid", "-1"), field.getOrElse("sname", ""))
+      }
     }
 
     logger.info("SDS enabled ....." + Config.sdsEnabled)

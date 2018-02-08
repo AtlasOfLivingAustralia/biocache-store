@@ -81,6 +81,12 @@ object Sampling extends Tool with IncrementalTool with Counter {
     }
 
     if (parser.parse(args)) {
+
+      if(StringUtils.isEmpty(Config.layersServiceUrl) || !Config.layersServiceSampling){
+        logger.warn("No layer service configured or sampling disabled. No sampling will take place")
+        return;
+      }
+
       val s = new Sampling
 
       if (dataResourceUid != "" && checkRowKeyFile) {
