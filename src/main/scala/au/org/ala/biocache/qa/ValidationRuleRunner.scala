@@ -16,6 +16,9 @@ import au.org.ala.biocache.cmd.Tool
 
 /**
  * Executable that applies the validation rules provided by users.
+ *
+ * FIXME - This needs to be re-implemented for Cassandra 3.
+ * This version is using lexical ranges...
  */
 object ValidationRuleRunner extends Tool {
 
