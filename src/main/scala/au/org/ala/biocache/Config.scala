@@ -88,6 +88,15 @@ object Config {
 
   val allowCollectoryUpdates = configModule.properties.getProperty("allow.registry.updates","false")
 
+  val commonNameLanguages:Array[String] = {
+    val configValue = configModule.properties.getProperty("commonname.lang","")
+    if(StringUtils.isNotEmpty(configValue)){
+      configValue.split(",").map(_.toLowerCase.trim)
+    } else {
+      Array[String]()
+    }
+  }
+
   val extraMiscFields = configModule.properties.getProperty("extra.misc.fields","")
 
   val technicalContact = configModule.properties.getProperty("technical.contact", "support@ala.org.au")

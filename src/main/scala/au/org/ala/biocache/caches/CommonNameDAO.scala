@@ -1,6 +1,7 @@
 package au.org.ala.biocache.caches
 
 import au.org.ala.biocache.Config
+import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
 /**
@@ -28,7 +29,11 @@ object CommonNameDAO {
       cachedObject.asInstanceOf[Option[String]]
     } else {
       //lookup a name
-      val commonName = Config.nameIndex.getCommonNameForLSID(guid)
+      val commonName = if(Config.commonNameLanguages.length > 0) {
+        Config.nameIndex.getCommonNameForLSID(guid, Config.commonNameLanguages)
+      } else {
+        Config.nameIndex.getCommonNameForLSID(guid)
+      }
       val result = if(commonName != null){
         Some(commonName)
       } else {
