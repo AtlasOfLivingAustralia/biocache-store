@@ -189,7 +189,7 @@ class IndexRunner(centralCounter: Counter,
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
         if (uuidIdx == -1) {
-          uuidIdx = columnDefinitions.getIndexOf("uuid")
+          uuidIdx = columnDefinitions.getIndexOf("rowkey")
         }
         if (!StringUtils.isEmpty(row.getString(uuidIdx))) {
           val t1 = System.nanoTime()
