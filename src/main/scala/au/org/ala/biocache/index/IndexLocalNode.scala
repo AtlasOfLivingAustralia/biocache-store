@@ -138,15 +138,19 @@ class IndexLocalRecordsV2 {
     val schema = IndexSchemaFactory.buildIndexSchema(schemaFile.getName,
       SolrConfig.readFromResourceLoader(new SolrResourceLoader(new File(solrHome + "/solr-create/biocache").toPath), "solrconfig.xml"))
 
-    FileUtils.writeStringToFile(new File(solrHome + "/solr-create/solr.xml"), "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><solr></solr>")
-    FileUtils.writeStringToFile(new File(solrHome + "/solr-create/zoo.cfg"), "")
+    FileUtils.writeStringToFile(new File(solrHome + "/solr-create/solr.xml"), "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><solr></solr>", "UTF-8")
+    FileUtils.writeStringToFile(new File(solrHome + "/solr-create/zoo.cfg"), "", "UTF-8" )
 
     if (singleWriter) {
-      luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, newIndexDir.getParent + "/data0-",
+      val outputDir = newIndexDir.getParent + "/data0-"
+      logger.info("Writing index to " + outputDir)
+      luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, outputDir,
         ramPerWriter, writerBufferSize, writerBufferSize / 2, threadsPerWriter)
     } else {
       for (i <- 0 until writerCount) {
-        luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, newIndexDir.getParent + "/data" + i + "-",
+        val outputDir = newIndexDir.getParent + "/data" + i + "-"
+        logger.info("Writing index to " + outputDir)
+        luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, outputDir,
           ramPerWriter, writerBufferSize, writerBufferSize / (threadsPerWriter + 2), threadsPerWriter)
       }
     }
