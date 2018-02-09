@@ -378,7 +378,7 @@ class SampleLocalRecords extends Counter {
           }
         }
         true
-      }, threads, Array("rowkey", dlat, dlon), localOnly = allNodes)
+      }, threads, Array("rowkey", dlat, dlon), localOnly = !allNodes)
     }
   }
 }
