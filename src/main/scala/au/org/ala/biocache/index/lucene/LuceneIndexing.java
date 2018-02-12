@@ -388,7 +388,7 @@ public class LuceneIndexing {
     private void logDebugError(List<RecycleDoc> list, Exception e) {
         try {
             File f = File.createTempFile("indexing.error", "");
-            FileUtils.writeStringToFile(f, e.getMessage() + "\n");
+            FileUtils.writeStringToFile(f, e.getMessage() + "\n", "UTF-8");
             writeDocString(new File(f.getPath() + ".data.gz"), list);
             logger.error("ERROR indexing: see " + f.getPath() + " for error and " + f.getPath() + ".data for data: " + e.getMessage());
         } catch (IOException e1) {
