@@ -1397,7 +1397,7 @@ trait IndexDAO {
   def addFields(doc: DocBuilder, array: GettableData): Unit = {
 
     //standard field copy
-    for (i <- headerAttributes.indices) {
+    headerAttributes.indices.foreach { i =>
       val h = headerAttributes(i)
       var value: String = {
         if (h._4 == 3) {
@@ -1548,42 +1548,6 @@ trait IndexDAO {
     addField(doc, "names_and_lsid", sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family)
     addField(doc, "common_name_and_lsid", vernacularName + "|" + sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family)
 
-    //raw_taxon_name
-    val rawScientificName = {
-      val sciName = getArrayValue(columnOrder.scientificName, array)
-      val genus = getArrayValue(columnOrder.genus, array)
-      val family = getArrayValue(columnOrder.family, array)
-
-      if (StringUtils.isNotEmpty(sciName)) {
-        sciName
-      } else if (StringUtils.isNotEmpty(genus)) {
-        var tmp = genus
-
-        val specificEpithet = getArrayValue(columnOrder.specificEpithet, array)
-        val species = getArrayValue(columnOrder.species, array)
-        val infraspecificEpithet = getArrayValue(columnOrder.infraspecificEpithet, array)
-        val subspecies = getArrayValue(columnOrder.subspecies, array)
-
-        if (StringUtils.isNotEmpty(specificEpithet) || StringUtils.isNotEmpty(species)) {
-          if (StringUtils.isNotEmpty(specificEpithet))
-            tmp = tmp + " " + specificEpithet
-          else
-            tmp = tmp + " " + species
-
-          if (StringUtils.isNotEmpty(infraspecificEpithet))
-            tmp = tmp + " " + infraspecificEpithet
-          else
-            tmp = tmp + " " + subspecies
-        }
-        tmp
-      } else {
-        family
-      }
-    }
-    if (StringUtils.isNotEmpty(rawScientificName)) {
-      addField(doc, "raw_taxon_name", rawScientificName)
-    }
-
     //conservation
     val sconservation = getArrayValue(columnOrder.stateConservationP, array)
     if (StringUtils.isNotEmpty(sconservation)) {
@@ -1640,6 +1604,7 @@ trait IndexDAO {
         addField(doc, "sensitive", "generalised")
       }
     }
+
     //sensitive values map
     val dataResourceUid = getArrayValue(columnOrder.dataResourceUid, array)
     if (StringUtils.isNotEmpty(dataResourceUid) && shouldIncludeSensitiveValue(dataResourceUid)) {

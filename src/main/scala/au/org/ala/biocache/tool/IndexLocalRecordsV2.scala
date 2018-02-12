@@ -24,7 +24,7 @@ object IndexLocalRecordsV2 extends Tool {
     var writerBufferSize = 1000
     var processorBufferSize = 1000
     var pageSize = 1000
-    var mergeSegments = 2
+    var mergeSegments = 1
     var test = false
     var testMap = false
 

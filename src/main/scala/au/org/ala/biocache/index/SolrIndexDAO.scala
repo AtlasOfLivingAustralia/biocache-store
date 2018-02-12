@@ -1606,14 +1606,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     def streamSolrDocument(doc: SolrDocument) {
       val map = new java.util.HashMap[String, Object]
-      doc.getFieldValueMap().keySet().asScala.foreach(s => {
+      doc.getFieldValueMap().keySet().asScala.foreach { s =>
         val value = if (multivaluedFields.isDefined && multivaluedFields.get.contains(s)) {
           doc.getFieldValues(s)
         } else {
           doc.getFieldValue(s)
         }
         map.put(s, value)
-      })
+      }
       proc(map)
       counter += 1
       if (counter % 10000 == 0) {
@@ -1631,10 +1631,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       maxResults = numFound
     }
   }
-
 }
 
 class ColumnOrder {
+
+  val logger = LoggerFactory.getLogger("ColumnOrder")
 
   def formatNameForSolr(name: String): String = {
     //format SOLR field names
@@ -1670,15 +1671,6 @@ class ColumnOrder {
     this.qualityAssertionColumn = columnDefinitions.getIndexOf(FullRecordMapper.qualityAssertionColumn)
     this.decimalLatitudeP = columnDefinitions.getIndexOf("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p")
     this.decimalLongitudeP = columnDefinitions.getIndexOf("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p")
-    this.scientificNameP = columnDefinitions.getIndexOf("scientificName" + Config.persistenceManager.fieldDelimiter + "p")
-    this.vernacularNameP = columnDefinitions.getIndexOf("vernacularName" + Config.persistenceManager.fieldDelimiter + "p")
-    this.kingdomP = columnDefinitions.getIndexOf("kingdom" + Config.persistenceManager.fieldDelimiter + "p")
-    this.familyP = columnDefinitions.getIndexOf("family" + Config.persistenceManager.fieldDelimiter + "p")
-    this.images = columnDefinitions.getIndexOf("images")
-    this.sounds = columnDefinitions.getIndexOf("sounds")
-    this.videos = columnDefinitions.getIndexOf("videos")
-    this.interactionsP = columnDefinitions.getIndexOf("interactions" + Config.persistenceManager.fieldDelimiter + "p")
-    this.yearP = columnDefinitions.getIndexOf("year" + Config.persistenceManager.fieldDelimiter + "p")
     this.dataResourceUid = columnDefinitions.getIndexOf("dataResourceUid")
     this.originalSensitiveValues = columnDefinitions.getIndexOf("originalSensitiveValues")
     this.countryConservationP = columnDefinitions.getIndexOf("countryConservation" + Config.persistenceManager.fieldDelimiter + "p")
@@ -1712,7 +1704,7 @@ class ColumnOrder {
     this.dataGeneralizationsP = columnDefinitions.getIndexOf("dataGeneralizations" + Config.persistenceManager.fieldDelimiter + "p")
     this.originalSensitiveValues = columnDefinitions.getIndexOf("originalSensitiveValues")
     this.userQualityAssertionColumn = columnDefinitions.getIndexOf(FullRecordMapper.userQualityAssertionColumn)
-    this.bboxP = columnDefinitions.getIndexOf("bboxP")
+    this.bboxP = columnDefinitions.getIndexOf("bbox")
     this.eastingP = columnDefinitions.getIndexOf("easting" + Config.persistenceManager.fieldDelimiter + "p")
     this.northingP = columnDefinitions.getIndexOf("northing" + Config.persistenceManager.fieldDelimiter + "p")
     this.gridReference = columnDefinitions.getIndexOf("gridReference")
@@ -1726,12 +1718,12 @@ class ColumnOrder {
 
     val isUsed: Array[Boolean] = new Array[Boolean](columnDefinitions.size())
     val columnNames: Array[String] = new Array[String](columnDefinitions.size())
-    (0 until isUsed.length).foreach(i => {
+    (0 until isUsed.length).foreach { i =>
       isUsed(i) = false
       columnNames(i) = formatNameForSolr(columnDefinitions.getName(i))
-    })
+    }
 
-    (0 until columnNames.length).foreach(i => {
+    (0 until columnNames.length).foreach { i =>
       val name = columnNames(i)
 
       if (!name.endsWith(Config.persistenceManager.fieldDelimiter + "p")) {
@@ -1743,24 +1735,24 @@ class ColumnOrder {
         //remove _p
         columnNames(i) = name.substring(0, name.length - 2)
       }
-    })
+    }
 
     val fields = this.getClass.getDeclaredFields()
-    (0 until fields.length).foreach(i => {
+    (0 until fields.length).foreach { i =>
       val f = fields(i)
       if (f.getType.getName == "int") {
         f.setAccessible(true)
         val v = f.getInt(this)
         if (v >= columnDefinitions.size())
-          System.out.println("ERROR not a valid occ column: " + f.getName)
+          logger.error("ERROR not a valid occ column: " + f.getName)
         else if (v < 0)
-          System.out.println("ERROR missing occ column: " + f.getName)
+          logger.error("ERROR missing occ column: " + f.getName)
         if (v >= 0)
           isUsed(v) = true
       }
-    })
+    }
 
-    (0 until headerAttributes.length).foreach(i => {
+    (0 until headerAttributes.length).foreach { i =>
       array_header_idx(i) = columnDefinitions.getIndexOf(headerAttributes(i)._1)
       array_header_parsed_idx(i) = columnDefinitions.getIndexOf(headerAttributes(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
 
@@ -1768,10 +1760,10 @@ class ColumnOrder {
         isUsed(array_header_idx(i)) = true
       if (array_header_parsed_idx(i) >= 0)
         isUsed(array_header_parsed_idx(i)) = true
-    })
+    }
 
-    //TODO: remvoe when headerAttributesFix is not longer required
-    (0 until headerAttributesFix.length).foreach(i => {
+    //TODO: remove when headerAttributesFix is not longer required
+    (0 until headerAttributesFix.length).foreach { i =>
       array_header_idx_fix(i) = columnDefinitions.getIndexOf(headerAttributesFix(i)._1)
       array_header_parsed_idx_fix(i) = columnDefinitions.getIndexOf(headerAttributesFix(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
 
@@ -1779,7 +1771,7 @@ class ColumnOrder {
         isUsed(array_header_idx_fix(i)) = true
       if (array_header_parsed_idx_fix(i) >= 0)
         isUsed(array_header_parsed_idx_fix(i)) = true
-    })
+    }
 
     this.columnNames = columnNames
     this.isUsed = isUsed

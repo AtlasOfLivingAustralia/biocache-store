@@ -1076,7 +1076,7 @@ class Cassandra3PersistenceManager  @Inject() (
       logger.info(replica.getAddress + " allocated ranges: " + allocatedRanges.size)
       import scala.collection.JavaConversions._
       for (tr <- replicaCount.get(replica)) {
-        logger.info(tr.getStart + " to " + tr.getEnd)
+        logger.debug(tr.getStart + " to " + tr.getEnd)
       }
     }
 
