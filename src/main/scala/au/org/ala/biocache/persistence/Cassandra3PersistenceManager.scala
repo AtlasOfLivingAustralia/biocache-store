@@ -297,22 +297,36 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * Retrieve the column value.
     */
-  def get(uuid: String, entityName: String, propertyName: String) = {
+  def get(uuid: String, entityName: String, propertyName: String) : Option[String] = {
     val stmt = if (Config.caseSensitiveCassandra) {
       getPreparedStmt("SELECT \"" + propertyName + "\" FROM " + entityName + " where rowkey = ?", entityName)
     } else {
       getPreparedStmt(s"SELECT $propertyName FROM $entityName where rowkey = ?", entityName)
     }
     val boundStatement = stmt bind uuid
-    val rs = session.execute(boundStatement)
-    val rows = rs.iterator
-    if (rows.hasNext()) {
-      val row = rows.next()
-      val value = row.getString(propertyName)
-      Option.apply(value)
-    } else {
-      None
+
+    //add retries....
+    var retriesCount = 0
+    while(retriesCount < 10) {
+      try {
+        val rs = session.execute(boundStatement)
+        val rows = rs.iterator
+        if (rows.hasNext()) {
+          val row = rows.next()
+          val value = row.getString(propertyName)
+          return Option.apply(value)
+        } else {
+          return None
+        }
+      } catch {
+        case timeout: com.datastax.driver.core.exceptions.OperationTimedOutException => {
+          logger.error("OperationTimedOutException during Get. Sleeping....")
+          Thread.sleep(60000 * retriesCount * 2) // sleep for minute
+          retriesCount += 1
+        }
+      }
     }
+    throw new RuntimeException(s"Unable to retrieve $uuid: String, $entityName: String, $propertyName: String")
   }
 
   /**
@@ -365,7 +379,11 @@ class Cassandra3PersistenceManager  @Inject() (
     batch.keySet.foreach { rowkey =>
       val map = batch.get(rowkey)
       if (!map.isEmpty) {
-        putAsync(rowkey, entityName, map.get, newRecord, removeNullFields)
+        if(noOfUpdateThreads.toInt > 1){
+          putAsync(rowkey, entityName, map.get, newRecord, removeNullFields)
+        } else {
+          put(rowkey, entityName, map.get, newRecord, removeNullFields)
+        }
       }
     }
   }
@@ -509,7 +527,7 @@ class Cassandra3PersistenceManager  @Inject() (
     }
     val statement = getPreparedStmt(insertCQL, entityName)
     val boundStatement = statement.bind(rowKey, propertyValue)
-    val future = session.execute(boundStatement)
+    executeWithRetries(session, boundStatement)
     rowKey
   }
 
