@@ -1120,7 +1120,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
         //index the available el and cl's - more efficient to use the supplied map than using the old way
 
-        addJsonMapToDoc(doc, getArrayValue(columnOrder.elP, array))
+//        addJsonMapToDoc(doc, getArrayValue(columnOrder.elP, array))
+        val els = Json.toJavaMap(getArrayValue(columnOrder.elP, array))
+        els.foreach {
+          case (key, value) => doc.addField(key, value)
+        }
 
         addJsonMapToDoc(doc, getArrayValue(columnOrder.clP, array))
 
