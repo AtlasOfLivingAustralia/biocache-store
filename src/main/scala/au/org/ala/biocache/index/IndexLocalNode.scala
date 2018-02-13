@@ -1,12 +1,13 @@
 package au.org.ala.biocache.index
 
 import java.io.File
+import java.net.URL
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.caches.TaxonProfileDAO
 import au.org.ala.biocache.index.lucene.{DocBuilder, LuceneIndexing}
 import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
-import org.apache.commons.io.FileUtils
+import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.solr.core.{SolrConfig, SolrResourceLoader}
 import org.apache.solr.schema.IndexSchemaFactory
 import org.slf4j.{Logger, LoggerFactory}
@@ -117,8 +118,17 @@ class IndexLocalRecordsV2 {
     }
     FileUtils.forceMkdir(newIndexDir)
 
-    //CREATE a copy of SOLR home
     val sourceConfDir = new File(solrConfigXmlPath).getParentFile
+    if(!sourceConfDir.exists()){
+      //download from SOLR server if available
+      FileUtils.forceMkdir(sourceConfDir)
+      if(Config.solrHome.startsWith("http")) {
+        Array("schema.xml", "additionalFields.list", "elevate.xml", "protwords.txt", "solrconfig.xml", "stopwords.txt", "synonyms.txt").foreach { fileName =>
+          downloadFile(Config.solrHome + "/admin/file?file=" + fileName, sourceConfDir.getAbsolutePath + File.separator + fileName)
+        }
+      }
+    }
+
     FileUtils.copyDirectory(sourceConfDir, newIndexDir)
 
     //identify the first valid schema
@@ -261,6 +271,13 @@ class IndexLocalRecordsV2 {
 
     //Move checkpoint file if complete
     new File(checkpointFile).renameTo(new File(checkpointFile + ".complete"))
+  }
+
+  def downloadFile(url: String, fileToDownload: String)  {
+    val src = scala.io.Source.fromURL(url)
+    val out = new java.io.FileWriter(fileToDownload)
+    out.write(src.mkString)
+    out.close
   }
 }
 

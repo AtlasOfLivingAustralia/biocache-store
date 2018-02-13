@@ -62,6 +62,8 @@ object Config {
 
   val hashImageFileNames = configModule.properties.getProperty("hash.image.filenames", "false").toBoolean
 
+  val solrHome = configModule.properties.getProperty("solr.home", "")
+
   val solrUpdateThreads = configModule.properties.getProperty("solr.update.threads", "4").toInt
 
   val cassandraUpdateThreads = configModule.properties.getProperty("cassandra.update.threads", "8").toInt
