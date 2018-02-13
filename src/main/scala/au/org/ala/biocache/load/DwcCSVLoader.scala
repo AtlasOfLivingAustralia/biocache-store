@@ -47,7 +47,7 @@ object DwcCSVLoader extends Tool {
       l.deleteOldRowKeys(dataResourceUid)
       try {
         if (bypassConnParamLookup && !localFilePath.isEmpty){
-          l.loadFile(new File(localFilePath.get),dataResourceUid, List(), Map(), false, logRowKeys, testFile)
+          l.loadFile(new File(localFilePath.get),dataResourceUid, List(), Map(), logRowKeys, testFile, false)
         } else {
           localFilePath match {
             case None => l.load(dataResourceUid,logRowKeys,testFile)
@@ -70,17 +70,17 @@ object DwcCSVLoader extends Tool {
  */
 class DwcCSVLoader extends DataLoader {
 
-  def loadLocalFile(dataResourceUid:String, filePath:String, logRowKeys:Boolean=false, testFile:Boolean=false){
+  def loadLocalFile(dataResourceUid:String, filePath:String, logRowKeys:Boolean=true, testFile:Boolean=false){
     retrieveConnectionParameters(dataResourceUid) match {
       case None => logger.error("Unable to retrieve connection details for " + dataResourceUid)
       case Some(config) =>
         val strip = config.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
         val incremental = config.connectionParams.getOrElse("incremental",false).asInstanceOf[Boolean]
-        loadFile(new File(filePath),dataResourceUid, config.uniqueTerms, config.connectionParams, strip, incremental || logRowKeys, testFile)
+        loadFile(new File(filePath), dataResourceUid, config.uniqueTerms, config.connectionParams, strip, incremental || logRowKeys, testFile)
     }
   }
 
-  def load(dataResourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean=false, removeNullFields:Boolean=false){
+  def load(dataResourceUid:String, logRowKeys:Boolean=true, testFile:Boolean=false, forceLoad:Boolean=false, removeNullFields:Boolean=false){
     //remove the old files
     emptyTempFileStore(dataResourceUid)
     //delete the old file
@@ -117,7 +117,7 @@ class DwcCSVLoader extends DataLoader {
 
   //loads all the files in the subdirectories that are not multimedia
   def loadDirectory(directory:File, dataResourceUid:String, uniqueTerms:Seq[String], params:Map[String,String],
-                    stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean=false, deleteIfNullValue:Boolean=false){
+                    stripSpaces:Boolean=false, logRowKeys:Boolean=true, test:Boolean=false, deleteIfNullValue:Boolean=false){
 
     directory.listFiles.foreach(file => {
       if(file.isFile()&& !Config.mediaStore.isMediaFile(file)) {
@@ -142,7 +142,7 @@ class DwcCSVLoader extends DataLoader {
    * @param test
    */
   def loadFile(file:File, dataResourceUid:String, uniqueTerms:Seq[String], params:Map[String,String],
-               stripSpaces:Boolean=false, logRowKeys:Boolean=false, test:Boolean = false, deleteIfNullValue:Boolean=false){
+               stripSpaces:Boolean=false, logRowKeys:Boolean=true, test:Boolean = false, deleteIfNullValue:Boolean=false){
 
     val rowKeyWriter = getRowKeyWriter(dataResourceUid, logRowKeys)
 

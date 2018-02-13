@@ -199,7 +199,7 @@ class Loader extends DataLoader {
         case "dwc" => {
           logger.info("Darwin core headed CSV loading")
           val l = new DwcCSVLoader
-          l.load(dataResourceUid, false, test, forceLoad, removeNullFields)
+          l.load(dataResourceUid, logRowKeys, test, forceLoad, removeNullFields)
         }
         case "dwca" => {
           logger.info("Darwin core archive loading")

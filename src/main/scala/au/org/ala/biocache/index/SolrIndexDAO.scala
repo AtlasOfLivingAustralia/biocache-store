@@ -775,7 +775,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.addField("suitable_modelling", suitableForModelling.toString)
 
         //index the available el and cl's - more efficient to use the supplied map than using the old way
-        val els = Json.toStringMap(getParsedValue("el", map))
+        val els = Json.toJavaMap(getParsedValue("el", map))
         els.foreach {
           case (key, value) => doc.addField(key, value)
         }
@@ -1789,6 +1789,7 @@ class ColumnOrder {
       default
     }
   }
+
   var uuid: Int = -1
 
   var dataGeneralizationsP: Int = -1
