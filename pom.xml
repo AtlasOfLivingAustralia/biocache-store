@@ -25,7 +25,7 @@
         <scala.version>2.10.4</scala.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <org.springframework.version>3.2.18.RELEASE</org.springframework.version>
-        <solr.version>6.4.2</solr.version>
+        <solr.version>6.6.1</solr.version>
         <jts.version>1.13</jts.version>
         <jackson.version>2.9.2</jackson.version>
         <gt.version>11.1</gt.version>
