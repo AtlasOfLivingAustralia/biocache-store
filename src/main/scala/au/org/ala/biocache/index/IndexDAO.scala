@@ -314,8 +314,8 @@ trait IndexDAO {
     ("taxonRank", "rank", -1, 3),
     ("taxonRankID", "rank_id", -1, 3),
     ("typeStatus", "type_status", -1, 3),
-    ("verbatimDepth", "depth_d", -1, 3),
-    ("verbatimElevation", "elevation_d", -1, 3),
+    ("verbatimDepth", "depth", -1, 3),
+    ("verbatimElevation", "elevation", -1, 3),
     ("vernacularName", "common_name", -1, 3),
     ("year", "year", -1, 3))
 
@@ -325,7 +325,7 @@ trait IndexDAO {
     * These fields are not indexed by index-local-node-v2 for sensitive records.
     */
   lazy val headerAttributesFix = List(
-    ("verbatimElevation", "raw_min_elevation_d", -1, 2), // NEW
+    ("verbatimElevation", "raw_min_elevation", -1, 2), // NEW
     ("verbatimDepth", "raw_min_depth_d", -1, 2), // NEW
     ("taxonRank", "raw_rank", -1, 2), // NEW
     ("stateProvince", "raw_state", -1, 2), // NEW
@@ -333,10 +333,10 @@ trait IndexDAO {
     ("phylum", "raw_phylum", -1, 2), // NEW
     ("order", "raw_order", -1, 2), // NEW
     ("month", "raw_month", -1, 2), // NEW
-    ("minimumElevationInMeters", "raw_min_elevation_d", -1, 2), // NEW
-    ("minimumDepthInMeters", "raw_min_depth_d", -1, 2), // NEW
-    ("maximumElevationInMeters", "raw_max_elevation_d", -1, 2), // NEW
-    ("maximumDepthInMeters", "raw_max_depth_d", -1, 2), // NEW
+    ("minimumElevationInMeters", "raw_min_elevation", -1, 2), // NEW
+    ("minimumDepthInMeters", "raw_min_depth", -1, 2), // NEW
+    ("maximumElevationInMeters", "raw_max_elevation", -1, 2), // NEW
+    ("maximumDepthInMeters", "raw_max_depth", -1, 2), // NEW
     ("license", "raw_license", -1, 2), // NEW
     ("kingdom", "raw_kingdom", -1, 2), // NEW
     ("genus", "raw_genus", -1, 2), // NEW
