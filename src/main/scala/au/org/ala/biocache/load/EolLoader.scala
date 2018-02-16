@@ -1,5 +1,6 @@
 package au.org.ala.biocache.load
 
+import java.io.Writer
 import java.net.{URL, URLEncoder}
 
 import au.org.ala.biocache.model.{FullRecord, Multimedia}
@@ -10,23 +11,25 @@ import scala.io.Source
 import scala.util.parsing.json.JSON
 
 /**
-  * Companion object
+  * Companion object for EOL Loader implementation
   */
 object EolLoader {
 
   def main(args: Array[String]): Unit = {
 
     var dataResourceUid = ""
+    var eolBaseUrl = "http://eol.org/api"
     var url = ""
 
     val parser = new OptionParser("Load EOL images for registered users") {
       arg("<data resource UID>", "The UID of the data resource to load", { v: String => dataResourceUid = v })
+      arg("<eol-base-url>", "The url to scientific names load", { v: String => eolBaseUrl = v })
       arg("<url>", "The url to scientific names load", { v: String => url = v })
     }
 
     if (parser.parse(args)) {
       val l = new EolLoader
-      l.load(dataResourceUid, url)
+      l.load(dataResourceUid, eolBaseUrl, url, true)
     }
   }
 }
@@ -38,14 +41,14 @@ class EolLoader extends DataLoader {
 
   override val logger = LoggerFactory.getLogger("EolLoader")
 
-  def load(dataResourceUid: String, url: String) {
-    //val url = "http://130.56.248.115/solr/bie/select?wt=csv&q=rank:Species&fl=scientificName&rows=100"
-    val names = Source.fromURL(url).getLines()
+  def load(dataResourceUid: String, eolBaseUrl:String, url: String, logRowKeys:Boolean) {
 
+    val rowKeyWriter = getRowKeyWriter(dataResourceUid, logRowKeys)
+    val names = Source.fromURL(url).getLines()
     names.foreach(name => {
       logger.info(s"Loading data for $name")
       val nameEncoded = URLEncoder.encode(name, "UTF-8")
-      val searchURL = s"http://eol.org/api/search/1.0.json?q=$nameEncoded&page=1&exact=true&filter_by_taxon_concept_id=&filter_by_hierarchy_entry_id=&filter_by_string=&cache_ttl="
+      val searchURL = s"$eolBaseUrl/search/1.0.json?q=$nameEncoded&page=1&exact=true&filter_by_taxon_concept_id=&filter_by_hierarchy_entry_id=&filter_by_string=&cache_ttl="
       val searchText = Source.fromURL(searchURL).getLines().mkString
       JSON.parseFull(searchText) match {
         case Some(payload) => {
@@ -55,7 +58,7 @@ class EolLoader extends DataLoader {
             val pageId = result.getOrElse("id", -1).asInstanceOf[Double].toInt
             logger.info(s"For $name pageId: $pageId")
             try {
-              loadPage(dataResourceUid, pageId.toString)
+              loadPage(dataResourceUid, eolBaseUrl, pageId.toString, rowKeyWriter)
             } catch {
               case e: Exception => logger.error(s"Problem loading page id: $pageId " + e.getMessage)
             }
@@ -66,9 +69,9 @@ class EolLoader extends DataLoader {
     })
   }
 
-  def loadPage(dataResourceUid: String, pageId: String): Unit = {
+  def loadPage(dataResourceUid: String, eolBaseUrl:String, pageId: String, rowkeyWriter: Option[Writer]): Unit = {
     //get the ID
-    val pageUrl = s"http://eol.org/api/pages/1.0/$pageId.json?images=10&videos=0&sounds=0&maps=0&text=2&iucn=false&subjects=overview&licenses=all&details=true&common_names=true&synonyms=true&references=true&vetted=0&cache_ttl="
+    val pageUrl = s"$eolBaseUrl/pages/1.0/$pageId.json?images=10&videos=0&sounds=0&maps=0&text=2&iucn=false&subjects=overview&licenses=all&details=true&common_names=true&synonyms=true&references=true&vetted=0&cache_ttl="
     //get the images
     val searchText = Source.fromURL(pageUrl).getLines().mkString
     JSON.parseFull(searchText) match {
@@ -101,17 +104,30 @@ class EolLoader extends DataLoader {
             if (dataType == "http://purl.org/dc/dcmitype/StillImage") {
               val fullRecord = new FullRecord()
               fullRecord.classification.scientificName = scientificName
-              load(dataResourceUid, fullRecord, List(identifier), List(new Multimedia(new URL(mediaURL), mimeType,
-                Map(
-                  "license" -> license,
-                  "rightsHolder" -> rightsHolder,
-                  "title" -> title,
-                  "description" -> description,
-                  "creator" -> photographer,
-                  "source" -> source,
-                  "vettedStatus" -> vettedStatus
-                )
-              )))
+              load(dataResourceUid,
+                fullRecord,
+                List(identifier),
+                true,
+                true,
+                true,
+                rowkeyWriter,
+                List(
+                  new Multimedia(
+                    new URL(mediaURL),
+                    mimeType,
+                    Map(
+                      "license" -> license,
+                      "rightsHolder" -> rightsHolder,
+                      "title" -> title,
+                      "description" -> description,
+                      "creator" -> photographer,
+                      "source" -> source,
+                      "vettedStatus" -> vettedStatus
+                    )
+                  )
+                ),
+                false
+              )
               logger.info(s"URL $mediaURL Type: $dataType")
             }
           }

@@ -238,8 +238,9 @@ class Loader extends DataLoader {
           val l = new EolLoader
           if (!test) {
             val speciesListUrl = config.get.connectionParams.getOrElse("species_list_url", "")
+            val eolBaseUrl = config.get.connectionParams.getOrElse("url", "http://api.eol.org")
             if (speciesListUrl != "") {
-              l.load(dataResourceUid, speciesListUrl)
+              l.load(dataResourceUid, eolBaseUrl, speciesListUrl, true)
             } else {
               println("speciesListUrl not configured for EOL loader")
             }
