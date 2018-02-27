@@ -144,7 +144,7 @@ class LocationProcessor extends Processor {
 
     //Only process the raw country value if no latitude and longitude is provided
     if (processed.location.country == null && raw.location.decimalLatitude == null && raw.location.decimalLongitude == null) {
-      //process the supplied state
+      //process the supplied country
       val countryTerm = Countries.matchTerm(raw.location.country)
       if (!countryTerm.isEmpty) {
         processed.location.country = countryTerm.get.canonical
@@ -873,8 +873,6 @@ class LocationProcessor extends Processor {
 
   def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
     var assertions = new ArrayBuffer[QualityAssertion]
-
-    //get the data resource information to check if it has mapped collections
     if (lastProcessed.isDefined) {
       assertions ++= lastProcessed.get.findAssertions(Array(LOCATION_NOT_SUPPLIED.code,
         COUNTRY_INFERRED_FROM_COORDINATES.code, COORDINATES_CENTRE_OF_STATEPROVINCE.code,

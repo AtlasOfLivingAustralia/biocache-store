@@ -78,7 +78,6 @@ class AttributionProcessor extends Processor {
   def skip(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
     var assertions = new ArrayBuffer[QualityAssertion]
 
-    //get the data resource information to check if it has mapped collections
     if (lastProcessed.isDefined) {
       assertions ++= lastProcessed.get.findAssertions(Array(UNRECOGNISED_COLLECTIONCODE.code,
         UNRECOGNISED_INSTITUTIONCODE.code))
