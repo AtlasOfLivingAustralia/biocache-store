@@ -21,7 +21,14 @@ object DateParser {
     if(dateStr == null)
       return None
 
-    val dateStrNormalised = dateStr.trim
+    val dateStrNormalised = {
+      val x = dateStr.trim
+      if(x.startsWith("/") || x.startsWith("-")){
+        x.substring(1)
+      } else {
+        x
+      }
+    }
     //assume ISO
     val eventDateWithOption = parseISODate(dateStrNormalised)
 
@@ -521,7 +528,11 @@ object ISOYearRange {
       val startMonth, endMonth = ""
       val startYear = DateFormatUtils.format(startDateParsed, "yyyy")
       val endYear = {
-        if (parts.length == 2) {
+        if (parts.length == 2 &&
+          ( parts(0).length == parts(1).length
+            || parts(0).length == 4 && parts(1).length <= 2
+          )
+        ) {
           val endDateParsed = DateUtils.parseDateStrictly(parts(1),
             Array("yyyy", "yy", "y"))
 
