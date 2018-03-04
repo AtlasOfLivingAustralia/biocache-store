@@ -218,9 +218,9 @@ public class DocBuilder {
             sf = new SchemaField(field, schema.getFieldTypeByName("tfloat"), properties, null);
         } else if (field.endsWith("_i") || field.endsWith("_i_rng")) {
             sf = new SchemaField(field, schema.getFieldTypeByName("tint"), properties, null);
-        } else if (field.endsWith("_l")) {
+        } else if (field.endsWith("_l") && !field.endsWith("_per_l")) {
             sf = new SchemaField(field, schema.getFieldTypeByName("tlong"), properties, null);
-        } else if (field.endsWith("_d") || field.endsWith("_d_rng")) {
+        } else if (field.endsWith("_d") || field.endsWith("_d_rng") || field.endsWith("_per_l")) {
             sf = new SchemaField(field, schema.getFieldTypeByName("tdouble"), properties, null);
         } else if (field.endsWith("_f")) {
             sf = new SchemaField(field, schema.getFieldTypeByName("tfloat"), properties, null);
