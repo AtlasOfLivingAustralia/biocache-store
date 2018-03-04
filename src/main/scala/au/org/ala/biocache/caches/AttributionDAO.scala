@@ -172,7 +172,7 @@ object AttributionDAO {
 
         //lookup the collectory against the WS
         logger.info("Looking up collectory web service for " + uuid)
-        val url = Config.registryUrl+"/lookup/inst/"+URLEncoder.encode(institutionCode)+"/coll/"+URLEncoder.encode(collectionCode)
+        val url = Config.registryUrl+"/lookup/inst/"+URLEncoder.encode(institutionCode, "UTF-8")+"/coll/"+URLEncoder.encode(collectionCode, "UTF-8")
         val wscontent = WebServiceLoader.getWSStringContent(url)
         val wsmap = Json.toMap(wscontent)
 
