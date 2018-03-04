@@ -26,7 +26,7 @@ class FullRecord(
                   @BeanProperty var identification: Identification,
                   @BeanProperty var measurement: Measurement,
                   @BeanProperty var assertions: Array[String] = Array(),
-                  @BeanProperty var el: java.util.Map[String, String] = new java.util.HashMap[String, String](), //environmental layers
+                  @BeanProperty var el: java.util.Map[String, Double] = new java.util.HashMap[String, Double](), //environmental layers
                   @BeanProperty var cl: java.util.Map[String, String] = new java.util.HashMap[String, String](), //contextual layers
                   @BeanProperty var miscProperties: java.util.Map[String, String] = new java.util.HashMap[String, String](),
                   @BeanProperty var queryAssertions: java.util.Map[String, String] = new java.util.HashMap[String, String](),
