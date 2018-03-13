@@ -848,8 +848,10 @@ trait IndexDAO {
         val simages = getValue("images", map)
         if (StringUtils.isNotEmpty(simages)) {
           jsonArrayLoop(simages, (item, idx) => {
-            if (idx == 0)
+            if (idx == 0) {
               doc.getDoc.get("image_url")
+              addField(doc, "all_image_url", item)
+            }
             addField(doc, "all_image_url", item)
           })
         }
@@ -1536,6 +1538,8 @@ trait IndexDAO {
     //decade
     var occurrenceYear = getArrayValue(columnOrder.yearP, array)
     if (occurrenceYear.length == 4) {
+      occurrenceYear += "-01-01T00:00:00Z"
+      addField(doc, "occurrence_year", occurrenceYear)
       addField(doc, "occurrence_decade_i", occurrenceYear.substring(0, 3) + "0")
     }
 
@@ -1643,45 +1647,39 @@ trait IndexDAO {
   }
 
   /**
-    * only loops over JSON arrays of strings that do not have formatted spacing
+    * Only loops over JSON arrays of strings that do not have formatted spacing
     *
     * @param jsonString
     * @param proc
     */
   def jsonArrayLoop(jsonString: String, proc: (String, Integer) => Unit) {
+
     if (StringUtils.isNotEmpty(jsonString)) {
-      var i: Integer = jsonString.indexOf("\"") + 1
-      val length: Integer = jsonString.length()
-      var end: Integer = jsonString.indexOf("\",\"", i + 1)
-      var sa: Boolean = false
 
+      var start: Integer = jsonString.indexOf("\"") + 1
+      var endOfCommaQuote: Integer = jsonString.indexOf("\",\"", start + 1)
+      var endQuote: Integer = jsonString.indexOf("\"", start + 1)
       var pos: Integer = 0
-      while (end > 0) {
-        proc(jsonString.substring(i, end), pos)
-        i = end + 3
 
-        pos = pos + 1
-
-        end = jsonString.indexOf("\",\"", i + 1)
+      while (endOfCommaQuote > 0 || endQuote > 0) {
+        if (endOfCommaQuote > 0) {
+          proc(jsonString.substring(start, endOfCommaQuote), pos)
+          start = endOfCommaQuote + 3
+        } else {
+          proc(jsonString.substring(start, endQuote), pos)
+          start = endQuote + 3
+        }
+        endOfCommaQuote = jsonString.indexOf("\",\"", start + 1)
+        endQuote = jsonString.indexOf("\"", start + 1)
+        pos += 1
       }
     }
   }
 
   def jsonArrayLoop(jsonString: String, field: String, doc: DocBuilder) {
-    if (StringUtils.isNotEmpty(jsonString)) {
-      var i: Integer = jsonString.indexOf("\"") + 1
-      val length: Integer = jsonString.length()
-      var end: Integer = jsonString.indexOf("\",\"", i + 1)
-      var sa: Boolean = false
-
-      while (end > 0) {
-        addField(doc, field, jsonString.substring(i, end))
-
-        i = end + 3
-
-        end = jsonString.indexOf("\",\"", i + 1)
-      }
-    }
+    jsonArrayLoop(jsonString, (item, idx) =>
+      addField(doc, field, item)
+    )
   }
 }
 
@@ -1690,49 +1688,8 @@ trait IndexDAO {
  *
  * Not in use yet.
  */
-case class IndexField(fieldName: String, dataType: String, sourceField: String, multi: Boolean = false, storeAsArray: Boolean = false, extraField: Option[String] = None, isMiscProperty: Boolean = false) {
-
-  //  def getValuesForIndex(map: Map[String, String]): (String, Option[Array[String]]) = {
-  //
-  //    //get the source value. Cater for the situation where we get the parsed value if raw doesn't exist
-  //    val sourceValue: String = if (sourceField.contains(",")) {
-  //      //There are multiple fields that supply the source for the field
-  //      val fields = sourceField.split(",")
-  //      fields.foldLeft("")((concat, value) => concat + "|" + map.getOrElse(value, ""))
-  //    } else {
-  //      map.getOrElse(sourceField, if (extraField.isDefined) map.getOrElse(extraField.get, "") else "")
-  //    }
-  //
-  //    dataType match {
-  //      case "date" => {
-  //        val date = DateParser.parseStringToDate(sourceValue)
-  //        if (date.isDefined)
-  //          return (fieldName, Some(Array(DateFormatUtils.format(date.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))))
-  //      }
-  //      case "double" => {
-  //        //needs to be a valid double
-  //        try {
-  //          java.lang.Double.parseDouble(sourceValue)
-  //          return (fieldName, Some(Array(sourceValue)))
-  //        } catch {
-  //          case _:Exception => (fieldName, None)
-  //        }
-  //      }
-  //      case _ => {
-  //        if (sourceValue.length > 0) {
-  //          if (multi && storeAsArray) {
-  //            val array = Json.toStringArray(sourceValue)
-  //            return (fieldName, Some(array))
-  //          }
-  //          if (multi) {
-  //            return (fieldName, Some(sourceValue.split(",")))
-  //          }
-  //        }
-  //      }
-  //    }
-  //    (fieldName, None)
-  //  }
-}
+case class IndexField(fieldName: String, dataType: String, sourceField: String, multi: Boolean = false,
+                      storeAsArray: Boolean = false, extraField: Option[String] = None, isMiscProperty: Boolean = false)
 
 object IndexFields {
 
