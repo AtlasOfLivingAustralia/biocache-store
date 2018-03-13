@@ -110,7 +110,7 @@ class LayersStore ( layersStoreUrl: String) {
 
       //download stream as csv
       val inputStream: BufferedInputStream = new BufferedInputStream(new java.net.URL(downloadUrl + "?csv=true").openStream())
-      (new InputStreamReader(inputStream))
+      (new InputStreamReader(inputStream, "UTF-8"))
 
     } catch {
       case _:Exception => {

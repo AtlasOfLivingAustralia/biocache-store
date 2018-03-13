@@ -396,7 +396,13 @@ class Sampling  {
       Config.fieldsToSample()
     }
     var filename = outputFilePath
-    var writer = new CSVWriter(new FileWriter(filename))
+
+    import java.io.FileOutputStream
+    import java.io.OutputStreamWriter
+    import java.nio.charset.StandardCharsets
+
+    val fileWriter = new OutputStreamWriter(new FileOutputStream(filename), StandardCharsets.UTF_8)
+    var writer = new CSVWriter(fileWriter)
     val batch = new LinkedBlockingQueue[String]
     var batchCount = 0
     val sampleLoading = new LoadSamplingConsumer(batch)
@@ -509,7 +515,8 @@ class Sampling  {
       callback.setLayersToSample(intersectionFiles)
     }
     //do sampling
-    val samples = new CSVReader(layersStore.sample(fields, points, callback))
+    val reader = layersStore.sample(fields, points, callback)
+    val samples = new CSVReader(reader)
 
     //header
     var header = samples.readNext()
