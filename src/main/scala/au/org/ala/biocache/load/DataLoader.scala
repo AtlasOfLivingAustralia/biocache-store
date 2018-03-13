@@ -293,15 +293,22 @@ trait DataLoader {
         multiMediaObject match {
           case Some(multimedia) => Some(multimedia)
           case None => {
-            //construct metadata from record
-            Some(new Multimedia(new URL(fileToStore), "", Map(
-              "creator" -> fr.occurrence.recordedBy,
-              "title" -> fr.classification.scientificName,
-              "description" -> fr.occurrence.occurrenceRemarks,
-              "license" -> fr.occurrence.license,
-              "rights" -> fr.occurrence.rights,
-              "rightsHolder" -> fr.occurrence.rightsholder
-            )))
+            try {
+              //construct metadata from record
+              Some(new Multimedia(new URL(fileToStore), "", Map(
+                "creator" -> fr.occurrence.recordedBy,
+                "title" -> fr.classification.scientificName,
+                "description" -> fr.occurrence.occurrenceRemarks,
+                "license" -> fr.occurrence.license,
+                "rights" -> fr.occurrence.rights,
+                "rightsHolder" -> fr.occurrence.rightsholder
+              )))
+            } catch {
+              case e:Exception => {
+                logger.error("Unable to load mediaL " + e.getMessage, e)
+                None
+              }
+            }
           }
         }
       }
