@@ -13,7 +13,7 @@ https://github.com/AtlasOfLivingAustralia/ala-install
 We are currently running 2 development branches
 
 * 1.9.x which is using cassandra 1.x, with SOLR 4. 
-* 2.x development branch is using cassandra 3.9 and SOLR Cloud 6. 
+* 2.x development branch is using cassandra 3.11.x and SOLR Cloud 6. 
 
 ## Build notes
 
