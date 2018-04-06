@@ -1,14 +1,8 @@
 package au.org.ala.biocache.processor
 
-import java.util.{Date, GregorianCalendar}
-
-import scala.collection.mutable.ArrayBuffer
-import org.apache.commons.lang.time.{DateFormatUtils, DateUtils}
 import java.util.{GregorianCalendar, Date}
-import org.apache.commons.lang.StringUtils
 import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.model.{QualityAssertion, FullRecord}
-import au.org.ala.biocache.vocab.{DatePrecision, AssertionStatus, AssertionCodes}
 import au.org.ala.biocache.util.{DateUtil, StringHelper}
 import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, DatePrecision}
 import org.apache.commons.lang.StringUtils
@@ -49,7 +43,7 @@ class EventProcessor extends Processor {
    *
    * TODO needs splitting into several methods
    */
-  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord]=None): Array[QualityAssertion] = {
+  def process(guid: String, raw: FullRecord, processed: FullRecord, lastProcessed: Option[FullRecord] = None): Array[QualityAssertion] = {
     var assertions = new ArrayBuffer[QualityAssertion]
     if ((raw.event.day == null || raw.event.day.isEmpty)
       && (raw.event.month == null || raw.event.month.isEmpty)
@@ -59,218 +53,236 @@ class EventProcessor extends Processor {
       && (raw.event.verbatimEventDate == null || raw.event.verbatimEventDate.isEmpty)
     ) {
       assertions += QualityAssertion(MISSING_COLLECTION_DATE, "No date information supplied")
-    } else {
+      return assertions.toArray
+    }
 
-      var date: Option[java.util.Date] = None
-      val currentYear = DateUtil.getCurrentYear
-      var comment = ""
-      var addPassedInvalidCollectionDate = true
-      var dateComplete = false
+    var date: Option[java.util.Date] = None
+    val currentYear = DateUtil.getCurrentYear
+    var comment = ""
+    var addPassedInvalidCollectionDate = true
+    var dateComplete = false
 
-      var (year, validYear) = validateNumber(raw.event.year, {
-        year => year > 0 && year <= currentYear
-      })
-      var (month, validMonth) = validateNumber(raw.event.month, {
-        month => month >= 1 && month <= 12
-      })
-      var (day, validDay) = validateNumber(raw.event.day, {
-        day => day >= 1 && day <= 31
-      })
+    var (year, validYear) = validateNumber(raw.event.year, {
+      year => year > 0 && year <= currentYear
+    })
+    var (month, validMonth) = validateNumber(raw.event.month, {
+      month => month >= 1 && month <= 12
+    })
+    var (day, validDay) = validateNumber(raw.event.day, {
+      day => day >= 1 && day <= 31
+    })
 
-      //check month and day not transposed
-      if (!validMonth && raw.event.month.isInt && raw.event.day.isInt) {
-        //are day and month transposed?
-        val monthValue = raw.event.month.toInt
-        val dayValue = raw.event.day.toInt
-        if (monthValue > 12 && dayValue < 12) {
-          month = dayValue
-          day = monthValue
-          assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, "Assume day and month transposed")
-          //assertions += QualityAssertion(INVALID_COLLECTION_DATE,PASSED) //this one is not applied
-          validMonth = true
-        } else {
-          assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Invalid month supplied")
-          addPassedInvalidCollectionDate = false
-          assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, PASSED) //this one has been tested and does not apply
-        }
+    //check month and day not transposed
+    if (!validMonth && raw.event.month.isInt && raw.event.day.isInt) {
+      //are day and month transposed?
+      val monthValue = raw.event.month.toInt
+      val dayValue = raw.event.day.toInt
+      if (monthValue > 12 && dayValue < 12) {
+        month = dayValue
+        day = monthValue
+        assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, "Assume day and month transposed")
+        validMonth = true
+      } else {
+        assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Invalid month supplied")
+        addPassedInvalidCollectionDate = false
+        assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, PASSED) //this one has been tested and does not apply
       }
+    }
 
-      //TODO need to check for other months
-      if (day == 0 || day > 31) {
-        assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Invalid day supplied")
+    //TODO need to check for other months
+    if (day == 0 || day > 31) {
+      assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Invalid day supplied")
+      addPassedInvalidCollectionDate = false
+    }
+
+    //check for sensible year value
+    if (year > 0) {
+      val (newComment, newValidYear, newYear) = runYearValidation(year, currentYear, day, month)
+      comment = newComment
+      validYear = newValidYear
+      year = newYear
+
+      if (StringUtils.isNotEmpty(comment)) {
+        assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
         addPassedInvalidCollectionDate = false
       }
+    }
 
-      //check for sensible year value
-      if (year > 0) {
-        val (newComment, newValidYear, newYear) = runYearValidation(year, currentYear, day, month)
-        comment = newComment
-        validYear = newValidYear
-        year = newYear
+    var validDayMonthYear = validYear && validDay && validMonth
 
-        if (StringUtils.isNotEmpty(comment)) {
+    //construct
+    if (validDayMonthYear) {
+      try {
+        val calendar = new GregorianCalendar(
+          year.toInt,
+          month.toInt - 1,
+          day.toInt
+        )
+        //don't allow the calendar to be lenient we want exceptions with incorrect dates
+        calendar.setLenient(false)
+        date = Some(calendar.getTime)
+        dateComplete = true
+      } catch {
+        case e: Exception => {
+          validDayMonthYear = false
+          comment = "Invalid year, day, month"
           assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
           addPassedInvalidCollectionDate = false
         }
       }
+    }
 
-      var validDayMonthYear = validYear && validDay && validMonth
+    //set the processed values
+    if (validYear) processed.event.year = year.toString
+    if (validMonth) processed.event.month = String.format("%02d", int2Integer(month)) //NC ensure that a month is 2 characters long
+    if (validDay) processed.event.day = day.toString
+    if (!date.isEmpty) {
+      processed.event.eventDate = DateFormatUtils.format(date.get, "yyyy-MM-dd")
+    }
 
-      //construct
-      if (validDayMonthYear) {
-        try {
+    //deal with event date if we don't have separate day, month, year fields
+    if (date.isEmpty && raw.event.eventDate != null && !raw.event.eventDate.isEmpty) {
+      val parsedDate = DateParser.parseDate(raw.event.eventDate)
+      if (!parsedDate.isEmpty) {
 
-          val calendar = new GregorianCalendar(
-            year.toInt,
-            month.toInt - 1,
-            day.toInt
+        //set our best date
+        date = Some(parsedDate.get.parsedStartDate)
+
+        //set processed values
+        processed.event.eventDate = parsedDate.get.startDate
+        if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
+          processed.event.eventDateEnd = parsedDate.get.endDate
+        }
+        processed.event.day = parsedDate.get.startDay
+        processed.event.month = parsedDate.get.startMonth
+
+        //set the valid year if one was supplied in the eventDate
+        if(parsedDate.get.startYear != "") {
+          val (newComment, isValidYear, newYear) = runYearValidation(
+            parsedDate.get.startYear.toInt, currentYear,
+            if(parsedDate.get.startDay == "") 0 else parsedDate.get.startDay.toInt,
+            if(parsedDate.get.startMonth == "") 0 else parsedDate.get.startMonth.toInt
           )
-          //don't allow the calendar to be lenient we want exceptions with incorrect dates
-          calendar.setLenient(false)
-          date = Some(calendar.getTime)
+
+            comment = newComment
+            validYear = isValidYear
+            year = newYear
+
+            if(isValidYear) {
+              processed.event.year = newYear.toString
+              if (processed.event.day != "" && processed.event.month != "") {
+                //construct a new event date
+                processed.event.eventDate = processed.event.year + "-" + processed.event.month + "-" + processed.event.day
+              }
+            } else {
+              processed.event.eventDate = null
+              processed.event.year = null
+            }
+        }
+
+        if (StringUtils.isNotBlank(parsedDate.get.startDate)) {
+          //we have a complete date
           dateComplete = true
-        } catch {
-          case e: Exception => {
-            validDayMonthYear = false
-            comment = "Invalid year, day, month"
-            assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
-            addPassedInvalidCollectionDate = false
-          }
+        }
+
+        if (DateUtil.isFutureDate(parsedDate.get)) {
+          assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
+
+          addPassedInvalidCollectionDate = false
+        }
+
+        if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
+          processed.event.eventDateEnd = parsedDate.get.endDate
         }
       }
+    }
 
-      //set the processed values
-      if (validYear) processed.event.year = year.toString
-      if (validMonth) processed.event.month = String.format("%02d", int2Integer(month)) //NC ensure that a month is 2 characters long
-      if (validDay) processed.event.day = day.toString
-      if (!date.isEmpty) {
-        processed.event.eventDate = DateFormatUtils.format(date.get, "yyyy-MM-dd")
+    //process event end date if supplied separately
+    if (StringUtils.isNotEmpty(raw.event.eventDateEnd)) {
+      //look for an end date
+      val parsedDate = DateParser.parseDate(raw.event.eventDateEnd)
+      if (!parsedDate.isEmpty) {
+        //what happens if d m y make the eventDate and eventDateEnd is parsed?
+        processed.event.eventDateEnd = parsedDate.get.startDate
       }
+    }
 
-      //deal with event date if we don't have separate day, month, year fields
-      if (date.isEmpty && raw.event.eventDate != null && !raw.event.eventDate.isEmpty) {
-        val parsedDate = DateParser.parseDate(raw.event.eventDate)
-        if (!parsedDate.isEmpty) {
-          //set processed values
-          processed.event.eventDate = parsedDate.get.startDate
-          if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
-            processed.event.eventDateEnd = parsedDate.get.endDate
-          }
-          processed.event.day = parsedDate.get.startDay
-          processed.event.month = parsedDate.get.startMonth
-          processed.event.year = parsedDate.get.startYear
-          //set the valid year if one was supplied in the eventDate
-          if(parsedDate.get.startYear != "") {
-            val(newComment, newValidYear, newYear) = runYearValidation(
-              parsedDate.get.startYear.toInt, currentYear,
-              if(parsedDate.get.startDay == "") 0 else parsedDate.get.startDay.toInt,
-              if(parsedDate.get.startMonth == "") 0 else parsedDate.get.startMonth.toInt
-            )
-            comment = newComment
-            validYear = newValidYear
-            year = newYear
-          }
+    //deal with verbatim date if we havent had a parseable eventDate
+    if (date.isEmpty && raw.event.verbatimEventDate != null && !raw.event.verbatimEventDate.isEmpty) {
+      val parsedDate = DateParser.parseDate(raw.event.verbatimEventDate)
+      if (!parsedDate.isEmpty) {
+        //set processed values
+        processed.event.eventDate = parsedDate.get.startDate
+        if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
+          processed.event.eventDateEnd = parsedDate.get.endDate
+        }
+        processed.event.day = parsedDate.get.startDay
+        processed.event.month = parsedDate.get.startMonth
+        processed.event.year = parsedDate.get.startYear
 
-          if (StringUtils.isNotBlank(parsedDate.get.startDate)) {
-            //we have a complete date
-            dateComplete = true
-          }
+        //set the valid year if one was supplied in the verbatimEventDate
+        if(parsedDate.get.startYear != "") {
+          val (newComment, isValidYear, newYear) = runYearValidation(
+            parsedDate.get.startYear.toInt,
+            currentYear,
+            if(parsedDate.get.startDay == "") 0 else parsedDate.get.startDay.toInt,
+            if(parsedDate.get.startMonth == "") 0 else parsedDate.get.startMonth.toInt
+          )
+          comment = newComment
+          validYear = isValidYear
+          year = newYear
 
-          if (DateUtil.isFutureDate(parsedDate.get)) {
-            assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
-            addPassedInvalidCollectionDate = false
+          if(isValidYear) {
+            processed.event.year = newYear.toString
+            if (processed.event.day != "" && processed.event.month != "") {
+              //construct a new event date
+              processed.event.eventDate = processed.event.year + "-" + processed.event.month + "-" + processed.event.day
+            }
+          } else {
+            processed.event.eventDate = null
+            processed.event.year = null
           }
         }
-      } else if (raw.event.eventDate != null && !raw.event.eventDate.isEmpty) {
-        //look for an end date
-        val parsedDate = DateParser.parseDate(raw.event.eventDate)
-        if (!parsedDate.isEmpty) {
-          //what happens if d m y make the eventDate and eventDateEnd is parsed?
-          if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
-            processed.event.eventDateEnd = parsedDate.get.endDate
-          }
+
+        //we have a complete date
+        dateComplete = StringUtils.isNotBlank(parsedDate.get.startDate)
+      }
+    } else if ((processed.event.eventDateEnd == null || processed.event.eventDateEnd.isEmpty()) &&
+      raw.event.verbatimEventDate != null && !raw.event.verbatimEventDate.isEmpty) {
+      //look for an end date
+      val parsedDate = DateParser.parseDate(raw.event.verbatimEventDate)
+      if (!parsedDate.isEmpty && !parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
+        //what happens if d m y make the eventDate and eventDateEnd is parsed?
+        if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
+          processed.event.eventDateEnd = parsedDate.get.endDate
         }
       }
+    }
 
-      //process event end date if supplied separately
-      if (StringUtils.isNotEmpty(raw.event.eventDateEnd)) {
-        //look for an end date
-        val parsedDate = DateParser.parseDate(raw.event.eventDateEnd)
-        if (!parsedDate.isEmpty) {
-          //what happens if d m y make the eventDate and eventDateEnd is parsed?
-          processed.event.eventDateEnd = parsedDate.get.startDate
-        }
-      }
+    //if invalid date, add assertion
+    if (!validYear && (processed.event.eventDate == null || processed.event.eventDate == "" || comment != "")) {
+      assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
+      addPassedInvalidCollectionDate = false
+    }
 
-      //deal with verbatim date
-      if (date.isEmpty && raw.event.verbatimEventDate != null && !raw.event.verbatimEventDate.isEmpty) {
-        val parsedDate = DateParser.parseDate(raw.event.verbatimEventDate)
-        if (!parsedDate.isEmpty) {
-          //set processed values
-          processed.event.eventDate = parsedDate.get.startDate
-          if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) processed.event.eventDateEnd = parsedDate.get.endDate
-          processed.event.day = parsedDate.get.startDay
-          processed.event.month = parsedDate.get.startMonth
-          processed.event.year = parsedDate.get.startYear
+    //check for future date
+    if (!date.isEmpty && date.get.after(new Date())) {
+      assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
+      addPassedInvalidCollectionDate = false
+    }
 
-          //set the valid year if one was supplied in the verbatimEventDate
-          if(parsedDate.get.startYear != "") {
-            val (newComment, newValidYear, newYear) = runYearValidation(
-              parsedDate.get.startYear.toInt,
-              currentYear,
-              if(parsedDate.get.startDay == "") 0 else parsedDate.get.startDay.toInt,
-              if(parsedDate.get.startMonth == "") 0 else parsedDate.get.startMonth.toInt
-            )
-            comment = newComment
-            validYear = newValidYear
-            year = newYear
-          }
+    //check to see if we need add a passed test for the invalid collection dates
+    if (addPassedInvalidCollectionDate) {
+      assertions += QualityAssertion(INVALID_COLLECTION_DATE, PASSED)
+    }
 
-          if (StringUtils.isNotBlank(parsedDate.get.startDate)) {
-            //we have a complete date
-            dateComplete = true
-          }
-
-          if (DateUtil.isFutureDate(parsedDate.get)) {
-            assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
-            addPassedInvalidCollectionDate = false
-          }
-        }
-      } else if ((processed.event.eventDateEnd == null || processed.event.eventDateEnd.isEmpty()) &&
-        raw.event.verbatimEventDate != null && !raw.event.verbatimEventDate.isEmpty) {
-        //look for an end date
-        val parsedDate = DateParser.parseDate(raw.event.verbatimEventDate)
-        if (!parsedDate.isEmpty && !parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
-          //what happens if d m y make the eventDate and eventDateEnd is parsed?
-          if (!parsedDate.get.endDate.equals(parsedDate.get.startDate)) {
-            processed.event.eventDateEnd = parsedDate.get.endDate
-          }
-        }
-      }
-
-      //if invalid date, add assertion
-      if (!validYear && (processed.event.eventDate == null || processed.event.eventDate == "" || comment != "")) {
-        assertions += QualityAssertion(INVALID_COLLECTION_DATE, comment)
-        addPassedInvalidCollectionDate = false
-      }
-
-      //chec for future date
-      if (!date.isEmpty && date.get.after(new Date())) {
-        assertions += QualityAssertion(INVALID_COLLECTION_DATE, "Future date supplied")
-        addPassedInvalidCollectionDate = false
-      }
-
-      //check to see if we need add a passed test for the invalid collection dates
-      if (addPassedInvalidCollectionDate)
-        assertions += QualityAssertion(INVALID_COLLECTION_DATE, PASSED)
-
-      if (dateComplete) {
-        //add a pass condition for this test
-        assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, PASSED)
-      } else {
-        //incomplete date
-        assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, "The supplied collection date is not complete")
-      }
+    //indicate if we have complete date information - defined as a single day date
+    if (dateComplete) {
+      //add a pass condition for this test
+      assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, PASSED)
+    } else {
+      //incomplete date
+      assertions += QualityAssertion(INCOMPLETE_COLLECTION_DATE, "The supplied collection date is not complete")
     }
 
     //now process the other dates
@@ -285,6 +297,15 @@ class EventProcessor extends Processor {
     assertions.toArray
   }
 
+  /**
+    * Validate the supplied year.
+    *
+    * @param rawyear
+    * @param currentYear
+    * @param day
+    * @param month
+    * @return
+    */
   def runYearValidation(rawyear: Int, currentYear: Int, day: Int = 0, month: Int = 0): (String, Boolean, Int) = {
     var validYear = true
     var comment = ""
@@ -390,24 +411,26 @@ class EventProcessor extends Processor {
     }
 
     if (StringUtils.isNotBlank(processed.event.eventDate)) {
-      val eventDate = DateParser.parseStringToDate(processed.event.eventDate).get
-      //now test if the record was identified before it was collected
-      if (StringUtils.isNotBlank(processed.identification.dateIdentified)) {
-        if (DateParser.parseStringToDate(processed.identification.dateIdentified).get.before(eventDate)) {
-          //the record was identified before it was collected !!
-          assertions += QualityAssertion(ID_PRE_OCCURRENCE, "The records was identified before it was collected")
-        } else {
-          assertions += QualityAssertion(ID_PRE_OCCURRENCE, PASSED)
+      val eventDate = DateParser.parseStringToDate(processed.event.eventDate)
+      if(eventDate.isDefined) {
+        //now test if the record was identified before it was collected
+        if (StringUtils.isNotBlank(processed.identification.dateIdentified)) {
+          if (DateParser.parseStringToDate(processed.identification.dateIdentified).get.before(eventDate.get)) {
+            //the record was identified before it was collected !!
+            assertions += QualityAssertion(ID_PRE_OCCURRENCE, "The records was identified before it was collected")
+          } else {
+            assertions += QualityAssertion(ID_PRE_OCCURRENCE, PASSED)
+          }
         }
-      }
 
-      //now check if the record was georeferenced after the collection date
-      if (StringUtils.isNotBlank(processed.location.georeferencedDate)) {
-        if (DateParser.parseStringToDate(processed.location.georeferencedDate).get.after(eventDate)) {
-          //the record was not georeference when it was collected!!
-          assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, "The record was not georeferenced when it was collected")
-        } else {
-          assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, PASSED)
+        //now check if the record was georeferenced after the collection date
+        if (StringUtils.isNotBlank(processed.location.georeferencedDate)) {
+          if (DateParser.parseStringToDate(processed.location.georeferencedDate).get.after(eventDate.get)) {
+            //the record was not georeference when it was collected!!
+            assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, "The record was not georeferenced when it was collected")
+          } else {
+            assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, PASSED)
+          }
         }
       }
     }
@@ -520,13 +543,13 @@ class EventProcessor extends Processor {
 
     //single date
     if (forceNullifyDay) {
-      processed.event.day = ""
+      processed.event.day = null
     }
     if (forceNullifyMonth) {
-      processed.event.month = ""
+      processed.event.month = null
     }
     if (forceNullifyYear) {
-      processed.event.year = ""
+      processed.event.year = null
     }
 
     var determinedDatePrecision = ""
@@ -535,16 +558,16 @@ class EventProcessor extends Processor {
 
       //ranges - nullify if not equal
       if (StringUtils.isNotEmpty(startDate.get.startDay) && StringUtils.isNotEmpty(endDate.get.startDay) && startDate.get.startDay != endDate.get.startDay) {
-        processed.event.day = ""
+        processed.event.day = null
       }
       if (StringUtils.isNotEmpty(startDate.get.startMonth) && StringUtils.isNotEmpty(endDate.get.startMonth) && startDate.get.startMonth != endDate.get.startMonth) {
-        processed.event.month = ""
-        processed.event.day = ""
+        processed.event.month = null
+        processed.event.day = null
       }
       if (StringUtils.isNotEmpty(startDate.get.startYear) && StringUtils.isNotEmpty(endDate.get.startYear) && startDate.get.startYear != endDate.get.startYear) {
-        processed.event.year = ""
-        processed.event.month = "" //of the year is different, and its a range, month cant be determined
-        processed.event.day = ""
+        processed.event.year = null
+        processed.event.month = null //of the year is different, and its a range, month cant be determined
+        processed.event.day = null
       }
     }
 

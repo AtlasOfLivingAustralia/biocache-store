@@ -29,7 +29,6 @@ class ProcessEventTest extends ConfigFunSuite {
     raw.event.year = "0"
     val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
-//    println(processed.event)
   }
 
   test("yyyy-dd-mm correctly sets year, month, day values in process object") {
@@ -408,7 +407,7 @@ class ProcessEventTest extends ConfigFunSuite {
     raw = new FullRecord
     raw.event.eventDate = "1788-01-26"
     qas = (new EventProcessor).process("test", raw, processed)
-    expectResult("First Fleet arrival implies a null date"){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getComment}
+    expectResult("First Fleet arrival implies a null date"){qas.find(_.code == au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getComment}
   }
 
   test("00 month and day"){
@@ -421,9 +420,6 @@ class ProcessEventTest extends ConfigFunSuite {
   test("if year, day, month, eventDate supplied, eventDate is used for eventDateEnd") {
 
     val raw = new FullRecord( "1234")
-    raw.event.year = "1978"
-    raw.event.month = "12"
-    raw.event.day = "31"
     raw.event.eventDate = "1978-12-31/1979-01-02"
     val processed = raw.clone
     (new EventProcessor).process("1234", raw, processed)
@@ -535,9 +531,6 @@ class ProcessEventTest extends ConfigFunSuite {
     expectResult("2009"){ processed.event.year }
   }
 
-//01/01/2005
-// 31/12/2009
-
   test("separate start end dates - day precision 2 - year range") {
 
     val raw = new FullRecord("1234")
@@ -555,4 +548,94 @@ class ProcessEventTest extends ConfigFunSuite {
     expectResult(null){ processed.event.month }
     expectResult(null){ processed.event.year }
   }
+
+    test("invalid date" ) {
+
+      val raw = new FullRecord("1234")
+      val processed = new FullRecord("1234")
+      raw.event.eventDate = "26-6-5"
+      raw.event.eventDateEnd = null
+      raw.event.datePrecision = null
+
+      (new EventProcessor).process("1234", raw, processed)
+
+      expectResult("2005-06-26"){ processed.event.eventDate }
+      expectResult(null){ processed.event.eventDateEnd }
+      expectResult("Day"){ processed.event.datePrecision }
+      expectResult("26"){ processed.event.day }
+      expectResult("06"){ processed.event.month }
+      expectResult("2005"){ processed.event.year }
+    }
+
+  test("ambiguous date 26-6-5" ) {
+
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
+    raw.event.eventDate = "26-6-5"
+    raw.event.eventDateEnd = null
+    raw.event.datePrecision = null
+
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("2005-06-26"){ processed.event.eventDate }
+    expectResult(null){ processed.event.eventDateEnd }
+    expectResult("Day"){ processed.event.datePrecision }
+    expectResult("26"){ processed.event.day }
+    expectResult("06"){ processed.event.month }
+    expectResult("2005"){ processed.event.year }
+  }
+
+  test("ambiguous date 24-6-2" ) {
+
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
+    raw.event.eventDate = "24-6-2"
+    raw.event.eventDateEnd = null
+    raw.event.datePrecision = null
+
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("2002-06-24"){ processed.event.eventDate }
+    expectResult(null){ processed.event.eventDateEnd }
+    expectResult("Day"){ processed.event.datePrecision }
+    expectResult("24"){ processed.event.day }
+    expectResult("06"){ processed.event.month }
+    expectResult("2002"){ processed.event.year }
+  }
+
+  test("24-5-26 unparseable" ) {
+
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
+    raw.event.eventDate = "24-5-26"
+    raw.event.verbatimEventDate = "24-5-26"
+    raw.event.eventDateEnd = null
+    raw.event.datePrecision = null
+
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult(null){ processed.event.eventDate }
+    expectResult("24"){ processed.event.day }
+    expectResult("05"){ processed.event.month }
+    expectResult(null){ processed.event.year }
+  }
+
+  test("2002-02-02 eventDate, 02/02/2 verbatim" ) {
+
+    val raw = new FullRecord("1234")
+    val processed = new FullRecord("1234")
+    raw.event.eventDate = null
+    raw.event.verbatimEventDate = "02/02/2"
+    raw.event.eventDateEnd = null
+    raw.event.datePrecision = null
+
+    (new EventProcessor).process("1234", raw, processed)
+
+    expectResult("2002-02-02"){ processed.event.eventDate }
+    expectResult("Day"){ processed.event.datePrecision }
+    expectResult("02"){ processed.event.day }
+    expectResult("02"){ processed.event.month }
+    expectResult("2002"){ processed.event.year }
+  }
+
 }
