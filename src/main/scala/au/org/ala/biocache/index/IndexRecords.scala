@@ -56,7 +56,6 @@ object IndexRecords extends Tool with IncrementalTool {
     var startDate: Option[String] = None
     var pageSize = 1000
     var dataResourceUid: Option[String] = None
-    var uuidFile = ""
     var rowKeyFile = ""
     var threads = 1
     var test = false
@@ -73,7 +72,6 @@ object IndexRecords extends Tool with IncrementalTool {
       opt("date", "date", "The earliest modification date for records to be indexed. Date in the form yyyy-mm-dd", { v: String => startDate = Some(v) })
       opt("dr", "dataResource", "The data resource to index", { v: String => dataResourceUid = Some(v) })
       intOpt("ps", "pageSize", "The page size for indexing", { v: Int => pageSize = v })
-      opt("if", "file-uuids-to-index", "Absolute file path to fle containing UUIDs to index", { v: String => uuidFile = v })
       opt("rf", "file-rowkeys-to-index", "Absolute file path to fle containing rowkeys to index", { v: String => rowKeyFile = v })
       intOpt("t", "threads", "Number of threads to index from", { v: Int => threads = v })
       opt("test", "test the speed of creating the index the minus the actual SOLR indexing costs", {
@@ -104,9 +102,7 @@ object IndexRecords extends Tool with IncrementalTool {
           logger.info("Emptying index")
           indexer.emptyIndex
         }
-        if (uuidFile != "") {
-          indexListOfUUIDs(new File(uuidFile))
-        } else if (rowKeyFile != "") {
+        if (rowKeyFile != "") {
           if (threads == 1) {
             indexList(new File(rowKeyFile))
           } else {

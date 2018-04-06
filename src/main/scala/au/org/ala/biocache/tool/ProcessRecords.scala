@@ -35,6 +35,7 @@ object ProcessRecords extends Tool with IncrementalTool {
     val parser = new OptionParser(help) {
       intOpt("t", "thread", "The number of threads to use", {v:Int => threads = v } )
       opt("dr", "resource", "The data resource to process", {v:String => dataResourceUid = Some(v)})
+      opt("rf", "file-rowkeys-to-index", "Absolute file path to fle containing rowkeys to index", { v: String => rowKeyFile = v })
       booleanOpt("cd", "checkDeleted", "Check deleted records", {v:Boolean => checkDeleted = v})
     }
 
