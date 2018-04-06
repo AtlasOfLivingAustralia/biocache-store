@@ -7,8 +7,9 @@ import au.org.ala.biocache.util.OptionParser
 import org.slf4j.LoggerFactory
 
 /**
-  * Command line tool for ingesting data resources with options to skip
-  * sections of the loading process.
+  * Command line tool for ingesting data resource with options to skip
+  * sections of the loading process. This can be used to load single resources, but isnt recommended for ingesting
+  * millions of records.
   */
 object IngestTool extends Tool {
 
@@ -125,7 +126,7 @@ object IngestTool extends Tool {
     }
     if (!skipIndexing) {
       logger.info("Indexing: " + uid)
-      IndexRecords.index(Some(uid), threads = threads)
+      IndexRecords.main(Array("-dr", uid, "--acrk"))
     } else {
       logger.info("Skipping indexing: " + uid)
     }
