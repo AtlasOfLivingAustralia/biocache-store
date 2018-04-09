@@ -36,8 +36,8 @@ object AvroUtil {
 //    "life_stage", "outlier_layer", "outlier_layer_count", "taxonomic_issue", "raw_identification_qualifier", "species_habitats",
 //    "identified_by", "identified_date", "sensitive_longitude", "sensitive_latitude", "pest_flag_s", "collectors", "duplicate_status", "duplicate_record",
 //    "duplicate_type", "sensitive_coordinate_uncertainty", "distance_outside_expert_range", "elevation_d", "min_elevation_d", "max_elevation_d",
-//    "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status_s", "occurrence_details", "photographer_s", "rights",
-//    "raw_geo_validation_status_s", "raw_occurrence_status_s", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
+//    "depth_d", "min_depth_d", "max_depth_d", "name_parse_type_s","occurrence_status", "occurrence_details", "photographer_s", "rights",
+//    "raw_geo_validation_status_s", "raw_occurrence_status", "raw_locality","raw_latitude","raw_longitude","raw_datum","raw_sex",
 //    "sensitive_locality", "event_id", "location_id", "dataset_name", "reproductive_condition_s") ::: Config.additionalFieldsToIndex
 //
 //  val arrDefaultMiscFields = if (Config.extraMiscFields == null) {
