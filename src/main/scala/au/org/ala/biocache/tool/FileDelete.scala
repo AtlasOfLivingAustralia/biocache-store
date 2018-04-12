@@ -21,6 +21,9 @@ class FileDelete(fileName: String, hasHeader:Boolean = false) extends RecordDele
     var counter = 0
     getRemoteFile(fileName).foreachLine(line => {
       logger.info("Deleting ID : " + line)
+      if (line.contains(" ")) {
+        throw new RuntimeException("Found a potentially illegal id during delete from file, aborting to avoid corrupting the persistent store: " + line)
+      }
       occurrenceDAO.delete(line, false, true)
       counter += 1
     })
@@ -35,6 +38,9 @@ class FileDelete(fileName: String, hasHeader:Boolean = false) extends RecordDele
     getRemoteFile(fileName).foreachLine(line => {
       buf += line
       counter += 1
+      if (line.contains(" ")) {
+        throw new RuntimeException("Found a potentially illegal id during delete from file, aborting to avoid corrupting the index: " + line)
+      }
       if (buf.size > 999) {
         //val query = "row_key:\"" + buf.mkString("\" OR row_key:\"") + "\""
         val query = fieldName + ":\"" + buf.mkString("\" OR "+ fieldName +":\"") + "\""
