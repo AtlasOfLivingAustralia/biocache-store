@@ -1,6 +1,7 @@
 package au.org.ala.biocache.vocab
 
 import au.org.ala.biocache.Config
+import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions
@@ -8,7 +9,7 @@ import scala.io.Source
 import scala.util.parsing.json.JSON
 
 /**
-  * The species groups to test classifications against
+  * The species groups to test classifications against.
   */
 object SpeciesGroups {
 
@@ -16,7 +17,12 @@ object SpeciesGroups {
 
   val logger = LoggerFactory.getLogger("SpeciesGroups")
 
-  val groups = List(
+
+  /**
+    * The default set of species groups. Note these are very Australia centric and not very useful
+    * for other countries
+    */
+  val DEFAULT_LEGACY_GROUPS = List(
     createSpeciesGroup("Animals", "kingdom", Array("Animalia"), Array(), null),
     createSpeciesGroup("Mammals", "classs", Array("Mammalia"), Array(), "Animals"),
     createSpeciesGroup("Birds", "classs", Array("Aves"), Array(), "Animals"),
@@ -29,9 +35,10 @@ object SpeciesGroups {
     createSpeciesGroup("Insects", "classs", Array("Insecta"), Array(), "Arthropods"),
     createSpeciesGroup("Plants", "kingdom", Array("Plantae"), Array(), null),
     createSpeciesGroup("Bryophytes", "phylum", Array("Bryophyta", "Marchantiophyta", "Anthocerotophyta"), Array(), "Plants"), //new group for AVH
+
+    //new groups for AVH
     createSpeciesGroup("Gymnosperms", "subclass", Array("Pinidae", "Cycadidae"), Array(), "Plants"), //new group for AVH
     createSpeciesGroup("FernsAndAllies", "subclass", Array("Equisetidae", "Lycopodiidae", "Marattiidae", "Ophioglossidae", "Polypodiidae", "Psilotidae"), Array(), "Plants"),
-    //new groups for AVH
     createSpeciesGroup("Angiosperms", "subclass", Array("Magnoliidae"), Array(), "Plants"), //new group for AVH
     createSpeciesGroup("Monocots", "superorder", Array("Lilianae"), Array(), "Angiosperms"), //new group for AVH
     createSpeciesGroup("Dicots", "subclass", Array("Magnoliidae"), Array("Lilianae"), "Angiosperms"), //new group for AVH
@@ -43,12 +50,71 @@ object SpeciesGroups {
       "Cryptophyta", "Ochrophyta", "Sagenista", "Cercozoa", "Euglenozoa", "Cyanobacteria"), Array(), null)
   )
 
+  /**
+   * Retrieve species groups.
+   */
+  val groups: List[SpeciesGroup] = {
+
+    if(StringUtils.isNotBlank(Config.speciesGroupsUrl)){
+      logger.info("Loading groups from " + Config.speciesGroupsUrl)
+      val json = getGroupsConfig
+      val list = JSON.parseFull(json).get.asInstanceOf[List[Map[String, Object]]]
+      list.map { config =>
+
+        val speciesGroup:String = config.getOrElse("speciesGroup", "").toString
+        val rank:String = config.getOrElse("taxonRank", "").toString
+        val values:List[String] = config.getOrElse("included", List()).asInstanceOf[List[String]]
+        val excludedValues:List[String] = config.getOrElse("excluded", List()).asInstanceOf[List[String]]
+        val parent:String = {
+          val parentConfig = config.get("parent")
+          if(parentConfig.isEmpty){
+            null
+          } else {
+            val value = parentConfig.get
+            if(value != null){
+              value.toString
+            } else {
+              null
+            }
+          }
+        }
+
+        if(StringUtils.isBlank(speciesGroup) || StringUtils.isBlank(rank) || values.isEmpty){
+          throw new RuntimeException(s"Species groups misconfigured. Please check speciesGroup: $speciesGroup, rank: $rank, values: $values")
+        }
+
+        logger.info(s"Loading group speciesGroup: $speciesGroup, rank: $rank, values: $values")
+        createSpeciesGroup(speciesGroup, rank, values.toArray, excludedValues.toArray, parent)
+      }
+    } else {
+      logger.info("Using default legacy species groups")
+      DEFAULT_LEGACY_GROUPS
+    }
+  }
+
+  /**
+    * Retrieve configuration for species subgroups from URL or local filesystem.
+    * @return
+    */
   def getSubgroupsConfig = if (Config.speciesSubgroupsUrl.startsWith("http")) {
     Source.fromURL(Config.speciesSubgroupsUrl, "UTF-8").getLines.mkString
   } else {
     Source.fromFile(Config.speciesSubgroupsUrl, "UTF-8").getLines.mkString
   }
 
+  /**
+    * Retrieve configuration for species groups from URL or local filesystem.
+    * @return
+    */
+  def getGroupsConfig = if (Config.speciesGroupsUrl.startsWith("http")) {
+    Source.fromURL(Config.speciesGroupsUrl, "UTF-8").getLines.mkString
+  } else {
+    Source.fromFile(Config.speciesGroupsUrl, "UTF-8").getLines.mkString
+  }
+
+  /**
+   * Subgroups to use when indexing records.
+   */
   val subgroups = {
 
     val json = getSubgroupsConfig
@@ -71,14 +137,12 @@ object SpeciesGroups {
           )
         }
       } else {
-        if (map.getOrElse("speciesGroup", "none") == "Plants") {
-          val taxaList = map.get("taxa").get.asInstanceOf[List[Map[String, String]]]
-          taxaList.foreach { taxaMap =>
-            //search for the sub group in the species group
-            val g = groups.find(_.name == taxaMap.getOrElse("name", "NONE"))
-            if (g.isDefined) {
-              subGroupBuffer += createSpeciesGroup(taxaMap.getOrElse("common", "").trim, g.get.rank, g.get.values, g.get.excludedValues, parentGroup)
-            }
+        val taxaList = map.get("taxa").get.asInstanceOf[List[Map[String, String]]]
+        taxaList.foreach { taxaMap =>
+          //search for the sub group in the species group
+          val g = groups.find(_.name == taxaMap.getOrElse("name", "NONE"))
+          if (g.isDefined) {
+            subGroupBuffer += createSpeciesGroup(taxaMap.getOrElse("common", "").trim, g.get.rank, g.get.values, g.get.excludedValues, parentGroup)
           }
         }
       }
@@ -86,7 +150,7 @@ object SpeciesGroups {
     subGroupBuffer.toList
   }
 
-  /*
+  /**
    * Creates a species group by first determining the left right ranges for the values and excluded values.
    */
   def createSpeciesGroup(title: String, rank: String, values: Array[String], excludedValues: Array[String], parent: String): SpeciesGroup = {
@@ -153,4 +217,5 @@ object SpeciesGroups {
       case _: Exception => None
     }
   }
+
 }
