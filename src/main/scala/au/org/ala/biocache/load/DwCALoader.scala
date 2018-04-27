@@ -190,10 +190,8 @@ class DwCALoader extends DataLoader {
       val coreRowType = archive.getCore.getRowType
       if(coreRowType == DwcTerm.Event){
         new EventCoreExtractor(archive)
-      } else if(coreRowType == DwcTerm.Occurrence){
-        new OccurrenceCoreExtractor(archive)
       } else {
-        throw new RuntimeException("Darwin core extractor does not supporting this core row type: "  + coreRowType.qualifiedName())
+        new OccurrenceCoreExtractor(archive)
       }
     }
 
@@ -216,8 +214,6 @@ class DwCALoader extends DataLoader {
 
       //the newly assigned record UUID
       val starRecord = iter.next
-
-
 
       if (testFile) {
         //check to see if the key has at least on distinguishing value

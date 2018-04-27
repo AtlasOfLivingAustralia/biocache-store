@@ -161,18 +161,9 @@ object Sampling extends Tool with IncrementalTool with Counter {
     * @param dataResourceUid
     */
   def loadSamplingIntoOccurrences(dataResourceUid:String): Unit ={
-    loadSamplingIntoOccurrences(dataResourceUid, 1)
-  }
-
-  /**
-    * Load the sampling for the supplied UID
-    * @param dataResourceUid
-    * @param threads
-    */
-  def loadSamplingIntoOccurrences(dataResourceUid:String, threads:Int): Unit ={
     val (hasRowKey, retrievedRowKeyFile) = ProcessRecords.hasRowKey(dataResourceUid)
-    rowKeyFile = retrievedRowKeyFile.getOrElse("")
-    loadSamplingIntoOccurrences(rowKeyFile.get, threads)
+    val rowKeyFile = retrievedRowKeyFile.getOrElse("")
+    loadSamplingIntoOccurrences(rowKeyFile, 1)
   }
 
   /**
