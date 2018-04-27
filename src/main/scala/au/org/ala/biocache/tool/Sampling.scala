@@ -1,7 +1,7 @@
 package au.org.ala.biocache.tool
 
 import java.io._
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue}
 
 import au.com.bytecode.opencsv.{CSVReader, CSVWriter}
 import au.org.ala.biocache.Config
@@ -9,7 +9,7 @@ import au.org.ala.biocache.caches.LocationDAO
 import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.processor.LocationProcessor
-import au.org.ala.biocache.util.{FileHelper, Json, LayersStore, OptionParser}
+import au.org.ala.biocache.util._
 import au.org.ala.layers.dao.IntersectCallback
 import au.org.ala.layers.dto.IntersectionFile
 import org.apache.commons.lang.StringUtils
@@ -25,6 +25,8 @@ import scala.collection.mutable.{ArrayBuffer, HashSet}
   * Executable for running the sampling for a data resource.
   */
 object Sampling extends Tool with IncrementalTool with Counter {
+
+  import FileHelper._
 
   def cmd = "sample"
 
@@ -84,7 +86,7 @@ object Sampling extends Tool with IncrementalTool with Counter {
 
       if(StringUtils.isEmpty(Config.layersServiceUrl) || !Config.layersServiceSampling){
         logger.warn("No layer service configured or sampling disabled. No sampling will take place")
-        return;
+        return
       }
 
       val s = new Sampling
@@ -140,7 +142,7 @@ object Sampling extends Tool with IncrementalTool with Counter {
         //load sampling to occurrence records
         logger.info("Loading sampling into occ table")
         if (dataResourceUid != null) {
-          loadSamplingIntoOccurrences(dataResourceUid)
+          loadSamplingIntoOccurrences(rowKeyFile, numThreads)
         }
         logger.info("Completed loading sampling into occ table")
 
@@ -155,35 +157,79 @@ object Sampling extends Tool with IncrementalTool with Counter {
   }
 
   /**
+    * Load the sampling for the supplied UID
+    * @param dataResourceUid
+    */
+  def loadSamplingIntoOccurrences(dataResourceUid:String): Unit ={
+    loadSamplingIntoOccurrences(dataResourceUid, 1)
+  }
+
+  /**
+    * Load the sampling for the supplied UID
+    * @param dataResourceUid
+    * @param threads
+    */
+  def loadSamplingIntoOccurrences(dataResourceUid:String, threads:Int): Unit ={
+    val (hasRowKey, retrievedRowKeyFile) = ProcessRecords.hasRowKey(dataResourceUid)
+    rowKeyFile = retrievedRowKeyFile.getOrElse("")
+    loadSamplingIntoOccurrences(rowKeyFile.get, threads)
+  }
+
+  /**
     * Loads the sampling into the occ table.
     * This single threaded and slow.
     */
-  def loadSamplingIntoOccurrences(dataResourceUid: String): Unit = {
-    logger.info(s"Starting loading sampling for $dataResourceUid")
-    Config.persistenceManager.pageOverSelect("occ", (guid, map) => {
-      val lat = map.getOrElse("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-      val lon = map.getOrElse("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p", "")
-      if (lat != null && lon != null) {
-        val point = LocationDAO.getSamplesForLatLon(lat, lon)
-        if (!point.isEmpty) {
-          val (location, environmentalLayers, contextualLayers) = point.get
-          Config.persistenceManager.put(guid, "occ", Map(
-            "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
-            "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
-            false,
-            false
-          )
-        }
-        counter += 1
-        if (counter % 1000 == 0) {
-          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
-        }
-      }
-      true
-    },  1000, 1,
+  def loadSamplingIntoOccurrences(fileName: String, threads:Int): Unit = {
+    logger.info(s"Starting loading sampling for " + fileName)
+
+    val queue = new ArrayBlockingQueue[String](100)
+    var ids = 0
+
+    val requiredFields = Array(
       "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p",
       "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
     )
+
+    //THIS NEEDS TO USE ROWKEY file.....
+    val pool: Array[StringConsumer] = Array.fill(threads) {
+
+      var startTime = System.currentTimeMillis
+      var finishTime = System.currentTimeMillis
+
+      val p = new StringConsumer(queue, ids, { guid =>
+        counter += 1
+
+        val result = Config.persistenceManager.getSelected(guid, "occ", requiredFields)
+        if(!result.isEmpty){
+          val map = result.get
+          val lat = map.get("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p").get
+          val lon = map.get("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p").get
+
+          val point = LocationDAO.getSamplesForLatLon(lat, lon)
+          if (!point.isEmpty) {
+            val (location, environmentalLayers, contextualLayers) = point.get
+            Config.persistenceManager.put(guid, "occ", Map(
+              "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
+              "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
+              false,
+              false
+            )
+          }
+        }
+        if (counter % 1000 == 0) {
+          finishTime = System.currentTimeMillis
+          logger.info(counter + " >> Loading sampling records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f) +", lastkey: " + guid )
+          startTime = System.currentTimeMillis
+        }
+      })
+      ids += 1
+      p.start
+      p
+    }
+
+    new File(fileName).foreachLine(line => queue.put(line.trim))
+    pool.foreach(t => t.shouldStop = true)
+    pool.foreach(_.join)
   }
 
   def sampleDataResource(dataResourceUid: String, callback: IntersectCallback = null, singleLayerName: String = "") {
