@@ -641,12 +641,36 @@ object Store {
 
   def getSoundFormats(filePath: String): java.util.Map[String, String] = Config.mediaStore.getSoundFormats(filePath)
 
+  /**
+    * Get jackknife statistics for the supplied species GUID.
+    *
+    * @param guid
+    * @return
+    */
   def getJackKnifeStatsFor(guid: String): java.util.Map[String, JackKnifeStats] = outlierStatsDAO.getJackKnifeStatsFor(guid)
 
+  /**
+    * Get jackknife record details for the supplied species GUID.
+    *
+    * @param guid
+    * @return
+    */
   def getJackKnifeOutliersFor(guid: String): java.util.List[(String, java.util.List[SampledRecord])] = outlierStatsDAO.getJackKnifeOutliersFor(guid)
 
+  /**
+    * Retrieve the jack knife details for the supplied UUID.
+    *
+    * @param uuid
+    * @return
+    */
   def getJackKnifeRecordDetailsFor(uuid: String): java.util.List[RecordJackKnifeStats] = outlierStatsDAO.getJackKnifeRecordDetailsFor(uuid)
 
+  /**
+    * Retrieve the duplicate details for the supplied UUID.
+    *
+    * @param uuid
+    * @return
+    */
   def getDuplicateDetails(uuid: String): DuplicateRecordDetails = duplicateDAO.getDuplicateInfo(uuid).getOrElse(new DuplicateRecordDetails())
 
   /**
@@ -662,7 +686,14 @@ object Store {
     * @param customIndexFields
     */
   def storeCustomIndexFields(tempUid: String, customIndexFields: Array[String]) {
-    Config.persistenceManager.put(tempUid, "upload", "customIndexFields", Json.toJSON(customIndexFields.map(v => if (v.endsWith("_i") || v.endsWith("_d")) v else v + "_s")), true, false)
+    Config.persistenceManager.put(
+      tempUid,
+      "upload",
+      "customIndexFields",
+      Json.toJSON(customIndexFields.map(v => if (v.endsWith("_i") || v.endsWith("_d")) v else v + "_s")),
+      true,
+      false
+    )
   }
 
   /**
