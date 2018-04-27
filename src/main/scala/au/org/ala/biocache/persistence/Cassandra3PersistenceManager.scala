@@ -1135,7 +1135,7 @@ class Cassandra3PersistenceManager  @Inject() (
     val finished = new AtomicBoolean(false)
 
     //consumer
-    val consumer: Thread = new Thread() {
+    val consumer: Thread = new Thread("Cassandra3PMSelectRowsConsumer") {
       override def run(): Unit = {
         while (!finished.get() || futures.size() > 0) {
           val future = futures.poll(100, TimeUnit.MILLISECONDS)
@@ -1160,12 +1160,13 @@ class Cassandra3PersistenceManager  @Inject() (
     }
 
     //producer
-    val producer: Thread = new Thread() {
+    val producer: Thread = new Thread("Cassandra3PMSelectRowsProducer") {
       override def run(): Unit = {
         rowkeys.foreach { rowkey =>
           val resultSetFuture = session.executeAsync(statement.bind(rowkey))
           futures.put(resultSetFuture)
         }
+        finished.set(true)
       }
     }
 
