@@ -6,12 +6,14 @@ import java.net.URL
 import au.org.ala.biocache._
 import au.org.ala.biocache.cmd.{CMD2, NoArgsTool, Tool}
 import au.org.ala.biocache.model.{FullRecord, Multimedia, Raw}
+import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import org.apache.commons.lang3.StringUtils
 import org.gbif.dwca.record.{Record, StarRecord}
-import org.gbif.dwc.terms.{DcTerm, GbifTerm, Term}
-import org.gbif.dwca.io.ArchiveFactory
+import org.gbif.dwc.terms.{DcTerm, DwcTerm, GbifTerm, Term}
+import org.gbif.dwca.io.{Archive, ArchiveFactory, ArchiveFile}
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
@@ -152,7 +154,24 @@ class DwCALoader extends DataLoader {
     }
   }
 
-  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:Seq[Term], imageUrl:Option[String], stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean, removeNullFields:Boolean = false, loadMissingOnly:Boolean){
+
+  /**
+    * Load archive. Currently only support archives with the core type Event or Occurrence.
+    *
+    * @param fileName
+    * @param resourceUid
+    * @param uniqueTerms
+    * @param imageUrl
+    * @param stripSpaces
+    * @param logRowKeys
+    * @param testFile
+    * @param removeNullFields
+    * @param loadMissingOnly
+    */
+  def loadArchive(fileName:String, resourceUid:String, uniqueTerms:Seq[Term], imageUrl:Option[String],
+                  stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean,
+                  removeNullFields:Boolean = false, loadMissingOnly:Boolean){
+
     logger.info(s"Loading archive: $fileName " +
       s"for resource: $resourceUid, " +
       s"with unique terms: $uniqueTerms, " +
@@ -163,136 +182,97 @@ class DwCALoader extends DataLoader {
 
     val archiveDir = new File(fileName)
     val imageBase = new URL(imageUrl getOrElse archiveDir.toURI.toURL.toString)
-    val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
+
     val archive = ArchiveFactory.openArchive(archiveDir)
-    val iter = archive.iterator()
+
+    // create extractor
+    val extractor:CoreExtractor = {
+      val coreRowType = archive.getCore.getRowType
+      if(coreRowType == DwcTerm.Event){
+        new EventCoreExtractor(archive)
+      } else if(coreRowType == DwcTerm.Occurrence){
+        new OccurrenceCoreExtractor(archive)
+      } else {
+        throw new RuntimeException("Darwin core extractor does not supporting this core row type: "  + coreRowType.qualifiedName())
+      }
+    }
+
     var count = 0
     var skipped = 0
     var newCount = 0
-
-    val fieldMap = archive.getCore().getFields()
-
-    val fieldShortNames = fieldMap.keySet().toList
-    val biocacheModelValues = DwC.retrieveCanonicals(fieldShortNames.map(_.simpleName))
-
-    //constructs a map of supplied field name -> biocache model property
-    val fieldToModelMap = (fieldShortNames zip biocacheModelValues).toMap
-
-    //constructs a map of supplied field IDX -> biocache model property
-    val fieldShortNameToIdxMap = new mutable.HashMap[Int, String]
-
-    fieldMap.foreach({ case (term, field) =>
-      val fieldIdx = field.getIndex()
-      if(fieldIdx != null) {
-        DwC.matchTerm(term.simpleName) match {
-          case Some(matchedTerm) => fieldShortNameToIdxMap.put(fieldIdx, matchedTerm.canonical)
-          case None => fieldShortNameToIdxMap.put(fieldIdx, term.simpleName)
-        }
-      }
-    })
-
-    if(logger.isDebugEnabled){
-      fieldToModelMap.foreach({ case (dwcShortName, biocacheField) =>
-        logger.debug(s"dwcShortName: $dwcShortName , biocacheField: $biocacheField")
-      })
-    }
 
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
     var currentBatch = new ArrayBuffer[FullRecord]
 
-    val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+resourceUid, "institution_code", 100).getOrElse(List()).toSet[String]
-    val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+resourceUid, "collection_code", 100).getOrElse(List()).toSet[String]
-
-    logger.info("The current institution codes for the data resource: " + institutionCodes)
-    logger.info("The current collection codes for the data resource: " + collectionCodes)
-
+    //store supplied institution and collection codes
     val newCollCodes = new scala.collection.mutable.HashSet[String]
     val newInstCodes = new scala.collection.mutable.HashSet[String]
+
+    val iter = archive.iterator()
+    val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
 
     while (iter.hasNext) {
 
       //the newly assigned record UUID
-      val star = iter.next
+      val starRecord = iter.next
 
-      //the details of how to construct the UniqueID belong in the Collectory
-      //val uniqueTermValues = uniqueTerms.map(t => dwc.getProperty(t))
-      val uniqueID = {
-        //create the unique ID
-        if (!uniqueTerms.isEmpty) {
-          val uniqueTermValues = uniqueTerms.map(t => star.core.value(t))
-          val id = (List(resourceUid) ::: uniqueTermValues.toList).mkString("|").trim
-          Some(if(stripSpaces) id.replaceAll("\\s","") else id)
-        } else {
-          None
-        }
-      }
 
-      if(testFile){
+
+      if (testFile) {
         //check to see if the key has at least on distinguishing value
-        val icode = star.core.value(org.gbif.dwc.terms.DwcTerm.institutionCode)
-        newInstCodes.add(if(icode == null) "<NULL>" else icode)
-        val ccode = star.core.value(org.gbif.dwc.terms.DwcTerm.collectionCode)
-        newCollCodes.add(if(ccode == null) "<NULL>" else ccode)
+        val icode = starRecord.core.value(org.gbif.dwc.terms.DwcTerm.institutionCode)
+        newInstCodes.add(if (icode == null) "<NULL>" else icode)
+        val ccode = starRecord.core.value(org.gbif.dwc.terms.DwcTerm.collectionCode)
+        newCollCodes.add(if (ccode == null) "<NULL>" else ccode)
       }
 
       //create a map of properties
-      val fieldTuples = new ListBuffer[(String, String)]()
-      fieldShortNameToIdxMap.foreach({ case (fieldIdx, modelProperty) =>
-        val property = star.core.column(fieldIdx)
-        if (logger.isDebugEnabled && StringUtils.isNotBlank(property)) {
-          logger.debug(s"Mapped field: $modelProperty, fieldIdx: $fieldIdx, value: $property")
-        }
-        if (removeNullFields) {
-          fieldTuples += (modelProperty -> property)
-        } else {
-          if (StringUtils.isNotBlank(property)) {
-            fieldTuples += (modelProperty -> property)
+      val recordsExtracted = extractor.extractRecords(starRecord, removeNullFields)
+
+      recordsExtracted.foreach { extractedFieldTuples =>
+
+        val recordAsMap = extractedFieldTuples.toMap
+
+        //the details of how to construct the UniqueID belong in the Collectory
+        val uniqueID = {
+          //create the unique ID
+          if (!uniqueTerms.isEmpty) {
+            val uniqueTermValues = uniqueTerms.map(t => recordAsMap.get(t.simpleName()))
+            val id = (List(resourceUid) ::: uniqueTermValues.toList).mkString("|").trim
+            Some(if (stripSpaces) id.replaceAll("\\s", "") else id)
+          } else {
+            None
           }
         }
-      })
 
-      if(logger.isDebugEnabled) {
-        fieldTuples.foreach({case(key, value) => logger.debug(s"Not blank fields: $key , value: $value")})
-      }
+        //lookup the column
+        val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, starRecord, uniqueTerms, None)
+        if (mappedProps.isDefined && uniqueID.isDefined) {
+          Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
+        }
 
-      //lookup the column
-      val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, star, uniqueTerms, None)
-      if(mappedProps.isDefined && uniqueID.isDefined){
-        Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
-      }
+        val fieldTuples = new ListBuffer[(String, String)]
+        fieldTuples.addAll(extractedFieldTuples)
 
-      //add the data resource uid
-      fieldTuples += ("dataResourceUid" -> resourceUid)
-      //add last load time
-      fieldTuples += ("lastModifiedTime" -> loadTime)
-      if (isNew){
-        fieldTuples += ("firstLoaded" -> loadTime)
-        newCount +=1
-      }
+        //add the data resource uid
+        fieldTuples += ("dataResourceUid" -> resourceUid)
+        //add last load time
+        fieldTuples += ("lastModifiedTime" -> loadTime)
+        if (isNew) {
+          fieldTuples += ("firstLoaded" -> loadTime)
+          newCount += 1
+        }
 
-      // Get any related multimedia
-      val multimedia = loadMultimedia(star, DwCALoader.IMAGE_TYPE, imageBase) ++
-        loadMultimedia(star, DwCALoader.MULTIMEDIA_TYPE, imageBase)
-
-//      // If there are no unique terms, use the UUID as a key
-//      // This isnt ideal and will stop any reloading
-//      val rowKey = if(uniqueID.isEmpty) {
-//        logger.warn("Unable to construct a unique key for this data resource. No unique terms defined.")
-//        resourceUid + "|" + recordUuid
-//      } else {
-//        uniqueID.get
-//      }
-
-      //check whether the records should be loaded
-      val toBeLoaded = if (loadMissingOnly) {
-//        !Config.occurrenceDAO.rowKeyExists(rowKey)
-        true
-      } else {
-        true
-      }
-
-      if (toBeLoaded) {
+        // Get any related multimedia
+        val multimedia = {
+          if (starRecord.core().rowType() == DwcTerm.Occurrence) {
+            loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
+              loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
+          } else {
+            List()
+          }
+        }
 
         count += 1
 
@@ -318,8 +298,6 @@ class DwCALoader extends DataLoader {
           //clear the buffer
           currentBatch.clear
         }
-      } else {
-        skipped += 1
       }
     }
 
@@ -330,25 +308,42 @@ class DwCALoader extends DataLoader {
 
     //check to see if the inst/coll codes are new
     if(testFile){
-
-      val unknownInstitutions = newInstCodes &~ institutionCodes
-      val unknownCollections = newCollCodes &~ collectionCodes
-
-      if(!unknownInstitutions.isEmpty) {
-        logger.warn("Warning there are new institution codes in the set: " + unknownInstitutions.mkString(","))
-      }
-      if(!unknownCollections.isEmpty) {
-        logger.warn("Warning there are new collection codes in the set: " + unknownCollections.mkString(","))
-      }
-
-      //Report the number of new/existing records
-      logger.info("There are " + count + " records in the file. The number of NEW records: " + newCount)
+      reportOnCollectionCodes(resourceUid, count, newCount, newCollCodes.toSet, newInstCodes.toSet)
     }
 
     //commit the batch
     Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
     logger.info("Finished DwCA loader. Records loaded into the system: " + count + ", records skipped:"  + skipped)
     count
+  }
+
+  /**
+    * Log details of collection codes for this archive.
+    *
+    * @param resourceUid
+    * @param count
+    * @param newCount
+    * @param newCollCodes
+    * @param newInstCodes
+    */
+  private def reportOnCollectionCodes(resourceUid: String, count: Int, newCount: Int, newCollCodes: Set[String], newInstCodes: Set[String]) = {
+    val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:" + resourceUid, "institution_code", 100).getOrElse(List()).toSet[String]
+    val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:" + resourceUid, "collection_code", 100).getOrElse(List()).toSet[String]
+    logger.info("The current institution codes for the data resource: " + institutionCodes)
+    logger.info("The current collection codes for the data resource: " + collectionCodes)
+
+    val unknownInstitutions = newInstCodes &~ institutionCodes
+    val unknownCollections = newCollCodes &~ collectionCodes
+
+    if (!unknownInstitutions.isEmpty) {
+      logger.warn("Warning there are new institution codes in the set: " + unknownInstitutions.mkString(","))
+    }
+    if (!unknownCollections.isEmpty) {
+      logger.warn("Warning there are new collection codes in the set: " + unknownCollections.mkString(","))
+    }
+
+    //Report the number of new/existing records
+    logger.info("There are " + count + " records in the file. The number of NEW records: " + newCount)
   }
 
   /**
@@ -385,3 +380,193 @@ class DwCALoader extends DataLoader {
     }
   }
 }
+
+/**
+  * A trait implemented by classes providing some extraction of properties from
+  * darwin core archives.
+  */
+trait CoreExtractor  {
+
+  import JavaConversions._
+
+  val logger = LoggerFactory.getLogger("CoreExtractor")
+
+  /**
+    *
+    * @param archiveFile
+    * @return
+    */
+  protected def buildFieldIdxMap(archiveFile:ArchiveFile) : Map[Int, String] ={
+
+    val fieldMap = archiveFile.getFields()
+
+    val fieldShortNames = fieldMap.keySet().toList
+
+    val biocacheModelValues = DwC.retrieveCanonicals(fieldShortNames.map(_.simpleName))
+
+    //constructs a map of supplied field name -> biocache model property
+    val fieldToModelMap = (fieldShortNames zip biocacheModelValues).toMap
+
+    //constructs a map of supplied field IDX -> biocache model property
+    val fieldShortNameToIdxMap = new mutable.HashMap[Int, String]
+
+    //create map
+    fieldMap.foreach { case (term, field) =>
+      val fieldIdx = field.getIndex()
+      if(fieldIdx != null) {
+        DwC.matchTerm(term.simpleName) match {
+          case Some(matchedTerm) => fieldShortNameToIdxMap.put(fieldIdx, matchedTerm.canonical)
+          case None => fieldShortNameToIdxMap.put( fieldIdx, term.simpleName)
+        }
+      }
+    }
+
+    if (logger.isDebugEnabled){
+      fieldToModelMap.foreach { case (dwcShortName, biocacheField) =>
+        logger.debug(s"dwcShortName: $dwcShortName , biocacheField: $biocacheField")
+      }
+    }
+
+    fieldShortNameToIdxMap.toMap
+  }
+
+  /**
+    * Extract one or more records from the supplied star record
+    * @param starRecord
+    * @param removeNullFields
+    * @return
+    */
+  def extractRecords(starRecord:StarRecord, removeNullFields:Boolean) : Seq[Seq[(String, String)]]
+}
+
+/**
+  * Extractor for darwin core archives which have an Event DwCTerm core.
+  *
+  * @param archive
+  */
+class EventCoreExtractor (archive:Archive) extends CoreExtractor {
+
+  import JavaConversions._
+
+  val coreFile = archive.getCore
+  val rowType = coreFile.getRowType
+
+  val occurrenceExtension = archive.getExtension(DwcTerm.Occurrence)
+
+  val eventCoreToIdxMap = buildFieldIdxMap(archive.getCore())
+  val occurrenceExtensionToIdxMap = buildFieldIdxMap(occurrenceExtension)
+
+  /**
+    * Extracts one or more records associated with the event
+    *
+    *
+    * @param starRecord
+    * @param removeNullFields
+    * @return
+    */
+  def extractRecords(starRecord:StarRecord, removeNullFields:Boolean) : Seq[Seq[(String, String)]] = {
+
+    //create a map of properties
+    val eventTuples = new ListBuffer[(String, String)]()
+
+    //extract the properties for this core
+    eventCoreToIdxMap.foreach { case (fieldIdx, modelProperty) =>
+
+      //get the property from the record
+      val property = starRecord.core.column(fieldIdx)
+
+      if (logger.isDebugEnabled && StringUtils.isNotBlank(property)) {
+        logger.debug(s"Mapped field: $modelProperty, fieldIdx: $fieldIdx, value: $property")
+      }
+
+      if (removeNullFields) {
+        eventTuples += (modelProperty -> property)
+      } else {
+        if (StringUtils.isNotBlank(property)) {
+          eventTuples += (modelProperty -> property)
+        }
+      }
+    }
+
+    val recordsExtracted = new ListBuffer[Seq[(String, String)]]()
+
+    //get the property from the record
+    val records = starRecord.extension(DwcTerm.Occurrence)
+
+    records.foreach { record =>
+
+      val recordTuples = new ListBuffer[(String, String)]()
+
+      occurrenceExtensionToIdxMap.foreach { case (fieldIdx, modelProperty) =>
+
+        val property = record.column(fieldIdx)
+
+        if (logger.isDebugEnabled && StringUtils.isNotBlank(property)) {
+          logger.debug(s"Mapped field: $modelProperty, fieldIdx: $fieldIdx, value: $property")
+        }
+
+        if (removeNullFields) {
+          recordTuples += (modelProperty -> property)
+        } else {
+          if (StringUtils.isNotBlank(property)) {
+            recordTuples += (modelProperty -> property)
+          }
+        }
+      }
+
+      //add all the event values to the record
+      recordTuples.addAll(eventTuples)
+
+      recordsExtracted.add(recordTuples)
+    }
+
+    recordsExtracted.toList
+  }
+}
+
+
+/**
+ * Extractor for darwin core archives which have an Occurrence DwC Term core.
+ *
+ * @param archive
+ */
+class OccurrenceCoreExtractor (archive:Archive) extends CoreExtractor {
+
+  import JavaConversions._
+
+  val occurrenceCoreToIdxMap = buildFieldIdxMap(archive.getCore())
+
+  /**
+    * Extract a collection of tuples for this record.
+    *
+    * @param starRecord
+    * @param removeNullFields
+    * @return
+    */
+  def extractRecords(starRecord:StarRecord, removeNullFields:Boolean) : Seq[Seq[(String, String)]] = {
+
+    //create a map of properties
+    val fieldTuples = new ListBuffer[(String, String)]()
+
+    //extract the properties for this core
+    occurrenceCoreToIdxMap.foreach { case (fieldIdx, modelProperty) =>
+
+      //get the property from the record
+      val property = starRecord.core.column(fieldIdx)
+
+      if (logger.isDebugEnabled && StringUtils.isNotBlank(property)) {
+        logger.debug(s"Mapped field: $modelProperty, fieldIdx: $fieldIdx, value: $property")
+      }
+
+      if (removeNullFields) {
+        fieldTuples += (modelProperty -> property)
+      } else {
+        if (StringUtils.isNotBlank(property)) {
+          fieldTuples += (modelProperty -> property)
+        }
+      }
+    }
+    List(fieldTuples)
+  }
+}
+
