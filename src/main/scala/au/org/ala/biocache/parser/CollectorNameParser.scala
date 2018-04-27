@@ -48,7 +48,9 @@ object CollectorNameParser {
             Some(List(generateName(null, firstName, initials1), generateName(null, thirdName, initials2)))
           } else {
             //we have 2 people who share the same surname
-            if (StringUtils.isNotEmpty(initials1) && StringUtils.isNotEmpty(initials2))
+            if(StringUtils.isNotEmpty(initials1) && StringUtils.isNotEmpty(firstName) && StringUtils.isNotEmpty(thirdName))
+              Some(List(generateName(null, firstName, initials1), generateName(null, thirdName, initials2)))
+            else if (StringUtils.isNotEmpty(initials1) && StringUtils.isNotEmpty(initials2))
               Some(List(generateName(null, thirdName, initials1), generateName(null, thirdName, initials2)))
             else
               Some(List(generateName(firstName, forthName, initials1), generateName(thirdName, forthName, initials2)))
@@ -121,7 +123,7 @@ object CollectorNameParser {
   }
 
   def generateName(firstName: String, surname: String, initials: String, middlename: String = null, surnamePrefix: String = null): String = {
-    var name = "";
+    var name = ""
     if (surnamePrefix != null)
       name += surnamePrefix.trim + " "
     if (surname != null)
