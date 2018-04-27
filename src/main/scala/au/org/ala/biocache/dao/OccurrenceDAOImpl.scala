@@ -41,6 +41,16 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   val clpattern = """cl[0-9]+""".r
 
   /**
+    * These are properties that shouldnt be updated as they are provided and
+    * set by down stream processes.
+    */
+  val protectedProperties = List(
+    "duplicationStatus_p",
+    "associatedOccurrences_p",
+    "outlierForLayers_p"
+  )
+
+  /**
    * Gets the map for a record based on searching the index for new and old ids
    */
   def getMapFromIndex(value:String):Option[Map[String,String]]={
@@ -639,7 +649,6 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val newRecord = values.get("newRecord").get.asInstanceOf[FullRecord]
       val assertions = values.get("assertions").get.asInstanceOf[Option[Map[String, Array[QualityAssertion]]]]
 
-
       var propertiesToPersist = if(oldRecord != null) {
         //construct a map of properties to write
         val oldproperties = FullRecordMapper.fullRecord2Map(oldRecord, version)
@@ -648,7 +657,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         //only write changes.........
         var propertiesToPersist = properties.filter {
           case (key, value) => {
-            if(!oldproperties.containsKey(key) && value == "") {
+            if (protectedProperties.contains(key)){
+              false
+            } else if( !oldproperties.containsKey(key) && value == "") {
               false
             } else if (oldproperties.contains(key)) {
               val oldValue = oldproperties.get(key).get
@@ -660,7 +671,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         }
         //check for deleted properties
         val deletedProperties = oldproperties.filter {
-          case (key, value) => !properties.contains(key)
+          case (key, value) => !protectedProperties.contains(key) && !properties.contains(key)
         }
 
         propertiesToPersist ++= deletedProperties.map {
@@ -1271,4 +1282,5 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   def isSensitive(fr: FullRecord): Boolean = {
     StringUtils.isNotBlank(fr.occurrence.getDataGeneralizations)
   }
+
 }

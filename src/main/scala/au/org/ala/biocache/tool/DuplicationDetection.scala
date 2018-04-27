@@ -32,7 +32,7 @@ import scala.collection.mutable.ArrayBuffer
   *
   * Step 1:
   * a) Get a distinct list of species lsids that have been matched
-  * b) Get a distinct list of subspecies lsids (without species lsisds) that have been matched
+  * b) Get a distinct list of subspecies lsids (without species lsids) that have been matched
   *
   * Step 2
   * Break down all the records into groups based on the occurrence year - all null year (thus date) records will be
@@ -53,7 +53,7 @@ object DuplicationDetection extends Tool {
   import FileHelper._
 
   val logger = LoggerFactory.getLogger("DuplicateDetection")
-  var workingTmpDir = "/data/tool/"
+  var workingTmpDir = "/data/tmp/duplication/"
 
   def cmd = "duplicate-detection"
 
@@ -71,7 +71,7 @@ object DuplicationDetection extends Tool {
     var index = false
     var incremental = false
     var removeObsoleteData = false
-    var offlineDir = "/data/offline/exports"
+    var offlineDir = "/data/tmp/exports"
 
     //Options to perform on all "species", select species, use existing file or download
     val parser = new OptionParser(help) {
@@ -207,7 +207,6 @@ object DuplicationDetection extends Tool {
 
     logger.info(s"Starting duplicate detection with $threads threads")
 
-    //biocache export-by-species /data/offline/exports -t 8
     if (!load && !exportFilesAvailable(offlineDir, threads)) {
       logger.info(s"Exporting spatial data for duplicate detection....")
       val exporter = new ExportAllSpatialSpecies()
@@ -264,13 +263,14 @@ object DuplicationDetection extends Tool {
       }
     }
 
-    pool.foreach(t => {
+    pool.foreach { t =>
       if (t.isInstanceOf[StringConsumer]) {
         t.asInstanceOf[StringConsumer].shouldStop = true
       }
-    })
+    }
 
     pool.foreach(_.join)
+
     if (load) {
       //need to update the last duplication detection time
       updateLastDuplicateTime
@@ -321,7 +321,6 @@ class DuplicationDetection {
 
   val fieldsToExport = Array(
     "row_key",
-    "id",
     "species_guid",
     "year",
     "month",
@@ -371,8 +370,8 @@ class DuplicationDetection {
           logger.info("Loaded into memory : " + counter + " + records")
         }
         val rowKey = currentLine(0)
-        val uuid = currentLine(1)
-        val taxon_lsid = currentLine(2)
+        val taxon_lsid = currentLine(1)
+
         if (currentLsid != taxon_lsid) {
           if (!buff.isEmpty) {
             logger.info("Read in " + counter + " records for GUID:" + currentLsid)
@@ -384,38 +383,38 @@ class DuplicationDetection {
           counter = 1
           logger.info("Starting to detect duplicates for " + currentLsid)
         }
-        val year = StringUtils.trimToNull(currentLine(4))
-        val month = StringUtils.trimToNull(currentLine(5))
+        val year = StringUtils.trimToNull(currentLine(3))
+        val month = StringUtils.trimToNull(currentLine(4))
 
         val date: java.util.Date = try {
-          DateUtils.parseDate(currentLine(6), "EEE MMM dd hh:mm:ss zzz yyyy")
+          DateUtils.parseDate(currentLine(5), "EEE MMM dd hh:mm:ss zzz yyyy")
         } catch {
           case _: Exception => null
         }
         val day = if (date != null) Integer.toString(date.getDate()) else null
-        val rawName = StringUtils.trimToNull(currentLine(13))
-        val collector = StringUtils.trimToNull(currentLine(14))
-        val oldStatus = StringUtils.trimToNull(currentLine(15))
-        val oldDuplicateOf = StringUtils.trimToNull(currentLine(16).replaceAll("\\[", "").replaceAll("\\]", ""))
+        val rawName = StringUtils.trimToNull(currentLine(12))
+        val collector = StringUtils.trimToNull(currentLine(13))
+        val oldStatus = StringUtils.trimToNull(currentLine(14))
+        val oldDuplicateOf = StringUtils.trimToNull(currentLine(15).replaceAll("\\[", "").replaceAll("\\]", ""))
         buff += new DuplicateRecordDetails(
           rowKey,
-          uuid,
+          rowKey,
           taxon_lsid,
           year,
           month,
           day,
+          currentLine(6),
           currentLine(7),
           currentLine(8),
           currentLine(9),
           currentLine(10),
           currentLine(11),
-          currentLine(12),
           rawName,
           collector,
           oldStatus,
           oldDuplicateOf,
-          currentLine(25),
-          currentLine(26))
+          currentLine(24),
+          currentLine(25))
       } else {
         logger.warn("lsid " + currentLine(0) + " line " + counter + " has incorrect number of columns: "
           + currentLine.size + ", vs " + fieldsToExport.length)
@@ -480,43 +479,51 @@ class DuplicationDetection {
 
     val pool: Array[StringConsumer] = Array.fill(threads) {
       val p = new StringConsumer(queue, ids, {
-        duplicate => loadDuplicate(duplicate, reindexWriter, buffer, allDuplicates)
-      });
-      ids += 1;
-      p.start;
+        duplicate => {
+          val duplicateRecordDetails = mapper.readValue[DuplicateRecordDetails](duplicate, classOf[DuplicateRecordDetails])
+
+          persistDuplicate(duplicateRecordDetails, buffer, allDuplicates)
+        }
+      })
+      ids += 1
+      p.start
       p
     }
 
-    new File(dupFilename).foreachLine(line => {
-      val lsidMatch = conceptPattern.findFirstMatchIn(line)
-      if (lsidMatch.isDefined) {
-        val strlsidMatch = lsidMatch.get.group(1)
-        if (currentLsid != strlsidMatch) {
-          //wait for the queue to be empty
-          while (!queue.isEmpty) {
-            Thread.sleep(200)
+    if (new File(dupFilename).exists()) {
+      new File(dupFilename).foreachLine(line => {
+        val lsidMatch = conceptPattern.findFirstMatchIn(line)
+        if (lsidMatch.isDefined) {
+          val strlsidMatch = lsidMatch.get.group(1)
+          if (currentLsid != strlsidMatch) {
+            //wait for the queue to be empty
+            while (!queue.isEmpty) {
+              Thread.sleep(200)
+            }
+            if (oldDuplicates != null) {
+              buffer.foreach(v => reindexWriter.write(v + "\n"))
+              //revert the old duplicates that don't exist
+              revertNonDuplicateRecords(oldDuplicates, oldDupMap, allDuplicates.toSet, reindexWriter, oldDuplicatesWriter)
+              logger.info("REVERTING THE OLD duplicates for " + currentLsid)
+              buffer.reduceToSize(0)
+              allDuplicates.reduceToSize(0)
+              reindexWriter.flush
+              oldDuplicatesWriter.flush
+            }
+            //get new old duplicates
+            currentLsid = strlsidMatch
+            logger.info("STARTING to process the all the duplicates for " + currentLsid)
+            val olddds = getCurrentDuplicates(currentLsid)
+            oldDuplicates = olddds._1
+            oldDupMap = olddds._2
           }
-          if (oldDuplicates != null) {
-            buffer.foreach(v => reindexWriter.write(v + "\n"))
-            //revert the old duplicates that don't exist
-            revertNonDuplicateRecords(oldDuplicates, oldDupMap, allDuplicates.toSet, reindexWriter, oldDuplicatesWriter)
-            logger.info("REVERTING THE OLD duplicates for " + currentLsid)
-            buffer.reduceToSize(0)
-            allDuplicates.reduceToSize(0)
-            reindexWriter.flush
-            oldDuplicatesWriter.flush
-          }
-          //get new old duplicates
-          currentLsid = strlsidMatch
-          logger.info("STARTING to process the all the duplicates for " + currentLsid)
-          val olddds = getCurrentDuplicates(currentLsid)
-          oldDuplicates = olddds._1
-          oldDupMap = olddds._2
+          //add line to queue
+          queue.put(line)
         }
-        //add line to queue
-        queue.put(line)
-      }
-    })
+      })
+    } else {
+      logger.error(s"$dupFilename does not exist - perhaps you need to run duplicate detection first...")
+    }
 
     pool.foreach(t => t.shouldStop = true)
     pool.foreach(_.join)
@@ -533,9 +540,9 @@ class DuplicationDetection {
   }
 
   /**
-    * Loads the duplicates from the lsid based on the tmp file being populated.
-    * This is based on a single lsid being in the file
-    */
+   * Loads the duplicates from the lsid based on the tmp file being populated.
+   * This is based on a single lsid being in the file
+   */
   def loadDuplicates(lsid: String, threads: Int, dupFilename: String, reindexWriter: FileWriter, oldDupWriter: FileWriter) {
     //get a list of the current records that are considered duplicates
     val (oldDuplicates, oldDupMap) = getCurrentDuplicates(lsid)
@@ -544,11 +551,12 @@ class DuplicationDetection {
     val buffer = new ArrayBuffer[String]
     val allDuplicates = new ArrayBuffer[String]
     val pool: Array[StringConsumer] = Array.fill(threads) {
-      val p = new StringConsumer(queue, ids, {
-        duplicate => loadDuplicate(duplicate, reindexWriter, buffer, allDuplicates)
-      });
-      ids += 1;
-      p.start;
+      val p = new StringConsumer(queue, ids, { duplicate =>
+        val duplicateRecordDetails = mapper.readValue[DuplicateRecordDetails](duplicate, classOf[DuplicateRecordDetails])
+         persistDuplicate(duplicateRecordDetails, buffer, allDuplicates)
+      })
+      ids += 1
+      p.start
       p
     }
     new File(dupFilename).foreachLine(line => queue.put(line))
@@ -564,43 +572,96 @@ class DuplicationDetection {
   }
 
   /**
-    * Loads the specific tool - allows duplicates to be loaded in a threaded manner
-    */
-  def loadDuplicate(dup: String, writer: FileWriter, buffer: ArrayBuffer[String], allDuplicates: ArrayBuffer[String]) = {
+   * Persists the specific duplicate details - allows duplicates to be loaded in a threaded manner
+   */
+  def persistDuplicate(primaryRecord: DuplicateRecordDetails, buffer: ArrayBuffer[String], allDuplicates: ArrayBuffer[String]) = {
+
     //turn the tool into the object
-    val primaryRecord = mapper.readValue[DuplicateRecordDetails](dup, classOf[DuplicateRecordDetails])
     logger.debug("HANDLING " + primaryRecord.rowKey)
+
     //get the duplicates that are not already part of the primary record
     allDuplicates.synchronized {
       allDuplicates += primaryRecord.rowKey
       primaryRecord.duplicates.foreach(d => allDuplicates += d.rowKey)
     }
 
-    val newduplicates = primaryRecord.duplicates.filter(_.oldDuplicateOf != primaryRecord.uuid)
+    val newduplicates = primaryRecord.duplicates.filter { _.oldDuplicateOf != primaryRecord.uuid }
     val uuidList = primaryRecord.duplicates.map(r => r.uuid)
 
     try {
+
       if (!newduplicates.isEmpty || primaryRecord.oldDuplicateOf == null || primaryRecord.duplicates.size != primaryRecord.oldDuplicateOf.split(",").size) {
+
         buffer.synchronized {
           buffer += primaryRecord.rowKey
         }
-        Config.persistenceManager.put(primaryRecord.uuid, "occ_duplicates", "value", dup, true, false)
-        Config.persistenceManager.put(primaryRecord.taxonConceptLsid + "|" + primaryRecord.year + "|" + primaryRecord.month + "|" + primaryRecord.day, "duplicates", primaryRecord.uuid, dup, true, false)
-        Config.persistenceManager.put(primaryRecord.rowKey, "occ", Map("associatedOccurrences" + Config.persistenceManager.fieldDelimiter + "p" -> uuidList.mkString("|"), "duplicationStatus" + Config.persistenceManager.fieldDelimiter + "p" -> "R"), true, false)
 
-        newduplicates.foreach(r => {
-          val types = if (r.dupTypes != null) r.dupTypes.toList.map(t => t.getId.toString).toArray[String] else Array[String]()
-          Config.persistenceManager.put(r.rowKey, "occ", Map("associatedOccurrences" + Config.persistenceManager.fieldDelimiter + "p" -> primaryRecord.uuid, "duplicationStatus" + Config.persistenceManager.fieldDelimiter + "p" -> "D", "duplicationType" + Config.persistenceManager.fieldDelimiter + "p" -> mapper.writeValueAsString(types)), true, false)
-          //add a system message for the record - a duplication does not change the kosher fields and should always be displayed thus don't "checkExisting"
-          Config.occurrenceDAO.addSystemAssertion(r.rowKey, QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD, "Record has been inferred as closely related to  " + primaryRecord.uuid), false)
+        //save duplicate details
+        Config.duplicateDAO.saveDuplicate(primaryRecord)
+
+        Config.persistenceManager.put(
+          primaryRecord.rowKey,
+          "occ",
+          Map(
+            "associatedOccurrences" + Config.persistenceManager.fieldDelimiter + "p" -> uuidList.mkString("|"),
+            "duplicationStatus" + Config.persistenceManager.fieldDelimiter + "p" -> "R"
+          ),
+          true,
+          false
+        )
+
+        //store details for new duplicates
+        newduplicates.foreach { r =>
+          val types = if (r.dupTypes != null) {
+            r.dupTypes.toList.map(t => t.getId.toString).toArray[String]
+          } else {
+            Array[String]()
+          }
+
+          saveToOccurrenceRecord(primaryRecord, r, types)
+
           buffer.synchronized {
             buffer += r.rowKey
           }
-        })
+        }
       }
     } catch {
-      case e: Exception => e.printStackTrace(); println(dup)
+      case e: Exception => e.printStackTrace();
     }
+  }
+
+
+  /**
+    * Persists the details of duplication against the record (for indexing purposes).
+    *
+    * @param primaryRecord
+    * @param duplicateDetails
+    * @param duplicateTypes
+    */
+  private def saveToOccurrenceRecord(primaryRecord: DuplicateRecordDetails, duplicateDetails: DuplicateRecordDetails, duplicateTypes: Array[String]) = {
+    //store the associated occurrences on the record
+    Config.persistenceManager.put(
+      duplicateDetails.rowKey,
+      "occ",
+      Map(
+        "associatedOccurrences" + Config.persistenceManager.fieldDelimiter + "p" -> primaryRecord.uuid,
+        "duplicationStatus" + Config.persistenceManager.fieldDelimiter + "p" -> "D",
+        "duplicationType" + Config.persistenceManager.fieldDelimiter + "p" -> mapper.writeValueAsString(duplicateTypes)
+      ),
+      true,
+      false
+    )
+
+    //add a system message for the record - a duplication does not change the kosher fields
+    // and should always be displayed thus don't "checkExisting"
+    Config.occurrenceDAO.addSystemAssertion(
+      duplicateDetails.rowKey,
+      QualityAssertion(
+        AssertionCodes.INFERRED_DUPLICATE_RECORD,
+        "Record has been inferred as closely related to  " + primaryRecord.uuid
+      ),
+      false
+    )
   }
 
   def downloadRecords(sourceFileName: String, lsid: String, field: String) {
@@ -655,24 +716,23 @@ class DuplicationDetection {
           logger.debug("Loaded into memory : " + counter + " + records")
         }
         val rowKey = currentLine(0)
-        val uuid = currentLine(1)
-        val taxon_lsid = currentLine(2)
-        val year = StringUtils.trimToNull(currentLine(3))
-        val month = StringUtils.trimToNull(currentLine(4))
+        val taxon_lsid = currentLine(1)
+        val year = StringUtils.trimToNull(currentLine(2))
+        val month = StringUtils.trimToNull(currentLine(3))
 
         val date: java.util.Date = try {
-          DateUtils.parseDate(currentLine(5), "EEE MMM dd hh:mm:ss zzz yyyy")
+          DateUtils.parseDate(currentLine(4), "EEE MMM dd hh:mm:ss zzz yyyy")
         } catch {
           case _: Exception => null
         }
         val day = if (date != null) Integer.toString(date.getDate()) else null
-        val rawName = StringUtils.trimToNull(currentLine(12))
-        val collector = StringUtils.trimToNull(currentLine(13))
-        val oldStatus = StringUtils.trimToNull(currentLine(14))
-        val oldDuplicateOf = StringUtils.trimToNull(currentLine(15).replaceAll("\\[", "").replaceAll("\\]", ""))
-        buff += new DuplicateRecordDetails(rowKey, uuid, taxon_lsid, year, month, day, currentLine(6), currentLine(7),
-          currentLine(8), currentLine(9), currentLine(10), currentLine(11), rawName, collector, oldStatus, oldDuplicateOf,
-          currentLine(25), currentLine(26))
+        val rawName = StringUtils.trimToNull(currentLine(11))
+        val collector = StringUtils.trimToNull(currentLine(12))
+        val oldStatus = StringUtils.trimToNull(currentLine(13))
+        val oldDuplicateOf = StringUtils.trimToNull(currentLine(14).replaceAll("\\[", "").replaceAll("\\]", ""))
+        buff += new DuplicateRecordDetails(rowKey, rowKey, taxon_lsid, year, month, day, currentLine(5), currentLine(6),
+          currentLine(7), currentLine(8), currentLine(9), currentLine(10), rawName, collector, oldStatus, oldDuplicateOf,
+          currentLine(24), currentLine(25))
       } else {
         logger.warn("lsid " + lsid + " line " + counter + " has incorrect column number: " + currentLine.size)
       }
@@ -704,11 +764,11 @@ class DuplicationDetection {
   }
 
   /**
-    * Changes the stored values for the "old" duplicates that are no longer considered duplicates
-    */
+   * Changes the stored values for the "old" duplicates that are no longer considered duplicates
+   */
   def revertNonDuplicateRecords(oldDuplicates: Set[String], oldDupMap: Map[String, String], currentDuplicates: Set[String], write: FileWriter, oldWriter: FileWriter) {
     val nonDuplicates = oldDuplicates -- currentDuplicates
-    nonDuplicates.foreach(nd => {
+    nonDuplicates.foreach { nd =>
       logger.warn(nd + " is no longer a duplicate")
       //remove the duplication columns
       Config.persistenceManager.deleteColumns(nd, "occ", "associatedOccurrences" + Config.persistenceManager.fieldDelimiter + "p", "duplicationStatus" + Config.persistenceManager.fieldDelimiter + "p", "duplicationType" + Config.persistenceManager.fieldDelimiter + "p")
@@ -716,35 +776,36 @@ class DuplicationDetection {
       Config.occurrenceDAO.removeSystemAssertion(nd, AssertionCodes.INFERRED_DUPLICATE_RECORD)
       write.write(nd + "\n")
       oldWriter.write(nd + "\t" + oldDupMap(nd) + "\n")
-    })
+    }
   }
 
   /**
     * Gets a list of current duplicates so that records no longer considered a tool can be reset
     */
   def getCurrentDuplicates(lsid: String): (Set[String], Map[String, String]) = {
-    val startKey = lsid + "|"
-    val endKey = lsid + "|~"
-
-    val buf = new ArrayBuffer[String]
-    val uuidMap = new scala.collection.mutable.HashMap[String, String]()
-
-    Config.persistenceManager.pageOverAll("duplicates", (guid, map) => {
-      logger.debug("Getting old duplicates for " + guid)
-      map.values.foreach(v => {
-        //turn it into a DuplicateRecordDetails
-        val rd = mapper.readValue[DuplicateRecordDetails](v, classOf[DuplicateRecordDetails])
-        buf += rd.rowKey
-        uuidMap += rd.rowKey -> rd.uuid
-        rd.duplicates.toList.foreach(d => {
-          buf += d.rowKey
-          uuidMap += d.rowKey -> d.uuid
-        })
-      })
-      true
-    }, startKey, endKey, 100)
-
-    (buf.toSet, uuidMap.toMap[String, String])
+//    val startKey = lsid + "|"
+//    val endKey = lsid + "|~"
+//
+//    val buf = new ArrayBuffer[String]
+//    val uuidMap = new scala.collection.mutable.HashMap[String, String]()
+//
+//    Config.persistenceManager.pageOverAll("duplicates", (guid, map) => {
+//      logger.debug("Getting old duplicates for " + guid)
+//      map.values.foreach(v => {
+//        //turn it into a DuplicateRecordDetails
+//        val rd = mapper.readValue[DuplicateRecordDetails](v, classOf[DuplicateRecordDetails])
+//        buf += rd.rowKey
+//        uuidMap += rd.rowKey -> rd.uuid
+//        rd.duplicates.toList.foreach(d => {
+//          buf += d.rowKey
+//          uuidMap += d.rowKey -> d.uuid
+//        })
+//      })
+//      true
+//    }, startKey, endKey, 100)
+//
+//    (buf.toSet, uuidMap.toMap[String, String])
+    (Set(), Map())
   }
 
   /**
@@ -762,6 +823,7 @@ class DuplicationDetection {
     mapper.setSerializationInclusion(Include.NON_NULL)
 
     override def run() = {
+
       logger.debug("Starting duplication detection for the year:  " + year)
       val monthGroups = records.groupBy(r => if (r.month != null) r.month else "UNKNOWN")
       val buffGroups = new ArrayBuffer[DuplicateRecordDetails]
@@ -785,9 +847,10 @@ class DuplicationDetection {
           }
         }
       }
+
       logger.debug("Number of distinct records for year " + year + " is " + buffGroups.size)
 
-      buffGroups.foreach(record => {
+      buffGroups.foreach { record =>
         if (record.duplicates != null && !record.duplicates.isEmpty) {
           val (primaryRecord, duplicates) = markRecordsAsDuplicatesAndSetTypes(record)
           val stringValue = mapper.writeValueAsString(primaryRecord)
@@ -801,11 +864,13 @@ class DuplicationDetection {
             passedWriter.write(record.getRowKey + "\n")
           }
         }
-        //DuplicationDetection.logger.debug("RECORD: " + record.rowKey + " has " + record.duplicates.size + " duplicates")
-      })
+        logger.debug("RECORD: " + record.rowKey + " has " + record.duplicates.size + " duplicates")
+      }
+
       duplicateWriter.synchronized {
         duplicateWriter.flush()
       }
+
       passedWriter.synchronized {
         passedWriter.flush()
       }
@@ -859,7 +924,7 @@ class DuplicationDetection {
       }
 
       //set the duplication type based data resource uid
-      duplicates.foreach(d => {
+      duplicates.foreach { d =>
         d.status = if (d.druid == representativeRecord.druid) {
           "D1"
         } else {
@@ -870,7 +935,7 @@ class DuplicationDetection {
         } else {
           d.dupTypes = d.dupTypes ++ Array(DuplicationTypes.DIFFERENT_PRECISION)
         }
-      })
+      }
 
       (representativeRecord, duplicates)
     }
@@ -927,7 +992,7 @@ class DuplicationDetection {
       val dupBuffer = new ArrayBuffer[DuplicateRecordDetails]()
       dupBuffer.appendAll(record.duplicates)
 
-      recordGroup.foreach(otherRecord => {
+      recordGroup.foreach { otherRecord =>
         if (otherRecord.duplicateOf == null && record.rowKey != otherRecord.rowKey) {
 
           val otherpoints = Array(
@@ -951,7 +1016,7 @@ class DuplicationDetection {
             }
           }
         }
-      })
+      }
 
       record.duplicates = dupBuffer.toArray
     }
@@ -1006,9 +1071,8 @@ class DuplicationDetection {
       * @param in
       * @return
       */
-    def isEmptyUnknown(in: String): Boolean = {
+    def isEmptyUnknown(in: String): Boolean =
       StringUtils.isEmpty(in) || in.matches(unknownPatternString)
-    }
 
     /**
       * Compare the collector names for the supplied records. This will return true if:

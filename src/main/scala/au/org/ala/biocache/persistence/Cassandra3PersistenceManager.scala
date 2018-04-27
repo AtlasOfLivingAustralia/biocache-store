@@ -557,10 +557,10 @@ class Cassandra3PersistenceManager  @Inject() (
         put(rowkey, entityName, propertyName, json, newRecord, removeNullFields)
       } else {
         //retrieve the existing objects
-        val currentList = Json.toListWithGeneric(column.get, theClass)
+        val currentList = Json.toListWithGeneric(column.get, theClass).asInstanceOf[List[A]]
         var buffer = new ListBuffer[A]
 
-        for (theObject <- currentList) {
+        currentList.foreach { theObject =>
           if (!newList.contains(theObject)) {
             //add to buffer
             buffer += theObject

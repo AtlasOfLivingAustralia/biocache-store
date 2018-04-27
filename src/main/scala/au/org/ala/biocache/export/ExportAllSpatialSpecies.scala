@@ -57,12 +57,34 @@ class ExportAllSpatialSpecies {
 
   //Warning changing these fields may cause issues in the offline processing tasks
   //TODO - make environmental properties configurable
-  val fieldsToExport = Array("row_key", "id", "species_guid", "subspecies_guid", "year", "month",
-    "occurrence_date", "point-1", "point-0.1",
-    "point-0.01", "point-0.001", "point-0.0001", "lat_long", "raw_taxon_name", "collectors",
+  val fieldsToExport = Array(
+    "id",
+    "species_guid",
+    "subspecies_guid",
+    "year",
+    "month",
+    "occurrence_date",
+    "point-1",
+    "point-0.1",
+    "point-0.01",
+    "point-0.001",
+    "point-0.0001",
+    "lat_long",
+    "raw_taxon_name",
+    "collectors",
     "duplicate_status",
-    "duplicate_record", "latitude", "longitude",
-    "el882", "el889", "el887", "el865", "el894", "coordinate_uncertainty", "record_number", "catalogue_number")
+    "duplicate_record",
+    "latitude",
+    "longitude",
+    "el882",
+    "el889",
+    "el887",
+    "el865",
+    "el894",
+    "coordinate_uncertainty",
+    "record_number",
+    "catalogue_number"
+  )
 
   val query = "lat_long:* AND species_guid:*"
   val filterQueries = Array[String]()
