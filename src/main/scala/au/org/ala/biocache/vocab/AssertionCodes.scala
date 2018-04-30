@@ -92,7 +92,7 @@ object AssertionCodes {
   val RESOURCE_TAXONOMIC_SCOPE_MISMATCH = ErrorCode("resourceTaxonomicScopeMismatch", 20008, false, "Taxonomic scope mismatch between record and resource", Error)
   val DATA_ARE_GENERALISED = ErrorCode("dataAreGeneralised", 20009, false, "The data has been supplied generalised", Warning)
   val OCCURRENCE_IS_CULTIVATED_OR_ESCAPEE = ErrorCode("occCultivatedEscapee", 20010, false, "The occurrence is cultivated or escaped.", Warning)
-  val INFERRED_DUPLICATE_RECORD = ErrorCode("inferredDuplicateRecord",20014,false,"The occurrence appears to be a duplicate", Error)
+  val INFERRED_DUPLICATE_RECORD = ErrorCode("inferredDuplicateRecord",20014,false,"The occurrence appears to be a duplicate", Warning)
   val MISSING_CATALOGUENUMBER = ErrorCode("missingCatalogueNumber", 20015, false,"No catalogue number has been supplied", Missing)
   val RECORDED_BY_UNPARSABLE = ErrorCode("recordedByUnparsable", 20016, false,"RecordedBy value unparseable", Warning)
   val UNRECOGNISED_OCCURRENCE_STATUS = ErrorCode("unrecognisedOccurrenceStatus", 20017, false, "Occurrence status not recognised", Error)
