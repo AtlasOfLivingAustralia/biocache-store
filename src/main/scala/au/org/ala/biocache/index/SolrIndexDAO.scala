@@ -17,6 +17,11 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang3.StringEscapeUtils
+import org.apache.http.conn.HttpClientConnectionManager
+import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.http.impl.client.cache.CacheConfig
+import org.apache.http.impl.client.cache.CachingHttpClientBuilder
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
 import org.apache.solr.client.solrj.impl.{CloudSolrClient, ConcurrentUpdateSolrClient}
 import org.apache.solr.client.solrj.response.FacetField
@@ -57,6 +62,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   var solrServer: SolrClient = _
   var cloudServer: CloudSolrClient = _
   var solrConfigPath: String = ""
+  var httpClient: CloseableHttpClient = _
+  var connectionPoolManager: HttpClientConnectionManager = _  
 
   @Inject
   var occurrenceDAO: OccurrenceDAO = _
@@ -93,10 +100,23 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     } else {
       if (solrServer == null) {
         logger.info("Initialising the solr server " + solrHome + " cloudserver:" + cloudServer + " solrServer:" + solrServer)
+        val poolingConnectionPoolManager = new PoolingHttpClientConnectionManager()
+        poolingConnectionPoolManager.setMaxTotal(Config.solrConnectionPoolSize)
+        poolingConnectionPoolManager.setDefaultMaxPerRoute(Config.solrConnectionMaxPerRoute)
+        connectionPoolManager = poolingConnectionPoolManager
+        val cacheConfig = CacheConfig.custom()
+                                     .setMaxCacheEntries(Config.solrConnectionCacheEntries)
+                                     .setMaxObjectSize(Config.solrConnectionCacheObjectSize)
+                                     .setSharedCache(false).build()
+        httpClient = CachingHttpClientBuilder.create()
+                                .setCacheConfig(cacheConfig)
+                                .setConnectionManager(connectionPoolManager)
+                                .setUserAgent(Config.userAgent)
+                                .useSystemProperties().build()
         if (!solrHome.startsWith("http://")) {
           if (solrHome.contains(":")) {
-            //assume that it represents a SolrCloud
-            cloudServer = new CloudSolrClient.Builder().withZkHost(solrHome).build()
+            //assume that it represents a SolrCloud using ZooKeeper
+            cloudServer = new CloudSolrClient.Builder().withZkHost(solrHome).withHttpClient(httpClient).build()
             cloudServer.setDefaultCollection(solrCollection)
             solrServer = cloudServer
             solrServer.ping()
@@ -112,7 +132,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           }
         } else {
           logger.info("Initialising connection to SOLR server..... with solrHome:  " + solrHome)
-          solrServer = new ConcurrentUpdateSolrClient.Builder(solrHome).withThreadCount(Config.solrUpdateThreads).withQueueSize(BATCH_SIZE).build()
+          solrServer = new ConcurrentUpdateSolrClient.Builder(solrHome).withHttpClient(httpClient).withThreadCount(Config.solrUpdateThreads).withQueueSize(BATCH_SIZE).build()
           logger.info("Initialising connection to SOLR server - done.")
         }
       }
@@ -406,8 +426,27 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     */
   def shutdown {
     //threads.foreach(t => t.stopRunning)
-    if (cc != null)
-      cc.shutdown
+    try {
+      if (cc != null) {
+        cc.shutdown
+      }
+    } finally {
+      try {
+        if (httpClient != null) {
+          httpClient.close
+        }
+      } finally {
+        try {
+          if (connectionPoolManager != null) {
+            connectionPoolManager.shutdown
+          }
+        } finally {
+          if (solrServer != null) {
+            solrServer.close
+          }
+        }
+      }
+    }
   }
 
   def optimise: String = {
