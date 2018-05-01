@@ -42,9 +42,8 @@ class DataResourceDelete(dataResource:String) extends RecordDeletor {
         val endUuid = startUuid + "~"
 
         pm.pageOverSelect("occ", (guid,map)=>{
-            // FIXME: Turned off the "dellog" safety to enable rescuing on sandbox
-            // The dellog fake delete needs to be an option rather than hardcoded here
-            occurrenceDAO.delete(guid, false, false)
+            // TODO: The dellog false delete needs to be an option rather than hardcoded here
+            occurrenceDAO.delete(guid, false, true)
             count= count +1
             true
         }, startUuid, endUuid, 1000, "rowKey", "uuid")
