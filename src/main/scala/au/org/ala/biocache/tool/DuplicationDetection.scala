@@ -474,14 +474,13 @@ class DuplicationDetection {
     val buffer = new ArrayBuffer[String] // The buffer to store all the rowKeys that need to be reindexed
     val allDuplicates = new ArrayBuffer[String]
     val conceptPattern = """"taxonConceptLsid":"([A-Za-z0-9\-:\.]*)"""".r
-    var oldDuplicates: Set[String] = null
-    var oldDupMap: Map[String, String] = null
+//    var oldDuplicates: Set[String] = null
+//    var oldDupMap: Map[String, String] = null
 
     val pool: Array[StringConsumer] = Array.fill(threads) {
       val p = new StringConsumer(queue, ids, {
         duplicate => {
           val duplicateRecordDetails = mapper.readValue[DuplicateRecordDetails](duplicate, classOf[DuplicateRecordDetails])
-
           persistDuplicate(duplicateRecordDetails, buffer, allDuplicates)
         }
       })
@@ -491,7 +490,7 @@ class DuplicationDetection {
     }
 
     if (new File(dupFilename).exists()) {
-      new File(dupFilename).foreachLine(line => {
+      new File(dupFilename).foreachLine { line =>
         val lsidMatch = conceptPattern.findFirstMatchIn(line)
         if (lsidMatch.isDefined) {
           val strlsidMatch = lsidMatch.get.group(1)
@@ -500,43 +499,43 @@ class DuplicationDetection {
             while (!queue.isEmpty) {
               Thread.sleep(200)
             }
-            if (oldDuplicates != null) {
-              buffer.foreach(v => reindexWriter.write(v + "\n"))
-              //revert the old duplicates that don't exist
-              revertNonDuplicateRecords(oldDuplicates, oldDupMap, allDuplicates.toSet, reindexWriter, oldDuplicatesWriter)
-              logger.info("REVERTING THE OLD duplicates for " + currentLsid)
-              buffer.reduceToSize(0)
-              allDuplicates.reduceToSize(0)
-              reindexWriter.flush
-              oldDuplicatesWriter.flush
-            }
-            //get new old duplicates
-            currentLsid = strlsidMatch
-            logger.info("STARTING to process the all the duplicates for " + currentLsid)
-            val olddds = getCurrentDuplicates(currentLsid)
-            oldDuplicates = olddds._1
-            oldDupMap = olddds._2
+//            if (oldDuplicates != null) {
+//              buffer.foreach(v => reindexWriter.write(v + "\n"))
+//              //revert the old duplicates that don't exist
+//              revertNonDuplicateRecords(oldDuplicates, oldDupMap, allDuplicates.toSet, reindexWriter, oldDuplicatesWriter)
+//              logger.info("REVERTING THE OLD duplicates for " + currentLsid)
+//              buffer.reduceToSize(0)
+//              allDuplicates.reduceToSize(0)
+//              reindexWriter.flush
+//              oldDuplicatesWriter.flush
+//            }
+//            //get new old duplicates
+//            currentLsid = strlsidMatch
+//            logger.info("STARTING to process the all the duplicates for " + currentLsid)
+//            val olddds = getCurrentDuplicates(currentLsid)
+//            oldDuplicates = olddds._1
+//            oldDupMap = olddds._2
           }
           //add line to queue
           queue.put(line)
         }
-      })
+      }
     } else {
       logger.error(s"$dupFilename does not exist - perhaps you need to run duplicate detection first...")
     }
 
     pool.foreach(t => t.shouldStop = true)
     pool.foreach(_.join)
-
-    val olddds = getCurrentDuplicates(currentLsid)
-    oldDuplicates = olddds._1
-    oldDupMap = olddds._2
+//
+//    val olddds = getCurrentDuplicates(currentLsid)
+//    oldDuplicates = olddds._1
+//    oldDupMap = olddds._2
     buffer.foreach(v => reindexWriter.write(v + "\n"))
-    revertNonDuplicateRecords(oldDuplicates, oldDupMap, buffer.toSet, reindexWriter, oldDuplicatesWriter)
+//    revertNonDuplicateRecords(oldDuplicates, oldDupMap, buffer.toSet, reindexWriter, oldDuplicatesWriter)
     reindexWriter.flush
     reindexWriter.close
-    oldDuplicatesWriter.flush
-    oldDuplicatesWriter.close
+//    oldDuplicatesWriter.flush
+//    oldDuplicatesWriter.close
   }
 
   /**
@@ -629,7 +628,6 @@ class DuplicationDetection {
       case e: Exception => e.printStackTrace();
     }
   }
-
 
   /**
     * Persists the details of duplication against the record (for indexing purposes).
