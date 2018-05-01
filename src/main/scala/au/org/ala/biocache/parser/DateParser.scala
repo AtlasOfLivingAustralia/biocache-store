@@ -16,6 +16,15 @@ object DateParser {
 
   final val logger: Logger = LoggerFactory.getLogger("DateParser")
 
+  /**
+    * Parse the supplied date string into an event date. This method catches errors and will return a None
+    * if the string is unparseable.
+    *
+    * @param dateStr
+    * @param maxYear
+    * @param minYear
+    * @return an event date if parseable.
+    */
   def parseDate(dateStr: String, maxYear: Option[Int] = None, minYear: Option[Int] = None): Option[EventDate] = {
 
     if(dateStr == null)
@@ -109,6 +118,7 @@ object DateParser {
 
     date match {
       case NonISOSingleDate(date) => Some(date)
+      case NonISODateRange(date) => Some(date)
       case _ => None
     }
   }
@@ -255,7 +265,11 @@ class SingleDate {
   }
 }
 
-trait NonISO extends SingleDate {
+trait NonISOSingleDate extends SingleDate {
+  override def baseFormats = Array("dd-MM-yyyy","dd/MM/yyyy","dd-MMM-yyyy","dd/MMM/yyyy","dd MMM yyyy")
+}
+
+trait NonISODateRange extends DateRange {
   override def baseFormats = Array("dd-MM-yyyy","dd/MM/yyyy","dd-MMM-yyyy","dd/MMM/yyyy","dd MMM yyyy")
 }
 
@@ -265,7 +279,9 @@ trait NonISOTruncatedYear extends SingleDate {
 
 object ISOSingleDate extends SingleDate
 
-object NonISOSingleDate extends SingleDate with NonISO
+object NonISOSingleDate extends NonISOSingleDate
+
+object NonISODateRange extends NonISODateRange
 
 object NonISOTruncatedYearDate extends SingleDate with NonISOTruncatedYear
 
@@ -293,18 +309,20 @@ object ISOMonthDate {
   }
 }
 
-/** Extractor for the format yyyy-MM-dd/yyyy-MM-dd */
-object ISODateRange {
+object ISODateRange extends DateRange
 
-  val formats = Array("yyyy-MM-dd", "yyyy-MM-dd'T'hh:mm-ss", "yyyy-MM-dd'T'HH:mm-ss", "yyyy-MM-dd'T'hh:mm'Z'", "yyyy-MM-dd'T'HH:mm'Z'")
+/** Extractor for the format yyyy-MM-dd/yyyy-MM-dd */
+class DateRange {
+
+  def baseFormats = Array("yyyy-MM-dd", "yyyy-MM-dd'T'hh:mm-ss", "yyyy-MM-dd'T'HH:mm-ss", "yyyy-MM-dd'T'hh:mm'Z'", "yyyy-MM-dd'T'HH:mm'Z'")
 
   def unapply(str: String): Option[EventDate] = {
     try {
 
       val parts = ParseUtil.splitRange(str)
       if (parts.length != 2) return None
-      val startDateParsed = DateUtils.parseDateStrictly(parts(0), formats)
-      val endDateParsed = DateUtils.parseDateStrictly(parts(1), formats)
+      val startDateParsed = DateUtils.parseDateStrictly(parts(0), baseFormats)
+      val endDateParsed = DateUtils.parseDateStrictly(parts(1), baseFormats)
 
       val startDate = DateFormatUtils.format(startDateParsed, "yyyy-MM-dd")
       val endDate = DateFormatUtils.format(endDateParsed, "yyyy-MM-dd")
