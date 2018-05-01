@@ -6,6 +6,7 @@ import au.com.bytecode.opencsv.CSVReader
 import au.org.ala.biocache._
 import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.model.Versions
+import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import org.slf4j.LoggerFactory
@@ -29,6 +30,7 @@ object DwcCSVLoader extends Tool {
     var testFile = false
     var logRowKeys = true
     val logger = LoggerFactory.getLogger("DwcCSVLoader")
+    var uniqueTerms = Array("occurrenceID")
 
     val parser = new OptionParser(help) {
       arg("data-resource-uid", "the data resource to import", {v: String => dataResourceUid = v})
@@ -39,7 +41,11 @@ object DwcCSVLoader extends Tool {
       opt("b", "bypassConnParamLookup", "bypass connection param lookup. defaults to " + bypassConnParamLookup, {
         bypassConnParamLookup = true
       })
-      opt("test", "test the file only do not load", { testFile=true })
+      opt("test", "test the file only do not load", { testFile = true })
+
+      opt("ut", "uniqueTerms", "Unique terms to use to make an ID. Comma separated DwC", {
+        v: String => uniqueTerms = v.split(",").map { _.trim }
+      })
     }
 
     if(parser.parse(args)){
@@ -47,10 +53,18 @@ object DwcCSVLoader extends Tool {
       l.deleteOldRowKeys(dataResourceUid)
       try {
         if (bypassConnParamLookup && !localFilePath.isEmpty){
-          l.loadFile(new File(localFilePath.get),dataResourceUid, List(), Map(), logRowKeys, testFile, false)
+          l.loadFile(
+            new File(localFilePath.get),
+            dataResourceUid,
+            uniqueTerms,
+            Map(),
+            false,
+            logRowKeys,
+            testFile
+          )
         } else {
           localFilePath match {
-            case None => l.load(dataResourceUid,logRowKeys,testFile)
+            case None => l.load(dataResourceUid, logRowKeys, testFile)
             case Some(filePath) => l.loadLocalFile(dataResourceUid, filePath, logRowKeys, testFile)
           }
           //initialise the delete/update the collectory information
@@ -185,12 +199,6 @@ class DwcCSVLoader extends DataLoader {
         dataResourceUid + ". CSV file is missing unique terms.")
     }
 
-    val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+dataResourceUid, "institution_code",100).getOrElse(List()).toSet[String]
-
-    val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+dataResourceUid, "collection_code",100).getOrElse(List()).toSet[String]
-
-    logger.info("The current institution codes for the data resource: " + institutionCodes)
-    logger.info("The current collection codes for the data resource: " + collectionCodes)
 
     val newCollCodes = new scala.collection.mutable.HashSet[String]
     val newInstCodes = new scala.collection.mutable.HashSet[String]
@@ -300,6 +308,12 @@ class DwcCSVLoader extends DataLoader {
 
     //check to see if the inst/coll codes are new
     if(test){
+
+      val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+dataResourceUid, "institution_code",100).getOrElse(List()).toSet[String]
+      val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:"+dataResourceUid, "collection_code",100).getOrElse(List()).toSet[String]
+      logger.info("The current institution codes for the data resource: " + institutionCodes)
+      logger.info("The current collection codes for the data resource: " + collectionCodes)
+
       val unknownInstitutions = newInstCodes &~ institutionCodes
       val unknownCollections = newCollCodes &~ collectionCodes
       if(!unknownInstitutions.isEmpty) {
