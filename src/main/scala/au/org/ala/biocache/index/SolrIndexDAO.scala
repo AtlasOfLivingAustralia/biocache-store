@@ -132,7 +132,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           }
         } else {
           logger.info("Initialising connection to SOLR server..... with solrHome:  " + solrHome)
-          solrServer = new ConcurrentUpdateSolrClient.Builder(solrHome).withHttpClient(httpClient).withThreadCount(Config.solrUpdateThreads).withQueueSize(BATCH_SIZE).build()
+          // FIXME: Solr-6 ConcurrentUpdateSolrClient doesn't seem to work with the HttpClient-4.4.9 methods
+          // HttpClient regularly break backwards compatibility in patch releases so not entirely unexpected
+          // solrServer = new ConcurrentUpdateSolrClient.Builder(solrHome).withHttpClient(httpClient).withThreadCount(Config.solrUpdateThreads).withQueueSize(BATCH_SIZE).build()
+          solrServer = new ConcurrentUpdateSolrClient.Builder(solrHome).withThreadCount(Config.solrUpdateThreads).withQueueSize(BATCH_SIZE).build()
           logger.info("Initialising connection to SOLR server - done.")
         }
       }
