@@ -202,7 +202,8 @@ trait IndexDAO {
     * TODO: 2. Simplify to CassandraColumnName -> SolrFieldName. Complexity is required to reflect backward compatibility.
     * TODO: 3. Remove all DWC fields. These should be indexed by default.
     */
-  lazy val headerAttributes = List(("dateIdentified", "identified_date", 0, 3),
+  lazy val headerAttributes = List(
+    ("dateIdentified", "identified_date", 0, 3),
     ("firstLoaded", "first_loaded_date", 0, 2),
     (FullRecordMapper.alaModifiedColumn, "last_load_date", 0, 2),
     (FullRecordMapper.alaModifiedColumn, "last_processed_date", 0, 3),
@@ -1600,7 +1601,6 @@ trait IndexDAO {
     }
 
     //sensitive fields
-    //val dataGen = getArrayValue(columnOrder.dataGeneralizationsP, array)
     if (StringUtils.isNotEmpty(dataGen)) {
       if (dataGen.contains("already generalised")) {
         addField(doc, "sensitive", "alreadyGeneralised")
@@ -1628,6 +1628,7 @@ trait IndexDAO {
         }
       }
     }
+
     //all other values when not sensitive
     if (StringUtils.isEmpty(dataGen)) {
       for (i <- 0 until columnOrder.length.toInt) {

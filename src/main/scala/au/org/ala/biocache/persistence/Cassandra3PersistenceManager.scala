@@ -746,15 +746,12 @@ class Cassandra3PersistenceManager  @Inject() (
 
     val MAX_QUERY_RETRIES = 20
 
-    //paging threads, processing threads
-
     //retrieve token ranges for local node
-    val tokenRanges: Array[TokenRange] =
-      if (localOnly) {
-        getTokenRangesForLocalNode
-      } else {
-        getTokenRanges
-      }
+    val tokenRanges: Array[TokenRange] = if (localOnly) {
+      getTokenRangesForLocalNode
+    } else {
+      getTokenRanges
+    }
 
     val startRange = System.getProperty("startAtTokenRange", "0").toInt
 
@@ -769,6 +766,8 @@ class Cassandra3PersistenceManager  @Inject() (
 
     val es = MoreExecutors.getExitingExecutorService(Executors.newFixedThreadPool(threads).asInstanceOf[ThreadPoolExecutor])
     val callables: util.List[Callable[Int]] = new util.ArrayList[Callable[Int]]
+
+    val continuePaging = new AtomicBoolean(true)
 
     //generate a set of callable tasks, each with their own token range...
     for (tokenRangeIdx <- startRange until tokenRanges.length) {
@@ -869,84 +868,89 @@ class Cassandra3PersistenceManager  @Inject() (
               val startToken = tokenRange.getStart()
               val endToken = tokenRange.getEnd()
 
-              val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) <= $endToken " + filterQuery)
-              stmt.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE) //ensure local reads....
-              stmt.setFetchSize(500)
-              stmt.setReadTimeoutMillis(120000) //2 minute timeout
+              if(continuePaging.get()) {
 
-              val rs = {
-                var retryCount = 0
-                var needToRetry = true
-                var success: ResultSet = null
-                while (retryCount < MAX_QUERY_RETRIES && needToRetry) {
-                  try {
-                    success = session.execute(stmt)
-                    needToRetry = false
-                    retryCount = 0 //reset
-                  } catch {
-                    case e: Exception => {
-                      logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
-                      retryCount = retryCount + 1
-                      needToRetry = true
-                      if (retryCount > 3) {
-                        logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
-                        Thread.sleep(600000)
-                      } else {
-                        logger.error(s"Backing off for 5 minutes. Retry count $retryCount", e)
-                        Thread.sleep(300000)
+                val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) <= $endToken " + filterQuery)
+                stmt.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE) //ensure local reads....
+                stmt.setFetchSize(500)
+                stmt.setReadTimeoutMillis(120000) //2 minute timeout
+
+                val rs = {
+                  var retryCount = 0
+                  var needToRetry = true
+                  var success: ResultSet = null
+                  while (retryCount < MAX_QUERY_RETRIES && needToRetry) {
+                    try {
+                      success = session.execute(stmt)
+                      needToRetry = false
+                      retryCount = 0 //reset
+                    } catch {
+                      case e: Exception => {
+                        logger.error(s"Exception thrown during paging. Retry count $retryCount", e)
+                        retryCount = retryCount + 1
+                        needToRetry = true
+                        if (retryCount > 3) {
+                          logger.error(s"Backing off for 10 minutes. Retry count $retryCount", e)
+                          Thread.sleep(600000)
+                        } else {
+                          logger.error(s"Backing off for 5 minutes. Retry count $retryCount", e)
+                          Thread.sleep(300000)
+                        }
                       }
                     }
                   }
+                  success
                 }
-                success
-              }
 
-              if (rs != null) {
+                if (rs != null) {
 
-                val rows = rs.iterator()
+                  val rows = rs.iterator()
 
-                val start = System.currentTimeMillis()
+                  val start = System.currentTimeMillis()
 
-                //need retries
-                while (hasNextWithRetries(rows)) {
-                  val row = getNextWithRetries(rows)
-                  val rowkey = row.getString("rowkey")
-                  if (procArray != null) {
-                    //process response as an array to avoid conversion to Map
-                    try {
-                      procArray(rowkey, row, row.getColumnDefinitions)
-                    } catch {
-                      case e: Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
-                    }
-                  } else if (proc != null) {
-                    val map = new util.HashMap[String, String]()
-                    row.getColumnDefinitions.foreach { defin =>
-                      val value = row.getString(defin.getName)
-                      if (value != null) {
-                        map.put(defin.getName, value)
+                  //need retries
+                  while (continuePaging.get() && hasNextWithRetries(rows)) {
+                    val row = getNextWithRetries(rows)
+                    val rowkey = row.getString("rowkey")
+                    if (procArray != null) {
+                      //process response as an array to avoid conversion to Map
+                      try {
+                        continuePaging.set(procArray(rowkey, row, row.getColumnDefinitions))
+                      } catch {
+                        case e: Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
+                      }
+                    } else if (proc != null) {
+                      val map = new util.HashMap[String, String]()
+                      row.getColumnDefinitions.foreach { defin =>
+                        val value = row.getString(defin.getName)
+                        if (value != null) {
+                          map.put(defin.getName, value)
+                        }
+                      }
+
+                      try {
+                        //processing - does this want to be on a separate thread ??
+                        continuePaging.set(proc(rowkey, map.toMap, tokenRangeIdx.toString))
+
+                      } catch {
+                        case e: Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
                       }
                     }
 
-                    try {
-                      //processing - does this want to be on a separate thread ??
-                      proc(rowkey, map.toMap, tokenRangeIdx.toString)
-                    } catch {
-                      case e: Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
+                    counter += 1
+                    if (counter % 10000 == 0) {
+                      val currentTime = System.currentTimeMillis()
+                      val currentRowkey = row.getString(0)
+                      val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
+                      val totalTimeInSec = ((currentTime - start) / 1000)
+                      logger.info(s"[Token range : $tokenRangeIdx] records read: $counter " +
+                        s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds, $currentRowkey")
                     }
-                  }
-
-                  counter += 1
-                  if (counter % 10000 == 0) {
-                    val currentTime = System.currentTimeMillis()
-                    val currentRowkey = row.getString(0)
-                    val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
-                    val totalTimeInSec = ((currentTime - start) / 1000)
-                    logger.info(s"[Token range : $tokenRangeIdx] records read: $counter " +
-                      s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds, $currentRowkey")
                   }
                 }
               }
             }
+
             logger.info(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter)
 
             synchronized {

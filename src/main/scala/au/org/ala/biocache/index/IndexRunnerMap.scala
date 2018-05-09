@@ -15,7 +15,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class IndexRunnerMap(centralCounter: Counter,
                      confDirPath: String, pageSize: Int = 200,
-                     luceneIndexing: ArrayBuffer[LuceneIndexing] = null,
+                     luceneIndexing: Seq[LuceneIndexing] = null,
                      processingThreads: Integer = 1,
                      processorBufferSize: Integer = 100,
                      singleWriter: Boolean = false,
@@ -189,7 +189,7 @@ class IndexRunnerMap(centralCounter: Counter,
       csvFileWriter.close()
     }
     if (csvFileWriterSensitive != null) {
-      csvFileWriterSensitive.flush();
+      csvFileWriterSensitive.flush()
       csvFileWriterSensitive.close()
     }
 

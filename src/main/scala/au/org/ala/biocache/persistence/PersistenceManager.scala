@@ -2,7 +2,7 @@ package au.org.ala.biocache.persistence
 
 import java.util.concurrent.Executor
 
-import com.datastax.driver.core.ResultSet
+import com.datastax.driver.core.{ColumnDefinitions, GettableData, ResultSet}
 import com.google.common.util.concurrent.FutureCallback
 
 /**
@@ -120,6 +120,7 @@ trait PersistenceManager {
    * Page over the records, retrieving the supplied columns range.
    */
   def pageOverColumnRange(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String="", endRowkey:String="", pageSize:Int=1000, startColumn:String="", endColumn:String="")
+
 
   /**
    * Whether range queries are supported by this persistence manager

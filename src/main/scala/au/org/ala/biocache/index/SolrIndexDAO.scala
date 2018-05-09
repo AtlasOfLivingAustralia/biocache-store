@@ -113,6 +113,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                                 .setConnectionManager(connectionPoolManager)
                                 .setUserAgent(Config.userAgent)
                                 .useSystemProperties().build()
+
         if (!solrHome.startsWith("http://")) {
           if (solrHome.contains(":")) {
             //assume that it represents a SolrCloud using ZooKeeper
@@ -186,16 +187,16 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       "collectionName" -> "biocache",
       "q" -> query,
       "start" -> "0",
-      "rows" -> Int.MaxValue.toString,
+      "rows" -> "2147483622", //Int.MaxValue.toString - this was causing a java.lang.NegativeArraySizeException
       "fl" -> fieldsToRetrieve.mkString(","))
 
     val solrParams = new ModifiableSolrParams()
     solrParams.add(new MapSolrParams(params))
     solrParams.add("fq", filterQueries: _*)
 
-    if (!sortFields.isEmpty) {
-      solrParams.add("sort", sortFields.mkString(" asc,") + " asc")
-    }
+//    if (!sortFields.isEmpty) {
+//      solrParams.add("sort", sortFields.mkString(" asc,") + " asc")
+//    }
 
     //now stream
     val solrCallback = new SolrCallback(proc, multivaluedFields)

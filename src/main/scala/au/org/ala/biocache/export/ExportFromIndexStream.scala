@@ -66,15 +66,6 @@ object ExportFromIndexStream extends Tool with Counter {
       opt("qa", "quality-assertions", "Include query assertions", {
         queryAssertions = true
       })
-      opt("k", "keys", "A comma separated list of keys on which to perform the range threads. Prevents the need to query SOLR for the ranges. Only used with a filter-file. ", {
-        v: String => keys = Some(v.split(","))
-      })
-      opt("dr", "dr", "The data resource over which to obtain the range. Only used with a filter-file. ", {
-        v: String => dr = Some(v)
-      })
-      intOpt("t", "threads", "The number of threads to perform the indexing on. Only used with a filter-file. Default is " + numThreads, {
-        v: Int => numThreads = v
-      })
     }
 
     if (parser.parse(args)) {
@@ -100,32 +91,33 @@ object ExportFromIndexStream extends Tool with Counter {
     Config.indexDAO.streamIndex(map => {
       counter += 1
       if (counter % 1000 == 0) {
+        logger.info("Exported records: $counter")
         fileWriter.flush
       }
-      val outputLine = fieldsToExport.map(f => {
+      val outputLine = fieldsToExport.map { f =>
         if (map.containsKey(f)) map.get(f).toString else ""
-      })
+      }
       fileWriter.write(outputLine.mkString("\t"))
 
-      if (queryAssertions) {
-        //these are multivalue fields
-        val assertions = (if (map.containsKey("assertions")) map.get("assertions") else null).asInstanceOf[util.Collection[String]]
-        val assertions_passed = (if (map.containsKey("assertions_passed")) map.get("assertions_passed") else null).asInstanceOf[util.Collection[String]]
-        val assertions_missing = (if (map.containsKey("assertions_missing")) map.get("assertions_missing") else null).asInstanceOf[util.Collection[String]]
-
-        AssertionCodes.all.map(e => {
-          var a = e.name
-          if (assertions != null && assertions.contains(a)) {
-            fileWriter.write("\tfailed")
-          } else if (assertions_passed != null && assertions_passed.contains(a)) {
-            fileWriter.write("\tpassed")
-          } else if (assertions_missing != null && assertions_missing.contains(a)) {
-            fileWriter.write("\tmissing")
-          } else {
-            fileWriter.write("\t")
-          }
-        })
-      }
+//      if (queryAssertions) {
+//        //these are multivalue fields
+//        val assertions = (if (map.containsKey("assertions")) map.get("assertions") else null).asInstanceOf[util.Collection[String]]
+//        val assertions_passed = (if (map.containsKey("assertions_passed")) map.get("assertions_passed") else null).asInstanceOf[util.Collection[String]]
+//        val assertions_missing = (if (map.containsKey("assertions_missing")) map.get("assertions_missing") else null).asInstanceOf[util.Collection[String]]
+//
+//        AssertionCodes.all.map(e => {
+//          var a = e.name
+//          if (assertions != null && assertions.contains(a)) {
+//            fileWriter.write("\tfailed")
+//          } else if (assertions_passed != null && assertions_passed.contains(a)) {
+//            fileWriter.write("\tpassed")
+//          } else if (assertions_missing != null && assertions_missing.contains(a)) {
+//            fileWriter.write("\tmissing")
+//          } else {
+//            fileWriter.write("\t")
+//          }
+//        })
+//      }
 
       fileWriter.write("\n")
       true

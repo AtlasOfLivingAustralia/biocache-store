@@ -4,9 +4,12 @@ package au.org.ala.biocache.index.lucene;
 import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.BytesTermAttribute;
+import org.apache.lucene.document.DateTools;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.spatial.prefix.CellToBytesRefIterator;
 import org.apache.lucene.spatial.prefix.PrefixTreeStrategy;
 import org.apache.lucene.spatial.prefix.tree.Cell;
@@ -22,6 +25,7 @@ import org.locationtech.spatial4j.io.WKTReader;
 import org.locationtech.spatial4j.shape.Shape;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -113,10 +117,24 @@ public class RecycleDoc implements Iterable<IndexableField> {
             //Set all data types that are in use
             try {
                 if (ft instanceof StrField) {
-                    ((Field) f).setStringValue(String.valueOf(value));
+                    try {
+
+                        if(f instanceof SortedSetDocValuesField){
+                            ((SortedSetDocValuesField) f).setBytesValue(String.valueOf(value).getBytes("UTF-8"));
+                        } else {
+                            ((Field) f).setStringValue(String.valueOf(value));
+                        }
+                    } catch (Exception e)  {
+                         e.printStackTrace();
+                    }
                     found = true;
+                } else if (ft instanceof TrieDateField) {
+                    SimpleDateFormat dsf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                    Date theDate = dsf.parse((String) value);
+                    ((Field) f).setLongValue(theDate.getTime());
+
                 } else if (ft instanceof TrieField) {
-                    switch (((TrieField) ft).getType().ordinal()) {
+                    switch (((TrieField) ft).getNumericType().ordinal()) {
                         case 0:
                             ((Field) f).setIntValue(value instanceof Number ? ((Number) value).intValue() : Integer.parseInt((String) value));
                             found = true;

@@ -1,104 +1,67 @@
 package au.org.ala.biocache.index
 
 import java.io.File
-import java.net.URL
 
 import au.org.ala.biocache._
-import au.org.ala.biocache.caches.TaxonProfileDAO
 import au.org.ala.biocache.index.lucene.{DocBuilder, LuceneIndexing}
-import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
-import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.commons.io.{FileUtils}
 import org.apache.solr.core.{SolrConfig, SolrResourceLoader}
-import org.apache.solr.schema.IndexSchemaFactory
+import org.apache.solr.schema.{IndexSchema, IndexSchemaFactory}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * A class that can be used to reload taxon conservation values for all records.
-  *
-  * @param centralCounter
-  * @param threadId
+  * A class for local record indexing.
   */
-class LoadTaxonConservationData(centralCounter: Counter, threadId: Int) extends Runnable {
+class IndexLocalNode {
 
-  val logger = LoggerFactory.getLogger("LoadTaxonConservationData")
-  var ids = 0
-  val threads = 2
-  var batches = 0
+  val logger: Logger = LoggerFactory.getLogger("IndexLocalNode")
 
-  def run {
-    var counter = 0
-    val start = System.currentTimeMillis
-    val sep = Config.persistenceManager.fieldDelimiter
-
-    val batch: mutable.Map[String, Map[String, String]] = mutable.Map[String, Map[String, String]]()
-
-    Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocal("occ", (guid, map, _) => {
-      val updates = mutable.Map[String, String]()
-      val taxonProfileWithOption = TaxonProfileDAO.getByGuid(map.getOrElse("taxonConceptID" + sep + "p", ""))
-      if (!taxonProfileWithOption.isEmpty) {
-        val taxonProfile = taxonProfileWithOption.get
-        //add the conservation status if necessary
-        if (taxonProfile.conservation != null) {
-          val country = taxonProfile.retrieveConservationStatus(map.getOrElse("country" + sep + "p", ""))
-          updates.put("countryConservation" + sep + "p", country.getOrElse(""))
-          val state = taxonProfile.retrieveConservationStatus(map.getOrElse("stateProvince" + sep + "p", ""))
-          updates.put("stateConservation" + sep + "p", state.getOrElse(""))
-          val global = taxonProfile.retrieveConservationStatus("global")
-          updates.put("global", global.getOrElse(""))
-        }
-      }
-      if (updates.size < 3) {
-        updates.put("countryConservation" + sep + "p", "")
-        updates.put("stateConservation" + sep + "p", "")
-        updates.put("global", "")
-      }
-      val changes = updates.filter(it => map.getOrElse(it._1, "") != it._2)
-      if (!changes.isEmpty) {
-        batch.put(guid, updates.toMap)
-      }
-
-      counter += 1
-      if (counter % 10000 == 0) {
-        logger.info("[LoadTaxonConservationData Thread " + threadId + "] Import of sample data " + counter + " Last key " + guid)
-
-        if (!batch.isEmpty) {
-          logger.info("writing")
-          Config.persistenceManager.putBatch("occ", batch.toMap, true, false)
-          batch.clear()
-        }
-      }
-
-      true
-    }, 4, Array("taxonConceptID" + sep + "p", "country" + sep + "p", "countryConservation" + sep + "p", "stateProvince" + sep + "p", "stateConservation" + sep + "p", "global"))
-
-    if (!batch.isEmpty) {
-      logger.info("writing")
-      Config.persistenceManager.putBatch("occ", batch.toMap, true, false)
-      batch.clear()
-    }
-
-    val fin = System.currentTimeMillis
-    logger.info("[LoadTaxonConservationData Thread " + threadId + "] " + counter + " took " + ((fin - start).toFloat) / 1000f + " seconds")
-    logger.info("Finished.")
-  }
-}
-
-/**
-  * A class for local records indexing.
-  */
-class IndexLocalRecordsV2 {
-
-  val logger: Logger = LoggerFactory.getLogger("IndexLocalRecordsV2")
-
-  def indexRecords(numThreads: Int, solrHome: String, solrConfigXmlPath: String, optimise: Boolean, optimiseOnly: Boolean,
-                   checkpointFile: String, threadsPerWriter: Int, threadsPerProcess: Int, ramPerWriter: Int,
-                   writerSegmentSize: Int, processorBufferSize: Int, writerBufferSize: Int,
-                   pageSize: Int, mergeSegments: Int, test: Boolean, writerCount: Int, testMap: Boolean
-                  ): Unit = {
+  /**
+    * Method for running localised indexing (localised to node) against cassandra.
+    *
+    * @param numThreads number of threads to use
+    * @param solrHome SOLR home path to use
+    * @param solrConfigXmlPath SOLR Config XML file path
+    * @param optimise whether to optimise the index on completion
+    * @param optimiseOnly run only optimise
+    * @param checkpointFile checkpoint file path
+    * @param threadsPerWriter number of threads to use per writer
+    * @param threadsPerProcess
+    * @param ramPerWriter
+    * @param writerSegmentSize
+    * @param processorBufferSize
+    * @param writerBufferSize
+    * @param pageSize
+    * @param mergeSegments
+    * @param test
+    * @param writerCount
+    * @param testMap
+    * @param maxRecordsToIndex
+    *
+    * @return total number of records indexed.
+    */
+  def indexRecords(numThreads: Int,
+                   solrHome: String,
+                   solrConfigXmlPath: String,
+                   optimise: Boolean,
+                   optimiseOnly: Boolean,
+                   checkpointFile: String,
+                   threadsPerWriter: Int,
+                   threadsPerProcess: Int,
+                   ramPerWriter: Int,
+                   writerSegmentSize: Int,
+                   processorBufferSize: Int,
+                   writerBufferSize: Int,
+                   pageSize: Int,
+                   mergeSegments: Int,
+                   test: Boolean,
+                   writerCount: Int,
+                   testMap: Boolean,
+                   maxRecordsToIndex:Int = -1
+                  ) : Int = {
 
     val start = System.currentTimeMillis()
 
@@ -107,11 +70,191 @@ class IndexLocalRecordsV2 {
     var count = 0
     val singleWriter = writerCount == 0
 
-    ///init for luceneIndexing
-    var luceneIndexing: ArrayBuffer[LuceneIndexing] = new ArrayBuffer[LuceneIndexing]
+    val (schema, schemaFile, newIndexDir, confDir, sourceConfDir) = setUpSolrConfig(solrHome: String, solrConfigXmlPath: String)
+
+    // Setup indexers
+    var luceneIndexing: Seq[LuceneIndexing] = initialiseIndexers(threadsPerWriter, ramPerWriter,
+      writerSegmentSize, writerBufferSize, writerCount, schema, newIndexDir)
+
+    if (test) {
+      DocBuilder.setIsIndexing(false)
+    }
+
+    val counter: Counter = new DefaultCounter()
+    if (testMap) {
+      new IndexRunnerMap(
+        counter,
+        confDir,
+        pageSize,
+        luceneIndexing,
+        threadsPerProcess,
+        processorBufferSize,
+        singleWriter,
+        test,
+        numThreads
+      ).run()
+    } else {
+      new IndexRunner(
+        counter,
+        confDir,
+        pageSize,
+        luceneIndexing,
+        threadsPerProcess,
+        processorBufferSize,
+        singleWriter,
+        test,
+        numThreads,
+        maxRecordsToIndex
+      ).run()
+    }
+
+    val end = System.currentTimeMillis()
+    logger.info("Indexing completed. Total indexed : " + counter.counter + " in " + ((end - start).toFloat / 1000f / 60f) + " minutes")
+
+    val dirs = new ArrayBuffer[String]()
+
+    if (singleWriter) {
+      luceneIndexing(0).close(true, false)
+    }
+
+    for (i <- luceneIndexing.indices) {
+      for (j <- 0 until luceneIndexing(i).getOutputDirectories.size()) {
+        dirs += luceneIndexing(i).getOutputDirectories.get(j).getPath
+      }
+    }
+
+    //remove references
+    luceneIndexing = null
+
+    System.gc()
+
+    val mem = Math.max((Runtime.getRuntime.freeMemory() * 0.75) / 1024 / 1024, writerCount * ramPerWriter).toInt
+
+    writeAdditionalSchemaEntries(schemaFile, sourceConfDir)
+
+    performMerge(solrHome, optimise, mergeSegments, schemaFile, dirs, mem)
+
+    logger.info("Indexing complete. Records indexed: " + counter.counter)
+
+    //Move checkpoint file if complete
+    new File(checkpointFile).renameTo(new File(checkpointFile + ".complete"))
+
+    counter.counter
+  }
+
+  /**
+    * Initialise a set of indexers.
+    *
+    * @param threadsPerWriter
+    * @param ramPerWriter
+    * @param writerSegmentSize
+    * @param writerBufferSize
+    * @param writerCount
+    * @param schema
+    * @param newIndexDir
+    * @return
+    */
+  private def initialiseIndexers(threadsPerWriter: Int, ramPerWriter: Int, writerSegmentSize: Int, writerBufferSize: Int,
+                                 writerCount: Int,  schema: IndexSchema, newIndexDir: File) : Seq[LuceneIndexing] = {
+    if (writerCount == 0) {
+      val outputDir = newIndexDir.getParent + "/data0-"
+      logger.info("Writing index to " + outputDir)
+      List(new LuceneIndexing(schema, writerSegmentSize.toLong, outputDir,
+        ramPerWriter, writerBufferSize, writerBufferSize / 2, threadsPerWriter))
+    } else {
+      val buff = new ArrayBuffer[LuceneIndexing]()
+      for (i <- 0 until writerCount) {
+        val outputDir = newIndexDir.getParent + "/data" + i + "-"
+        logger.info("Writing index to " + outputDir)
+        buff += new LuceneIndexing(schema, writerSegmentSize.toLong, outputDir,
+          ramPerWriter, writerBufferSize, writerBufferSize / (threadsPerWriter + 2), threadsPerWriter)
+      }
+      buff.toList
+    }
+  }
+
+  /**
+    * Writes out additional schema entries to the file "additionalFields.list" in the SOLR config directory supplied.
+    *
+    * @param schemaFile
+    * @param sourceConfDir
+    */
+  private def writeAdditionalSchemaEntries(schemaFile: File, sourceConfDir: File) = {
+    if (DocBuilder.getAdditionalSchemaEntries.size() > 0) {
+
+      logger.info("Writing " + DocBuilder.getAdditionalSchemaEntries.size() + " new fields into updated schema: " + schemaFile.getPath)
+      val schemaString = FileUtils.readFileToString(schemaFile, "UTF-8")
+
+      //remove 'bad' entries
+      val sb = new StringBuilder()
+      for (i: String <- DocBuilder.getAdditionalSchemaEntries.asScala) {
+        if (!i.contains("name=\"\"") && !i.contains("name=\"_\")")) {
+          sb.append(i)
+          sb.append('\n')
+        }
+      }
+
+      //export additional fields to a separate file
+      FileUtils.writeStringToFile(new File(sourceConfDir + "/additionalFields.list"), sb.toString(), "UTF-8")
+    } else {
+      FileUtils.writeStringToFile(new File(sourceConfDir + "/additionalFields.list"), "", "UTF-8")
+    }
+  }
+
+  /**
+    * Performs the index merge and optimisation.
+    *
+    * @param solrHome
+    * @param optimise
+    * @param mergeSegments
+    * @param schemaFile
+    * @param dirs
+    * @param mem
+    */
+  private def performMerge(solrHome: String, optimise: Boolean, mergeSegments: Int,
+                           schemaFile: File, dirs: ArrayBuffer[String], mem: Int) = {
+    if (mergeSegments > 0) {
+      val segmentCount = mergeSegments
+      val segmentSize = dirs.length / segmentCount + 1
+
+      logger.info(s"Merging index into $segmentCount segments. source dirs=$dirs.length segment size=$segmentSize, mem=$mem mb")
+
+      var dirsRemaining = dirs
+      var segmentNumber = 0
+      while (dirsRemaining.nonEmpty) {
+
+        val (dirsSegment, remainder) = dirsRemaining.splitAt(Math.min(segmentSize, dirsRemaining.length))
+        dirsRemaining = remainder
+
+        logger.info(s"merged_$segmentNumber, $dirsSegment")
+
+        IndexMergeTool.merge(
+          solrHome + "merged_" + segmentNumber,
+          dirsSegment.toArray,
+          forceMerge = optimise,
+          dirsSegment.length,
+          deleteSources = false,
+          mem
+        )
+
+        new File(solrHome + "merged_" + segmentNumber + "/conf").mkdirs()
+        FileUtils.copyFile(schemaFile, new File(solrHome + "merged_" + segmentNumber + "/conf/schema.xml"))
+
+        segmentNumber = segmentNumber + 1
+      }
+    }
+  }
+
+  /**
+    * Setup the SOLR config to use, downloading from SOLR home if not available locally.
+    *
+    * @param solrHome
+    * @param solrConfigXmlPath
+    * @return
+    */
+  def setUpSolrConfig(solrHome: String, solrConfigXmlPath: String) : (IndexSchema, File, File, String, File) ={
 
     val confDir = solrHome + "/solr-create/biocache/conf"
-    //solr-create/thread-0/conf
     val newIndexDir = new File(confDir)
     if (newIndexDir.exists) {
       FileUtils.deleteDirectory(newIndexDir.getParentFile)
@@ -145,133 +288,27 @@ class IndexLocalRecordsV2 {
         s2
       }
     }
-    val schema = IndexSchemaFactory.buildIndexSchema(schemaFile.getName,
-      SolrConfig.readFromResourceLoader(new SolrResourceLoader(new File(solrHome + "/solr-create/biocache").toPath), "solrconfig.xml"))
+
+    //with 6.6.2, this method moves the schema.xml to schema.xml.bak
+    val schema = IndexSchemaFactory.buildIndexSchema(
+      schemaFile.getName,
+      SolrConfig.readFromResourceLoader(
+        new SolrResourceLoader(new File(solrHome + "/solr-create/biocache").toPath),
+        "solrconfig.xml"
+      )
+    )
+
+    //recreate the /schema.xml
+    if(!s1.exists() && s2.exists()) {
+      FileUtils.copyFile(s2, s1)
+    }
 
     FileUtils.writeStringToFile(new File(solrHome + "/solr-create/solr.xml"), "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><solr></solr>", "UTF-8")
     FileUtils.writeStringToFile(new File(solrHome + "/solr-create/zoo.cfg"), "", "UTF-8" )
 
-    if (singleWriter) {
-      val outputDir = newIndexDir.getParent + "/data0-"
-      logger.info("Writing index to " + outputDir)
-      luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, outputDir,
-        ramPerWriter, writerBufferSize, writerBufferSize / 2, threadsPerWriter)
-    } else {
-      for (i <- 0 until writerCount) {
-        val outputDir = newIndexDir.getParent + "/data" + i + "-"
-        logger.info("Writing index to " + outputDir)
-        luceneIndexing += new LuceneIndexing(schema, writerSegmentSize.toLong, outputDir,
-          ramPerWriter, writerBufferSize, writerBufferSize / (threadsPerWriter + 2), threadsPerWriter)
-      }
-    }
-
-    if (test) {
-      DocBuilder.setIsIndexing(false)
-    }
-
-    val counter: Counter = new DefaultCounter()
-    if (testMap) {
-      new IndexRunnerMap(counter,
-        confDir,
-        pageSize,
-        luceneIndexing,
-        threadsPerProcess,
-        processorBufferSize,
-        singleWriter, test, numThreads
-      ).run()
-    } else {
-      new IndexRunner(counter,
-        confDir,
-        pageSize,
-        luceneIndexing,
-        threadsPerProcess,
-        processorBufferSize,
-        singleWriter, test, numThreads
-      ).run()
-    }
-
-    val end = System.currentTimeMillis()
-    logger.info("Indexing completed. Total indexed : " + counter.counter + " in " + ((end - start).toFloat / 1000f / 60f) + " minutes")
-
-    val dirs = new ArrayBuffer[String]()
-
-    if (singleWriter) {
-      luceneIndexing(0).close(true, false)
-    }
-    for (i <- luceneIndexing.indices) {
-      for (j <- 0 until luceneIndexing(i).getOutputDirectories.size()) {
-        dirs += luceneIndexing(i).getOutputDirectories.get(j).getPath
-      }
-    }
-
-    luceneIndexing = null
-    System.gc()
-
-    val mem = Math.max((Runtime.getRuntime.freeMemory() * 0.75) / 1024 / 1024, writerCount * ramPerWriter).toInt
-
-    //insert new fields into the schema file 's1'
-    val s: File = {
-      if (s1.exists()) {
-        s1
-      } else {
-        s2
-      }
-    }
-    if (DocBuilder.getAdditionalSchemaEntries.size() > 0) {
-      logger.info("Writing " + DocBuilder.getAdditionalSchemaEntries.size() + " new fields into updated schema: " + s1.getPath)
-      val schemaString = FileUtils.readFileToString(s)
-      //      FileUtils.writeStringToFile(s1, schemaString.replace("</schema>",
-      //        StringUtils.join(DocBuilder.getAdditionalSchemaEntries, "\n") + "\n</schema>"))
-
-      //backup and overwrite source schema
-      //      FileUtils.copyFile(new File(sourceConfDir + "/schema.xml"),
-      //        new File(sourceConfDir + "/schema.xml." + System.currentTimeMillis()))
-      //      FileUtils.copyFile(s1, new File(sourceConfDir + "/schema.xml"))
-
-      //remove 'bad' entries
-      val sb = new StringBuilder()
-      for (i: String <- DocBuilder.getAdditionalSchemaEntries.asScala) {
-        if (!i.contains("name=\"\"") && !i.contains("name=\"_\")")) {
-          sb.append(i)
-          sb.append('\n')
-        }
-      }
-
-      //export additional fields to a separate file
-      FileUtils.writeStringToFile(new File(sourceConfDir + "/additionalFields.list"),
-        sb.toString())
-    } else {
-      FileUtils.writeStringToFile(new File(sourceConfDir + "/additionalFields.list"), "")
-    }
-
-    if (mergeSegments > 0) {
-      val segmentCount = mergeSegments
-      val segmentSize = dirs.length / segmentCount + 1
-
-      logger.info("Merging index into " + segmentCount + " segments. source dirs=" + dirs.length + ", segment size=" + segmentSize + ", mem=" + mem + "mb")
-
-      var dirsRemaining = dirs
-      var segmentNumber = 0
-      while (dirsRemaining.nonEmpty) {
-        var (dirsSegment, remainder) = dirsRemaining.splitAt(Math.min(segmentSize, dirsRemaining.length))
-        dirsRemaining = remainder
-
-        logger.info("merged_" + segmentNumber + ", " + dirsSegment)
-
-        IndexMergeTool.merge(solrHome + "merged_" + segmentNumber, dirsSegment.toArray, forceMerge = optimise, dirsSegment.length, deleteSources = false, mem)
-
-        new File(solrHome + "merged_" + segmentNumber + "/conf").mkdirs()
-        FileUtils.copyFile(s, new File(solrHome + "merged_" + segmentNumber + "/conf/schema.xml"))
-
-        segmentNumber = segmentNumber + 1
-      }
-    }
-
-    logger.info("Complete")
-
-    //Move checkpoint file if complete
-    new File(checkpointFile).renameTo(new File(checkpointFile + ".complete"))
+    (schema, schemaFile, newIndexDir, confDir, sourceConfDir)
   }
+
 
   def downloadFile(url: String, fileToDownload: String)  {
     val src = scala.io.Source.fromURL(url)
@@ -280,4 +317,3 @@ class IndexLocalRecordsV2 {
     out.close
   }
 }
-

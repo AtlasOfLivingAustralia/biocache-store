@@ -12,7 +12,6 @@ import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 
 /**
   * A runnable thread for creating a complete new index.
@@ -68,13 +67,16 @@ import scala.collection.mutable.ArrayBuffer
   * @param singleWriter
   */
 class IndexRunner(centralCounter: Counter,
-                  confDirPath: String, pageSize: Int = 200,
-                  luceneIndexing: ArrayBuffer[LuceneIndexing] = null,
+                  confDirPath: String,
+                  pageSize: Int = 200,
+                  luceneIndexing: Seq[LuceneIndexing],
                   processingThreads: Integer = 1,
                   processorBufferSize: Integer = 100,
                   singleWriter: Boolean = false,
                   test: Boolean = false,
-                  numThreads: Int = 2) extends Runnable {
+                  numThreads: Int = 2,
+                  maxRecordsToIndex:Int = -1
+                 ) extends Runnable {
 
   val logger: Logger = LoggerFactory.getLogger("IndexRunner")
 
@@ -99,7 +101,6 @@ class IndexRunner(centralCounter: Counter,
 
     val indexer = new SolrIndexDAO(newIndexDir.getParentFile.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
-    var counter = 0
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -109,6 +110,7 @@ class IndexRunner(centralCounter: Counter,
     } else {
       null
     }
+
     val csvFileWriterSensitive = if (Config.exportIndexAsCsvPath.length > 0) {
       indexer.getCsvWriter(true)
     } else {
@@ -151,14 +153,17 @@ class IndexRunner(centralCounter: Counter,
         indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
         var continue = true
         while (continue) {
-          val m: (String, GettableData, ColumnDefinitions) = queue.take()
-          if (m._1 == null) {
+          val (guid, data, columnDefinitions) = queue.take()
+          if (guid == null) {
             continue = false
           } else {
             try {
               val t1 = System.nanoTime()
 
-              val t2 = indexer.indexFromArray(m._1, m._2, m._3,
+              val t2 = indexer.indexFromArray(
+                guid,
+                data,
+                columnDefinitions,
                 docBuilder = luceneIndexer.getDocBuilder,
                 lock = lock,
                 test = test)
@@ -170,22 +175,24 @@ class IndexRunner(centralCounter: Counter,
               timing.addAndGet(System.nanoTime() - t1 - t2)
             } catch {
               case e: InterruptedException => throw e
-              case e: Exception => logger.error("guid:" + m._1 + ", " + e.getMessage, e)
+              case e: Exception => logger.error("guid:" + guid + ", " + e.getMessage, e)
             }
           }
-          recordsProcessed = recordsProcessed + 1
+          recordsProcessed += 1
         }
       }
     }
 
-    //page through and create and index for this range
     val t2Total = new AtomicLong(0L)
     var t2 = System.nanoTime()
     var uuidIdx = -1
+    var queuedOrProcessedRecords = 0
+
+    //page through and create and index for this range
     Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverSelectArray("occ", (guid, row, columnDefinitions) => {
+
       t2Total.addAndGet(System.nanoTime() - t2)
 
-      counter += 1
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
         if (uuidIdx == -1) {
@@ -209,7 +216,7 @@ class IndexRunner(centralCounter: Counter,
           }
       }
 
-      if (counter % pageSize * 10 == 0 && counter > 0) {
+      if (centralCounter.counter % pageSize * 10 == 0 && centralCounter.counter > 0) {
         centralCounter.addToCounter(pageSize)
         finishTime = System.currentTimeMillis
         centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
@@ -230,7 +237,14 @@ class IndexRunner(centralCounter: Counter,
       t2 = System.nanoTime()
 
       //counter < 2000
-      true
+      centralCounter.addToCounter(1)
+
+      if(maxRecordsToIndex > 0 && centralCounter.counter > maxRecordsToIndex){
+        logger.info("Suspending indexing. maxRecordsToIndex was reached: " + maxRecordsToIndex)
+        false
+      } else {
+        true
+      }
     }, "", "", pageSize, numThreads, true)
 
     //final log entry
