@@ -4,10 +4,7 @@ package au.org.ala.biocache.index.lucene;
 import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.BytesTermAttribute;
-import org.apache.lucene.document.DateTools;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.SortedSetDocValuesField;
-import org.apache.lucene.document.StoredField;
+import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.spatial.prefix.CellToBytesRefIterator;
@@ -18,6 +15,8 @@ import org.apache.lucene.spatial.query.SpatialArgs;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefIterator;
 import org.apache.solr.schema.*;
+import org.apache.solr.schema.FieldType;
+import org.apache.solr.schema.TextField;
 import org.apache.solr.util.DateMathParser;
 import org.apache.solr.util.SpatialUtils;
 import org.locationtech.spatial4j.context.SpatialContext;
@@ -118,8 +117,10 @@ public class RecycleDoc implements Iterable<IndexableField> {
             try {
                 if (ft instanceof StrField) {
                     try {
-                        if(f instanceof SortedSetDocValuesField){
+                        if(f instanceof SortedSetDocValuesField) {
                             ((SortedSetDocValuesField) f).setBytesValue(String.valueOf(value).getBytes("UTF-8"));
+                        } else if(f instanceof SortedSetDocValuesField){
+                            ((SortedDocValuesField) f).setBytesValue(String.valueOf(value).getBytes("UTF-8"));
                         } else {
                             ((Field) f).setStringValue(String.valueOf(value));
                         }
