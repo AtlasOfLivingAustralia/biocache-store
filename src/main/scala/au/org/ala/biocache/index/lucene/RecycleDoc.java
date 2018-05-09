@@ -118,14 +118,13 @@ public class RecycleDoc implements Iterable<IndexableField> {
             try {
                 if (ft instanceof StrField) {
                     try {
-
                         if(f instanceof SortedSetDocValuesField){
                             ((SortedSetDocValuesField) f).setBytesValue(String.valueOf(value).getBytes("UTF-8"));
                         } else {
                             ((Field) f).setStringValue(String.valueOf(value));
                         }
                     } catch (Exception e)  {
-                         e.printStackTrace();
+                         logger.error("Problem setting field: " + f.name() + ", type: " + f.fieldType() + ", f: " + f.getClass().getCanonicalName());
                     }
                     found = true;
                 } else if (ft instanceof TrieDateField) {
