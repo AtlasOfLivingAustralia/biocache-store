@@ -119,7 +119,7 @@ public class RecycleDoc implements Iterable<IndexableField> {
                     try {
                         if(f instanceof SortedSetDocValuesField) {
                             ((SortedSetDocValuesField) f).setBytesValue(String.valueOf(value).getBytes("UTF-8"));
-                        } else if(f instanceof SortedSetDocValuesField){
+                        } else if(f instanceof SortedDocValuesField){
                             ((SortedDocValuesField) f).setBytesValue(String.valueOf(value).getBytes("UTF-8"));
                         } else {
                             ((Field) f).setStringValue(String.valueOf(value));
