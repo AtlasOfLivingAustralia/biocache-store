@@ -872,8 +872,8 @@ class Cassandra3PersistenceManager  @Inject() (
 
                 val stmt = new SimpleStatement(s"SELECT $columnsString FROM $entityName where token(rowkey) > $startToken and token(rowkey) <= $endToken " + filterQuery)
                 stmt.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE) //ensure local reads....
-                stmt.setFetchSize(500)
-                stmt.setReadTimeoutMillis(120000) //2 minute timeout
+                stmt.setFetchSize(Config.cassandraFetchSize)
+                stmt.setReadTimeoutMillis(Config.cassandraTimeout) //2 minute timeout
 
                 val rs = {
                   var retryCount = 0
@@ -1156,7 +1156,6 @@ class Cassandra3PersistenceManager  @Inject() (
                 mapBuilder.put(field, row.getString(field.toLowerCase))
               }
             }
-
             proc(mapBuilder.toMap)
           }
         }

@@ -81,6 +81,10 @@ object Config {
 
   val cassandraUpdateThreads = configModule.properties.getProperty("cassandra.update.threads", "8").toInt
 
+  val cassandraFetchSize = configModule.properties.getProperty("cassandra.fetch.size", "500").toInt
+
+  val cassandraTimeout = configModule.properties.getProperty("cassandra.timeout", "120000").toInt
+
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
 
   val volunteerDataProviderUid = configModule.properties.getProperty("volunteer.dp.uid", "")
