@@ -24,6 +24,7 @@ import org.locationtech.spatial4j.io.WKTReader;
 import org.locationtech.spatial4j.shape.Shape;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -117,12 +118,8 @@ public class RecycleDoc implements Iterable<IndexableField> {
             try {
                 if (ft instanceof StrField) {
                     try {
-                        if(f instanceof SortedSetDocValuesField) {
-                            byte[] valueAsBytes = String.valueOf(value).getBytes("UTF-8");
-                            ((SortedSetDocValuesField) f).setBytesValue(valueAsBytes);
-                        } else if(f instanceof SortedDocValuesField){
-                            byte[] valueAsBytes = String.valueOf(value).getBytes("UTF-8");
-                            ((SortedDocValuesField) f).setBytesValue(valueAsBytes);
+                        if(isSortedDocValuesField(f)) {
+                            setSortedDocValuesField(f, value);
                         } else {
                             ((Field) f).setStringValue(String.valueOf(value));
                         }
@@ -138,7 +135,12 @@ public class RecycleDoc implements Iterable<IndexableField> {
                 } else if (ft instanceof TrieField) {
                     switch (((TrieField) ft).getNumericType().ordinal()) {
                         case 0:
-                            ((Field) f).setIntValue(value instanceof Number ? ((Number) value).intValue() : Integer.parseInt((String) value));
+                            if(isSortedDocValuesField(f)) {
+                                setSortedDocValuesField(f, value);
+                            } else {
+                                Integer valueAsInt = value instanceof Number ? ((Number) value).intValue() : Integer.parseInt((String) value);
+                                ((Field) f).setIntValue(valueAsInt);
+                            }
                             found = true;
                             break;
                         case 1:
@@ -263,6 +265,20 @@ public class RecycleDoc implements Iterable<IndexableField> {
                     return true;
                 }
             }
+        }
+    }
+
+    public boolean isSortedDocValuesField(IndexableField f) {
+        return f instanceof SortedSetDocValuesField || f instanceof SortedDocValuesField;
+    }
+
+    public void setSortedDocValuesField(IndexableField f, Object value) throws UnsupportedEncodingException {
+        if(f instanceof SortedSetDocValuesField) {
+            byte[] valueAsBytes = String.valueOf(value).getBytes("UTF-8");
+            ((SortedSetDocValuesField) f).setBytesValue(valueAsBytes);
+        } else if(f instanceof SortedDocValuesField) {
+            byte[] valueAsBytes = String.valueOf(value).getBytes("UTF-8");
+            ((SortedDocValuesField) f).setBytesValue(valueAsBytes);
         }
     }
 
