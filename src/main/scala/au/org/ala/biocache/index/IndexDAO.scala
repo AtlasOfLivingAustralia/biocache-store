@@ -327,7 +327,7 @@ trait IndexDAO {
     */
   lazy val headerAttributesFix = List(
     ("verbatimElevation", "raw_min_elevation", -1, 2), // NEW
-    ("verbatimDepth", "raw_min_depth_d", -1, 2), // NEW
+    ("verbatimDepth", "raw_verbatim_depth", -1, 2), // NEW   - this is causing an error
     ("taxonRank", "raw_rank", -1, 2), // NEW
     ("stateProvince", "raw_state", -1, 2), // NEW
     ("scientificName", "raw_taxon_name", -1, 2), // NEW
@@ -352,7 +352,8 @@ trait IndexDAO {
     ("dateIdentified", "raw_identified_date", 0, 2),  // NEW
     ("eventDate", "raw_occurrence_date", 0, 2),  // NEW
     ("eventDateEnd", "raw_occurrence_date_end_dt", 0, 2),  // NEW
-    ("modified", "raw_modified_date", 0, 2)) // NEW
+    ("modified", "raw_modified_date", 0, 2) // NEW
+  )
 
   /**
    * The header values for the CSV file.

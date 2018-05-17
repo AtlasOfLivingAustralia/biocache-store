@@ -219,6 +219,8 @@ public class RecycleDoc implements Iterable<IndexableField> {
                 } else {
                     logger.error("MISSING FIELD " + name + " = " + value.toString() + ", " + ft.getClass().getName());
                 }
+            } catch (NumberFormatException e) {
+                logger.error("NumberFormatException setting field " + name + " = " + value.toString() + ", " + ft.getClass().getName() + " : " + e.getMessage());
             } catch (Exception e) {
                 logger.error("FIELD EXCEPTION " + name + " = " + value.toString() + ", " + ft.getClass().getName() + " : " + e.getMessage(), e);
             }
