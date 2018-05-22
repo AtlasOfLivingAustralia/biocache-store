@@ -274,9 +274,11 @@ public class LuceneIndexing {
             int timeout = 0;
             boolean waiting = false;
             while (waiting || (doc = docPool.poll(timeout, TimeUnit.MILLISECONDS)) == null) {
-                if (waitingForWriter.get() == 0 && documents.size() == 0) {
+                if (waitingForWriter.get() == 0 && documents.isEmpty()) {
                     additionalDocs.incrementAndGet();
-                    logger.debug("Memory leak. " + additionalDocs.get() + " additional RecycleDocs created. Are all DocBuilder.newDoc() objects released or indexed?");
+                    if(logger.isDebugEnabled()){
+                        logger.debug("Memory leak. " + additionalDocs.get() + " additional RecycleDocs created. Are all DocBuilder.newDoc() objects released or indexed?");
+                    }
                     doc = new RecycleDoc(schema);
                     break;
                 } else {
