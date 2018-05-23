@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
 import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
+import au.org.ala.biocache.util.JMX
 import com.datastax.driver.core.{ColumnDefinitions, GettableData}
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
@@ -101,6 +102,7 @@ class IndexRunner(centralCounter: Counter,
 
     val indexer = new SolrIndexDAO(newIndexDir.getParentFile.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
+    var counter = 0
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -193,6 +195,8 @@ class IndexRunner(centralCounter: Counter,
 
       t2Total.addAndGet(System.nanoTime() - t2)
 
+      counter += 1
+
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
         if (uuidIdx == -1) {
@@ -216,7 +220,7 @@ class IndexRunner(centralCounter: Counter,
           }
       }
 
-      if (centralCounter.counter % pageSize * 10 == 0 && centralCounter.counter > 0) {
+      if (counter % pageSize * 10 == 0 && centralCounter.counter > 0) {
         centralCounter.addToCounter(pageSize)
         finishTime = System.currentTimeMillis
         centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
@@ -230,14 +234,13 @@ class IndexRunner(centralCounter: Counter,
           ", mem free(Mb)=" + Runtime.getRuntime.freeMemory() / 1024 / 1024 +
           ", mem total(Mb)=" + Runtime.getRuntime.maxMemory() / 1024 / 1024 +
           ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
+
+        JMX.updateIndexStatus(centralCounter.getAverageRecsPerSec(startTimeFinal))
       }
 
       startTime = System.currentTimeMillis
 
       t2 = System.nanoTime()
-
-      //counter < 2000
-      centralCounter.addToCounter(1)
 
       if(maxRecordsToIndex > 0 && centralCounter.counter > maxRecordsToIndex){
         logger.info("Suspending indexing. maxRecordsToIndex was reached: " + maxRecordsToIndex)
@@ -246,9 +249,6 @@ class IndexRunner(centralCounter: Counter,
         true
       }
     }, "", "", pageSize, numThreads, true)
-
-    //final log entry
-    centralCounter.printOutStatus(threadId, "", "Indexer", startTimeFinal)
 
     logger.info("FINAL >>> cassandraTime(s)=" + t2Total.get() / 1000000000 +
       ", processingTime[" + processingThreads + "](s)=" + timing.get() / 1000000000 +

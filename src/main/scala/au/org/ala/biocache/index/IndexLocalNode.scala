@@ -109,7 +109,7 @@ class IndexLocalNode {
     }
 
     val end = System.currentTimeMillis()
-    logger.info("Indexing completed. Total indexed : " + counter.counter + " in " + ((end - start).toFloat / 1000f / 60f) + " minutes")
+    logger.info("Indexing completed in " + ((end - start).toFloat / 1000f / 60f) + " minutes")
 
     val dirs = new ArrayBuffer[String]()
 

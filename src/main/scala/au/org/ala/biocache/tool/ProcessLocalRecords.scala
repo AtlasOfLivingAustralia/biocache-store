@@ -7,7 +7,7 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.model.Versions
 import au.org.ala.biocache.processor.RecordProcessor
-import au.org.ala.biocache.util.{OptionParser, ZookeeperUtil}
+import au.org.ala.biocache.util.{JMX, OptionParser, ZookeeperUtil}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -160,6 +160,8 @@ class ProcessLocalRecords {
             logger.info(s"Total processed : $updateCount, total read: $readCount Last rowkey: $uuid  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
             lastLog = end
             ZookeeperUtil.setStatus("PROCESSING", "RUNNING", updateCount)
+
+            JMX.updateProcessingStatus(recordsPerSec)
           }
         }
         true
