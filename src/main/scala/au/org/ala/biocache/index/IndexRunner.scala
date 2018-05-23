@@ -7,7 +7,6 @@ import java.util.concurrent.atomic.AtomicLong
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
 import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
-import au.org.ala.biocache.util.JMX
 import com.datastax.driver.core.{ColumnDefinitions, GettableData}
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
@@ -234,8 +233,6 @@ class IndexRunner(centralCounter: Counter,
           ", mem free(Mb)=" + Runtime.getRuntime.freeMemory() / 1024 / 1024 +
           ", mem total(Mb)=" + Runtime.getRuntime.maxMemory() / 1024 / 1024 +
           ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
-
-        JMX.updateIndexStatus(centralCounter.getAverageRecsPerSec(startTimeFinal))
       }
 
       startTime = System.currentTimeMillis

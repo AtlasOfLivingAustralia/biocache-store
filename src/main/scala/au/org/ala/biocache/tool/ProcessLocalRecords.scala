@@ -1,13 +1,11 @@
 package au.org.ala.biocache.tool
 
 import java.io.File
-import java.util.Date
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
-import au.org.ala.biocache.model.Versions
 import au.org.ala.biocache.processor.RecordProcessor
-import au.org.ala.biocache.util.{JMX, OptionParser, ZookeeperUtil}
+import au.org.ala.biocache.util.{OptionParser}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -81,7 +79,6 @@ class ProcessLocalRecords {
     */
   def processTaxaOnly(threads: Int, taxaFilePath: String, startTokenRangeIdx: Int, checkpointFile: String): Unit = {
 
-    ZookeeperUtil.setStatus("PROCESSING", "STARTING", 0)
     //read the taxa file
     val taxaIDList = Source.fromFile(new File(taxaFilePath)).getLines().toSet[String]
     logger.info("Number of taxa to process " + taxaIDList.size)
@@ -108,7 +105,6 @@ class ProcessLocalRecords {
       count += 1
       if (count % 100000 == 0) {
         logger.info(s"Total read : $count, total matched: $matchedCount, last matched $lastMatched")
-        ZookeeperUtil.setStatus("PROCESSING", "RUNNING", count)
       }
 
       true
@@ -119,7 +115,6 @@ class ProcessLocalRecords {
 
     //Move checkpoint file if complete
     new File(checkpointFile).renameTo(new File(checkpointFile + ".complete"))
-    ZookeeperUtil.setStatus("PROCESSING", "COMPLETE", count)
     logger.info("Finished reprocessing. Total matched and reprocessed: " + count)
   }
 
@@ -159,9 +154,6 @@ class ProcessLocalRecords {
             val recordsPerSec = Math.round(10000f / timeInSecs)
             logger.info(s"Total processed : $updateCount, total read: $readCount Last rowkey: $uuid  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
             lastLog = end
-            ZookeeperUtil.setStatus("PROCESSING", "RUNNING", updateCount)
-
-            JMX.updateProcessingStatus(recordsPerSec)
           }
         }
         true
@@ -171,7 +163,6 @@ class ProcessLocalRecords {
     //Move checkpoint file if complete
     new File(checkpointFile).renameTo(new File(checkpointFile + ".complete"))
 
-    ZookeeperUtil.setStatus("PROCESSING", "COMPLETED", total)
     val end = System.currentTimeMillis()
     val timeInMinutes = ((end - start).toFloat / 100f / 60f / 60f)
     val timeInSecs = ((end - start).toFloat / 1000f)
