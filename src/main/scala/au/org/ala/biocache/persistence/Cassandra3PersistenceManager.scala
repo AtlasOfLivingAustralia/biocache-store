@@ -232,28 +232,40 @@ class Cassandra3PersistenceManager  @Inject() (
 
   def getAllByIndex(rowkey:String, entityName:String, idxColumn:String) : Seq[Map[String,String]] = {
 
-    val stmt = getPreparedStmt(s"SELECT * FROM $entityName where $idxColumn = ?", entityName)
-    val boundStatement = stmt bind rowkey
-    val rs = session.execute(boundStatement)
-    val rows = rs.iterator
-    if (rows.hasNext()) {
-      val list = new ListBuffer[Map[String,String]]
+    var retriesCount = 0
+    while(retriesCount < 10) {
+      try {
+        val stmt = getPreparedStmt(s"SELECT * FROM $entityName where $idxColumn = ?", entityName)
+        val boundStatement = stmt bind rowkey
+        val rs = session.execute(boundStatement)
+        val rows = rs.iterator
+        if (rows.hasNext()) {
+          val list = new ListBuffer[Map[String,String]]
 
-      while(rows.hasNext){
-        val row = rows.next()
-        val map = mutable.Map[String, String]()
-        row.getColumnDefinitions.foreach { defin =>
-          val value = row.getString(defin.getName)
-          if (value != null) {
-            map.put(defin.getName, value)
+          while(rows.hasNext){
+            val row = rows.next()
+            val map = mutable.Map[String, String]()
+            row.getColumnDefinitions.foreach { defin =>
+              val value = row.getString(defin.getName)
+              if (value != null) {
+                map.put(defin.getName, value)
+              }
+            }
+            list.insert(0, map.toMap)
           }
+          list
+        } else {
+          List()
         }
-        list.insert(0, map.toMap)
+      } catch {
+        case timeout: com.datastax.driver.core.exceptions.OperationTimedOutException => {
+          logger.error("OperationTimedOutException during Get. Sleeping....")
+          Thread.sleep(60000 * retriesCount * 2) // sleep for minute
+          retriesCount += 1
+        }
       }
-      list
-    } else {
-      List()
     }
+    throw new RuntimeException(s"Unable to retrieve $rowkey: String, $entityName: String, $idxColumn: String")
   }
 
   /**
