@@ -695,7 +695,10 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
           propertiesToPersist.size > 1  //i.e. theres more than just the timestamp to update
         ) {
           //only add the assertions if they have changed since the last time or the number of records to persist >1
-          propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get)
+          val checkUserAssertions = StringUtils.isNotEmpty(oldRecord.getUserAssertionStatus)
+
+
+          propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get, checkUserAssertions)
           val x = assertions.get.values.filter{!_.isEmpty}.flatten.toList
 
           propertiesToPersist ++= Map(FullRecordMapper.qualityAssertionColumn ->  Json.toJSONWithGeneric(x))
@@ -724,21 +727,30 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
   /**
     * Convert the assertions to a map
+    * @param rowKey of records to check
+    * @param systemAssertions systemAssertions to merge with
+    * @param checkUserAssertions whether to check user assertions. Setting this to false has the performance benefit of skipping a DB call.
     */
-  def convertAssertionsToMap(rowKey: String, systemAssertions: Map[String, Array[QualityAssertion]]): Map[String, String] = {
+  def convertAssertionsToMap(rowKey: String, systemAssertions: Map[String, Array[QualityAssertion]], checkUserAssertions:Boolean): Map[String, String] = {
     //if supplied, update the assertions
     val properties = new collection.mutable.ListMap[String, String]
 
-    val userAssertions = getUserAssertions(rowKey)
+    val userAssertions = if(checkUserAssertions){
+      getUserAssertions(rowKey)
+    } else {
+      List()
+    }
 
     // Updating system assertion, pass in false
     val (userAssertionStatus, trueUserAssertions) = getCombinedUserStatus(false, userAssertions)
 
     val verified = if (userAssertionStatus == AssertionStatus.QA_VERIFIED || userAssertionStatus == AssertionStatus.QA_CORRECTED) true else false
 
-    val falseUserAssertions = userAssertions.filter(qa => qa.code != AssertionCodes.VERIFIED.code &&
-      AssertionStatus.isUserAssertionType(qa.qaStatus) &&
-      !trueUserAssertions.exists(a => a.code == qa.code))
+    val falseUserAssertions = userAssertions.filter { qa =>
+      qa.code != AssertionCodes.VERIFIED.code &&
+        AssertionStatus.isUserAssertionType(qa.qaStatus) &&
+        !trueUserAssertions.exists(a => a.code == qa.code)
+    }
 
     if (verified) {
       //kosher fields are always set to true for verified BUT we still want to store and report the QA's that failed
@@ -751,19 +763,14 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       if (AssertionCodes.isTaxonomicallyKosher(listErrorCodes.toArray)) {
         properties += (FullRecordMapper.taxonomicDecisionColumn -> "true")
       }
-
     }
-
-    // val falseUserAssertions = userAssertions.filter(qa => qa.qaStatus == 1)//userAssertions.filter(a => !a.problemAsserted)
-    //true user assertions are assertions that have not been proven false by another user
-    //  val trueUserAssertions = userAssertions.filter(a => a.qaStatus == 0 && !doesListContainCode(falseUserAssertions,a.code))
 
     //for each qa type get the list of QA's that failed
     val assertionsDeleted = ListBuffer[QualityAssertion]() // stores the assertions that should not be considered for the kosher fields
     for (name <- systemAssertions.keySet) {
       val assertions = systemAssertions.get(name).getOrElse(Array[QualityAssertion]())
       val failedass = new ArrayBuffer[Int]
-      assertions.foreach(qa => {
+      assertions.foreach { qa =>
         //only add if it has failed
         if (qa.getQaStatus == 0) {
           //check to see if a user assertion counteracts this code
@@ -772,20 +779,22 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
           else
             assertionsDeleted += qa
         }
-      })
+      }
+
       //add the "true" user assertions to the arrays
       //filter the list based on the name of the phase
-      //TODO fix the phase based range stuff
-      val ua2Add = trueUserAssertions.filter(a =>
+      val ua2Add = trueUserAssertions.filter { a =>
         name match {
           case "loc" => a.code >= AssertionCodes.geospatialBounds._1 && a.code < AssertionCodes.geospatialBounds._2
           case "class" => a.code >= AssertionCodes.taxonomicBounds._1 && a.code < AssertionCodes.taxonomicBounds._2
           case "event" => a.code >= AssertionCodes.temporalBounds._1 && a.code < AssertionCodes.temporalBounds._2
           case _ => false
-        })
-      ua2Add.foreach(qa => if (!failedass.contains(qa.code)) {
+        }
+      }
+
+      ua2Add.foreach { qa => if (!failedass.contains(qa.code))
         failedass.add(qa.code)
-      })
+      }
 
       properties += (FullRecordMapper.markAsQualityAssertion(name) -> Json.toJSONWithGeneric(failedass.toList))
       if (!verified) {

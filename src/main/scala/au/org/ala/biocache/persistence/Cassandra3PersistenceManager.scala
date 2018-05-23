@@ -233,12 +233,15 @@ class Cassandra3PersistenceManager  @Inject() (
   def getAllByIndex(rowkey:String, entityName:String, idxColumn:String) : Seq[Map[String,String]] = {
 
     var retriesCount = 0
+
     while(retriesCount < 10) {
       try {
         val stmt = getPreparedStmt(s"SELECT * FROM $entityName where $idxColumn = ?", entityName)
         val boundStatement = stmt bind rowkey
         val rs = session.execute(boundStatement)
         val rows = rs.iterator
+        var result = List[Map[String,String]]()
+        
         if (rows.hasNext()) {
           val list = new ListBuffer[Map[String,String]]
 
@@ -253,10 +256,10 @@ class Cassandra3PersistenceManager  @Inject() (
             }
             list.insert(0, map.toMap)
           }
-          list
-        } else {
-          List()
+          result = list.toList
         }
+        return result
+
       } catch {
         case timeout: com.datastax.driver.core.exceptions.OperationTimedOutException => {
           logger.error("OperationTimedOutException during Get. Sleeping....")
