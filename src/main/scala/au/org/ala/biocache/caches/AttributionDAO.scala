@@ -21,7 +21,7 @@ object AttributionDAO {
   val logger = LoggerFactory.getLogger("AttributionDAO")
   private val columnFamily = "attr"
   //can't use a scala hash map because missing keys return None not null...
-  private val lru = new org.apache.commons.collections.map.LRUMap(10000)//new HashMap[String, Option[Attribution]]
+  private val lru = new org.apache.commons.collections.map.LRUMap(Config.attributionCacheSize)
   private val persistenceManager = Config.getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
 
   //A mapping of the ws json properties to attribution properties

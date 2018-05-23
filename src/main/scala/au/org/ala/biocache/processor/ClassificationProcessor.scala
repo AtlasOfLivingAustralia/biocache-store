@@ -201,7 +201,8 @@ class ClassificationProcessor extends Processor {
               if (!isValid) {
                 if (logger.isInfoEnabled){
                   val taxonHintDebug = taxonHints.mkString(",")
-                  logger.info(s"Conflict in matched classification. Matched: $guid, Matched: $comment, Taxonomic hints in use: $taxonHintDebug")
+                  val dataResourceUid = raw.attribution.dataResourceUid
+                  logger.info(s"Conflict in matched classification. [$dataResourceUid] GUID: $guid, Matched: $comment, Taxonomic hints in use: $taxonHintDebug")
                 }
                 hintsPassed = false
                 processed.classification.nameMatchMetric = "matchFailedHint"
