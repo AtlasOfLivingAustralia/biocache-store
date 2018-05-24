@@ -3,9 +3,10 @@ package au.org.ala.biocache.tool
 import java.io.File
 
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.caches._
 import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.processor.RecordProcessor
-import au.org.ala.biocache.util.{OptionParser}
+import au.org.ala.biocache.util.{JMX, OptionParser}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -136,8 +137,7 @@ class ProcessLocalRecords {
       logger.info("Using a full scan...")
       Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
         if (!record.isEmpty) {
-          val raw = record.get._1
-          val processed = record.get._2
+          val (raw, processed) = record.get
           val uuid = raw.rowKey
           readCount += 1
 
@@ -155,8 +155,31 @@ class ProcessLocalRecords {
             val end = System.currentTimeMillis()
             val timeInSecs = ((end - lastLog).toFloat / 1000f)
             val recordsPerSec = Math.round(10000f / timeInSecs)
-            logger.info(s"Total processed : $updateCount, total read: $readCount Last rowkey: $uuid  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
+            logger.info(s"Record/sec:$recordsPerSec,  updated:$updateCount, read:$readCount,  Last rowkey: $uuid  Last 1000 in $timeInSecs")
             lastLog = end
+
+            if(Config.jmxDebugEnabled){
+              JMX.updateProcessingStatus(recordsPerSec)
+              logger.info(
+                "[Caches] " +
+                  "class:" + ClassificationDAO.getCacheSize + " | " +
+                  "loc:" + LocationDAO.getCacheSize + " | " +
+                  "stored-point:" + LocationDAO.getStoredPointCacheSize + " | " +
+                  "attr:" + AttributionDAO.getCacheSize + " | " +
+                  "spatial:" + SpatialLayerDAO.getCacheSize + " | " +
+                  "taxon:" + TaxonProfileDAO.getCacheSize + " | " +
+                  "sensitive:" + SensitivityDAO.getCacheSize + " | "
+              )
+              JMX.updateProcessingCacheStatistics(
+                ClassificationDAO.getCacheSize,
+                LocationDAO.getCacheSize,
+                LocationDAO.getStoredPointCacheSize,
+                AttributionDAO.getCacheSize,
+                SpatialLayerDAO.getCacheSize,
+                TaxonProfileDAO.getCacheSize,
+                SensitivityDAO.getCacheSize
+              )
+            }
           }
         }
         true

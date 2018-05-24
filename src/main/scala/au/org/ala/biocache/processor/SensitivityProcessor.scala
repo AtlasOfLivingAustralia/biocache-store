@@ -1,13 +1,12 @@
 package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.caches.{LocationDAO, SpatialLayerDAO}
+import au.org.ala.biocache.caches.{LocationDAO, SensitivityDAO, SpatialLayerDAO}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.{FullRecord, QualityAssertion, Versions}
 import au.org.ala.biocache.util.{GridUtil, Json}
 import au.org.ala.biocache.vocab.StateProvinces
 import au.org.ala.sds.SensitiveDataService
-import com.google.common.cache.CacheBuilder
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
@@ -24,12 +23,7 @@ class SensitivityProcessor extends Processor {
 
   import JavaConversions._
 
-  //This is being initialised here because it may take some time to load all the XML records...
-  val sds = new SensitiveDataService()
-
   def getName = "sensitive"
-
-  val lruSensitiveLookups = CacheBuilder.newBuilder().maximumSize(Config.sensitivityCacheSize).build[String, String]()
 
   /**
     * Process the supplied record.
@@ -50,17 +44,7 @@ class SensitivityProcessor extends Processor {
 
     val exact = getExactSciName(raw)
 
-    val hashKey = exact + "|" + processed.classification.taxonConceptID
-    val isSensitiveString = lruSensitiveLookups.getIfPresent(hashKey)
-    val isSensitive = {
-      if (isSensitiveString == null) {
-        val isSensitive = sds.isTaxonSensitive(Config.sdsFinder, exact, processed.classification.taxonConceptID)
-        lruSensitiveLookups.put(hashKey, isSensitive.toString())
-        isSensitive
-      } else {
-        isSensitiveString.toBoolean
-      }
-    }
+    val isSensitive = SensitivityDAO.isSensitive(exact, processed.classification.taxonConceptID)
 
     //is the name recognised as sensitive?
     if (!isSensitive) {
@@ -128,7 +112,7 @@ class SensitivityProcessor extends Processor {
     }
 
     //SDS check - now get the ValidationOutcome from the Sensitive Data Service
-    val outcome = sds.testMapDetails(Config.sdsFinder, rawMap, exact, processed.classification.taxonConceptID)
+    val outcome = SensitivityDAO.getSDS.testMapDetails(Config.sdsFinder, rawMap, exact, processed.classification.taxonConceptID)
 
     logger.debug("SDS outcome: " + outcome)
 

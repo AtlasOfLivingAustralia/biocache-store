@@ -28,8 +28,6 @@ object Processors {
     "REPROCESSING" -> new ReprocessingProcessor
   )
 
-  //TODO A better way to do this. Maybe need to group QA failures by issue type instead of phase.
-  //Can't change until we are able to reprocess the complete set records.
   def getProcessorForError(code: Int): String = code match {
     case c if c == INFERRED_DUPLICATE_RECORD.code || c == DETECTED_OUTLIER.code || c == SPECIES_OUTSIDE_EXPERT_RANGE.code => "offline"
     case c if c >= geospatialBounds._1 && c < geospatialBounds._2 => "loc"

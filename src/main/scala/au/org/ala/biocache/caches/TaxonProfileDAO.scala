@@ -1,8 +1,10 @@
 package au.org.ala.biocache.caches
 
 import au.org.ala.biocache._
+import au.org.ala.biocache.caches.ClassificationDAO.lru
+
 import scala.Some
-import au.org.ala.biocache.model.{TaxonProfile, SensitiveSpecies, ConservationStatus}
+import au.org.ala.biocache.model.{ConservationStatus, SensitiveSpecies, TaxonProfile}
 import au.org.ala.biocache.util.Json
 
 /**
@@ -110,4 +112,6 @@ object TaxonProfileDAO {
         }
       }
   }
+
+  def getCacheSize = lru.size()
 }

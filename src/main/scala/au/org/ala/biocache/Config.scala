@@ -134,6 +134,8 @@ object Config {
   val spatialCacheSize = configModule.properties.getProperty("spatial.cache.size", "10000").toInt
   val attributionCacheSize = configModule.properties.getProperty("attribution.cache.size", "10000").toInt
   val sensitivityCacheSize = configModule.properties.getProperty("sensitivity.cache.size", "10000").toInt
+  val locationCacheSize = configModule.properties.getProperty("location.cache.size", "10000").toInt
+  val jmxDebugEnabled = configModule.properties.getProperty("jmx.debug.enabled", "true").toBoolean
 
   /** To index or only store, by default, all new misc fields */
   val solrIndexMisc: Boolean = configModule.properties.getProperty("solr.index.misc", "false").toBoolean

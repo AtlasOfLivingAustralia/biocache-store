@@ -182,4 +182,6 @@ object SpatialLayerDAO {
   private def getLatLongKey(longitude:Double, latitude:Double) : String = {
     longitude.toString +  "|" + latitude.toString
   }
+
+  def getCacheSize = lru.size()
 }

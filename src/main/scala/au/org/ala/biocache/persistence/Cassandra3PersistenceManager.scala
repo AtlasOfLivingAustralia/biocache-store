@@ -958,15 +958,17 @@ class Cassandra3PersistenceManager  @Inject() (
                       val currentRowkey = row.getString(0)
                       val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
                       val totalTimeInSec = ((currentTime - start) / 1000)
-                      logger.info(s"[Token range : $tokenRangeIdx] records read: $counter " +
-                        s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds, $currentRowkey")
+                      if(logger.isDebugEnabled) {
+                        logger.debug(s"[Token range : $tokenRangeIdx] records read: $counter " +
+                          s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds, $currentRowkey")
+                      }
                     }
                   }
                 }
               }
             }
 
-            logger.info(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter)
+            logger.debug(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter)
 
             synchronized {
               try {
