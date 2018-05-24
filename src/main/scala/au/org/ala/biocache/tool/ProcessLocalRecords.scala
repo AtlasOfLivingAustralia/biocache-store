@@ -143,12 +143,15 @@ class ProcessLocalRecords {
 
           if ((drs.isEmpty || drs.contains(raw.attribution.dataResourceUid)) &&
             !skipDrs.contains(raw.attribution.dataResourceUid)) {
-            processor.processRecord(raw, processed, false, true)
+            try {
+              processor.processRecord(raw, processed, false, true)
+            } catch {
+              case e:Exception => logger.error("Problem processing record with UUID:"  + uuid, e)
+            }
             updateCount += 1
           }
 
           if (updateCount % 10000 == 0) {
-
             val end = System.currentTimeMillis()
             val timeInSecs = ((end - lastLog).toFloat / 1000f)
             val recordsPerSec = Math.round(10000f / timeInSecs)

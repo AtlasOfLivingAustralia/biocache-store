@@ -29,7 +29,7 @@ class SensitivityProcessor extends Processor {
 
   def getName = "sensitive"
 
-  val lruSensitiveLookups = CacheBuilder.newBuilder().maximumSize(10000).build[String, String]()
+  val lruSensitiveLookups = CacheBuilder.newBuilder().maximumSize(Config.sensitivityCacheSize).build[String, String]()
 
   /**
     * Process the supplied record.
