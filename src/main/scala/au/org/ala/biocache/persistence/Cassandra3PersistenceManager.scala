@@ -66,6 +66,8 @@ class Cassandra3PersistenceManager  @Inject() (
 
   val updateThreadPool = Executors.newFixedThreadPool(noOfUpdateThreads.toInt).asInstanceOf[ThreadPoolExecutor]
 
+  def getCacheSize = map.size()
+
   private def getPreparedStmt(query: String, table: String): PreparedStatement = {
 
     val lookup =
@@ -1284,7 +1286,6 @@ class Cassandra3PersistenceManager  @Inject() (
     counter
   }
 }
-
 
 class TimestampAsStringCodec extends MappingCodec(TypeCodec.timestamp(), classOf[String]) {
   def serialize(value: String): Date = {

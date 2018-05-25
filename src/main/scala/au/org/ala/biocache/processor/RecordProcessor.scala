@@ -54,6 +54,8 @@ class RecordProcessor {
 
   val processTimings: mutable.Map[String, Long] = scala.collection.mutable.Map[String, Long]()
 
+  def getProcessTimings = processTimings
+
   /**
    * Process a record, adding metadata and records quality systemAssertions.
    * This version passes the original to optimise updates.
@@ -63,7 +65,7 @@ class RecordProcessor {
    * When it is a firstLoad, there will be no offline assertions 
    */
   def processRecord(raw: FullRecord, currentProcessed: FullRecord, batch: Boolean = false, firstLoad: Boolean = false,
-                    processors: Option[String] = None): Map[String, Object] = {
+                    processors: Option[String] = None) : Map[String, Object] = {
     try {
       val guid = raw.rowKey
       val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
@@ -107,7 +109,11 @@ class RecordProcessor {
           "version" -> Processed
         )
       } else {
+
+        val startPersist = System.nanoTime()
         occurrenceDAO.updateOccurrence(guid, currentProcessed, processed, systemAssertions, Processed)
+        val currentPersist = (System.nanoTime() - startPersist) + processTimings.getOrElse("persist", 0L)
+        processTimings += ("persist" -> currentPersist)
         null
       }
     } catch {

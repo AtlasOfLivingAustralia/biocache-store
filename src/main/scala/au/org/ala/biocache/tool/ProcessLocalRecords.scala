@@ -5,6 +5,7 @@ import java.io.File
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.caches._
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
 import au.org.ala.biocache.processor.RecordProcessor
 import au.org.ala.biocache.util.{JMX, OptionParser}
 import org.slf4j.LoggerFactory
@@ -159,17 +160,14 @@ class ProcessLocalRecords {
             lastLog = end
 
             if(Config.jmxDebugEnabled){
-              JMX.updateProcessingStatus(recordsPerSec)
-              logger.info(
-                "[Caches] " +
-                  "class:" + ClassificationDAO.getCacheSize + " | " +
-                  "loc:" + LocationDAO.getCacheSize + " | " +
-                  "stored-point:" + LocationDAO.getStoredPointCacheSize + " | " +
-                  "attr:" + AttributionDAO.getCacheSize + " | " +
-                  "spatial:" + SpatialLayerDAO.getCacheSize + " | " +
-                  "taxon:" + TaxonProfileDAO.getCacheSize + " | " +
-                  "sensitive:" + SensitivityDAO.getCacheSize + " | "
+              JMX.updateProcessingStats(
+                recordsPerSec,
+                timeInSecs,
+                updateCount,
+                readCount
               )
+
+              val processorTimings = processor.getProcessTimings.toMap
               JMX.updateProcessingCacheStatistics(
                 ClassificationDAO.getCacheSize,
                 LocationDAO.getCacheSize,
@@ -177,7 +175,10 @@ class ProcessLocalRecords {
                 AttributionDAO.getCacheSize,
                 SpatialLayerDAO.getCacheSize,
                 TaxonProfileDAO.getCacheSize,
-                SensitivityDAO.getCacheSize
+                SensitivityDAO.getCacheSize,
+                CommonNameDAO.getCacheSize,
+                Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].getCacheSize,
+                processorTimings
               )
             }
           }

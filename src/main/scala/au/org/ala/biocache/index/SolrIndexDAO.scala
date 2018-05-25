@@ -24,6 +24,8 @@ import org.apache.http.impl.client.cache.CachingHttpClientBuilder
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
 import org.apache.solr.client.solrj.impl.{CloudSolrClient, ConcurrentUpdateSolrClient}
+import org.apache.solr.client.solrj.io.SolrClientCache
+import org.apache.solr.client.solrj.io.stream.{CloudSolrStream, StreamContext}
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.client.solrj.{SolrClient, SolrQuery, StreamingResponseCallback}
 import org.apache.solr.common.params.{CursorMarkParams, MapSolrParams, ModifiableSolrParams}
@@ -179,30 +181,50 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     } while (values != null && !values.isEmpty)
   }
 
+
+
   def streamIndex(proc: java.util.Map[String, AnyRef] => Boolean, fieldsToRetrieve: Array[String], query: String, filterQueries: Array[String], sortFields: Array[String], multivaluedFields: Option[Array[String]] = None) {
 
-    init
+    logger.info("Starting to stream: " + new java.util.Date().toString)
 
-    val params = collection.immutable.HashMap(
-      "collectionName" -> "biocache",
-      "q" -> query,
-      "start" -> "0",
-      "rows" -> "2147483622", //Int.MaxValue.toString - this was causing a java.lang.NegativeArraySizeException
-      "fl" -> fieldsToRetrieve.mkString(","))
+    //using streaming API
+    val paramsLoc = new ModifiableSolrParams
+    paramsLoc.set("q", query)
+    paramsLoc.set("qt", "/export")
+    paramsLoc.set("sort", "id asc")
+    paramsLoc.set("fl", fieldsToRetrieve.mkString(","))
+    paramsLoc.set("wt", "json")
+    paramsLoc.set("rows", "2147483622")
 
-    val solrParams = new ModifiableSolrParams()
-    solrParams.add(new MapSolrParams(params))
-    solrParams.add("fq", filterQueries: _*)
+    val solrStream = new CloudSolrStream(solrHome, solrCollection, paramsLoc)
 
-//    if (!sortFields.isEmpty) {
-//      solrParams.add("sort", sortFields.mkString(" asc,") + " asc")
-//    }
+    val context = new StreamContext
+    val solrClientCache = new SolrClientCache()
+    context.setSolrClientCache(solrClientCache)
 
-    //now stream
-    val solrCallback = new SolrCallback(proc, multivaluedFields)
-    logger.info("Starting to stream: " + new java.util.Date().toString + " " + params)
-    solrServer.queryAndStreamResponse(solrParams, solrCallback)
-    logger.info("Finished streaming : " + new java.util.Date().toString + " " + params)
+    var count = 0
+    solrStream.setStreamContext(context)
+    try {
+      solrStream.open()
+      var continue = true
+      while ( {
+        continue
+      }) {
+        val tuple = solrStream.read
+        if (tuple.EOF){
+          continue = false
+        } else {
+//          val record = tuple.getMap.toMap[String, AnyRef].asInstanceOf[Map[String,String]]
+//          proc(record)
+          count += 1
+        }
+      }
+    } finally {
+      if(solrStream != null){
+        solrStream.close()
+      }
+    }
+//    logger.info("Finished streaming : " + new java.util.Date().toString + " " + params)
   }
 
   /**

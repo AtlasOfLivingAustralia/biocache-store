@@ -136,5 +136,5 @@ class IdentificationQualifierProcessor extends Processor {
     assertions.toArray
   }
 
-  def getName = "IdentificationQualifierProcessor"
+  def getName = "identification"
 }
