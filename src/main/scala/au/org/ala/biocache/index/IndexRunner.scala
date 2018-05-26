@@ -220,7 +220,7 @@ class IndexRunner(centralCounter: Counter,
           }
       }
 
-      if (counter % pageSize * 10 == 0 && centralCounter.counter > 0) {
+      if (counter % pageSize * 10 == 0) {
         centralCounter.addToCounter(pageSize)
         finishTime = System.currentTimeMillis
         centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
@@ -237,6 +237,7 @@ class IndexRunner(centralCounter: Counter,
 
         if(Config.jmxDebugEnabled){
           JMX.updateIndexStatus(
+            centralCounter.counter,
             centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
             t2Total.get() / 1000000000, //cassandra time
             timing.get() / 1000000000, //processing time

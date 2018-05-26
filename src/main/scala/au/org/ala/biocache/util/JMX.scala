@@ -15,7 +15,8 @@ object JMX {
   val processingStatus = new ProcessingStatus()
   mbs.registerMBean( processingStatus, new ObjectName("au.org.ala.biocache:type=Processing"))
 
-  def updateIndexStatus(recordsPerSec: Float,
+  def updateIndexStatus(totalRecords:Long,
+                        recordsPerSec: Float,
                         cassandraTime:Long,
                         processingTime:Long,
                         solrTime:Long,
@@ -27,6 +28,7 @@ object JMX {
                         luceneQueue:Long,
                         commitBatchQueue:Long
                        ): Unit = {
+    indexStatus.totalRecords = totalRecords
     indexStatus.recordsPerSec = recordsPerSec
     indexStatus.cassandraTime = cassandraTime
     indexStatus.processingTime = processingTime
@@ -107,6 +109,7 @@ object JMX {
 }
 
 trait IndexStatusMBean {
+  def getTotalRecords:Long
   def getRecordsPerSec : Float
   def getCassandraTime:Long
   def getProcessingTime:Long
@@ -122,8 +125,7 @@ trait IndexStatusMBean {
 
 class IndexStatus extends IndexStatusMBean {
 
-
-
+  var totalRecords: Long = 0
   var recordsPerSec: Float = 0
   var cassandraTime:Long = 0
   var processingTime:Long = 0
@@ -136,7 +138,7 @@ class IndexStatus extends IndexStatusMBean {
   var luceneQueue:Long = 0
   var commitBatchQueue:Long = 0
 
-
+  override def getTotalRecords : Long = totalRecords
   override def getRecordsPerSec : Float = recordsPerSec
   override def getCassandraTime:Long = cassandraTime
   override def getProcessingTime:Long = processingTime
