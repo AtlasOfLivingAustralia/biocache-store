@@ -3,13 +3,16 @@ package au.org.ala.biocache.util
 import java.lang.management.ManagementFactory
 import javax.management.ObjectName
 
+/**
+  * Singleton interface to JMX.
+  */
 object JMX {
 
   val mbs = ManagementFactory.getPlatformMBeanServer()
 
   //indexing status
   val indexStatus = new IndexStatus()
-  mbs.registerMBean(new IndexStatus(), new ObjectName("au.org.ala.biocache:type=Indexing"))
+  mbs.registerMBean(indexStatus, new ObjectName("au.org.ala.biocache:type=Indexing"))
 
   //processing status
   val processingStatus = new ProcessingStatus()
@@ -149,7 +152,7 @@ class IndexStatus extends IndexStatusMBean {
   override def getIndexDocsInRamMB:Long = indexDocsInRamMB
   override def getProcessingQueue:Long = processingQueue
   override def getLuceneQueue:Long = luceneQueue
-  override def getCommitBatchQueue:Long =commitBatchQueue
+  override def getCommitBatchQueue:Long = commitBatchQueue
 }
 
 trait ProcessingStatusMBean {
