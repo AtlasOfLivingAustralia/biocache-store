@@ -123,15 +123,15 @@ public class RecycleDoc implements Iterable<IndexableField> {
                         } else {
                             ((Field) f).setStringValue(String.valueOf(value));
                         }
+                        found = true;
                     } catch (Exception e)  {
                          logger.error("Problem setting field: " + f.name() + ", type: " + f.fieldType() + ", f: " + f.getClass().getCanonicalName() + ", error: "+ e.getMessage(), e);
                     }
-                    found = true;
                 } else if (ft instanceof TrieDateField) {
                     SimpleDateFormat dsf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
                     Date theDate = dsf.parse((String) value);
                     ((Field) f).setLongValue(theDate.getTime());
-
+                    found = true;
                 } else if (ft instanceof TrieField) {
                     switch (((TrieField) ft).getNumericType().ordinal()) {
                         case 0:
@@ -160,6 +160,8 @@ public class RecycleDoc implements Iterable<IndexableField> {
                             found = true;
                             break;
                         default:
+                            org.apache.lucene.document.FieldType.LegacyNumericType type = ((TrieField) ft).getNumericType();
+                            throw new RuntimeException("TrieField not recognised or supported. Ordinal value: " + type.ordinal() + ", " + type.getClass().getName());
                     }
                 } else if (ft instanceof TextField) {
                     ((Field) f).setStringValue((String) value);
@@ -281,6 +283,8 @@ public class RecycleDoc implements Iterable<IndexableField> {
         } else if(f instanceof SortedDocValuesField) {
             byte[] valueAsBytes = String.valueOf(value).getBytes("UTF-8");
             ((SortedDocValuesField) f).setBytesValue(valueAsBytes);
+        } else {
+            throw new RuntimeException("Problem indexing field: " + f.name() +" : class not recognised: " + f.getClass().getName() );
         }
     }
 
