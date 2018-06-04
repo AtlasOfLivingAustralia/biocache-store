@@ -70,6 +70,12 @@ object Config {
   // Configure this and the connection pool size as required to fit a Solr cluster setup if one is in use
   val solrConnectionMaxPerRoute = configModule.properties.getProperty("solr.connection.pool.maxperroute", "50").toInt
 
+  val solrConnectionConnectTimeout = configModule.properties.getProperty("solr.connection.connecttimeout", "30000").toInt
+
+  val solrConnectionRequestTimeout = configModule.properties.getProperty("solr.connection.requesttimeout", "30000").toInt
+
+  val solrConnectionSocketTimeout = configModule.properties.getProperty("solr.connection.sockettimeout", "30000").toInt
+
   val solrConnectionCacheEntries = configModule.properties.getProperty("solr.connection.cache.entries", "500").toInt
 
   // 1024 * 256 = 262144 bytes
