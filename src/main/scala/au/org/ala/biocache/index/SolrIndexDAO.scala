@@ -115,6 +115,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                                          .setSocketTimeout(Config.solrConnectionSocketTimeout).build()
         httpClient = CachingHttpClientBuilder.create()
                                 .setCacheConfig(cacheConfig)
+                                .setDefaultRequestConfig(requestConfig)
                                 .setConnectionManager(connectionPoolManager)
                                 .setUserAgent(Config.userAgent)
                                 .useSystemProperties().build()
