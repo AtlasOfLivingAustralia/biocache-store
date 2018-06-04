@@ -17,6 +17,7 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang3.StringEscapeUtils
+import org.apache.http.client.config.RequestConfig
 import org.apache.http.conn.HttpClientConnectionManager
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.cache.CacheConfig
@@ -108,6 +109,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                                      .setMaxCacheEntries(Config.solrConnectionCacheEntries)
                                      .setMaxObjectSize(Config.solrConnectionCacheObjectSize)
                                      .setSharedCache(false).build()
+        val requestConfig = RequestConfig.custom()
+                                         .setConnectTimeout(Config.solrConnectionConnectTimeout)
+                                         .setConnectionRequestTimeout(Config.solrConnectionRequestTimeout)
+                                         .setSocketTimeout(Config.solrConnectionSocketTimeout).build()
         httpClient = CachingHttpClientBuilder.create()
                                 .setCacheConfig(cacheConfig)
                                 .setConnectionManager(connectionPoolManager)
