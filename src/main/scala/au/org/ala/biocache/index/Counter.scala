@@ -9,6 +9,7 @@ trait Counter {
   var counter = 0
 
   def addToCounter(amount: Int) = counter += amount
+  def setCounter(amount: Int) = counter = amount
 
   var startTime = System.currentTimeMillis
   var finishTime = System.currentTimeMillis

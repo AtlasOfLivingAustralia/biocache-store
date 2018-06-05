@@ -136,9 +136,9 @@ class SampleLocalRecords extends Counter {
 
     if (!sampleOnly) {
       //load sampling to occurrence records
-      logger.info("Loading sampling into occ table")
-      loadSamplingIntoOccurrences(threads, rowkeys, allNodes)
-      logger.info("Completed loading sampling into occ table")
+      logger.info("Loading sampling into occ table...")
+      val (recordsRead, recordsWithCoordinates) = loadSamplingIntoOccurrences(threads, rowkeys, allNodes)
+      logger.info(s"Completed loading sampling into occ table. Records read: $recordsRead, Records with coordinates: $recordsWithCoordinates")
     }
 
     //clean up the file
@@ -319,7 +319,7 @@ class SampleLocalRecords extends Counter {
     sample(workingDir, threads, keepFiles, loadOccOnly, sampleOnly, queue, rowkeys, layers, allNodes)
   }
 
-  def loadSamplingIntoOccurrences(threads: Int, rowkeys: Seq[String], allNodes: Boolean): Unit = {
+  def loadSamplingIntoOccurrences(threads: Int, rowkeys: Seq[String], allNodes: Boolean) : (Int, Int) = {
     if (rowkeys.length > 0 && !rowkeys.iterator.next().isEmpty) {
       logger.info(s"Starting loading sampling for ${rowkeys.length} records")
     } else {
@@ -329,10 +329,13 @@ class SampleLocalRecords extends Counter {
     val dlon = "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
 
     if (rowkeys.length > 0 && !rowkeys.iterator.next().isEmpty) {
+      var counterLoaded = 0
+
       Config.persistenceManager.selectRows(rowkeys, "occ", Seq("rowkey", dlat, dlon), (map) => {
         val lat = map.getOrElse(dlat, "")
         val lon = map.getOrElse(dlon, "")
         val guid = map.getOrElse("rowkey", "")
+        counter += 1
         if (lat != "" && lon != "" && lat != null && lon != null && lat != "null" && lon != "null") {
           val point = LocationDAO.getSamplesForLatLon(lat, lon)
           if (!point.isEmpty) {
@@ -346,24 +349,27 @@ class SampleLocalRecords extends Counter {
           } else {
             logger.info(s"[Loading sampling] Missing sampled values for $guid, with $lat, $lon")
           }
-          counter += 1
-          if (counter % 1000 == 0) {
-            logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
-          }
+          counterLoaded += 1
+        }
+        if (counter % 1000 == 0) {
+          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
         }
         true
       })
+      logger.info(s"[Loading sampling] Import of sample data complete. Records sampled:  $counter. Records with coordinates: $counterLoaded")
+      (counter,counterLoaded)
     } else {
+
+      var counterLoaded = 0
       Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("occ", (guid, map, _) => {
         val lat = map.getOrElse(dlat, "")
         val lon = map.getOrElse(dlon, "")
+        counter += 1
         if (lat != "" && lon != "" && lat != null && lon != null && lat != "null" && lon != "null") {
           val point = LocationDAO.getSamplesForLatLon(lat, lon)
           if (!point.isEmpty) {
             val (location, environmentalLayers, contextualLayers) = point.get
             Config.persistenceManager.put(guid, "occ", Map(
-//              "el" + Config.persistenceManager.fieldDelimiter + "p" -> Json.toJSON(environmentalLayers),
-//              "cl" + Config.persistenceManager.fieldDelimiter + "p" -> Json.toJSON(contextualLayers)),
               "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
               "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
               false,
@@ -372,13 +378,16 @@ class SampleLocalRecords extends Counter {
           } else {
             logger.info(s"[Loading sampling] Missing sampled values for $guid, with $lat, $lon")
           }
-          counter += 1
-          if (counter % 1000 == 0) {
-            logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
-          }
+          counterLoaded += 1
+        }
+        if (counter % 1000 == 0) {
+          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
         }
         true
       }, threads, Array("rowkey", dlat, dlon), localOnly = !allNodes)
+      logger.info(s"[Loading sampling] Import of sample data complete. Records sampled:  $counter. Records with coordinates: $counterLoaded")
+
+      (counter,counterLoaded)
     }
   }
 }

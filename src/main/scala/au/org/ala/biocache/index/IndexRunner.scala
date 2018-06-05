@@ -220,22 +220,24 @@ class IndexRunner(centralCounter: Counter,
           }
       }
 
-      if (counter % pageSize * 10 == 0) {
-        centralCounter.addToCounter(pageSize)
+      if (counter % 1000 == 0) {
+
+        centralCounter.setCounter(counter)
         finishTime = System.currentTimeMillis
-        centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
+        if(counter > 0) {
+          centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
+          logger.info("cassandraTime(s)=" + t2Total.get() / 1000000000 +
+            ", processingTime[" + processingThreads + "](s)=" + timing.get() / 1000000000 +
+            ", solrTime[" + luceneIndexing(0).getThreadCount + "](s)=" + luceneIndexing(0).getTiming / 1000000000 +
+            ", totalTime(s)=" + (System.currentTimeMillis - timeCounter.get) / 1000 +
+            ", index docs committed/in ram/ram MB=" +
+            luceneIndexing(0).getCount + "/" + luceneIndexing(0).ramDocs() + "/" + (luceneIndexing(0).ramBytes() / 1024 / 1024) +
+            ", mem free(Mb)=" + Runtime.getRuntime.freeMemory() / 1024 / 1024 +
+            ", mem total(Mb)=" + Runtime.getRuntime.maxMemory() / 1024 / 1024 +
+            ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
+        }
 
-        logger.info("cassandraTime(s)=" + t2Total.get() / 1000000000 +
-          ", processingTime[" + processingThreads + "](s)=" + timing.get() / 1000000000 +
-          ", solrTime[" + luceneIndexing(0).getThreadCount + "](s)=" + luceneIndexing(0).getTiming / 1000000000 +
-          ", totalTime(s)=" + (System.currentTimeMillis - timeCounter.get) / 1000 +
-          ", index docs committed/in ram/ram MB=" +
-          luceneIndexing(0).getCount + "/" + luceneIndexing(0).ramDocs() + "/" + (luceneIndexing(0).ramBytes() / 1024 / 1024) +
-          ", mem free(Mb)=" + Runtime.getRuntime.freeMemory() / 1024 / 1024 +
-          ", mem total(Mb)=" + Runtime.getRuntime.maxMemory() / 1024 / 1024 +
-          ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
-
-        if(Config.jmxDebugEnabled){
+        if(counter > 0 && Config.jmxDebugEnabled){
           JMX.updateIndexStatus(
             centralCounter.counter,
             centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
@@ -276,7 +278,7 @@ class IndexRunner(centralCounter: Counter,
       ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
 
     if (csvFileWriter != null) {
-      csvFileWriter.flush();
+      csvFileWriter.flush()
       csvFileWriter.close()
     }
     if (csvFileWriterSensitive != null) {
@@ -293,7 +295,8 @@ class IndexRunner(centralCounter: Counter,
     threads.foreach(t => t.join())
 
     finishTime = System.currentTimeMillis
-    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes.")
+    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes. Records indexed: " + counter)
+    centralCounter.setCounter(counter)
 
     //close and merge the lucene index parts
     if (luceneIndexing != null && !singleWriter) {
