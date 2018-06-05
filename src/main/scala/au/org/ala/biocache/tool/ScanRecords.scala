@@ -60,36 +60,53 @@ class ScanRecords {
       with scala.collection.mutable.SynchronizedMap[String, Int]
 
     var counter = 0
+    var deletedRecords = 0
+    var noResourceRecords = 0
+
     if (local) {
       Config.persistenceManager.pageOverLocal("occ", (key, map, tokenRangeIdx) => {
         synchronized {
           counter += 1
-          val dr = map.getOrElse(aggregateField, "")
-          if (dr != "") {
-            val count = synchronizedMap.getOrElse(dr, 0)
-            synchronizedMap.put(dr, count + 1)
+          val dateDeleted = map.getOrElse("dateDeleted", "")
+          if(dateDeleted == "") {
+            val dr = map.getOrElse(aggregateField, "")
+            if (dr != "") {
+              val count = synchronizedMap.getOrElse(dr, 0)
+              synchronizedMap.put(dr, count + 1)
+            } else {
+              noResourceRecords += 1
+            }
+          } else {
+            deletedRecords += 1
           }
           if(counter % 10000 == 0){
             logger.info(s"Total records scanned : $counter")
           }
         }
         true
-      }, threads, Array[String]("rowkey", aggregateField))
+      }, threads, Array[String]("rowkey", "dateDeleted", aggregateField))
     } else {
       Config.persistenceManager.pageOverSelect("occ", (key, map) => {
         synchronized {
           counter += 1
-          val dr = map.getOrElse(aggregateField, "")
-          if (dr != "") {
-            val count = synchronizedMap.getOrElse(dr, 0)
-            synchronizedMap.put(dr, count + 1)
+          val dateDeleted = map.getOrElse("dateDeleted", "")
+          if(dateDeleted == "") {
+            val dr = map.getOrElse(aggregateField, "")
+            if (dr != "") {
+              val count = synchronizedMap.getOrElse(dr, 0)
+              synchronizedMap.put(dr, count + 1)
+            } else {
+              noResourceRecords += 1
+            }
+          } else {
+            deletedRecords += 1
           }
           if(counter % 10000 == 0){
             logger.info(s"Total records scanned : $counter")
           }
         }
         true
-      }, 1000, threads, "rowkey", aggregateField)
+      }, 1000, threads, "rowkey", "dateDeleted", aggregateField)
     }
 
     val end = System.currentTimeMillis()
@@ -105,6 +122,6 @@ class ScanRecords {
       }
     }
 
-    logger.info(s"Scan complete. Records scanned: " + counter)
+    logger.info(s"Scan complete. Records scanned: " + counter + ". Records marked as deleted: " + deletedRecords + ", Number of associated data resource: " + noResourceRecords)
   }
 }

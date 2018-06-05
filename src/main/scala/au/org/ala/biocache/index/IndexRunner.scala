@@ -102,7 +102,7 @@ class IndexRunner(centralCounter: Counter,
 
     val indexer = new SolrIndexDAO(newIndexDir.getParentFile.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
-    var counter = 0
+    var counter = new AtomicLong(0)
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -188,14 +188,13 @@ class IndexRunner(centralCounter: Counter,
     val t2Total = new AtomicLong(0L)
     var t2 = System.nanoTime()
     var uuidIdx = -1
-    var queuedOrProcessedRecords = 0
 
     //page through and create and index for this range
     Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverSelectArray("occ", (guid, row, columnDefinitions) => {
 
       t2Total.addAndGet(System.nanoTime() - t2)
 
-      counter += 1
+      val currentCounter = counter.incrementAndGet().toInt
 
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
@@ -220,11 +219,11 @@ class IndexRunner(centralCounter: Counter,
           }
       }
 
-      if (counter % 1000 == 0) {
+      if (currentCounter % 1000 == 0) {
 
-        centralCounter.setCounter(counter)
+        centralCounter.setCounter(currentCounter.toInt)
         finishTime = System.currentTimeMillis
-        if(counter > 0) {
+        if(currentCounter.toInt > 0) {
           centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
           logger.info("cassandraTime(s)=" + t2Total.get() / 1000000000 +
             ", processingTime[" + processingThreads + "](s)=" + timing.get() / 1000000000 +
@@ -237,7 +236,7 @@ class IndexRunner(centralCounter: Counter,
             ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
         }
 
-        if(counter > 0 && Config.jmxDebugEnabled){
+        if(Config.jmxDebugEnabled){
           JMX.updateIndexStatus(
             centralCounter.counter,
             centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
@@ -295,8 +294,8 @@ class IndexRunner(centralCounter: Counter,
     threads.foreach(t => t.join())
 
     finishTime = System.currentTimeMillis
-    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes. Records indexed: " + counter)
-    centralCounter.setCounter(counter)
+    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes. Records indexed: " + counter.intValue())
+    centralCounter.setCounter(counter.intValue())
 
     //close and merge the lucene index parts
     if (luceneIndexing != null && !singleWriter) {

@@ -1,6 +1,7 @@
 package au.org.ala.biocache.tool
 
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.caches._
@@ -129,8 +130,8 @@ class ProcessLocalRecords {
 
     //note this update count isn't thread safe, so its inaccurate
     //its been left in to give a general idea of performance
-    var updateCount = 0
-    var readCount = 0
+    var updateCount = new AtomicLong(0)
+    var readCount = new AtomicLong(0)
 
     setCheckpoints(startTokenRangeIdx, checkpointFile)
 
@@ -140,7 +141,7 @@ class ProcessLocalRecords {
         if (!record.isEmpty) {
           val (raw, processed) = record.get
           val uuid = raw.rowKey
-          readCount += 1
+          readCount.incrementAndGet()
 
           if ((drs.isEmpty || drs.contains(raw.attribution.dataResourceUid)) &&
             !skipDrs.contains(raw.attribution.dataResourceUid)) {
@@ -149,10 +150,10 @@ class ProcessLocalRecords {
             } catch {
               case e:Exception => logger.error("Problem processing record with UUID:"  + uuid, e)
             }
-            updateCount += 1
+            updateCount.incrementAndGet()
           }
 
-          if (updateCount % 10000 == 0) {
+          if (updateCount.intValue() % 10000 == 0) {
             val end = System.currentTimeMillis()
             val timeInSecs = ((end - lastLog).toFloat / 1000f)
             val recordsPerSec = Math.round(10000f / timeInSecs)
@@ -163,8 +164,8 @@ class ProcessLocalRecords {
               JMX.updateProcessingStats(
                 recordsPerSec,
                 timeInSecs,
-                updateCount,
-                readCount
+                updateCount.intValue(),
+                readCount.intValue()
               )
 
               val processorTimings = processor.getProcessTimings.toMap
