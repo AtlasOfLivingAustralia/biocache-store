@@ -22,11 +22,8 @@ object CollectorNameParser {
   val SurnamePuncFirstnamePattern = ("\"?" + SURNAME_PREFIX_REGEX + """([\p{Lu}\p{Ll}'-]*) ?[,] ?(?:(?:""" + titles + """)(?:[. ]|$))? ?((?:[A-Z][-. ] ?){0,4}) ?""" + SURNAME_PREFIX_REGEX + """([\p{Lu}\p{Ll}']*)? ?([\p{Lu}\p{Ll}']{3,})? ?((?:[A-Z][. ]? ?){0,4})""" + SURNAME_PREFIX_REGEX + """(?: """ + na + ")?\"?").r
   val SINGLE_NAME_PATTERN = ("(?:(?:" + titles + ")(?:[. ]|$))?([\\p{Lu}\\p{Ll}']*)").r
   val ORGANISATION_PATTERN = ("((?:.*?)?(?:" + ORGANISATION_WORDS + ")(?:.*)?)").r
-  val AND = "[ ]{1,}[AND|and|And|&]"
-
-  val COLLECTOR_DELIM_LIST = Array(";","\"\"")
-
-  val COLLECTOR_DELIM = ";|\"\"|\\|| - ".r
+  val AND = "AND|and|And|&"
+  val COLLECTOR_DELIM = ";|\"\"|\\|| - ".r;
   val COMMA_LIST = ",|&".r
   val suffixes = "jr|Jr|JR"
   val AND_NAME_LISTPattern = ("((?:[A-Z][. ] ?){0,3})([" + NAME_LETTERS + "][\\p{Ll}-']*)? ?([" + NAME_LETTERS + "][\\p{Ll}\\p{Lu}'-]*)? ?" + "(?:" + AND + ") ?((?:[A-Z][. ] ?){0,3})([" + NAME_LETTERS + "][\\p{Ll}'-]*)? ?([" + NAME_LETTERS + "][\\p{Ll}\\p{Lu}'-]*)?").r
@@ -70,22 +67,9 @@ object CollectorNameParser {
       case unknownPattern(value) => Some(List("UNKNOWN OR ANONYMOUS"))
       case _ => {
 
-        val delimiter = {
-          var delimiter:Option[String] = None
-          COLLECTOR_DELIM_LIST.foreach { delim =>
-            if(delimiter.isEmpty && stringValue.contains(delim)){
-              delimiter = Some(delim)
-            }
-          }
-          delimiter
-        }
-
-        var list = if(delimiter.isDefined){
-          stringValue.split(delimiter.get).toList
-        } else {
-          List(stringValue)
-        }
-
+        //else{
+        //check to see if it contains a "collector" delimitter
+        var list = COLLECTOR_DELIM.split(stringValue).toList
         if (list.size > 1) {
           list = list.map { value =>
             val name = parse(value.trim)
@@ -137,15 +121,10 @@ object CollectorNameParser {
   def parse(stringValue: String): Option[String] = {
     stringValue match {
       case unknownPattern(value) => logger.debug(stringValue + " UNKNOWN PATTERN"); Some("UNKNOWN OR ANONYMOUS")
-      case ORGANISATION_PATTERN(org) => logger.debug(stringValue + " ORGANISATION_PATTERN"); Some(org)
+      case ORGANISATION_PATTERN(org) => logger.debug(stringValue + " ORGANISTION_PATTERN"); Some(org)
       case INITIALS_Surname(initials, surname) => logger.debug(stringValue + " INTIALS SURNAME PATTERN"); Some(generateName(null, surname, initials))
       case SURNAMEFirstnamePattern(surname, initials, firstname) => logger.debug(stringValue + " SURNAME FIRSTNAME PATTERN"); Some(generateName(firstname, surname, initials))
-      case SurnamePuncFirstnamePattern(prefix, surname, initials, prefix2, firstname, middlename, initials2, prefix3) => {
-
-        logger.debug(stringValue + " SURNAME PUNCT PATTERN");
-        Some(generateName(firstname, surname, if (StringUtils.isEmpty(initials)) initials2 else initials, middlename, if (StringUtils.isNotEmpty(prefix3)) prefix3 else if (StringUtils.isNotEmpty(prefix2)) prefix2 else prefix))
-
-      }
+      case SurnamePuncFirstnamePattern(prefix, surname, initials, prefix2, firstname, middlename, initials2, prefix3) => logger.debug(stringValue + " SURNAME PUNCT PATTERN"); Some(generateName(firstname, surname, if (StringUtils.isEmpty(initials)) initials2 else initials, middlename, if (StringUtils.isNotEmpty(prefix3)) prefix3 else if (StringUtils.isNotEmpty(prefix2)) prefix2 else prefix))
       case FirstnameSurnamePattern(firstname, initials, surname) => logger.debug(stringValue + " FIRSTNAME SURNAME PATTERN"); Some(generateName(firstname, surname, initials))
       case SINGLE_NAME_PATTERN(surname) => logger.debug(stringValue + " SINGLENAME PATTERN"); Some(generateName(null, surname, null))
       case _ => None

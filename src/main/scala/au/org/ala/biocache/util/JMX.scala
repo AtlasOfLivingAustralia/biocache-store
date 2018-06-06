@@ -4,7 +4,8 @@ import java.lang.management.ManagementFactory
 import javax.management.ObjectName
 
 /**
-  * Singleton interface to JMX.
+  * Singleton interface to JMX. Intended to provide a simple interface to publish
+  * statistics via JMX.
   */
 object JMX {
 
@@ -18,6 +19,22 @@ object JMX {
   val processingStatus = new ProcessingStatus()
   mbs.registerMBean( processingStatus, new ObjectName("au.org.ala.biocache:type=Processing"))
 
+  /**
+    * Update index status providing a set of stats.
+    *
+    * @param totalRecords
+    * @param recordsPerSec
+    * @param cassandraTime
+    * @param processingTime
+    * @param solrTime
+    * @param totalTime
+    * @param indexDocsCommitted
+    * @param indexDocsInRam
+    * @param indexDocsInRamMB
+    * @param processingQueue
+    * @param luceneQueue
+    * @param commitBatchQueue
+    */
   def updateIndexStatus(totalRecords:Long,
                         recordsPerSec: Float,
                         cassandraTime:Long,
@@ -45,6 +62,14 @@ object JMX {
     indexStatus.commitBatchQueue = commitBatchQueue
   }
 
+  /**
+    * Update record processing statistics.
+    *
+    * @param recordsPerSec
+    * @param lastPageInSecs
+    * @param totalRecordsRead
+    * @param totalRecordsUpdated
+    */
   def updateProcessingStats(recordsPerSec: Float,
                              lastPageInSecs: Float,
                              totalRecordsRead: Int,
@@ -56,6 +81,20 @@ object JMX {
     processingStatus.recordsUpdated = totalRecordsUpdated
   }
 
+  /**
+    * Update details of cache sizes.
+    *
+    * @param classificationCacheSize
+    * @param locationCacheSize
+    * @param storedPointCacheSize
+    * @param attributionCacheSize
+    * @param spatialLayerCacheSize
+    * @param taxonProfileCacheSize
+    * @param sensitivityCacheSize
+    * @param commonNameCacheSize
+    * @param cassandraQueryCacheSize
+    * @param timings
+    */
   def updateProcessingCacheStatistics(
                                        classificationCacheSize:Int,
                                        locationCacheSize:Int,
