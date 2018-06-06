@@ -99,25 +99,25 @@ object ExportFromIndexStream extends Tool with Counter {
       }
       fileWriter.write(outputLine.mkString("\t"))
 
-//      if (queryAssertions) {
-//        //these are multivalue fields
-//        val assertions = (if (map.containsKey("assertions")) map.get("assertions") else null).asInstanceOf[util.Collection[String]]
-//        val assertions_passed = (if (map.containsKey("assertions_passed")) map.get("assertions_passed") else null).asInstanceOf[util.Collection[String]]
-//        val assertions_missing = (if (map.containsKey("assertions_missing")) map.get("assertions_missing") else null).asInstanceOf[util.Collection[String]]
-//
-//        AssertionCodes.all.map(e => {
-//          var a = e.name
-//          if (assertions != null && assertions.contains(a)) {
-//            fileWriter.write("\tfailed")
-//          } else if (assertions_passed != null && assertions_passed.contains(a)) {
-//            fileWriter.write("\tpassed")
-//          } else if (assertions_missing != null && assertions_missing.contains(a)) {
-//            fileWriter.write("\tmissing")
-//          } else {
-//            fileWriter.write("\t")
-//          }
-//        })
-//      }
+      if (queryAssertions) {
+        //these are multivalue fields
+        val assertions = (if (map.containsKey("assertions")) map.get("assertions") else null).asInstanceOf[util.Collection[String]]
+        val assertions_passed = (if (map.containsKey("assertions_passed")) map.get("assertions_passed") else null).asInstanceOf[util.Collection[String]]
+        val assertions_missing = (if (map.containsKey("assertions_missing")) map.get("assertions_missing") else null).asInstanceOf[util.Collection[String]]
+
+        AssertionCodes.all.map(e => {
+          var a = e.name
+          if (assertions != null && assertions.contains(a)) {
+            fileWriter.write("\tfailed")
+          } else if (assertions_passed != null && assertions_passed.contains(a)) {
+            fileWriter.write("\tpassed")
+          } else if (assertions_missing != null && assertions_missing.contains(a)) {
+            fileWriter.write("\tmissing")
+          } else {
+            fileWriter.write("\t")
+          }
+        })
+      }
 
       fileWriter.write("\n")
       true
