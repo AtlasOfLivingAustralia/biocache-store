@@ -17,6 +17,7 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang3.StringEscapeUtils
+import org.apache.http.client.config.RequestConfig
 import org.apache.http.conn.HttpClientConnectionManager
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.cache.CacheConfig
@@ -24,8 +25,6 @@ import org.apache.http.impl.client.cache.CachingHttpClientBuilder
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
 import org.apache.solr.client.solrj.impl.{CloudSolrClient, ConcurrentUpdateSolrClient}
-import org.apache.solr.client.solrj.io.SolrClientCache
-import org.apache.solr.client.solrj.io.stream.{CloudSolrStream, StreamContext}
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.client.solrj.{SolrClient, SolrQuery, StreamingResponseCallback}
 import org.apache.solr.common.params.{CursorMarkParams, MapSolrParams, ModifiableSolrParams}
@@ -110,8 +109,13 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                                      .setMaxCacheEntries(Config.solrConnectionCacheEntries)
                                      .setMaxObjectSize(Config.solrConnectionCacheObjectSize)
                                      .setSharedCache(false).build()
+        val requestConfig = RequestConfig.custom()
+                                         .setConnectTimeout(Config.solrConnectionConnectTimeout)
+                                         .setConnectionRequestTimeout(Config.solrConnectionRequestTimeout)
+                                         .setSocketTimeout(Config.solrConnectionSocketTimeout).build()
         httpClient = CachingHttpClientBuilder.create()
                                 .setCacheConfig(cacheConfig)
+                                .setDefaultRequestConfig(requestConfig)
                                 .setConnectionManager(connectionPoolManager)
                                 .setUserAgent(Config.userAgent)
                                 .useSystemProperties().build()
@@ -185,46 +189,28 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
   def streamIndex(proc: java.util.Map[String, AnyRef] => Boolean, fieldsToRetrieve: Array[String], query: String, filterQueries: Array[String], sortFields: Array[String], multivaluedFields: Option[Array[String]] = None) {
 
-    logger.info("Starting to stream: " + new java.util.Date().toString)
+    init
 
-    //using streaming API
-    val paramsLoc = new ModifiableSolrParams
-    paramsLoc.set("q", query)
-    paramsLoc.set("qt", "/export")
-    paramsLoc.set("sort", "id asc")
-    paramsLoc.set("fl", fieldsToRetrieve.mkString(","))
-    paramsLoc.set("wt", "json")
-    paramsLoc.set("rows", "2147483622")
+    val params = collection.immutable.HashMap(
+      "collectionName" -> "biocache",
+      "q" -> query,
+      "start" -> "0",
+      "rows" -> Int.MaxValue.toString,
+      "fl" -> fieldsToRetrieve.mkString(","))
 
-    val solrStream = new CloudSolrStream(solrHome, solrCollection, paramsLoc)
+    val solrParams = new ModifiableSolrParams()
+    solrParams.add(new MapSolrParams(params))
+    solrParams.add("fq", filterQueries: _*)
 
-    val context = new StreamContext
-    val solrClientCache = new SolrClientCache()
-    context.setSolrClientCache(solrClientCache)
-
-    var count = 0
-    solrStream.setStreamContext(context)
-    try {
-      solrStream.open()
-      var continue = true
-      while ( {
-        continue
-      }) {
-        val tuple = solrStream.read
-        if (tuple.EOF){
-          continue = false
-        } else {
-//          val record = tuple.getMap.toMap[String, AnyRef].asInstanceOf[Map[String,String]]
-//          proc(record)
-          count += 1
-        }
-      }
-    } finally {
-      if(solrStream != null){
-        solrStream.close()
-      }
+    if (!sortFields.isEmpty) {
+      solrParams.add("sort", sortFields.mkString(" asc,") + " asc")
     }
-//    logger.info("Finished streaming : " + new java.util.Date().toString + " " + params)
+
+    //now stream
+    val solrCallback = new SolrCallback(proc, multivaluedFields)
+    logger.info("Starting to stream: " + new java.util.Date().toString + " " + params)
+    solrServer.queryAndStreamResponse(solrParams, solrCallback)
+    logger.info("Finished streaming : " + new java.util.Date().toString + " " + params)
   }
 
   /**
