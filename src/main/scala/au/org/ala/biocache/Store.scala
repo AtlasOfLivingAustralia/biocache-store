@@ -790,6 +790,11 @@ trait OccurrenceVersionConsumer {
   * A trait to be implemented by java classes to write records.
   */
 trait RecordWriter {
+  /** Any resource allocation operations that are cleaned up in the 
+   *  finalise method must be performed during this initialise method. 
+   */
+  def initialise
+
   /** Writes the supplied record. */
   def write(record: Array[String])
 
