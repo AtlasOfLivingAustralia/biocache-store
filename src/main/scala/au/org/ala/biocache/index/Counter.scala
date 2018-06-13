@@ -24,7 +24,7 @@ trait Counter {
     startTime = System.currentTimeMillis
   }
 
-  def getAverageRecsPerSec(totalTime: Long = 0) = counter / ((System.currentTimeMillis() - totalTime) / 1000f)
+  def getAverageRecsPerSec(startTime: Long = 0) = counter / ((System.currentTimeMillis() - startTime) / 1000f)
 }
 
 class DefaultCounter extends Counter {}
