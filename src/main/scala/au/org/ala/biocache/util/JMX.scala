@@ -1,6 +1,7 @@
 package au.org.ala.biocache.util
 
 import java.lang.management.ManagementFactory
+import java.util.concurrent.atomic.AtomicLong
 import javax.management.ObjectName
 
 /**
@@ -105,7 +106,7 @@ object JMX {
                                        sensitivityCacheSize:Int,
                                        commonNameCacheSize:Int,
                                        cassandraQueryCacheSize:Int,
-                                       timings:Map[String, Long]
+                                       timings:Map[String, AtomicLong]
                                       ): Unit = {
 
     processingStatus.classificationCacheSize  = classificationCacheSize
@@ -119,34 +120,34 @@ object JMX {
     processingStatus.cassandraQueryCacheSize = cassandraQueryCacheSize
 
     //track differences change (increases / decreases)
-    processingStatus.defaultProcessorChange = timings.getOrElse("default", 0l) - processingStatus.defaultProcessor
-    processingStatus.imageProcessorChange = timings.getOrElse("image", 0l) - processingStatus.imageProcessor
-    processingStatus.offlineProcessorChange = timings.getOrElse("offline", 0l) - processingStatus.offlineProcessor
-    processingStatus.attributionProcessorChange = timings.getOrElse("attr", 0l) - processingStatus.attributionProcessor
-    processingStatus.classificationProcessorChange = timings.getOrElse("class", 0l) - processingStatus.classificationProcessor
-    processingStatus.basisOfRecordProcessorChange = timings.getOrElse("bor", 0l) - processingStatus.basisOfRecordProcessor
-    processingStatus.eventProcessorChange = timings.getOrElse("event", 0l) - processingStatus.eventProcessor
-    processingStatus.locationProcessorChange = timings.getOrElse("loc", 0l) - processingStatus.locationProcessor
-    processingStatus.sensitiveProcessorChange = timings.getOrElse("sensitive", 0l) - processingStatus.sensitiveProcessor
-    processingStatus.typeStatusProcessorChange = timings.getOrElse("type", 0l) - processingStatus.typeStatusProcessor
-    processingStatus.iqProcessorChange = timings.getOrElse("identification", 0l) - processingStatus.iqProcessor
-    processingStatus.reProcessorChange = timings.getOrElse("reprocessing", 0l) - processingStatus.reProcessor
-    processingStatus.persistChange = timings.getOrElse("persist", 0l) - processingStatus.persist
+    processingStatus.defaultProcessorChange = timings.getOrElse("default", new AtomicLong(0)).longValue() - processingStatus.defaultProcessor
+    processingStatus.imageProcessorChange = timings.getOrElse("image", new AtomicLong(0)).longValue() - processingStatus.imageProcessor
+    processingStatus.offlineProcessorChange = timings.getOrElse("offline",  new AtomicLong(0)).longValue() - processingStatus.offlineProcessor
+    processingStatus.attributionProcessorChange = timings.getOrElse("attr",  new AtomicLong(0)).longValue() - processingStatus.attributionProcessor
+    processingStatus.classificationProcessorChange = timings.getOrElse("class",  new AtomicLong(0)).longValue() - processingStatus.classificationProcessor
+    processingStatus.basisOfRecordProcessorChange = timings.getOrElse("bor",  new AtomicLong(0)).longValue() - processingStatus.basisOfRecordProcessor
+    processingStatus.eventProcessorChange = timings.getOrElse("event",  new AtomicLong(0)).longValue() - processingStatus.eventProcessor
+    processingStatus.locationProcessorChange = timings.getOrElse("loc",  new AtomicLong(0)).longValue() - processingStatus.locationProcessor
+    processingStatus.sensitiveProcessorChange = timings.getOrElse("sensitive",  new AtomicLong(0)).longValue() - processingStatus.sensitiveProcessor
+    processingStatus.typeStatusProcessorChange = timings.getOrElse("type",  new AtomicLong(0)).longValue() - processingStatus.typeStatusProcessor
+    processingStatus.iqProcessorChange = timings.getOrElse("identification",  new AtomicLong(0)).longValue() - processingStatus.iqProcessor
+    processingStatus.reProcessorChange = timings.getOrElse("reprocessing",  new AtomicLong(0)).longValue() - processingStatus.reProcessor
+    processingStatus.persistChange = timings.getOrElse("persist",  new AtomicLong(0)).longValue() - processingStatus.persist
 
     //timings
-    processingStatus.defaultProcessor = timings.getOrElse("default", 0)
-    processingStatus.imageProcessor = timings.getOrElse("image", 0)
-    processingStatus.offlineProcessor = timings.getOrElse("offline", 0)
-    processingStatus.attributionProcessor = timings.getOrElse("attr", 0)
-    processingStatus.classificationProcessor = timings.getOrElse("class", 0)
-    processingStatus.basisOfRecordProcessor = timings.getOrElse("bor", 0)
-    processingStatus.eventProcessor = timings.getOrElse("event", 0)
-    processingStatus.locationProcessor = timings.getOrElse("loc", 0)
-    processingStatus.sensitiveProcessor = timings.getOrElse("sensitive", 0)
-    processingStatus.typeStatusProcessor = timings.getOrElse("type", 0)
-    processingStatus.iqProcessor = timings.getOrElse("identification", 0)
-    processingStatus.reProcessor = timings.getOrElse("reprocessing", 0)
-    processingStatus.persist= timings.getOrElse("persist", 0l)
+    processingStatus.defaultProcessor = timings.getOrElse("default",  new AtomicLong(0)).longValue()
+    processingStatus.imageProcessor = timings.getOrElse("image",  new AtomicLong(0)).longValue()
+    processingStatus.offlineProcessor = timings.getOrElse("offline",  new AtomicLong(0)).longValue()
+    processingStatus.attributionProcessor = timings.getOrElse("attr",  new AtomicLong(0)).longValue()
+    processingStatus.classificationProcessor = timings.getOrElse("class",  new AtomicLong(0)).longValue()
+    processingStatus.basisOfRecordProcessor = timings.getOrElse("bor",  new AtomicLong(0)).longValue()
+    processingStatus.eventProcessor = timings.getOrElse("event",  new AtomicLong(0)).longValue()
+    processingStatus.locationProcessor = timings.getOrElse("loc",  new AtomicLong(0)).longValue()
+    processingStatus.sensitiveProcessor = timings.getOrElse("sensitive",  new AtomicLong(0)).longValue()
+    processingStatus.typeStatusProcessor = timings.getOrElse("type",  new AtomicLong(0)).longValue()
+    processingStatus.iqProcessor = timings.getOrElse("identification",  new AtomicLong(0)).longValue()
+    processingStatus.reProcessor = timings.getOrElse("reprocessing",  new AtomicLong(0)).longValue()
+    processingStatus.persist= timings.getOrElse("persist",  new AtomicLong(0)).longValue()
   }
 }
 
