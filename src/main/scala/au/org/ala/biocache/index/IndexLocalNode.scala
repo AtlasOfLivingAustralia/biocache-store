@@ -180,7 +180,7 @@ class IndexLocalNode {
     * @param sourceConfDir
     */
   private def writeAdditionalSchemaEntries(schemaFile: File, sourceConfDir: File) = {
-    if (DocBuilder.getAdditionalSchemaEntries.size() > 0) {
+    if (!DocBuilder.getAdditionalSchemaEntries.isEmpty) {
 
       logger.info("Writing " + DocBuilder.getAdditionalSchemaEntries.size() + " new fields into updated schema: " + schemaFile.getPath)
       val schemaString = FileUtils.readFileToString(schemaFile, "UTF-8")
@@ -217,7 +217,7 @@ class IndexLocalNode {
       val segmentCount = mergeSegments
       val segmentSize = dirs.length / segmentCount + 1
 
-      logger.info(s"Merging index into $segmentCount segments. source dirs=$dirs.length segment size=$segmentSize, mem=$mem mb")
+      logger.info(s"Merging index from $segmentCount segments. source dirs=$dirs.length segment size=$segmentSize, mem=$mem mb")
 
       var dirsRemaining = dirs
       var segmentNumber = 0
