@@ -66,15 +66,6 @@ object ExportFromIndexStream extends Tool with Counter {
       opt("qa", "quality-assertions", "Include query assertions", {
         queryAssertions = true
       })
-      opt("k", "keys", "A comma separated list of keys on which to perform the range threads. Prevents the need to query SOLR for the ranges. Only used with a filter-file. ", {
-        v: String => keys = Some(v.split(","))
-      })
-      opt("dr", "dr", "The data resource over which to obtain the range. Only used with a filter-file. ", {
-        v: String => dr = Some(v)
-      })
-      intOpt("t", "threads", "The number of threads to perform the indexing on. Only used with a filter-file. Default is " + numThreads, {
-        v: Int => numThreads = v
-      })
     }
 
     if (parser.parse(args)) {
@@ -100,11 +91,12 @@ object ExportFromIndexStream extends Tool with Counter {
     Config.indexDAO.streamIndex(map => {
       counter += 1
       if (counter % 1000 == 0) {
+        logger.info("Exported records: $counter")
         fileWriter.flush
       }
-      val outputLine = fieldsToExport.map(f => {
+      val outputLine = fieldsToExport.map { f =>
         if (map.containsKey(f)) map.get(f).toString else ""
-      })
+      }
       fileWriter.write(outputLine.mkString("\t"))
 
       if (queryAssertions) {

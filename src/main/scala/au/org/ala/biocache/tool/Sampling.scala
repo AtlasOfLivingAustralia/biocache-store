@@ -259,7 +259,14 @@ class PointsReader(filePath: String) {
           points += current.map(x => x.toDouble)
         }
       } catch {
-        case e: Exception => logger.error("Error reading point: " + current, e)
+        case e: Exception => {
+          if(current != null) {
+            val debugValue = current.mkString(",")
+            logger.error("Error reading point: " + debugValue, e)
+          } else {
+            logger.error("Error reading point with null value", e)
+          }
+        }
       }
       count += 1
       current = csvReader.readNext

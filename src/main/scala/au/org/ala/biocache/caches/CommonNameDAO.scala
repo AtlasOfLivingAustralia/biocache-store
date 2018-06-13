@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory
 object CommonNameDAO {
 
   val logger = LoggerFactory.getLogger("CommonNameDAO")
-  private val lru = new org.apache.commons.collections.map.LRUMap(10000)
+  private val lru = new org.apache.commons.collections.map.LRUMap(Config.commonNameCacheSize)
   private val lock : AnyRef = new Object()
   private val nameIndex = Config.nameIndex
 
@@ -43,4 +43,6 @@ object CommonNameDAO {
       result
     }
   }
+
+  def getCacheSize = lru.size()
 }

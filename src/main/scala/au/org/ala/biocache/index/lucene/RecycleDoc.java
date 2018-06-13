@@ -4,9 +4,9 @@ package au.org.ala.biocache.index.lucene;
 import org.apache.log4j.Logger;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.BytesTermAttribute;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StoredField;
+import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexableField;
+import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.spatial.prefix.CellToBytesRefIterator;
 import org.apache.lucene.spatial.prefix.PrefixTreeStrategy;
 import org.apache.lucene.spatial.prefix.tree.Cell;
@@ -15,6 +15,8 @@ import org.apache.lucene.spatial.query.SpatialArgs;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefIterator;
 import org.apache.solr.schema.*;
+import org.apache.solr.schema.FieldType;
+import org.apache.solr.schema.TextField;
 import org.apache.solr.util.DateMathParser;
 import org.apache.solr.util.SpatialUtils;
 import org.locationtech.spatial4j.context.SpatialContext;
@@ -22,6 +24,8 @@ import org.locationtech.spatial4j.io.WKTReader;
 import org.locationtech.spatial4j.shape.Shape;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -113,12 +117,30 @@ public class RecycleDoc implements Iterable<IndexableField> {
             //Set all data types that are in use
             try {
                 if (ft instanceof StrField) {
-                    ((Field) f).setStringValue(String.valueOf(value));
+                    try {
+                        if(isSortedDocValuesField(f)) {
+                            setSortedDocValuesField(f, value);
+                        } else {
+                            ((Field) f).setStringValue(String.valueOf(value));
+                        }
+                        found = true;
+                    } catch (Exception e)  {
+                         logger.error("Problem setting field: " + f.name() + ", type: " + f.fieldType() + ", f: " + f.getClass().getCanonicalName() + ", error: "+ e.getMessage(), e);
+                    }
+                } else if (ft instanceof TrieDateField) {
+                    SimpleDateFormat dsf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                    Date theDate = dsf.parse((String) value);
+                    ((Field) f).setLongValue(theDate.getTime());
                     found = true;
                 } else if (ft instanceof TrieField) {
-                    switch (((TrieField) ft).getType().ordinal()) {
+                    switch (((TrieField) ft).getNumericType().ordinal()) {
                         case 0:
-                            ((Field) f).setIntValue(value instanceof Number ? ((Number) value).intValue() : Integer.parseInt((String) value));
+                            if(isSortedDocValuesField(f)) {
+                                setSortedDocValuesField(f, value);
+                            } else {
+                                Integer valueAsInt = value instanceof Number ? ((Number) value).intValue() : Integer.parseInt((String) value);
+                                ((Field) f).setIntValue(valueAsInt);
+                            }
                             found = true;
                             break;
                         case 1:
@@ -138,6 +160,8 @@ public class RecycleDoc implements Iterable<IndexableField> {
                             found = true;
                             break;
                         default:
+                            org.apache.lucene.document.FieldType.LegacyNumericType type = ((TrieField) ft).getNumericType();
+                            throw new RuntimeException("TrieField not recognised or supported. Ordinal value: " + type.ordinal() + ", " + type.getClass().getName());
                     }
                 } else if (ft instanceof TextField) {
                     ((Field) f).setStringValue((String) value);
@@ -197,6 +221,8 @@ public class RecycleDoc implements Iterable<IndexableField> {
                 } else {
                     logger.error("MISSING FIELD " + name + " = " + value.toString() + ", " + ft.getClass().getName());
                 }
+            } catch (NumberFormatException e) {
+                logger.error("NumberFormatException setting field " + name + " = " + value.toString() + ", " + ft.getClass().getName() + " : " + e.getMessage());
             } catch (Exception e) {
                 logger.error("FIELD EXCEPTION " + name + " = " + value.toString() + ", " + ft.getClass().getName() + " : " + e.getMessage(), e);
             }
@@ -243,6 +269,22 @@ public class RecycleDoc implements Iterable<IndexableField> {
                     return true;
                 }
             }
+        }
+    }
+
+    public boolean isSortedDocValuesField(IndexableField f) {
+        return f instanceof SortedSetDocValuesField || f instanceof SortedDocValuesField;
+    }
+
+    public void setSortedDocValuesField(IndexableField f, Object value) throws UnsupportedEncodingException {
+        if(f instanceof SortedSetDocValuesField) {
+            byte[] valueAsBytes = String.valueOf(value).getBytes("UTF-8");
+            ((SortedSetDocValuesField) f).setBytesValue(valueAsBytes);
+        } else if(f instanceof SortedDocValuesField) {
+            byte[] valueAsBytes = String.valueOf(value).getBytes("UTF-8");
+            ((SortedDocValuesField) f).setBytesValue(valueAsBytes);
+        } else {
+            throw new RuntimeException("Problem indexing field: " + f.name() +" : class not recognised: " + f.getClass().getName() );
         }
     }
 

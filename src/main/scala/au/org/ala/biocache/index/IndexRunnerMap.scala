@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
 import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
+import au.org.ala.biocache.util.JMX
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -15,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class IndexRunnerMap(centralCounter: Counter,
                      confDirPath: String, pageSize: Int = 200,
-                     luceneIndexing: ArrayBuffer[LuceneIndexing] = null,
+                     luceneIndexing: Seq[LuceneIndexing] = null,
                      processingThreads: Integer = 1,
                      processorBufferSize: Integer = 100,
                      singleWriter: Boolean = false,
@@ -162,6 +163,23 @@ class IndexRunnerMap(centralCounter: Counter,
           ", mem free(Mb)=" + Runtime.getRuntime.freeMemory() / 1024 / 1024 +
           ", mem total(Mb)=" + Runtime.getRuntime.maxMemory() / 1024 / 1024 +
           ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
+
+        if(Config.jmxDebugEnabled){
+          JMX.updateIndexStatus(
+            centralCounter.counter,
+            centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
+            t2Total.get() / 1000000000, //cassandra time
+            timing.get() / 1000000000, //processing time
+            luceneIndexing(0).getTiming / 1000000000, //solr time
+            0, // totalTime
+            luceneIndexing(0).getCount, //index docs committed
+            luceneIndexing(0).ramDocs(), //index docs in ram
+            (luceneIndexing(0).ramBytes() / 1024 / 1024), //index docs ram MB
+            queue.size(), //processing queue
+            luceneIndexing(0).getQueueSize, //lucene queue
+            luceneIndexing(0).getBatchSize //commit batch
+          )
+        }
       }
 
       startTime = System.currentTimeMillis
@@ -189,7 +207,7 @@ class IndexRunnerMap(centralCounter: Counter,
       csvFileWriter.close()
     }
     if (csvFileWriterSensitive != null) {
-      csvFileWriterSensitive.flush();
+      csvFileWriterSensitive.flush()
       csvFileWriterSensitive.close()
     }
 

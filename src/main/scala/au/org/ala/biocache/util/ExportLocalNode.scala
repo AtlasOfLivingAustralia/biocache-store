@@ -20,6 +20,7 @@ object ExportLocalNode extends Tool {
     var entity = ""
     var fieldsToExport = Array[String]()
     var counter = 0
+    var threads = 4
 
     val parser = new OptionParser(help) {
       arg("entity", "The table to export", {
@@ -31,6 +32,7 @@ object ExportLocalNode extends Tool {
       arg("list-of-fields", "The list of fields to export", {
         v: String => fieldsToExport = v.split(",").map(_.trim).toArray
       })
+      intOpt("t", "no-of-threads", "The number of threads to use", { v: Int => threads = v })
     }
 
     if (parser.parse(args)) {
@@ -46,14 +48,14 @@ object ExportLocalNode extends Tool {
         val outputLine = fieldsToExport.map { field => getFromMap(map, field) }
         csvWriter.writeNext(outputLine)
         true
-      }, 4, Array("rowkey") ++ fieldsToExport )
+      }, threads, Array("rowkey") ++ fieldsToExport )
 
       csvWriter.flush
       csvWriter.close
     }
   }
 
-   def getFromMap(map: Map[String, String], key: String): String = {
+  def getFromMap(map: Map[String, String], key: String): String = {
     val value = map.getOrElse(key, "")
     if (value == null) "" else value.toString
   }

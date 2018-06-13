@@ -1,7 +1,6 @@
 package au.org.ala.biocache.caches
 
 import java.io.FileWriter
-import java.util.concurrent.ConcurrentHashMap
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.Location
@@ -19,9 +18,8 @@ object LocationDAO {
 
   private val columnFamily = "loc"
   private val lock : AnyRef = new Object()
-  private val lru = new org.apache.commons.collections.map.LRUMap(10000)
-  private val storedPointCache = ConcurrentHashMap.newKeySet[String]()
-
+  private val lru = new org.apache.commons.collections.map.LRUMap(Config.locationCacheSize)
+  private val storedPointCache = new org.apache.commons.collections.map.LRUMap(Config.locationCacheSize)
 
   private final val latitudeCol = "lat"
   private final val longitudeCol = "lon"
@@ -86,26 +84,35 @@ object LocationDAO {
     latitude.toString.trim + "|" + longitude.toString
   }
 
+  /**
+    * Store the point into the database separately for downstream sampling
+    *
+    * @param latitude
+    * @param longitude
+    * @return
+    */
   def storePointForSampling(latitude:String, longitude:String) : String = {
     val uuid = getLatLongKey(latitude, longitude)
-    if(storedPointCache.contains(uuid)){
+
+    val cachedObject = lock.synchronized { storedPointCache.get(uuid) }
+    if(cachedObject != null){
       return uuid
-    }
-    if (uuid.length > 0) {
-      val map = Map(latitudeCol -> latitude, longitudeCol -> longitude)
-      if (Config.persistPointsFile != "") {
-        synchronized {
-          if (persistPointsFile == null) {
-            persistPointsFile = new FileWriter(Config.persistPointsFile)
+    } else
+      if (uuid.length > 0) {
+        val map = Map(latitudeCol -> latitude, longitudeCol -> longitude)
+        if (Config.persistPointsFile != "") {
+          synchronized {
+            if (persistPointsFile == null) {
+              persistPointsFile = new FileWriter(Config.persistPointsFile)
+            }
+            persistPointsFile.write(longitude + "," + latitude + "\n")
+            persistPointsFile.flush()
           }
-          persistPointsFile.write(longitude + "," + latitude + "\n")
-          persistPointsFile.flush()
+        } else {
+          Config.persistenceManager.put(uuid, columnFamily, map, true, false)
+          lock.synchronized { storedPointCache.put(uuid, uuid) }
         }
-      } else {
-        Config.persistenceManager.put(uuid, columnFamily, map, true, false)
-        storedPointCache.add(uuid)
       }
-    }
     uuid
   }
 
@@ -165,4 +172,7 @@ object LocationDAO {
       None
     }
   }
+
+  def getStoredPointCacheSize = storedPointCache.size()
+  def getCacheSize = lru.size()
 }

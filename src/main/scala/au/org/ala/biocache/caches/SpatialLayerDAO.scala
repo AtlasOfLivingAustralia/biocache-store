@@ -25,7 +25,7 @@ object SpatialLayerDAO {
   val nameFieldLookup = new mutable.HashMap[String, String]()
   val loadedShapeFiles = new mutable.HashMap[String, SimpleShapeFile]()
   private val lock : AnyRef = new Object()
-  private val lru = new org.apache.commons.collections.map.LRUMap(100000)
+  private val lru = new org.apache.commons.collections.map.LRUMap(Config.spatialCacheSize)
   var sdsLayerList:List[String] = List()
 
   /**
@@ -182,4 +182,6 @@ object SpatialLayerDAO {
   private def getLatLongKey(longitude:Double, latitude:Double) : String = {
     longitude.toString +  "|" + latitude.toString
   }
+
+  def getCacheSize = lru.size()
 }

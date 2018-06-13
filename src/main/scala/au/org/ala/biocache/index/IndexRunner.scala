@@ -7,12 +7,12 @@ import java.util.concurrent.atomic.AtomicLong
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
 import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
+import au.org.ala.biocache.util.JMX
 import com.datastax.driver.core.{ColumnDefinitions, GettableData}
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 
 /**
   * A runnable thread for creating a complete new index.
@@ -68,13 +68,16 @@ import scala.collection.mutable.ArrayBuffer
   * @param singleWriter
   */
 class IndexRunner(centralCounter: Counter,
-                  confDirPath: String, pageSize: Int = 200,
-                  luceneIndexing: ArrayBuffer[LuceneIndexing] = null,
+                  confDirPath: String,
+                  pageSize: Int = 200,
+                  luceneIndexing: Seq[LuceneIndexing],
                   processingThreads: Integer = 1,
                   processorBufferSize: Integer = 100,
                   singleWriter: Boolean = false,
                   test: Boolean = false,
-                  numThreads: Int = 2) extends Runnable {
+                  numThreads: Int = 2,
+                  maxRecordsToIndex:Int = -1
+                 ) extends Runnable {
 
   val logger: Logger = LoggerFactory.getLogger("IndexRunner")
 
@@ -99,7 +102,7 @@ class IndexRunner(centralCounter: Counter,
 
     val indexer = new SolrIndexDAO(newIndexDir.getParentFile.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
-    var counter = 0
+    var counter = new AtomicLong(0)
     val start = System.currentTimeMillis
     var startTime = System.currentTimeMillis
     var finishTime = System.currentTimeMillis
@@ -109,6 +112,7 @@ class IndexRunner(centralCounter: Counter,
     } else {
       null
     }
+
     val csvFileWriterSensitive = if (Config.exportIndexAsCsvPath.length > 0) {
       indexer.getCsvWriter(true)
     } else {
@@ -151,14 +155,17 @@ class IndexRunner(centralCounter: Counter,
         indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
         var continue = true
         while (continue) {
-          val m: (String, GettableData, ColumnDefinitions) = queue.take()
-          if (m._1 == null) {
+          val (guid, data, columnDefinitions) = queue.take()
+          if (guid == null) {
             continue = false
           } else {
             try {
               val t1 = System.nanoTime()
 
-              val t2 = indexer.indexFromArray(m._1, m._2, m._3,
+              val t2 = indexer.indexFromArray(
+                guid,
+                data,
+                columnDefinitions,
                 docBuilder = luceneIndexer.getDocBuilder,
                 lock = lock,
                 test = test)
@@ -170,22 +177,25 @@ class IndexRunner(centralCounter: Counter,
               timing.addAndGet(System.nanoTime() - t1 - t2)
             } catch {
               case e: InterruptedException => throw e
-              case e: Exception => logger.error("guid:" + m._1 + ", " + e.getMessage, e)
+              case e: Exception => logger.error("guid:" + guid + ", " + e.getMessage, e)
             }
           }
-          recordsProcessed = recordsProcessed + 1
+          recordsProcessed += 1
         }
       }
     }
 
-    //page through and create and index for this range
     val t2Total = new AtomicLong(0L)
     var t2 = System.nanoTime()
     var uuidIdx = -1
+
+    //page through and create and index for this range
     Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverSelectArray("occ", (guid, row, columnDefinitions) => {
+
       t2Total.addAndGet(System.nanoTime() - t2)
 
-      counter += 1
+      val currentCounter = counter.incrementAndGet().toInt
+
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
         if (uuidIdx == -1) {
@@ -209,32 +219,52 @@ class IndexRunner(centralCounter: Counter,
           }
       }
 
-      if (counter % pageSize * 10 == 0 && counter > 0) {
-        centralCounter.addToCounter(pageSize)
-        finishTime = System.currentTimeMillis
-        centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
+      if (currentCounter % 1000 == 0) {
 
-        logger.info("cassandraTime(s)=" + t2Total.get() / 1000000000 +
-          ", processingTime[" + processingThreads + "](s)=" + timing.get() / 1000000000 +
-          ", solrTime[" + luceneIndexing(0).getThreadCount + "](s)=" + luceneIndexing(0).getTiming / 1000000000 +
-          ", totalTime(s)=" + (System.currentTimeMillis - timeCounter.get) / 1000 +
-          ", index docs committed/in ram/ram MB=" +
-          luceneIndexing(0).getCount + "/" + luceneIndexing(0).ramDocs() + "/" + (luceneIndexing(0).ramBytes() / 1024 / 1024) +
-          ", mem free(Mb)=" + Runtime.getRuntime.freeMemory() / 1024 / 1024 +
-          ", mem total(Mb)=" + Runtime.getRuntime.maxMemory() / 1024 / 1024 +
-          ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
+        centralCounter.setCounter(currentCounter.toInt)
+        finishTime = System.currentTimeMillis
+        if(currentCounter.toInt > 0) {
+          centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
+          logger.info("cassandraTime(s)=" + t2Total.get() / 1000000000 +
+            ", processingTime[" + processingThreads + "](s)=" + timing.get() / 1000000000 +
+            ", solrTime[" + luceneIndexing(0).getThreadCount + "](s)=" + luceneIndexing(0).getTiming / 1000000000 +
+            ", totalTime(s)=" + (System.currentTimeMillis - timeCounter.get) / 1000 +
+            ", index docs committed/in ram/ram MB=" +
+            luceneIndexing(0).getCount + "/" + luceneIndexing(0).ramDocs() + "/" + (luceneIndexing(0).ramBytes() / 1024 / 1024) +
+            ", mem free(Mb)=" + Runtime.getRuntime.freeMemory() / 1024 / 1024 +
+            ", mem total(Mb)=" + Runtime.getRuntime.maxMemory() / 1024 / 1024 +
+            ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
+        }
+
+        if(Config.jmxDebugEnabled){
+          JMX.updateIndexStatus(
+            centralCounter.counter,
+            centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
+            t2Total.get() / 1000000000, //cassandra time
+            timing.get() / 1000000000, //processing time
+            luceneIndexing(0).getTiming / 1000000000, //solr time
+            (System.currentTimeMillis - timeCounter.get) / 1000, // totalTime
+            luceneIndexing(0).getCount, //index docs committed
+            luceneIndexing(0).ramDocs(), //index docs in ram
+            (luceneIndexing(0).ramBytes() / 1024 / 1024), //index docs ram MB
+            queue.size(), //processing queue
+            luceneIndexing(0).getQueueSize, //lucene queue
+            luceneIndexing(0).getBatchSize //commit batch
+          )
+        }
       }
 
       startTime = System.currentTimeMillis
 
       t2 = System.nanoTime()
 
-      //counter < 2000
-      true
+      if(maxRecordsToIndex > 0 && centralCounter.counter > maxRecordsToIndex){
+        logger.info("Suspending indexing. maxRecordsToIndex was reached: " + maxRecordsToIndex)
+        false
+      } else {
+        true
+      }
     }, "", "", pageSize, numThreads, true)
-
-    //final log entry
-    centralCounter.printOutStatus(threadId, "", "Indexer", startTimeFinal)
 
     logger.info("FINAL >>> cassandraTime(s)=" + t2Total.get() / 1000000000 +
       ", processingTime[" + processingThreads + "](s)=" + timing.get() / 1000000000 +
@@ -247,11 +277,11 @@ class IndexRunner(centralCounter: Counter,
       ", queues (processing/lucene docs/commit batch) " + queue.size() + "/" + luceneIndexing(0).getQueueSize + "/" + luceneIndexing(0).getBatchSize)
 
     if (csvFileWriter != null) {
-      csvFileWriter.flush();
+      csvFileWriter.flush()
       csvFileWriter.close()
     }
     if (csvFileWriterSensitive != null) {
-      csvFileWriterSensitive.flush();
+      csvFileWriterSensitive.flush()
       csvFileWriterSensitive.close()
     }
 
@@ -264,7 +294,8 @@ class IndexRunner(centralCounter: Counter,
     threads.foreach(t => t.join())
 
     finishTime = System.currentTimeMillis
-    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes.")
+    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes. Records indexed: " + counter.intValue())
+    centralCounter.setCounter(counter.intValue())
 
     //close and merge the lucene index parts
     if (luceneIndexing != null && !singleWriter) {

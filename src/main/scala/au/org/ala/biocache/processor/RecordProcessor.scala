@@ -1,5 +1,6 @@
 package au.org.ala.biocache.processor
 
+import java.util.concurrent.atomic.AtomicLong
 import java.util.{Date, UUID}
 
 import au.org.ala.biocache
@@ -52,7 +53,9 @@ class RecordProcessor {
   val processTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
   val duplicates = List("D", "D1", "D2")
 
-  val processTimings: mutable.Map[String, Long] = scala.collection.mutable.Map[String, Long]()
+  val processTimings: mutable.Map[String, AtomicLong] = scala.collection.mutable.Map[String, AtomicLong]()
+
+  def getProcessTimings = processTimings
 
   /**
    * Process a record, adding metadata and records quality systemAssertions.
@@ -63,7 +66,7 @@ class RecordProcessor {
    * When it is a firstLoad, there will be no offline assertions 
    */
   def processRecord(raw: FullRecord, currentProcessed: FullRecord, batch: Boolean = false, firstLoad: Boolean = false,
-                    processors: Option[String] = None): Map[String, Object] = {
+                    processors: Option[String] = None) : Map[String, Object] = {
     try {
       val guid = raw.rowKey
       val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
@@ -88,8 +91,7 @@ class RecordProcessor {
               logger.warn("Non-fatal error processing record: " + raw.rowKey + ", processorName: " + processor.getName + ", error: " + e.getMessage(), e)
             }
           } finally {
-            val currentTime = (System.nanoTime() - start) + processTimings.getOrElse(processor.getName, 0L)
-            processTimings += (processor.getName -> currentTime)
+            processTimings.getOrElseUpdate(processor.getName, new AtomicLong(0)).addAndGet((System.nanoTime() - start))
           }
         }
       }
@@ -107,7 +109,9 @@ class RecordProcessor {
           "version" -> Processed
         )
       } else {
+        val startPersist = System.nanoTime()
         occurrenceDAO.updateOccurrence(guid, currentProcessed, processed, systemAssertions, Processed)
+        processTimings.getOrElseUpdate("persist", new AtomicLong(0)).addAndGet((System.nanoTime() - startPersist))
         null
       }
     } catch {

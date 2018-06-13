@@ -27,7 +27,6 @@ object IndexLocalRecordsV2 extends Tool {
     var mergeSegments = 1
     var test = false
     var testMap = false
-
     var threads = 2
     var solrHome = "/data/solr/"
     val checkpointFile = Config.tmpWorkDir + "/index-local-records-checkpoints.txt"
@@ -35,18 +34,20 @@ object IndexLocalRecordsV2 extends Tool {
     var zkc = Config.zookeeperAddress
     var optimise = true
     var optimiseOnly = false
+    var maxRecordsToIndex = -1
+
     val parser = new OptionParser(help) {
       opt("zkc", "zk-config", "Zookeeper instance host:port to retrieve SOLR configuration from", { v: String => zkc = v })
       opt("sh", "solr-home", "SOLR home directory on the file system or the zookeeper host:port if rewriting directly to SOLR cloud instance", { v: String => solrHome = v })
       opt("sc", "solr-config-path", "SOLR Config XML file path", { v: String => solrConfigXmlPath = v })
       intOpt("t", "no-of-threads", "The number of threads to use", { v: Int => threads = v })
-      opt("skip-optimise", "Optimise the new index once writing has completed. Defaults to true", {
+      opt("skip-optimise", "Optimise the new index once writing has completed. Defaults to false (i.e. optimisation happens by default)", {
         optimise = false
       })
-      opt("test", "Test indexing. This skips the production of an index. Defaults to false", {
+      opt("test", "Test indexing. This skips the production of an index. Defaults to " + test, {
         test = true
       })
-      opt("test-map", "Use map paging instead of array. Defaults to false", {
+      opt("test-map", "Use map paging instead of array. Defaults to " + testMap, {
         testMap = true
       })
       opt("optimise-only", "Optimise the index once writing has completed", {
@@ -80,13 +81,34 @@ object IndexLocalRecordsV2 extends Tool {
       intOpt("ps", "pagesize", "The page size for the records. Default is " + pageSize, {
         v: Int => pageSize = v
       })
+      intOpt("max", "maxrecords", "Maximum number of records to index. This is mainly for testing new indexing. Default is index all records", {
+        v: Int => maxRecordsToIndex = v
+      })
     }
     if (parser.parse(args)) {
-      val ilr = new IndexLocalRecordsV2()
-      //ZookeeperUtil.getSolrConfig(zkc, solrHome)
-      ilr.indexRecords(threads, solrHome, solrConfigXmlPath, optimise, optimiseOnly, checkpointFile,
-        threadsPerWriter, threadsPerProcess, ramPerWriter, writerSegmentSize, processorBufferSize,
-        writerBufferSize, pageSize, mergeSegments, test, writerCount, testMap)
+
+      val ilr = new IndexLocalNode()
+
+      ilr.indexRecords(
+        threads,
+        solrHome,
+        solrConfigXmlPath,
+        optimise,
+        optimiseOnly,
+        checkpointFile,
+        threadsPerWriter,
+        threadsPerProcess,
+        ramPerWriter,
+        writerSegmentSize,
+        processorBufferSize,
+        writerBufferSize,
+        pageSize,
+        mergeSegments,
+        test,
+        writerCount,
+        testMap,
+        maxRecordsToIndex
+      )
     }
   }
 }

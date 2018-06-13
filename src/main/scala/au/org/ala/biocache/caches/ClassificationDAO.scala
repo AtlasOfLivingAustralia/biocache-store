@@ -203,6 +203,8 @@ object ClassificationDAO {
     }
   }
 
+  def getCacheSize = lru.size()
+
   private def updateClassificationRemovingMissingSynonym(newcl:Classification, result:NameSearchResult){
     val sciName = result.getRankClassification().getScientificName()
     if(newcl.genus == sciName)

@@ -202,7 +202,8 @@ trait IndexDAO {
     * TODO: 2. Simplify to CassandraColumnName -> SolrFieldName. Complexity is required to reflect backward compatibility.
     * TODO: 3. Remove all DWC fields. These should be indexed by default.
     */
-  lazy val headerAttributes = List(("dateIdentified", "identified_date", 0, 3),
+  lazy val headerAttributes = List(
+    ("dateIdentified", "identified_date", 0, 3),
     ("firstLoaded", "first_loaded_date", 0, 2),
     (FullRecordMapper.alaModifiedColumn, "last_load_date", 0, 2),
     (FullRecordMapper.alaModifiedColumn, "last_processed_date", 0, 3),
@@ -326,7 +327,7 @@ trait IndexDAO {
     */
   lazy val headerAttributesFix = List(
     ("verbatimElevation", "raw_min_elevation", -1, 2), // NEW
-    ("verbatimDepth", "raw_min_depth_d", -1, 2), // NEW
+    ("verbatimDepth", "raw_verbatim_depth", -1, 2), // NEW   - this is causing an error
     ("taxonRank", "raw_rank", -1, 2), // NEW
     ("stateProvince", "raw_state", -1, 2), // NEW
     ("scientificName", "raw_taxon_name", -1, 2), // NEW
@@ -351,7 +352,8 @@ trait IndexDAO {
     ("dateIdentified", "raw_identified_date", 0, 2),  // NEW
     ("eventDate", "raw_occurrence_date", 0, 2),  // NEW
     ("eventDateEnd", "raw_occurrence_date_end_dt", 0, 2),  // NEW
-    ("modified", "raw_modified_date", 0, 2)) // NEW
+    ("modified", "raw_modified_date", 0, 2) // NEW
+  )
 
   /**
    * The header values for the CSV file.
@@ -1600,7 +1602,6 @@ trait IndexDAO {
     }
 
     //sensitive fields
-    //val dataGen = getArrayValue(columnOrder.dataGeneralizationsP, array)
     if (StringUtils.isNotEmpty(dataGen)) {
       if (dataGen.contains("already generalised")) {
         addField(doc, "sensitive", "alreadyGeneralised")
@@ -1628,6 +1629,7 @@ trait IndexDAO {
         }
       }
     }
+
     //all other values when not sensitive
     if (StringUtils.isEmpty(dataGen)) {
       for (i <- 0 until columnOrder.length.toInt) {

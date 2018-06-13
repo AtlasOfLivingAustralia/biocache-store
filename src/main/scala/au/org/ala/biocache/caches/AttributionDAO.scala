@@ -3,9 +3,12 @@ package au.org.ala.biocache.caches
 import scala.collection.JavaConversions
 import au.org.ala.biocache._
 import org.slf4j.LoggerFactory
+
 import scala.io.Source
 import scala.util.parsing.json.JSON
 import java.net.URLEncoder
+
+import au.org.ala.biocache.caches.ClassificationDAO.lru
 import au.org.ala.biocache.model.Attribution
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.persistence.PersistenceManager
@@ -21,7 +24,7 @@ object AttributionDAO {
   val logger = LoggerFactory.getLogger("AttributionDAO")
   private val columnFamily = "attr"
   //can't use a scala hash map because missing keys return None not null...
-  private val lru = new org.apache.commons.collections.map.LRUMap(10000)//new HashMap[String, Option[Attribution]]
+  private val lru = new org.apache.commons.collections.map.LRUMap(Config.attributionCacheSize)
   private val persistenceManager = Config.getInstance(classOf[PersistenceManager]).asInstanceOf[PersistenceManager]
 
   //A mapping of the ws json properties to attribution properties
@@ -216,4 +219,6 @@ object AttributionDAO {
       None
     }
   }
+
+  def getCacheSize = lru.size()
 }

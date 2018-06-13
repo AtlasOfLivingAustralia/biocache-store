@@ -87,6 +87,10 @@ object Config {
 
   val cassandraUpdateThreads = configModule.properties.getProperty("cassandra.update.threads", "8").toInt
 
+  val cassandraFetchSize = configModule.properties.getProperty("cassandra.fetch.size", "500").toInt
+
+  val cassandraTimeout = configModule.properties.getProperty("cassandra.timeout", "120000").toInt
+
   val volunteerHubUid = configModule.properties.getProperty("volunteer.hub.uid","")
 
   val volunteerDataProviderUid = configModule.properties.getProperty("volunteer.dp.uid", "")
@@ -133,6 +137,14 @@ object Config {
   val taxonProfileCacheAll = configModule.properties.getProperty("taxon.profile.cache.all", "false").toBoolean
   val taxonProfileCacheSize = configModule.properties.getProperty("taxon.profile.cache.size", "10000").toInt
   val classificationCacheSize = configModule.properties.getProperty("classification.cache.size", "10000").toInt
+  val commonNameCacheSize = configModule.properties.getProperty("commonname.cache.size", "10000").toInt
+  val spatialCacheSize = configModule.properties.getProperty("spatial.cache.size", "10000").toInt
+  val attributionCacheSize = configModule.properties.getProperty("attribution.cache.size", "10000").toInt
+  val sensitivityCacheSize = configModule.properties.getProperty("sensitivity.cache.size", "10000").toInt
+  val locationCacheSize = configModule.properties.getProperty("location.cache.size", "10000").toInt
+  val jmxDebugEnabled = configModule.properties.getProperty("jmx.debug.enabled", "true").toBoolean
+
+
 
   /** To index or only store, by default, all new misc fields */
   val solrIndexMisc: Boolean = configModule.properties.getProperty("solr.index.misc", "false").toBoolean

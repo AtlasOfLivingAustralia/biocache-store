@@ -119,6 +119,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                                 .setConnectionManager(connectionPoolManager)
                                 .setUserAgent(Config.userAgent)
                                 .useSystemProperties().build()
+
         if (!solrHome.startsWith("http://")) {
           if (solrHome.contains(":")) {
             //assume that it represents a SolrCloud using ZooKeeper
@@ -183,6 +184,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     } while (values != null && !values.isEmpty)
   }
+
+
 
   def streamIndex(proc: java.util.Map[String, AnyRef] => Boolean, fieldsToRetrieve: Array[String], query: String, filterQueries: Array[String], sortFields: Array[String], multivaluedFields: Option[Array[String]] = None) {
 

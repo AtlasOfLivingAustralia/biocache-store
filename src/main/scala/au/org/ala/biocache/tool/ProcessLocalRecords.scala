@@ -1,13 +1,14 @@
 package au.org.ala.biocache.tool
 
 import java.io.File
-import java.util.Date
+import java.util.concurrent.atomic.AtomicLong
 
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.caches._
 import au.org.ala.biocache.cmd.Tool
-import au.org.ala.biocache.model.Versions
+import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
 import au.org.ala.biocache.processor.RecordProcessor
-import au.org.ala.biocache.util.{OptionParser, ZookeeperUtil}
+import au.org.ala.biocache.util.{JMX, OptionParser}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -81,7 +82,6 @@ class ProcessLocalRecords {
     */
   def processTaxaOnly(threads: Int, taxaFilePath: String, startTokenRangeIdx: Int, checkpointFile: String): Unit = {
 
-    ZookeeperUtil.setStatus("PROCESSING", "STARTING", 0)
     //read the taxa file
     val taxaIDList = Source.fromFile(new File(taxaFilePath)).getLines().toSet[String]
     logger.info("Number of taxa to process " + taxaIDList.size)
@@ -108,7 +108,6 @@ class ProcessLocalRecords {
       count += 1
       if (count % 100000 == 0) {
         logger.info(s"Total read : $count, total matched: $matchedCount, last matched $lastMatched")
-        ZookeeperUtil.setStatus("PROCESSING", "RUNNING", count)
       }
 
       true
@@ -119,7 +118,6 @@ class ProcessLocalRecords {
 
     //Move checkpoint file if complete
     new File(checkpointFile).renameTo(new File(checkpointFile + ".complete"))
-    ZookeeperUtil.setStatus("PROCESSING", "COMPLETE", count)
     logger.info("Finished reprocessing. Total matched and reprocessed: " + count)
   }
 
@@ -132,8 +130,8 @@ class ProcessLocalRecords {
 
     //note this update count isn't thread safe, so its inaccurate
     //its been left in to give a general idea of performance
-    var updateCount = 0
-    var readCount = 0
+    var updateCount = new AtomicLong(0)
+    var readCount = new AtomicLong(0)
 
     setCheckpoints(startTokenRangeIdx, checkpointFile)
 
@@ -141,25 +139,49 @@ class ProcessLocalRecords {
       logger.info("Using a full scan...")
       Config.occurrenceDAO.pageOverRawProcessedLocal(record => {
         if (!record.isEmpty) {
-          val raw = record.get._1
-          val processed = record.get._2
+          val (raw, processed) = record.get
           val uuid = raw.rowKey
-          readCount += 1
+          readCount.incrementAndGet()
 
           if ((drs.isEmpty || drs.contains(raw.attribution.dataResourceUid)) &&
             !skipDrs.contains(raw.attribution.dataResourceUid)) {
-            processor.processRecord(raw, processed, false, true)
-            updateCount += 1
+            try {
+              processor.processRecord(raw, processed, false, true)
+            } catch {
+              case e:Exception => logger.error("Problem processing record with UUID:"  + uuid, e)
+            }
+            updateCount.incrementAndGet()
           }
 
-          if (updateCount % 10000 == 0) {
-
+          if (updateCount.intValue() % 10000 == 0) {
             val end = System.currentTimeMillis()
             val timeInSecs = ((end - lastLog).toFloat / 1000f)
             val recordsPerSec = Math.round(10000f / timeInSecs)
-            logger.info(s"Total processed : $updateCount, total read: $readCount Last rowkey: $uuid  Last 1000 in $timeInSecs seconds ($recordsPerSec records a second)")
+            logger.info(s"Record/sec:$recordsPerSec,  updated:$updateCount, read:$readCount,  Last rowkey: $uuid  Last 1000 in $timeInSecs")
             lastLog = end
-            ZookeeperUtil.setStatus("PROCESSING", "RUNNING", updateCount)
+
+            if(Config.jmxDebugEnabled){
+              JMX.updateProcessingStats(
+                recordsPerSec,
+                timeInSecs,
+                updateCount.intValue(),
+                readCount.intValue()
+              )
+
+              val processorTimings = processor.getProcessTimings.toMap
+              JMX.updateProcessingCacheStatistics(
+                ClassificationDAO.getCacheSize,
+                LocationDAO.getCacheSize,
+                LocationDAO.getStoredPointCacheSize,
+                AttributionDAO.getCacheSize,
+                SpatialLayerDAO.getCacheSize,
+                TaxonProfileDAO.getCacheSize,
+                SensitivityDAO.getCacheSize,
+                CommonNameDAO.getCacheSize,
+                Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].getCacheSize,
+                processorTimings
+              )
+            }
           }
         }
         true
@@ -169,7 +191,6 @@ class ProcessLocalRecords {
     //Move checkpoint file if complete
     new File(checkpointFile).renameTo(new File(checkpointFile + ".complete"))
 
-    ZookeeperUtil.setStatus("PROCESSING", "COMPLETED", total)
     val end = System.currentTimeMillis()
     val timeInMinutes = ((end - start).toFloat / 100f / 60f / 60f)
     val timeInSecs = ((end - start).toFloat / 1000f)

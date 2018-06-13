@@ -40,7 +40,7 @@ object CollectorNameParser {
 
   def parseForList(stringValue: String): Option[List[String]] = {
 
-    stringValue match {
+    val result = stringValue match {
       case AND_NAME_LISTPattern(initials1, firstName, secondName, initials2, thirdName, forthName) => {
         if (StringUtils.isEmpty(secondName)) {
           if (StringUtils.isEmpty(forthName) && StringUtils.isEmpty(initials1)) {
@@ -71,15 +71,14 @@ object CollectorNameParser {
         //check to see if it contains a "collector" delimitter
         var list = COLLECTOR_DELIM.split(stringValue).toList
         if (list.size > 1) {
-          list = list.map(value => {
-
+          list = list.map { value =>
             val name = parse(value.trim)
             //println(value.trim + " : " + name)
             if (name.isDefined)
               name.get
             else
               null
-          })
+          }
         } else {
           val res = parse(stringValue)
           if (res.isDefined){
@@ -107,6 +106,16 @@ object CollectorNameParser {
       }
     }
 
+    if(!result.isEmpty){
+      val sanitised = result.get.filter { elem => elem != null && StringUtils.isNotBlank(elem) && elem.toLowerCase().trim() != "null"}
+      if(sanitised.isEmpty){
+        None
+      } else {
+        Some(sanitised)
+      }
+    } else {
+      None
+    }
   }
 
   def parse(stringValue: String): Option[String] = {

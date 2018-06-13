@@ -199,7 +199,11 @@ class ClassificationProcessor extends Processor {
             if (taxonHints != null && !taxonHints.isEmpty) {
               val (isValid, comment) = isMatchValid(classification, attribution.get.retrieveParseHints)
               if (!isValid) {
-                logger.info(s"Conflict in matched classification. Matched: $guid, Matched: $comment, Taxonomic hints in use: $taxonHints.toList")
+                if (logger.isDebugEnabled){
+                  val taxonHintDebug = taxonHints.mkString(",")
+                  val dataResourceUid = raw.attribution.dataResourceUid
+                  logger.debug(s"Conflict in matched classification. [$dataResourceUid] GUID: $guid, Matched: $comment, Taxonomic hints in use: $taxonHintDebug")
+                }
                 hintsPassed = false
                 processed.classification.nameMatchMetric = "matchFailedHint"
                 assertions += QualityAssertion(RESOURCE_TAXONOMIC_SCOPE_MISMATCH, comment)
@@ -264,24 +268,30 @@ class ClassificationProcessor extends Processor {
           }
 
         } else if (nameMetrics.getErrors.contains(au.org.ala.names.model.ErrorType.HOMONYM)) {
-          logger.debug("[QualityAssertion] A homonym was detected (with  no higher level match), classification for Kingdom: " +
-            raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
-            ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
+          if(logger.isDebugEnabled){
+            logger.debug("[QualityAssertion] A homonym was detected (with  no higher level match), classification for Kingdom: " +
+              raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
+              ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
+          }
           processed.classification.nameMatchMetric = "noMatch"
           setMatchStats(nameMetrics, processed, assertions)
           assertions += QualityAssertion(HOMONYM_ISSUE, "A homonym was detected in supplied classification.")
         } else {
-          logger.debug("[QualityAssertion] No match for record, classification for Kingdom: " +
-            raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
-            ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
+          if(logger.isDebugEnabled) {
+            logger.debug("[QualityAssertion] No match for record, classification for Kingdom: " +
+              raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
+              ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
+          }
           processed.classification.nameMatchMetric = "noMatch"
           setMatchStats(nameMetrics, processed, assertions)
           assertions += QualityAssertion(NAME_NOTRECOGNISED, "Name not recognised")
         }
       } else {
-        logger.debug("[QualityAssertion] No match for record, classification for Kingdom: " +
-          raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
-          ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
+        if(logger.isDebugEnabled) {
+          logger.debug("[QualityAssertion] No match for record, classification for Kingdom: " +
+            raw.classification.kingdom + ", Family:" + raw.classification.family + ", Genus:" + raw.classification.genus +
+            ", Species: " + raw.classification.species + ", Epithet: " + raw.classification.specificEpithet)
+        }
         processed.classification.nameMatchMetric = "noMatch"
         assertions += QualityAssertion(NAME_NOTRECOGNISED, "Name not recognised")
       }
