@@ -242,8 +242,7 @@ class Cassandra3PersistenceManager  @Inject() (
         val boundStatement = stmt bind rowkey
         val rs = session.execute(boundStatement)
         val rows = rs.iterator
-        var result = List[Map[String,String]]()
-        
+
         if (rows.hasNext()) {
           val list = new ListBuffer[Map[String,String]]
 
@@ -256,12 +255,12 @@ class Cassandra3PersistenceManager  @Inject() (
                 map.put(defin.getName, value)
               }
             }
-            list.insert(0, map.toMap)
+            list.add(map.toMap)
           }
-          result = list.toList
+          return list.toList
+        } else {
+          return List()
         }
-        return result
-
       } catch {
         case timeout: com.datastax.driver.core.exceptions.OperationTimedOutException => {
           logger.error("OperationTimedOutException during Get. Sleeping....")
