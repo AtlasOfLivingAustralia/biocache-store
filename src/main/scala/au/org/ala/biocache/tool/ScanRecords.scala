@@ -184,7 +184,7 @@ class ScanRecords {
           }
         }
         true
-      }, threads, Array[String]("rowkey", "dateDeleted", aggregateField))
+      }, threads, Array[String]())
     } else {
       Config.persistenceManager.pageOverSelect("occ", (key, map) => {
         synchronized {
@@ -213,7 +213,7 @@ class ScanRecords {
           }
         }
         true
-      }, 1000, threads, "rowkey", "dateDeleted", aggregateField)
+      }, 1000, threads)
     }
 
     val end = System.currentTimeMillis()
