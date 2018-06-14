@@ -26,46 +26,46 @@ object DwCACreator extends Tool {
 
   val defaultFields = List(
     "rowkey",
-    "dataresourceuid",
-    "catalognumber",
-    "collectioncode",
-    "institutioncode",
-    "scientificname_p",
-    "recordedby",
-    "taxonconceptid_p",
-    "taxonrank_p",
+    "dataResourceUid",
+    "catalogNumber",
+    "collectionCode",
+    "institutionCode",
+    "scientificName_p",
+    "recordedBy",
+    "taxonConceptID_p",
+    "taxonRank_p",
     "kingdom_p",
     "phylum_p",
     "classs_p",
     "order_p",
     "family_p",
     "genus_p",
-    "decimallatitude_p",
-    "decimallongitude_p",
-    "coordinateuncertaintyinmeters_p",
-    "maximumelevationinmeters",
-    "minimumelevationinmeters",
-    "minimumdepthinmeters",
-    "maximumdepthinmeters",
-    "geodeticdatum_p",
+    "decimalLatitude_p",
+    "decimalLongitude_p",
+    "coordinateUncertaintyInMeters_p",
+    "maximumElevationInMeters",
+    "minimumElevationInMeters",
+    "minimumDepthInMeters",
+    "maximumDepthInMeters",
+    "geodeticDatum_p",
     "country_p",
-    "stateprovince_p",
+    "stateProvince_p",
     "locality",
-    "occurrencestatus_p",
+    "occurrenceStatus_p",
     "year_p",
     "month_p",
     "day_p",
-    "eventdate_p",
-    "eventdateend_p",
-    "basisofrecord_p",
-    "identifiedby",
-    "occurrenceremarks",
-    "locationremarks",
-    "recordnumber",
-    "vernacularname_p",
-    "individualcount",
-    "eventid",
-    "datageneralizations_p"
+    "eventDate_p",
+    "eventDateEnd_p",
+    "basisOfRecord_p",
+    "identifiedBy",
+    "occurrenceRemarks",
+    "locationRemarks",
+    "recordNumber",
+    "vernacularName_p",
+    "individualCount",
+    "eventID",
+    "dataGeneralizations_p"
   )
 
   def main(args: Array[String]): Unit = {
@@ -87,14 +87,14 @@ object DwCACreator extends Tool {
         val dataResource2OutputStreams = getDataResourceUids.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
         Config.persistenceManager.pageOverSelect("occ", (key, map) => {
           synchronized {
-            val dr = map.getOrElse("dataresourceuid", "")
+            val dr = map.getOrElse("dataResourceUid", "")
             if (dr != "") {
               val (zop, csv) = dataResource2OutputStreams.get(dr).get.get
               synchronized {
 
                 val eventDate = {
-                  val eventDate = map.getOrElse("eventdate_p", "")
-                  val eventDateEnd = map.getOrElse("eventdateend_p", "")
+                  val eventDate = map.getOrElse("eventDate_p", "")
+                  val eventDateEnd = map.getOrElse("eventDateEnd_p", "")
                   if(eventDateEnd != "" && eventDate != "" && eventDate != eventDateEnd){
                     eventDate + "/" + eventDateEnd
                   } else {
@@ -103,44 +103,44 @@ object DwCACreator extends Tool {
                 }
                 csv.writeNext(Array(
                   cleanValue(map.getOrElse("rowkey", "")),
-                  cleanValue(map.getOrElse("catalognumber",  "")),
-                  cleanValue(map.getOrElse("collectioncode", "")),
-                  cleanValue(map.getOrElse("institutioncode", "")),
-                  cleanValue(map.getOrElse("recordnumber", "")),
-                  cleanValue(map.getOrElse("basisofrecord_p", "")),
-                  cleanValue(map.getOrElse("recordedby", "")),
-                  cleanValue(map.getOrElse("occurrencestatus_p", "")),
-                  cleanValue(map.getOrElse("individualcount", "")),
-                  cleanValue(map.getOrElse("scientificname_p", "")),
-                  cleanValue(map.getOrElse("taxonconceptid_p", "")),
-                  cleanValue(map.getOrElse("taxonrank_p", "")),
+                  cleanValue(map.getOrElse("catalogNumber",  "")),
+                  cleanValue(map.getOrElse("collectionCode", "")),
+                  cleanValue(map.getOrElse("institutionCode", "")),
+                  cleanValue(map.getOrElse("recordNumber", "")),
+                  cleanValue(map.getOrElse("basisOfRecord_p", "")),
+                  cleanValue(map.getOrElse("recordedBy", "")),
+                  cleanValue(map.getOrElse("occurrenceStatus_p", "")),
+                  cleanValue(map.getOrElse("individualCount", "")),
+                  cleanValue(map.getOrElse("scientificName_p", "")),
+                  cleanValue(map.getOrElse("taxonConceptID_p", "")),
+                  cleanValue(map.getOrElse("taxonRank_p", "")),
                   cleanValue(map.getOrElse("kingdom_p", "")),
                   cleanValue(map.getOrElse("phylum_p", "")),
                   cleanValue(map.getOrElse("classs_p", "")),
                   cleanValue(map.getOrElse("order_p", "")),
                   cleanValue(map.getOrElse("family_p", "")),
                   cleanValue(map.getOrElse("genus_p", "")),
-                  cleanValue(map.getOrElse("vernacularname_p", "")),
-                  cleanValue(map.getOrElse("decimallatitude_p", "")),
-                  cleanValue(map.getOrElse("decimallongitude_p", "")),
-                  cleanValue(map.getOrElse("geodeticdatum_p", "")),
-                  cleanValue(map.getOrElse("coordinateuncertaintyinmeters_p", "")),
-                  cleanValue(map.getOrElse("maximumelevationinmeters", "")),
-                  cleanValue(map.getOrElse("minimumelevationinmeters", "")),
-                  cleanValue(map.getOrElse("minimumdepthinmeters", "")),
-                  cleanValue(map.getOrElse("maximumdepthinmeters", "")),
+                  cleanValue(map.getOrElse("vernacularName_p", "")),
+                  cleanValue(map.getOrElse("decimalLatitude_p", "")),
+                  cleanValue(map.getOrElse("decimalLongitude_p", "")),
+                  cleanValue(map.getOrElse("geodeticDatum_p", "")),
+                  cleanValue(map.getOrElse("coordinateUncertaintyInMeters_p", "")),
+                  cleanValue(map.getOrElse("maximumElevationInMeters", "")),
+                  cleanValue(map.getOrElse("minimumElevationInmeters", "")),
+                  cleanValue(map.getOrElse("minimumDepthInMeters", "")),
+                  cleanValue(map.getOrElse("maximumDepthInMeters", "")),
                   cleanValue(map.getOrElse("country_p", "")),
-                  cleanValue(map.getOrElse("stateprovince_p", "")),
+                  cleanValue(map.getOrElse("stateProvince_p", "")),
                   cleanValue(map.getOrElse("locality", "")),
                   cleanValue(map.getOrElse("locationRemarks", "")),
                   cleanValue(map.getOrElse("year_p", "")),
                   cleanValue(map.getOrElse("month_p", "")),
                   cleanValue(map.getOrElse("day_p", "")),
                   cleanValue(eventDate),
-                  cleanValue(map.getOrElse("eventid", "")),
-                  cleanValue(map.getOrElse("identifiedby", "")),
-                  cleanValue(map.getOrElse("occurrenceremarks", "")),
-                  cleanValue(map.getOrElse("datageneralizations_p", ""))
+                  cleanValue(map.getOrElse("eventID", "")),
+                  cleanValue(map.getOrElse("identifiedBy", "")),
+                  cleanValue(map.getOrElse("occurrenceRemarks", "")),
+                  cleanValue(map.getOrElse("dataGeneralizations_p", ""))
                 ))
                 csv.flush()
               }
@@ -166,7 +166,7 @@ object DwCACreator extends Tool {
   val dataResourcePattern = "(?:[\"]*)?(?:[a-z_]*_uid:\")([a-z0-9]*)(?:[\"]*)?".r
 
   def getDataResourceUids : Seq[String] = {
-    val url = Config.biocacheServiceUrl + "/occurrences/search?q=*:*&facets=data_resource_uid&pageSize=0&flimit=10000"
+    val url = Config.biocacheServiceUrl + "/occurrences/search?q=*:*&facets=data_resource_uid&pageSize=0&flimit=-1"
     val jsonString = Source.fromURL(url).getLines.mkString
     val json = JSON.parseFull(jsonString).get.asInstanceOf[Map[String, String]]
     val results = json.get("facetResults").get.asInstanceOf[List[Map[String, String]]].head.get("fieldResult").get.asInstanceOf[List[Map[String, String]]]
