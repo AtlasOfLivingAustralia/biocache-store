@@ -72,6 +72,7 @@ object DwCACreator extends Tool {
 
     var resourceUid = ""
     var directory = ""
+    var threads = 4
 
     val parser = new OptionParser(help) {
       arg("data-resource-uid", "The UID of the data resource to load or 'all' to generate for all",
@@ -80,7 +81,9 @@ object DwCACreator extends Tool {
       arg("directory-to-dump", "skip the download and use local file",
         { v:String => directory = v }
       )
+      intOpt("t", "thread", "The number of threads to use", { v: Int => threads = v })
     }
+
     if(parser.parse(args)){
       val dwcc = new DwCACreator
       try {
@@ -88,66 +91,69 @@ object DwCACreator extends Tool {
         Config.persistenceManager.pageOverSelect("occ", (key, map) => {
           synchronized {
             val dr = map.getOrElse("dataResourceUid", "")
-            if (dr != "") {
-              val (zop, csv) = dataResource2OutputStreams.get(dr).get.get
-              synchronized {
-
-                val eventDate = {
-                  val eventDate = map.getOrElse("eventDate_p", "")
-                  val eventDateEnd = map.getOrElse("eventDateEnd_p", "")
-                  if(eventDateEnd != "" && eventDate != "" && eventDate != eventDateEnd){
-                    eventDate + "/" + eventDateEnd
-                  } else {
-                    eventDate
+            val deletedDate = map.getOrElse("deletedDate", "")
+            if (dr != "" && deletedDate =="") {
+              val dataResourceMap = dataResource2OutputStreams.get(dr)
+              if(!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty){
+                val (zop, csv) = dataResourceMap.get.get
+                synchronized {
+                  val eventDate = {
+                    val eventDate = map.getOrElse("eventDate_p", "")
+                    val eventDateEnd = map.getOrElse("eventDateEnd_p", "")
+                    if(eventDateEnd != "" && eventDate != "" && eventDate != eventDateEnd){
+                      eventDate + "/" + eventDateEnd
+                    } else {
+                      eventDate
+                    }
                   }
+                  csv.writeNext(Array(
+                    cleanValue(map.getOrElse("rowkey", "")),
+                    cleanValue(map.getOrElse("catalogNumber",  "")),
+                    cleanValue(map.getOrElse("collectionCode", "")),
+                    cleanValue(map.getOrElse("institutionCode", "")),
+                    cleanValue(map.getOrElse("recordNumber", "")),
+                    cleanValue(map.getOrElse("basisOfRecord_p", "")),
+                    cleanValue(map.getOrElse("recordedBy", "")),
+                    cleanValue(map.getOrElse("occurrenceStatus_p", "")),
+                    cleanValue(map.getOrElse("individualCount", "")),
+                    cleanValue(map.getOrElse("scientificName_p", "")),
+                    cleanValue(map.getOrElse("taxonConceptID_p", "")),
+                    cleanValue(map.getOrElse("taxonRank_p", "")),
+                    cleanValue(map.getOrElse("kingdom_p", "")),
+                    cleanValue(map.getOrElse("phylum_p", "")),
+                    cleanValue(map.getOrElse("classs_p", "")),
+                    cleanValue(map.getOrElse("order_p", "")),
+                    cleanValue(map.getOrElse("family_p", "")),
+                    cleanValue(map.getOrElse("genus_p", "")),
+                    cleanValue(map.getOrElse("vernacularName_p", "")),
+                    cleanValue(map.getOrElse("decimalLatitude_p", "")),
+                    cleanValue(map.getOrElse("decimalLongitude_p", "")),
+                    cleanValue(map.getOrElse("geodeticDatum_p", "")),
+                    cleanValue(map.getOrElse("coordinateUncertaintyInMeters_p", "")),
+                    cleanValue(map.getOrElse("maximumElevationInMeters", "")),
+                    cleanValue(map.getOrElse("minimumElevationInmeters", "")),
+                    cleanValue(map.getOrElse("minimumDepthInMeters", "")),
+                    cleanValue(map.getOrElse("maximumDepthInMeters", "")),
+                    cleanValue(map.getOrElse("country_p", "")),
+                    cleanValue(map.getOrElse("stateProvince_p", "")),
+                    cleanValue(map.getOrElse("locality", "")),
+                    cleanValue(map.getOrElse("locationRemarks", "")),
+                    cleanValue(map.getOrElse("year_p", "")),
+                    cleanValue(map.getOrElse("month_p", "")),
+                    cleanValue(map.getOrElse("day_p", "")),
+                    cleanValue(eventDate),
+                    cleanValue(map.getOrElse("eventID", "")),
+                    cleanValue(map.getOrElse("identifiedBy", "")),
+                    cleanValue(map.getOrElse("occurrenceRemarks", "")),
+                    cleanValue(map.getOrElse("dataGeneralizations_p", ""))
+                  ))
+                  csv.flush()
                 }
-                csv.writeNext(Array(
-                  cleanValue(map.getOrElse("rowkey", "")),
-                  cleanValue(map.getOrElse("catalogNumber",  "")),
-                  cleanValue(map.getOrElse("collectionCode", "")),
-                  cleanValue(map.getOrElse("institutionCode", "")),
-                  cleanValue(map.getOrElse("recordNumber", "")),
-                  cleanValue(map.getOrElse("basisOfRecord_p", "")),
-                  cleanValue(map.getOrElse("recordedBy", "")),
-                  cleanValue(map.getOrElse("occurrenceStatus_p", "")),
-                  cleanValue(map.getOrElse("individualCount", "")),
-                  cleanValue(map.getOrElse("scientificName_p", "")),
-                  cleanValue(map.getOrElse("taxonConceptID_p", "")),
-                  cleanValue(map.getOrElse("taxonRank_p", "")),
-                  cleanValue(map.getOrElse("kingdom_p", "")),
-                  cleanValue(map.getOrElse("phylum_p", "")),
-                  cleanValue(map.getOrElse("classs_p", "")),
-                  cleanValue(map.getOrElse("order_p", "")),
-                  cleanValue(map.getOrElse("family_p", "")),
-                  cleanValue(map.getOrElse("genus_p", "")),
-                  cleanValue(map.getOrElse("vernacularName_p", "")),
-                  cleanValue(map.getOrElse("decimalLatitude_p", "")),
-                  cleanValue(map.getOrElse("decimalLongitude_p", "")),
-                  cleanValue(map.getOrElse("geodeticDatum_p", "")),
-                  cleanValue(map.getOrElse("coordinateUncertaintyInMeters_p", "")),
-                  cleanValue(map.getOrElse("maximumElevationInMeters", "")),
-                  cleanValue(map.getOrElse("minimumElevationInmeters", "")),
-                  cleanValue(map.getOrElse("minimumDepthInMeters", "")),
-                  cleanValue(map.getOrElse("maximumDepthInMeters", "")),
-                  cleanValue(map.getOrElse("country_p", "")),
-                  cleanValue(map.getOrElse("stateProvince_p", "")),
-                  cleanValue(map.getOrElse("locality", "")),
-                  cleanValue(map.getOrElse("locationRemarks", "")),
-                  cleanValue(map.getOrElse("year_p", "")),
-                  cleanValue(map.getOrElse("month_p", "")),
-                  cleanValue(map.getOrElse("day_p", "")),
-                  cleanValue(eventDate),
-                  cleanValue(map.getOrElse("eventID", "")),
-                  cleanValue(map.getOrElse("identifiedBy", "")),
-                  cleanValue(map.getOrElse("occurrenceRemarks", "")),
-                  cleanValue(map.getOrElse("dataGeneralizations_p", ""))
-                ))
-                csv.flush()
               }
             }
           }
           true
-        }, 4, 1000, defaultFields:_*)
+        }, threads, 1000, defaultFields:_*)
 
         dataResource2OutputStreams.values.foreach { zopAndCsv =>
           zopAndCsv.get._1.flush()
@@ -155,7 +161,10 @@ object DwCACreator extends Tool {
           zopAndCsv.get._1.close()
         }
       } catch {
-        case e:Exception => logger.error(e.getMessage(), e)
+        case e:Exception => {
+          logger.error(e.getMessage(), e)
+          throw new RuntimeException(e)
+        }
       }
     }
   }
