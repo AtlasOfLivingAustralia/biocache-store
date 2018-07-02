@@ -39,16 +39,23 @@ class SensitivityProcessor extends Processor {
 
     // if SDS disabled, do nothing
     if (!Config.sdsEnabled) {
+      logger.debug("[SDS Debug] SDS disabled")
       return Array()
+    } else {
+      logger.debug("[SDS Debug] SDS enabled")
     }
 
     val exact = getExactSciName(raw)
 
     val isSensitive = SensitivityDAO.isSensitive(exact, processed.classification.taxonConceptID)
+    logger.debug("[SDS Debug] Name is associated with sensitive species: " + exact)
 
     //is the name recognised as sensitive?
     if (!isSensitive) {
+      logger.debug("[SDS Debug] Name is NOT associated with sensitive species: " + exact)
       return Array()
+    } else {
+      logger.debug("[SDS Debug] Name is associated with sensitive species: " + exact)
     }
 
     //needs to be performed for all records whether or not they are in Australia
@@ -70,6 +77,18 @@ class SensitivityProcessor extends Processor {
       rawMap.put("decimalLongitude", processed.location.decimalLongitude)
       rawMap.put("coordinatePrecision", processed.location.coordinatePrecision)
       rawMap.put("coordinateUncertaintyInMeters", processed.location.coordinateUncertaintyInMeters)
+    }
+
+    //does the object have some original sensitive values
+    //these should override the processed versions
+    if(raw.occurrence.originalSensitiveValues != null){
+      //update the raw object.....
+      raw.occurrence.originalSensitiveValues.foreach {
+        case (key, value) => {
+          raw.setProperty(key, value)
+          rawMap.put(key, value)
+        }
+      }
     }
 
     if (processed.location.hasCoordinates) {
@@ -94,6 +113,10 @@ class SensitivityProcessor extends Processor {
       } else {
         rawMap.put("stateProvince", intersectStateProvince)
       }
+
+      logger.debug("Intersections: " + rawMap.toMap.mkString(";"))
+    } else {
+      logger.debug("No coordinates - no intersections")
     }
 
     //this flag stops on the fly sampling being performed by SDS
@@ -108,7 +131,7 @@ class SensitivityProcessor extends Processor {
       rawMap("year") = processed.event.year
 
     if (logger.isDebugEnabled()) {
-      logger.debug("Testing with the following properties: " + rawMap + ", and ID" + processed.classification.taxonConceptID)
+      logger.debug("Testing with the following properties: " + rawMap + ", and Taxon Concept ID :" + processed.classification.taxonConceptID)
     }
 
     //SDS check - now get the ValidationOutcome from the Sensitive Data Service
@@ -126,7 +149,7 @@ class SensitivityProcessor extends Processor {
         val map: scala.collection.mutable.Map[String, Object] = outcome.getResult
 
         //convert it to a string string map
-        val stringMap = map.collect {
+        val rawPropertiesToUpdate = map.collect {
           case (key, value) if value != null => if (key == "originalSensitiveValues") {
             val osv = value.asInstanceOf[java.util.HashMap[String, String]]
             // add the original "processed" coordinate uncertainty to the sensitive values so that it
@@ -150,8 +173,8 @@ class SensitivityProcessor extends Processor {
         }
 
         //take away the values that need to be added to the processed record NOT the raw record
-        val uncertainty = stringMap.get("generalisationInMetres")
-        val generalisationToApplyInMetres = stringMap.get("generalisationToApplyInMetres")
+        val uncertainty = rawPropertiesToUpdate.get("generalisationInMetres")
+        val generalisationToApplyInMetres = rawPropertiesToUpdate.get("generalisationToApplyInMetres")
         if (!uncertainty.isEmpty) {
           //we know that we have sensitised, add the uncertainty to the currently processed uncertainty
           if (StringUtils.isNotEmpty(uncertainty.get.toString)) {
@@ -166,12 +189,12 @@ class SensitivityProcessor extends Processor {
             processed.location.coordinateUncertaintyInMeters = newUncertainty.toString
 
           }
-          processed.location.decimalLatitude = stringMap.getOrElse("decimalLatitude", "")
-          processed.location.decimalLongitude = stringMap.getOrElse("decimalLongitude", "")
+          processed.location.decimalLatitude = rawPropertiesToUpdate.getOrElse("decimalLatitude", "")
+          processed.location.decimalLongitude = rawPropertiesToUpdate.getOrElse("decimalLongitude", "")
           processed.location.northing = ""
           processed.location.easting = ""
           processed.location.bbox = ""
-          stringMap -= "generalisationInMetres"
+          rawPropertiesToUpdate -= "generalisationInMetres"
         }
 
         //remove other GIS references
@@ -180,25 +203,25 @@ class SensitivityProcessor extends Processor {
           if (generalisationToApplyInMetres.isDefined) {
             //reduce the quality of the grid reference
             if (generalisationToApplyInMetres.get == null || generalisationToApplyInMetres.get == "") {
-              stringMap.put("gridReference", "")
+              rawPropertiesToUpdate.put("gridReference", "")
             } else {
               processed.location.coordinateUncertaintyInMeters = generalisationToApplyInMetres.get
               val generalisedRef = GridUtil.convertReferenceToResolution(raw.location.gridReference, generalisationToApplyInMetres.get)
               if (generalisedRef.isDefined) {
-                stringMap.put("gridReference", generalisedRef.get)
+                rawPropertiesToUpdate.put("gridReference", generalisedRef.get)
               } else {
-                stringMap.put("gridReference", "")
+                rawPropertiesToUpdate.put("gridReference", "")
               }
             }
           } else {
-            stringMap.put("gridReference", "")
+            rawPropertiesToUpdate.put("gridReference", "")
           }
         }
 
-        processed.occurrence.informationWithheld = stringMap.getOrElse("informationWithheld", "")
-        processed.occurrence.dataGeneralizations = stringMap.getOrElse("dataGeneralizations", "")
-        stringMap -= "informationWithheld"
-        stringMap -= "dataGeneralizations"
+        processed.occurrence.informationWithheld = rawPropertiesToUpdate.getOrElse("informationWithheld", "")
+        processed.occurrence.dataGeneralizations = rawPropertiesToUpdate.getOrElse("dataGeneralizations", "")
+        rawPropertiesToUpdate -= "informationWithheld"
+        rawPropertiesToUpdate -= "dataGeneralizations"
 
         //remove the day from the values if present
         raw.event.day = ""
@@ -213,14 +236,18 @@ class SensitivityProcessor extends Processor {
         }
 
         //remove this field values
-        stringMap.put("easting", "")
-        stringMap.put("northing", "")
-        stringMap.put("eventDate", "")
-        stringMap.put("eventDateEnd", "")
+        rawPropertiesToUpdate.put("easting", "")
+        rawPropertiesToUpdate.put("northing", "")
+        rawPropertiesToUpdate.put("eventDate", "")
+        rawPropertiesToUpdate.put("eventDateEnd", "")
 
-        //update the raw record with whatever is left in the stringMap - change to use DAO method...
+        //update the object for downstream processing
+        rawPropertiesToUpdate.foreach { case (key, value) => raw.setProperty(key, value) }
+
+        //update the raw record, removing properties where necessary
         if (StringUtils.isNotBlank(raw.rowKey)) {
-          Config.persistenceManager.put(raw.rowKey, "occ", stringMap.toMap, false, false)
+          Config.persistenceManager.put(raw.rowKey, "occ", rawPropertiesToUpdate.toMap, false, false)
+
           try {
             if (StringUtils.isNotBlank(processed.location.decimalLatitude) &&
               StringUtils.isNotBlank(processed.location.decimalLongitude)) {

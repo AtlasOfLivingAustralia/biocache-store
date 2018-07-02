@@ -9,23 +9,24 @@ object SensitivityDAO {
   //This is being initialised here because it may take some time to load all the XML records...
   val sds = new SensitiveDataService()
 
-  val lruSensitiveLookups = CacheBuilder.newBuilder().maximumSize(Config.sensitivityCacheSize).build[String, String]()
+  val lruSensitiveLookups = CacheBuilder.newBuilder().maximumSize(Config.sensitivityCacheSize).build[String, java.lang.Boolean]()
 
   def isSensitive(exact:String, taxonConceptID:String) : Boolean = {
 
     val hashKey = exact + "|" + taxonConceptID
-    val isSensitiveString = lruSensitiveLookups.getIfPresent(hashKey)
-    val isSensitive = {
-      if (isSensitiveString == null) {
-        val isSensitive = sds.isTaxonSensitive(Config.sdsFinder, exact, taxonConceptID)
-        lruSensitiveLookups.put(hashKey, isSensitive.toString())
-        isSensitive
-      } else {
-        isSensitiveString.toBoolean
-      }
+    val isSensitiveCached = lruSensitiveLookups.getIfPresent(hashKey)
+    if (isSensitiveCached == null) {
+      val isSensitive = sds.isTaxonSensitive(Config.sdsFinder, exact, taxonConceptID)
+      addToCache(exact, taxonConceptID, isSensitive)
+      isSensitive
+    } else {
+      isSensitiveCached
     }
+  }
 
-    isSensitive
+  def addToCache(exact:String, taxonConceptID:String, isSensitive:Boolean): Unit ={
+    val hashKey = exact + "|" + taxonConceptID
+    lruSensitiveLookups.put(hashKey, isSensitive)
   }
 
   def getSDS = sds

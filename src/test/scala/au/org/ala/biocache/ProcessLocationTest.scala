@@ -100,51 +100,51 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 //    }
 //  }
 
-  test("Sensitive Species Generalise - Calyptorhynchus baudinii -31.92223, 116.5122") {
-    val raw = new FullRecord
-    val processed = new FullRecord
-    raw.classification.setScientificName("Calyptorhynchus (Zanda) baudinii")
-    processed.classification.setScientificName("Calyptorhynchus (Zanda) baudinii")
-    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:df97e45b-5286-4c2b-aadb-f9717659394d")
-    processed.classification.setTaxonRankID("7000")
-    raw.location.decimalLatitude = "-31.92223"
-    raw.location.decimalLongitude = "116.5122"
-    raw.location.stateProvince = "Western Australia"
-    raw.location.country = "Australia"
-    raw.location.locationRemarks = "test remarks"
-    raw.rowKey = "test"
-    raw.event.day = "21"
-    raw.event.month = "12"
-    raw.event.year = "2000"
-
-    (new EventProcessor).process("test", raw, processed)
-    (new LocationProcessor).process("test", raw, processed)
-    (new SensitivityProcessor).process("test", raw, processed)
-
-    expectResult("-31.9") {
-      processed.location.decimalLatitude
-    }
-    expectResult("116.5") {
-      processed.location.decimalLongitude
-    }
-    expectResult(true) {
-      processed.occurrence.dataGeneralizations != null && processed.occurrence.dataGeneralizations.length > 0
-    }
-    expectResult(true) {
-      processed.event.day.isEmpty
-    }
-    expectResult("12") {
-      processed.event.month
-    }
-    expectResult("2000") {
-      processed.event.year
-    }
-
-    val stringValues = Config.persistenceManager.get("test", "occ", "originalSensitiveValues")
-    expectResult(false) {
-      stringValues.isEmpty
-    }
-  }
+//  test("Sensitive Species Generalise - Calyptorhynchus baudinii -31.92223, 116.5122") {
+//    val raw = new FullRecord
+//    val processed = new FullRecord
+//    raw.classification.setScientificName("Calyptorhynchus (Zanda) baudinii")
+//    processed.classification.setScientificName("Calyptorhynchus (Zanda) baudinii")
+//    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:df97e45b-5286-4c2b-aadb-f9717659394d")
+//    processed.classification.setTaxonRankID("7000")
+//    raw.location.decimalLatitude = "-31.92223"
+//    raw.location.decimalLongitude = "116.5122"
+//    raw.location.stateProvince = "Western Australia"
+//    raw.location.country = "Australia"
+//    raw.location.locationRemarks = "test remarks"
+//    raw.rowKey = "test"
+//    raw.event.day = "21"
+//    raw.event.month = "12"
+//    raw.event.year = "2000"
+//
+//    (new EventProcessor).process("test", raw, processed)
+//    (new LocationProcessor).process("test", raw, processed)
+//    (new SensitivityProcessor).process("test", raw, processed)
+//
+//    expectResult("-31.9") {
+//      processed.location.decimalLatitude
+//    }
+//    expectResult("116.5") {
+//      processed.location.decimalLongitude
+//    }
+//    expectResult(true) {
+//      processed.occurrence.dataGeneralizations != null && processed.occurrence.dataGeneralizations.length > 0
+//    }
+//    expectResult(true) {
+//      processed.event.day.isEmpty
+//    }
+//    expectResult("12") {
+//      processed.event.month
+//    }
+//    expectResult("2000") {
+//      processed.event.year
+//    }
+//
+//    val stringValues = Config.persistenceManager.get("test", "occ", "originalSensitiveValues")
+//    expectResult(false) {
+//      stringValues.isEmpty
+//    }
+//  }
 
   test("State based sensitivity") {
     val raw = new FullRecord

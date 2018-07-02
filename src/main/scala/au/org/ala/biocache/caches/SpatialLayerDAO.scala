@@ -1,11 +1,12 @@
 package au.org.ala.biocache.caches
 
-import java.io.File
+import java.io.{File, FileInputStream}
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.util.StringHelper
 import au.org.ala.layers.intersect.SimpleShapeFile
+import org.apache.commons.io.IOUtils
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
@@ -18,6 +19,7 @@ import scala.util.parsing.json.JSON
 object SpatialLayerDAO {
 
   import StringHelper._
+  import scala.collection.JavaConversions._
 
   val logger = LoggerFactory.getLogger("SpatialLayerDAO")
 
@@ -61,12 +63,29 @@ object SpatialLayerDAO {
     //load SDS layer metadata
     if (Config.sdsEnabled) {
 
-      logger.info("Loaded layers required by SDS.....")
-      val sdsLayerListURL = Config.sdsUrl + "/ws/layers"
-      logger.info("Retrieving list from " + sdsLayerListURL)
+      if(StringUtils.isNotBlank(Config.sdsUrl) && Config.sdsUrl.startsWith("http")){
 
-      val sdsListJson = WebServiceLoader.getWSStringContent(sdsLayerListURL)
-      sdsLayerList = JSON.parseFull(sdsListJson).getOrElse(List[String]()).asInstanceOf[List[String]]
+        logger.info("Loaded layers required by SDS.....")
+        val sdsLayerListURL = Config.sdsUrl + "/ws/layers"
+        logger.info("Retrieving list from " + sdsLayerListURL)
+
+        val sdsListJson = WebServiceLoader.getWSStringContent(sdsLayerListURL)
+        sdsLayerList = JSON.parseFull(sdsListJson).getOrElse(List[String]()).asInstanceOf[List[String]]
+
+      } else {
+        //load from JSON file
+        val file = new java.io.File(Config.sdsUrl)
+
+        //only load the properties file if it exists otherwise default to the biocache-test-config.properties on the classpath
+        val stream = if(file.exists()) {
+          new FileInputStream(file)
+        } else {
+          this.getClass.getResourceAsStream(Config.sdsUrl)
+        }
+
+        val sdsListJson = IOUtils.readLines(stream, "UTF-8").mkString
+        sdsLayerList = JSON.parseFull(sdsListJson).getOrElse(List[String]()).asInstanceOf[List[String]]
+      }
 
       sdsLayerList.foreach { layerID =>
         //check each layer is available on the local filesystem

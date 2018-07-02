@@ -14,7 +14,7 @@
  */
 package au.org.ala.biocache.load
 
-import java.io.{FileOutputStream, File}
+import java.io.{File, FileOutputStream}
 import java.net.{URI, URL}
 import java.util
 
@@ -25,17 +25,19 @@ import org.apache.commons.io.FileUtils
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.client.utils.URLEncodedUtils
-import org.apache.http.entity.mime.content.{StringBody, FileBody}
+import org.apache.http.entity.mime.content.{FileBody, StringBody}
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntity}
 import org.apache.http.impl.client.DefaultHttpClient
 import org.gbif.dwc.terms.DcTerm
 import org.gbif.dwca.io.ArchiveFactory
+import org.junit.Ignore
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 
 import scala.collection.mutable
 import scala.io.Source
 
+@Ignore
 class TestMediaStore extends MediaStore {
   val media = mutable.Buffer.empty[String]
 

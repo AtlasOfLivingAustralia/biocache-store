@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sensitiveSpeciesList>
+    <sensitiveSpecies name="Hericium cirrhatum" family="Hericiaceae" guid="BMSSYS0000008012" rank="SPECIES" commonName="">
+        <instances>
+            <conservationInstance authority="Natural England" generalisation="10km" zone="England" />
+        </instances>
+    </sensitiveSpecies>
+    <sensitiveSpecies name="Lutra lutra" family="Mustelidae" guid="NBNSYS0000005133" rank="SPECIES" commonName="">
+        <instances>
+            <conservationInstance authority="Natural England" generalisation="10km" zone="Scotland" />
+        </instances>
+    </sensitiveSpecies>
+</sensitiveSpeciesList>
