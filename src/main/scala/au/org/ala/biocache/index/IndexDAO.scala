@@ -1617,13 +1617,13 @@ trait IndexDAO {
       if (StringUtils.isNotEmpty(osv)) {
         try {
           val parsed = JSON.parseFull(osv).get.asInstanceOf[Map[String, String]]
-
-          var v = String.valueOf(parsed.getOrElse("decimalLatitude", ""))
-          if ("null" != v) addField(doc, "sensitive_latitude", v)
-          v = String.valueOf(parsed.getOrElse("decimalLongitude", ""))
-          if ("null" != v) addField(doc, "sensitive_longitude", v)
+          addField(doc, "sensitive_latitude", String.valueOf(parsed.getOrElse("decimalLatitude", "")))
+          addField(doc, "sensitive_longitude", String.valueOf(parsed.getOrElse("decimalLongitude", "")))
           addField(doc, "sensitive_coordinate_uncertainty", String.valueOf(parsed.getOrElse("coordinateUncertaintyInMeters" + Config.persistenceManager.fieldDelimiter + "p", "")))
           addField(doc, "sensitive_locality", String.valueOf(parsed.getOrElse("locality", "")))
+          addField(doc, "sensitive_event_date", String.valueOf(parsed.getOrElse("eventDate", "")))
+          addField(doc, "sensitive_event_date_end", String.valueOf(parsed.getOrElse("eventDateEnd", "")))
+          addField(doc, "sensitive_grid_reference", String.valueOf(parsed.getOrElse("gridReference", "")))
         } catch {
           case _: Exception => Map[String, String]()
         }
@@ -1641,7 +1641,7 @@ trait IndexDAO {
   }
 
   def addField(doc: DocBuilder, field: String, value: Object) {
-    if (value != null) {
+    if (value != null && value != "null") {
       if (value.toString.length > 0) {
         doc.addField(field, value)
       }
