@@ -1198,6 +1198,9 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           }
         }
 
+        val datePrecision = getArrayValue(columnOrder.datePrecisionP, array)
+        doc.addField("date_precision", datePrecision)
+
         if (batchID != "") {
           doc.addField("batch_id_s", batchID)
         }
@@ -1770,6 +1773,7 @@ class ColumnOrder {
     this.uuid = columnDefinitions.getIndexOf("rowkey")
     this.leftP = columnDefinitions.getIndexOf("left" + Config.persistenceManager.fieldDelimiter + "p")
     this.rightP = columnDefinitions.getIndexOf("right" + Config.persistenceManager.fieldDelimiter + "p")
+    this.datePrecisionP = columnDefinitions.getIndexOf("datePrecision" + Config.persistenceManager.fieldDelimiter + "p")
 
     val isUsed: Array[Boolean] = new Array[Boolean](columnDefinitions.size())
     val columnNames: Array[String] = new Array[String](columnDefinitions.size())
@@ -1918,6 +1922,8 @@ class ColumnOrder {
 
   var qualityAssertionColumn: Int = -1
   var miscPropertiesColumn: Int = -1
+
+  var datePrecisionP: Int = -1
 
   var isUsed: Array[Boolean] = _
   var columnNames: Array[String] = _
