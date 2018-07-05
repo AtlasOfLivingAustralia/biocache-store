@@ -51,6 +51,7 @@ class Cassandra3PersistenceManager  @Inject() (
       }
     }
     builder.withReconnectionPolicy(new ExponentialReconnectionPolicy(10000, 60000))
+    builder.withRetryPolicy(new Cassandra3RetryPolicy(10))
     builder.withCodecRegistry(CodecRegistry.DEFAULT_INSTANCE.register(new TimestampAsStringCodec))
     builder.build()
   }
