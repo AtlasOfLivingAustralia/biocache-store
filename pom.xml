@@ -4,20 +4,20 @@
     <parent>
         <groupId>au.org.ala</groupId>
         <artifactId>ala-parent-pom</artifactId>
-        <version>9</version>
+        <version>10</version>
     </parent>
 
     <groupId>au.org.ala</groupId>
     <artifactId>biocache-store</artifactId>
-    <version>2.3.3</version>
-    <url>http://biocache.ala.org.au</url>
+    <version>2.3.4-SNAPSHOT</version>
+    <url>https://biocache.ala.org.au</url>
     <issueManagement>
         <system>GitHub</system>
         <url>https://github.com/AtlasOfLivingAustralia/biocache-store/issues</url>
     </issueManagement>
     <ciManagement>
         <system>Travis</system>
-        <url>http://travis-ci.org/AtlasOfLivingAustralia/biocache-store/</url>
+        <url>https://travis-ci.org/AtlasOfLivingAustralia/biocache-store/</url>
     </ciManagement>
     <inceptionYear>2011</inceptionYear>
     <name>biocache-store</name>
@@ -27,18 +27,15 @@
         <org.springframework.version>3.2.18.RELEASE</org.springframework.version>
         <solr.version>6.6.4</solr.version>
         <jts.version>1.13</jts.version>
-        <jackson.version>2.9.5</jackson.version>
+        <jackson.version>2.9.6</jackson.version>
         <gt.version>11.1</gt.version>
-        <cassandra.version>3.5.0</cassandra.version>
+        <cassandra.version>3.5.1</cassandra.version>
         <targetJdk>1.8</targetJdk>
         <animal-sniffer-signature.artifact>java18</animal-sniffer-signature.artifact>
         <animal-sniffer-signature.version>1.0</animal-sniffer-signature.version>
         <initialMemorySize>4g</initialMemorySize>
         <maxMemorySize>4g</maxMemorySize>
     </properties>
-    <prerequisites>
-        <maven>3.0.5</maven>
-    </prerequisites>
     <description>
         Scala implementation of biocache backend that uses Cassandra 3.x and SOLR Cloud 6.x
         This code base manages the loading, processing, sampling and indexing of occurrence records for the ALA.
@@ -653,82 +650,24 @@
             </exclusions>
         </dependency>
     </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <organization>
         <name>Atlas of Living Australia</name>
-        <url>http://www.ala.org.au</url>
+        <url>https://www.ala.org.au</url>
     </organization>
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
         <testSourceDirectory>src/test/scala</testSourceDirectory>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.5.1</version>
-                </plugin>
-                <plugin>
-                    <groupId>com.github.koraktor</groupId>
-                    <artifactId>mavanagaiata</artifactId>
-                    <version>0.7.2</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.scala-tools</groupId>
-                    <artifactId>maven-scala-plugin</artifactId>
-                    <version>2.15.2</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.0.2</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-release-plugin</artifactId>
-                    <version>2.5.3</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-dependency-plugin</artifactId>
-                    <version>2.10</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-assembly-plugin</artifactId>
-                    <version>2.6</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-clean-plugin</artifactId>
-                    <version>3.0.0</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-deploy-plugin</artifactId>
-                    <version>2.8.2</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-install-plugin</artifactId>
-                    <version>2.5.2</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.0.1</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>appassembler-maven-plugin</artifactId>
-                    <version>1.10</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>2.19.1</version>
-                </plugin>
-            </plugins>
-        </pluginManagement>
     </build>
     <reporting>
         <plugins>
@@ -742,7 +681,7 @@
         <repository>
             <id>osgeo</id>
             <name>Open Source Geospatial Foundation Repository</name>
-            <url>http://download.osgeo.org/webdav/geotools/</url>
+            <url>https://download.osgeo.org/webdav/geotools/</url>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
@@ -804,11 +743,9 @@
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-
                         <artifactId>maven-jar-plugin</artifactId>
                         <configuration>
                             <archive>
-
                                 <manifestEntries>
                                     <gitCommitID>${mavanagaiata.commit.id}</gitCommitID>
                                     <gitCommitAuthor>${mavanagaiata.commit.author.name}</gitCommitAuthor>
@@ -882,25 +819,6 @@
                                         </extraArguments>
                                     </jvmSettings>
                                 </program>
-                                <program>
-                                    <id>biocache-species-outliers</id>
-                                    <mainClass>au.org.ala.biocache.outliers.SpeciesOutlierTests</mainClass>
-                                    <jvmSettings>
-                                        <extraArguments>
-                                            <extraArgument>$BIOCACHE_MEMORY_OPTS</extraArgument>
-                                            <extraArgument>$BIOCACHE_OPTS</extraArgument>
-                                            <extraArgument>-Dhostname=$(hostname)</extraArgument>
-                                            <extraArgument>-XX:+UseG1GC</extraArgument>
-                                            <extraArgument>-Dfile.encoding=UTF8</extraArgument>
-                                            <extraArgument>-Dlog4j.configuration=log4j.xml</extraArgument>
-                                            <extraArgument>-Dactors.corePoolSize=8</extraArgument>
-                                            <extraArgument>-Dactors.maxPoolSize=16</extraArgument>
-                                            <extraArgument>-Dactors.minPoolSize=8</extraArgument>
-                                            <extraArgument>-Djava.util.Arrays.useLegacyMergeSort=true</extraArgument>
-                                            <extraArgument>-Dactors.maxPoolSize=8</extraArgument>
-                                        </extraArguments>
-                                    </jvmSettings>
-                                </program>
                             </programs>
                         </configuration>
                         <executions>
@@ -918,7 +836,6 @@
                             <descriptors>
                                 <descriptor>src/assembly/assembly.xml</descriptor>
                             </descriptors>
-
                         </configuration>
                         <executions>
                             <execution>
@@ -973,7 +890,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-jar-plugin</artifactId>
-
                     </plugin>
                 </plugins>
             </build>
