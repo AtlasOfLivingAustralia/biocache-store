@@ -17,7 +17,7 @@ class ConfigFunSuite extends FunSuite {
 
   Config.inj = Guice.createInjector(new TestConfigModule)
   val pm = Config.persistenceManager
-  println("Loading up test suite with persistence manager - " + pm.getClass.getName)
+//  println("Loading up test suite with persistence manager - " + pm.getClass.getName)
   //Web services will automatically grab the location details that are necessary
   //Add conservation status
   val taxonProfile = new TaxonProfile

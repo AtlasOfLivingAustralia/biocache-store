@@ -2,11 +2,13 @@ package au.org.ala.biocache.model
 
 import au.org.ala.biocache.poso.POSO
 import java.util.{Date, UUID}
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 import scala.beans.BeanProperty
-import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode, AssertionStatus}
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, ErrorCode}
 import au.org.ala.biocache.util.BiocacheConversions
+import org.apache.commons.lang.time.DateUtils
 
 /**
  * A companion object for the QualityAssertion class that provides factory
@@ -77,7 +79,8 @@ object QualityAssertion {
 
   def compareByReferenceRowKeyDesc = (a:QualityAssertion, b:QualityAssertion) => {
     //a.referenceRowKey > b.referenceRowKey
-    a.referenceRowKey.split('|').last.toInt > b.referenceRowKey.split('|').last.toInt
+//    a.referenceRowKey.split('|').last.toInt > b.referenceRowKey.split('|').last.toInt
+    a.created > b.created
   }
 
 }

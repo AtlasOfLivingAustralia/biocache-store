@@ -7,7 +7,6 @@ import au.com.bytecode.opencsv.CSVReader
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.export.{ExportAllSpatialSpecies, ExportByFacetQuery}
-import au.org.ala.biocache.index.IndexRecords
 import au.org.ala.biocache.model.{DuplicateRecordDetails, DuplicationTypes, QualityAssertion}
 import au.org.ala.biocache.util.{FileHelper, OptionParser, StringConsumer}
 import au.org.ala.biocache.vocab.AssertionCodes
@@ -53,7 +52,8 @@ object DuplicationDetection extends Tool {
   import FileHelper._
 
   val logger = LoggerFactory.getLogger("DuplicateDetection")
-  var workingTmpDir = "/data/tmp/duplication/"
+
+  var workingTmpDir = Config.tmpWorkDir + "/duplication/"
 
   def cmd = "duplicate-detection"
 
@@ -68,10 +68,9 @@ object DuplicationDetection extends Tool {
     var threads = 4
     var cleanup = false
     var load = false
-    var index = false
     var incremental = false
     var removeObsoleteData = false
-    var offlineDir = "/data/tmp/exports"
+    var offlineDir = Config.tmpWorkDir +"/exports"
 
     //Options to perform on all "species", select species, use existing file or download
     val parser = new OptionParser(help) {
@@ -92,9 +91,6 @@ object DuplicationDetection extends Tool {
       })
       opt("load", "load to duplicates into the database", {
         load = true
-      })
-      opt("index", "reindex duplicates", {
-        index = true
       })
       opt("f", "file", "A file that contains a list of species guids to detect duplication for", {
         v: String => speciesFile = Some(v)
@@ -127,12 +123,12 @@ object DuplicationDetection extends Tool {
         val dataFilename = workingTmpDir + "dd_data_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
         val passedFilename = workingTmpDir + "passed" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
         val dupFilename = workingTmpDir + "duplicates_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
-        val indexFilename = workingTmpDir + "reindex_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
+        val inwdexFilename = workingTmpDir + "reindex_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
         val oldDup = workingTmpDir + "olddup_" + guid.get.replaceAll("[\\.:]", "_") + ".txt"
 
         if (load) {
           //load the results of a duplicate detection run into the persistence occurrence store
-          dd.loadDuplicates(guid.get, threads, dupFilename, new FileWriter(indexFilename), new FileWriter(oldDup))
+          dd.loadDuplicates(guid.get, threads, dupFilename, new FileWriter(oldDup))
           updateLastDuplicateTime
         } else {
           //run the duplicate detection
@@ -142,11 +138,6 @@ object DuplicationDetection extends Tool {
             guid.get,
             shouldDownloadRecords = !exist,
             cleanup = cleanup)
-        }
-
-        if (index) {
-          //index the records in the supplied file
-          IndexRecords.indexList(new File(indexFilename), false)
         }
 
         Config.persistenceManager.shutdown
@@ -187,9 +178,11 @@ object DuplicationDetection extends Tool {
     (0 until threads).foreach { threadId =>
       val file = new File(offlineDir + File.separator + threadId + File.separator + "species.out")
       if (!file.exists()) {
+        logger.info("Log files available from previous export.")
         return false
       }
     }
+    logger.info("Log files NOT available from previous export.")
     true
   }
 
@@ -200,14 +193,14 @@ object DuplicationDetection extends Tool {
     * @param threads
     * @param exist
     * @param cleanup
-    * @param load
+    * @param loadOnly
     * @param offlineDir
     */
-  def detectDuplicates(file: File, threads: Int, exist: Boolean, cleanup: Boolean, load: Boolean, offlineDir: String = "") {
+  def detectDuplicates(file: File, threads: Int, exist: Boolean, cleanup: Boolean, loadOnly: Boolean, offlineDir: String = "") {
 
     logger.info(s"Starting duplicate detection with $threads threads")
 
-    if (!load && !exportFilesAvailable(offlineDir, threads)) {
+    if (!loadOnly && !exportFilesAvailable(offlineDir, threads)) {
       logger.info(s"Exporting spatial data for duplicate detection....")
       val exporter = new ExportAllSpatialSpecies()
       exporter.export(false, threads, offlineDir)
@@ -224,7 +217,7 @@ object DuplicationDetection extends Tool {
         val indexfilename = dir + "reindex.txt"
         val olddupfilename = dir + "olddups.txt"
 
-        val process = if (load) {
+        val process = if (loadOnly) {
           logger.info("Starting loading thread with ID: " + threadId)
           new Thread() {
             override def run() {
@@ -234,8 +227,6 @@ object DuplicationDetection extends Tool {
                 threads,
                 new FileWriter(new File(indexfilename)),
                 new FileWriter(new File(olddupfilename)))
-              //now reindex all the items
-              IndexRecords.indexList(new File(indexfilename), false)
             }
           }
         } else {
@@ -271,7 +262,7 @@ object DuplicationDetection extends Tool {
 
     pool.foreach(_.join)
 
-    if (load) {
+    if (loadOnly) {
       //need to update the last duplication detection time
       updateLastDuplicateTime
       //need to merge all the obsolete duplicates into 1 file
@@ -542,7 +533,7 @@ class DuplicationDetection {
    * Loads the duplicates from the lsid based on the tmp file being populated.
    * This is based on a single lsid being in the file
    */
-  def loadDuplicates(lsid: String, threads: Int, dupFilename: String, reindexWriter: FileWriter, oldDupWriter: FileWriter) {
+  def loadDuplicates(lsid: String, threads: Int, dupFilename: String,  oldDupWriter: FileWriter) {
     //get a list of the current records that are considered duplicates
     val (oldDuplicates, oldDupMap) = getCurrentDuplicates(lsid)
     val queue = new ArrayBlockingQueue[String](100)
@@ -561,11 +552,7 @@ class DuplicationDetection {
     new File(dupFilename).foreachLine(line => queue.put(line))
     pool.foreach(t => t.shouldStop = true)
     pool.foreach(_.join)
-    buffer.foreach(v => reindexWriter.write(v + "\n"))
-    reindexWriter.flush()
-    revertNonDuplicateRecords(oldDuplicates, oldDupMap, allDuplicates.toSet, reindexWriter, oldDupWriter)
-    reindexWriter.flush
-    reindexWriter.close
+    revertNonDuplicateRecords(oldDuplicates, oldDupMap, allDuplicates.toSet, oldDupWriter)
     oldDupWriter.flush
     oldDupWriter.close
   }
@@ -764,7 +751,7 @@ class DuplicationDetection {
   /**
    * Changes the stored values for the "old" duplicates that are no longer considered duplicates
    */
-  def revertNonDuplicateRecords(oldDuplicates: Set[String], oldDupMap: Map[String, String], currentDuplicates: Set[String], write: FileWriter, oldWriter: FileWriter) {
+  def revertNonDuplicateRecords(oldDuplicates: Set[String], oldDupMap: Map[String, String], currentDuplicates: Set[String], oldWriter: FileWriter) {
     val nonDuplicates = oldDuplicates -- currentDuplicates
     nonDuplicates.foreach { nd =>
       logger.warn(nd + " is no longer a duplicate")
@@ -772,7 +759,6 @@ class DuplicationDetection {
       Config.persistenceManager.deleteColumns(nd, "occ", "associatedOccurrences" + Config.persistenceManager.fieldDelimiter + "p", "duplicationStatus" + Config.persistenceManager.fieldDelimiter + "p", "duplicationType" + Config.persistenceManager.fieldDelimiter + "p")
       //now remove the system assertion if necessary
       Config.occurrenceDAO.removeSystemAssertion(nd, AssertionCodes.INFERRED_DUPLICATE_RECORD)
-      write.write(nd + "\n")
       oldWriter.write(nd + "\t" + oldDupMap(nd) + "\n")
     }
   }

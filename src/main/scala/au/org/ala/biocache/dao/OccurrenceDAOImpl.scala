@@ -695,8 +695,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
           propertiesToPersist.size > 1  //i.e. theres more than just the timestamp to update
         ) {
           //only add the assertions if they have changed since the last time or the number of records to persist >1
-          val checkUserAssertions = StringUtils.isNotEmpty(oldRecord.getUserAssertionStatus)
-
+          val checkUserAssertions = oldRecord != null && StringUtils.isNotEmpty(oldRecord.getUserAssertionStatus)
 
           propertiesToPersist ++= convertAssertionsToMap(rowKey, assertions.get, checkUserAssertions)
           val x = assertions.get.values.filter{!_.isEmpty}.flatten.toList
@@ -890,27 +889,28 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     val userAssertions = getUserAssertions(rowKey)
 
-    var qaRowKey = rowKey
-
     //if its not a verification of an existing assertion, its a new one and hence its unconfirmed.
     if (!AssertionCodes.isVerified(qualityAssertion)) {
       qualityAssertion.qaStatus = AssertionStatus.QA_UNCONFIRMED
     }
 
-    qualityAssertion.referenceRowKey = qaRowKey
+    qualityAssertion.referenceRowKey = rowKey
 
     val qualityAssertionProperties = FullRecordMapper.mapObjectToProperties(qualityAssertion)
     val record = this.getRawProcessedByRowKey(rowKey)
 
     if (!record.isEmpty) {
+
       //preserve the raw record
       val qaMap = qualityAssertionProperties ++ Map("snapshot" -> Json.toJSON(record.get))
-      persistenceManager.put(qaRowKey, qaEntityName, qaMap, true, false)
+      persistenceManager.put(rowKey, qaEntityName, qaMap, true, false)
       val systemAssertions = getSystemAssertions(rowKey)
       val userAssertions = getUserAssertions(rowKey)
       updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions :+ qualityAssertion)
+
       //set the last user assertion date
       persistenceManager.put(rowKey, entityName, FullRecordMapper.lastUserAssertionDateColumn, qualityAssertion.created, false, false)
+
       //when the user assertion is verified need to add extra value
       if (AssertionCodes.isVerified(qualityAssertion)) {
         persistenceManager.put(rowKey, entityName, FullRecordMapper.userVerifiedColumn, "true", false, false)

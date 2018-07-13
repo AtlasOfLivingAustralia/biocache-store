@@ -19,6 +19,8 @@ class MockPersistenceManager extends PersistenceManager {
 
   private val mockStore = new HashMap[String, HashMap[String, HashMap[String, String]]]
 
+  private val qaMockStore = new HashMap[(String,String,String), Map[String, String]]
+
   def clear = mockStore.clear
 
   def get(uuid: String, entityName: String, propertyName: String) = {
@@ -53,7 +55,30 @@ class MockPersistenceManager extends PersistenceManager {
     throw new RuntimeException("not implemented yet")
 
   def getAllByIndex(rowkey:String, entityName:String, idxColumn:String) : Seq[Map[String,String]] = {
-    throw new RuntimeException("not implemented yet")
+
+    if(entityName == "qa"){
+      val setOfKeys = qaMockStore.keySet.filter(_._1 == rowkey)
+      val list = new ListBuffer[Map[String,String]]
+      setOfKeys.foreach {
+        list += qaMockStore.get(_).get
+      }
+      list
+    } else {
+      val keyedData = mockStore.get(entityName)
+      if(keyedData.isEmpty) return List[Map[String,String]]()
+      val list = new ListBuffer[Map[String,String]]
+      keyedData.get.foreach { case (guid, map) =>
+        if(idxColumn =="rowkey" && rowkey == guid){
+          list += map.toMap
+        } else {
+          val value = map.getOrElse(idxColumn, "")
+          if(value == rowkey){
+            list += map.toMap
+          }
+        }
+      }
+      list
+    }
   }
 
   def getByIndex(uuid: String, entityName: String, idxColumn: String, propertyName: String) =
@@ -83,10 +108,15 @@ class MockPersistenceManager extends PersistenceManager {
 
   def put(uuid: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, deleteIfNullValue: Boolean) = {
     logger.debug(s"Put for $uuid -  $entityName - $keyValuePairs")
-    val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
-    val recordMap = entityMap.getOrElse(uuid, HashMap[String, String]())
-    entityMap.put(uuid, (recordMap ++ keyValuePairs).asInstanceOf[HashMap[String, String]])
-    uuid
+    if(entityName == "qa"){
+      qaMockStore.put((uuid,keyValuePairs.getOrElse("userId",""),keyValuePairs.getOrElse("code","")), keyValuePairs)
+      uuid
+    } else {
+      val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
+      val recordMap = entityMap.getOrElse(uuid, HashMap[String, String]())
+      entityMap.put(uuid, (recordMap ++ keyValuePairs).asInstanceOf[HashMap[String, String]])
+      uuid
+    }
   }
 
   def putAsync(uuid: String, entityName: String, keyValuePairs: Map[String, String], newRecord:Boolean, deleteIfNullValue: Boolean) = {
@@ -97,8 +127,15 @@ class MockPersistenceManager extends PersistenceManager {
     uuid
   }
 
-  def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean) =
-    throw new RuntimeException("not implemented yet")
+  def putBatch(entityName: String, batch: Map[String, Map[String, String]], newRecord:Boolean, removeNullFields: Boolean) = {
+
+    batch.foreach { case (uuid, keyValuePairs) =>
+      logger.debug(s"Put for $uuid -  $entityName - $keyValuePairs")
+      val entityMap = mockStore.getOrElseUpdate(entityName, HashMap(uuid -> HashMap[String, String]()))
+      val recordMap = entityMap.getOrElse(uuid, HashMap[String, String]())
+      entityMap.put(uuid, (recordMap ++ keyValuePairs).asInstanceOf[HashMap[String, String]])
+    }
+  }
 
   def putList[A](uuid: String, entityName: String, propertyName: String, newList: Seq[A], theClass: Class[_], newRecord:Boolean, overwrite: Boolean, deleteIfNullValue: Boolean) = {
     logger.debug(s"PutList for $uuid -  $entityName - $propertyName - $newList - $theClass")

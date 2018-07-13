@@ -1,6 +1,8 @@
 package au.org.ala.biocache.export
 
 import java.io.{File, FileWriter}
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
+import java.util.concurrent.{ExecutorService, Executors}
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
@@ -9,6 +11,7 @@ import org.apache.commons.io.FileUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.parallel.ForkJoinTaskSupport
 
 /**
   * A utility that exports data from the search indexes for offline processes.
@@ -86,9 +89,10 @@ class ExportAllSpatialSpecies {
     "catalogue_number"
   )
 
-  val query = "lat_long:* AND species_guid:*"
+  val query = "lat_long:*"
   val filterQueries = Array[String]()
-  val sortFields = Array("species_guid", "subspecies_guid", "row_key")
+  //val sortFields = Array("species_guid", "subspecies_guid", "row_key")
+  val sortFields = Array()
   val multivaluedFields = Some(Array("duplicate_record"))
 
   import FileHelper._
@@ -124,50 +128,50 @@ class ExportAllSpatialSpecies {
     }
 
     var counter = 0
-    var currentLsid = ""
-    var lsidCount = 0
-    var fileWriter: FileWriter = null
-    var subspeciesWriter: FileWriter = null
-    var loadCurrent = true
+    var lsidCount = new AtomicInteger(0)
 
-    Config.indexDAO.streamIndex(map => {
-      val outputLine = fieldsToExport.map(f => getFromMap(map, f)).mkString("\t")
-      counter += 1
-      val thisLsid = map.get("species_guid")
-      if (thisLsid != null && thisLsid != currentLsid) {
-        logger.info("Starting to handle " + thisLsid + " " + counter + " " + lsidCount)
+    //get list of taxonIDs and query by taxonID
+    logger.info(s"getting species guids")
+    val speciesGuid = Config.indexDAO.getDistinctValues("*:*", "species_guid",10000000)
 
-        currentLsid = thisLsid.toString
-        loadCurrent = validGuids.isEmpty || validGuids.get.contains(currentLsid)
-        if (loadCurrent) {
-          lsidCount += 1
-        }
-        if (fileWriter != null) {
-          fileWriter.flush
-          subspeciesWriter.flush
-        }
-        fileWriter = files(lsidCount % threads)._1
-        subspeciesWriter = files(lsidCount % threads)._2
-      }
+    logger.info(s"getting species guids  = "  + speciesGuid.get.size)
+    logger.info(s"getting subspecies guids")
+    val subspeciesGuid = Config.indexDAO.getDistinctValues("*:*", "subspecies_guid",10000000)
 
-      if (loadCurrent) {
-        fileWriter.write(outputLine)
-        fileWriter.write("\n")
+    logger.info(s"getting subspecies guids  = "  + subspeciesGuid.get.size)
+    val guidSet = (speciesGuid.get ++ subspeciesGuid.get)
+
+    guidSet.par.tasksupport = new ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(threads))
+    guidSet.par.foreach { guid =>
+
+      val lsidCountInt = lsidCount.incrementAndGet()
+      logger.info("Starting to export of:  " + guid)
+
+      //allocate the writer
+      val (speciesWriter, subspeciesWriter) = files(lsidCountInt % threads)
+
+      Config.indexDAO.streamIndex(map => {
+
+        val outputLine = fieldsToExport.map { f => getFromMap(map, f) }.mkString("\t")
+        counter += 1
+
+        speciesWriter.write(outputLine)
+        speciesWriter.write("\n")
 
         val subspecies = map.get("subspecies_guid")
         if (subspecies != null) {
           subspeciesWriter.write(outputLine)
           subspeciesWriter.write("\n")
         }
-      }
 
-      if (counter % 10000 == 0) {
-        fileWriter.flush
-        subspeciesWriter.flush
-      }
+        if (counter % 10000 == 0) {
+          speciesWriter.flush
+          subspeciesWriter.flush
+        }
 
-      true
-    }, fieldsToExport, query, filterQueries, sortFields, multivaluedFields)
+        true
+      }, fieldsToExport, s"""species_guid:"$guid"""", Array(query), Array(), multivaluedFields)
+    }
 
     files.foreach {
       case (fw1, fw2) => {

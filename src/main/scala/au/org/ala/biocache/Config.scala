@@ -105,6 +105,8 @@ object Config {
 
   val deletedFileStore = configModule.properties.getProperty("deleted.file.store","/data/biocache-delete/")
 
+  val outlierLayerIDs = configModule.properties.getProperty("outlier.layers","el882,el889,el887,el865,el894").split(",").map {_.trim}
+
   val mediaFileStore = configModule.properties.getProperty("media.dir","/data/biocache-media/")
 
   val mediaBaseUrl = configModule.properties.getProperty("media.url","http://biocache.ala.org.au/biocache-media")

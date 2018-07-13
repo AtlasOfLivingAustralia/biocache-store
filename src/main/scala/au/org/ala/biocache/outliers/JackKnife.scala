@@ -6,7 +6,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * Code for running jackKnife against a set of float values.
  */
-class JackKnife {
+object JackKnife {
 
   /**
    * Takes a list of sampled values and returns the statistics for these results.
@@ -66,14 +66,14 @@ class JackKnife {
       yArray(i) = y.toFloat
     }
     
-    for(i <- 0 to n-1){
+    for (i <- 0 to n - 1){
       if (samples(i) > smean && outliers(i-1)){
         cArray(i) = cArray(i) + cArray(i - 1)
       }
     }
     
     var i = n - 1
-    while(i >= 0){
+    while (i >= 0){
       if(samples(i) < smean && outliers(i)){
         cArray(i) = cArray(i) + cArray(i + 1)
       }
@@ -81,7 +81,7 @@ class JackKnife {
     }
 
     //calculate the outlierness
-    for(i <- 0 until n){
+    for (i <- 0 until n){
     	outlierness(i) = (cArray(i) / threshold).toFloat
     }
 
@@ -91,8 +91,9 @@ class JackKnife {
     }
 
     val triggerFailsafe:Boolean = (outlierValues.size > (samples.length / 2))
-    if(triggerFailsafe)
+    if (triggerFailsafe) {
       outlierValues.clear()
+    }
     
     Some(JackKnifeStats(n,min,max,smean,sstd,srange,threshold,outlierValues.toArray,triggerFailsafe))
   }

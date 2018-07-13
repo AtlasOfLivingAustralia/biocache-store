@@ -83,7 +83,7 @@ object FullRecordMapper {
   def mapObjectToProperties(anObject: AnyRef, version:Version = Raw): Map[String, String] = {
     anObject match {
       case p: POSO => {
-        p.toMap.map({ case (key, value) => (markNameBasedOnVersion(key, version) -> value) })
+        p.toMap.map { case (key, value) => (markNameBasedOnVersion(key, version) -> value) }
       }
       case _ => throw new Exception("Unrecognised object. Object is not a Mappable or a POSO. Class : " + anObject.getClass.getName)
     }

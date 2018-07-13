@@ -188,29 +188,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
 
   def streamIndex(proc: java.util.Map[String, AnyRef] => Boolean, fieldsToRetrieve: Array[String], query: String, filterQueries: Array[String], sortFields: Array[String], multivaluedFields: Option[Array[String]] = None) {
-
-    init
-
-    val params = collection.immutable.HashMap(
-      "collectionName" -> "biocache",
-      "q" -> query,
-      "start" -> "0",
-      "rows" -> Int.MaxValue.toString,
-      "fl" -> fieldsToRetrieve.mkString(","))
-
-    val solrParams = new ModifiableSolrParams()
-    solrParams.add(new MapSolrParams(params))
-    solrParams.add("fq", filterQueries: _*)
-
-    if (!sortFields.isEmpty) {
-      solrParams.add("sort", sortFields.mkString(" asc,") + " asc")
-    }
-
-    //now stream
-    val solrCallback = new SolrCallback(proc, multivaluedFields)
-    logger.info("Starting to stream: " + new java.util.Date().toString + " " + params)
-    solrServer.queryAndStreamResponse(solrParams, solrCallback)
-    logger.info("Finished streaming : " + new java.util.Date().toString + " " + params)
+    pageOverIndex(proc, fieldsToRetrieve, query, filterQueries, None)
   }
 
   /**
@@ -233,45 +211,26 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                     multivaluedFields: Option[Array[String]] = None) {
     init
 
-    val query = new SolrQuery(queryString)
-      .setFacet(false)
-      .setRows(0)
-      .setStart(0)
-      .setFilterQueries(filterQueries: _*)
-      .setFacet(false)
-
-    fieldToRetrieve.foreach(f => query.addField(f))
-    var response = solrServer.query(query)
-    val fullResults = response.getResults.getNumFound.toInt
-    logger.debug("Total found for :" + queryString + ", " + fullResults)
-
     var counter = 0
-    var pageSize = INDEX_READ_PAGE_SIZE
+    var cursorMark = CursorMarkParams.CURSOR_MARK_START
 
-    while (counter < fullResults) {
+    var done = false
+
+    while (!done) {
 
       val q = new SolrQuery(queryString)
         .setFacet(false)
-        .setStart(counter)
         .setFilterQueries(filterQueries: _*)
-        .setFacet(false)
 
-      if (sortField.isDefined) {
-        val dir = sortDir.getOrElse("asc")
-        q.setSort(sortField.get, if (dir == "asc") {
-          org.apache.solr.client.solrj.SolrQuery.ORDER.asc
-        } else {
-          org.apache.solr.client.solrj.SolrQuery.ORDER.desc
-        })
-      }
-
-      if (counter + pageSize > fullResults) {
-        pageSize = fullResults - counter
-      }
+      q.set(CursorMarkParams.CURSOR_MARK_START, cursorMark)
 
       //setup the next query
-      q.setRows(pageSize)
-      response = solrServer.query(q)
+      q.setRows(INDEX_READ_PAGE_SIZE)
+      val response = solrServer.query(q)
+
+      //if cursor mark doesnt, change we've reached the end
+      done = cursorMark == response.getNextCursorMark
+
       logger.info("Paging through :" + queryString + ", " + counter)
       val solrDocumentList = response.getResults
       val iter = solrDocumentList.iterator()
@@ -286,7 +245,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         )
         proc(map)
       }
-      counter += pageSize
+      counter += INDEX_READ_PAGE_SIZE
+      cursorMark = response.getNextCursorMark
     }
   }
 

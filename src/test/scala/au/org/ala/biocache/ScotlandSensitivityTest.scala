@@ -1,21 +1,21 @@
 package au.org.ala.biocache
 
-import au.org.ala.biocache.caches.{SensitivityDAO, SpatialLayerDAO}
+import au.org.ala.biocache.caches.{SensitivityDAO}
 import au.org.ala.biocache.model.FullRecord
-import au.org.ala.biocache.processor.{LocationProcessor, SensitivityProcessor}
+import au.org.ala.biocache.processor.{ SensitivityProcessor}
 import org.apache.commons.lang3.StringUtils
-import org.junit.Ignore
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 
 /**
-  * Created by mar759 on 10/03/2016.
+  * Test for the SDS with non Australian data to ensure re-usability.
   */
 @RunWith(classOf[JUnitRunner])
-@Ignore
 class ScotlandSensitivityTest extends ScottishConfigFunSuite {
 
   test("Idempotent test - Numenius phaeopus in 55.9486° N, 3.2008° W"){
+    pm.clear
+
     val raw = new FullRecord
     val processed = new FullRecord
 
@@ -50,6 +50,8 @@ class ScotlandSensitivityTest extends ScottishConfigFunSuite {
   }
 
   test("Lutra lutra in 55.9486° N, 3.2008° W"){
+    pm.clear
+
     val raw = new FullRecord
     val processed = new FullRecord
     processed.classification.taxonConceptID = "1234"
@@ -67,6 +69,8 @@ class ScotlandSensitivityTest extends ScottishConfigFunSuite {
   }
 
   test("Lutra lutra in 56.65681, -3.15419"){
+    pm.clear
+
     val raw = new FullRecord
     val processed = new FullRecord
     processed.classification.taxonConceptID = "1234"

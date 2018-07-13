@@ -140,8 +140,8 @@ class AssertionCodeTest extends ConfigFunSuite {
     qa1.comment = "True user assertion"
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
+
     occurrenceDAO.addUserAssertion(rowKey, qa1)
-    //println(Config.persistenceManager)
     expectResult(2) {
       occurrenceDAO.getUserAssertions(rowKey).size
     }

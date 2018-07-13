@@ -146,27 +146,30 @@ class SensitivityProcessor extends Processor {
       logger.debug("Taxon identified as sensitive.....")
       if (outcome.getResult != null) {
 
-        val map: scala.collection.mutable.Map[String, Object] = outcome.getResult
-
         //convert it to a string string map
-        val rawPropertiesToUpdate = map.collect {
+        val rawPropertiesToUpdate = outcome.getResult.collect {
           case (key, value) if value != null => if (key == "originalSensitiveValues") {
-            val osv = value.asInstanceOf[java.util.HashMap[String, String]]
+            val originalSensitiveValues = value.asInstanceOf[java.util.HashMap[String, String]]
             // add the original "processed" coordinate uncertainty to the sensitive values so that it
             // can be available if necessary
-            if (processed.location.coordinateUncertaintyInMeters != null) {
-              osv.put("coordinateUncertaintyInMeters" + Config.persistenceManager.fieldDelimiter + "p",
+            if (StringUtils.isNotBlank(processed.location.coordinateUncertaintyInMeters)) {
+              originalSensitiveValues.put("coordinateUncertaintyInMeters" + Config.persistenceManager.fieldDelimiter + "p",
                 processed.location.coordinateUncertaintyInMeters)
             }
-            if (raw.location.gridReference != null && raw.location.gridReference != "") {
-              osv.put("gridReference", raw.location.gridReference)
+            if (StringUtils.isNotBlank(raw.location.gridReference)) {
+              originalSensitiveValues.put("gridReference", raw.location.gridReference)
             }
-            osv.put("eventDate", raw.event.eventDate)
-            osv.put("eventDateEnd", raw.event.eventDateEnd)
+            originalSensitiveValues.put("eventDate", raw.event.eventDate)
+            originalSensitiveValues.put("eventDateEnd", raw.event.eventDateEnd)
+            originalSensitiveValues.put("eventTime", raw.event.eventTime)
+            originalSensitiveValues.put("eventID", raw.event.eventID)
+            originalSensitiveValues.put("day", raw.event.day)
+            originalSensitiveValues.put("month", raw.event.month)
+            originalSensitiveValues.put("verbatimEventDate", raw.event.verbatimEventDate)
+
             //remove all the el/cl's from the original sensitive values
-            SpatialLayerDAO.sdsLayerList.foreach { key => osv.remove(key) }
-            val newv = Json.toJSON(osv)
-            (key -> newv)
+            SpatialLayerDAO.sdsLayerList.foreach { key => originalSensitiveValues.remove(key) }
+            (key -> Json.toJSON(originalSensitiveValues))
           } else {
             (key -> value.toString)
           }
@@ -226,20 +229,33 @@ class SensitivityProcessor extends Processor {
         //remove the day from the values if present
         raw.event.day = ""
         raw.event.month = ""
+        raw.location.easting = ""
+        raw.location.northing = ""
         raw.event.eventDate = ""
         raw.event.eventDateEnd = ""
+        raw.event.eventTime = ""
+        raw.event.eventID = ""
+        raw.event.verbatimEventDate = ""
 
         processed.event.day = ""
         processed.event.eventDate = ""
         if (processed.event.eventDateEnd != null) {
           processed.event.eventDateEnd = ""
         }
+        if (processed.event.eventTime != null) {
+          processed.event.eventTime = ""
+        }
 
         //remove this field values
+        rawPropertiesToUpdate.put("day", "")
+        rawPropertiesToUpdate.put("month", "")
         rawPropertiesToUpdate.put("easting", "")
         rawPropertiesToUpdate.put("northing", "")
         rawPropertiesToUpdate.put("eventDate", "")
         rawPropertiesToUpdate.put("eventDateEnd", "")
+        rawPropertiesToUpdate.put("eventID", "")
+        rawPropertiesToUpdate.put("eventTime", "")
+        rawPropertiesToUpdate.put("verbatimEventDate", "")
 
         //update the object for downstream processing
         rawPropertiesToUpdate.foreach { case (key, value) => raw.setProperty(key, value) }
@@ -251,6 +267,7 @@ class SensitivityProcessor extends Processor {
           try {
             if (StringUtils.isNotBlank(processed.location.decimalLatitude) &&
               StringUtils.isNotBlank(processed.location.decimalLongitude)) {
+              //store the generalised coordinates for down stream sampling
               LocationDAO.storePointForSampling(processed.location.decimalLatitude, processed.location.decimalLongitude)
             }
           } catch {
