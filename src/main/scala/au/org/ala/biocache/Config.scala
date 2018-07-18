@@ -319,6 +319,15 @@ object Config {
   // SDS URL
   val sdsUrl = configModule.properties.getProperty("sds.url", "http://sds.ala.org.au")
 
+  val sdsLayersUrl = {
+    val layersUrl = configModule.properties.getProperty("sds.layers.url", "")
+    if (layersUrl == ""){
+      sdsUrl + "/ws/layers"
+    } else {
+      layersUrl
+    }
+  }
+
   val sdsEnabled = configModule.properties.getProperty("sds.enabled", "true").toBoolean
 
   //load sensitive data service

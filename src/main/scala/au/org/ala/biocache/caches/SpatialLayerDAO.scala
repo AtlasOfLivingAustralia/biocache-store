@@ -64,10 +64,10 @@ object SpatialLayerDAO {
     //load SDS layer metadata
     if (Config.sdsEnabled) {
 
-      if(StringUtils.isNotBlank(Config.sdsUrl) && Config.sdsUrl.startsWith("http")){
+      if(StringUtils.isNotBlank(Config.sdsLayersUrl) && Config.sdsLayersUrl.startsWith("http")){
 
         logger.info("Loaded layers required by SDS.....")
-        val sdsLayerListURL = Config.sdsUrl + "/ws/layers"
+        val sdsLayerListURL = Config.sdsLayersUrl
         logger.info("Retrieving list from " + sdsLayerListURL)
 
         val sdsListJson = WebServiceLoader.getWSStringContent(sdsLayerListURL)
@@ -75,13 +75,13 @@ object SpatialLayerDAO {
 
       } else {
         //load from JSON file
-        val file = new java.io.File(Config.sdsUrl)
+        val file = new java.io.File(Config.sdsLayersUrl)
 
         //only load the properties file if it exists otherwise default to the biocache-test-config.properties on the classpath
         val stream = if(file.exists()) {
           new FileInputStream(file)
         } else {
-          this.getClass.getResourceAsStream(Config.sdsUrl)
+          this.getClass.getResourceAsStream(Config.sdsLayersUrl)
         }
 
         val sdsListJson = IOUtils.readLines(stream, "UTF-8").mkString
