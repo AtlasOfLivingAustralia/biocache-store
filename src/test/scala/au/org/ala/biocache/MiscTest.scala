@@ -153,7 +153,7 @@ class MiscTest extends ConfigFunSuite {
     val qas2 = (new BasisOfRecordProcessor).process("test", raw, processed)
     //when the default value is being used no test is being performed so the BoR QA should NOT be in the results
     expectResult(None) {
-      qas2.find(_.code == 20001)
+      qas2.find { qa => qa.code == 20001 && qa.qaStatus == 0 }
     }
   }
 

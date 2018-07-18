@@ -1,5 +1,6 @@
 package au.org.ala.biocache
 
+import au.org.ala.biocache.caches.{SensitivityDAO, SpatialLayerDAO}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.{FullRecord, Versions}
 import au.org.ala.biocache.processor.{EventProcessor, LocationProcessor, SensitivityProcessor}
@@ -8,7 +9,7 @@ import org.apache.commons.lang.StringUtils
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.BeforeAndAfterAll
-import au.org.ala.biocache.processor.{SensitivityProcessor, EventProcessor, LocationProcessor}
+import au.org.ala.biocache.processor.{EventProcessor, LocationProcessor, SensitivityProcessor}
 import au.org.ala.biocache.model.FullRecord
 
 /**
@@ -27,126 +28,11 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     }
   }
 
-//
-//  test("Sensitive Species - Achatina fulica - cat1") {
-//
-//    val raw = new FullRecord
-//    val processed = new FullRecord
-//    raw.classification.setScientificName("Achatina fulica")
-//    processed.classification.setScientificName("Achatina fulica")
-//    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:257175e9-9fbb-4283-b485-f27ad0e277b9")
-//    processed.classification.setTaxonRankID("7000")
-//    raw.location.decimalLatitude = "-31.92223"
-//    raw.location.decimalLongitude = "116.5122"
-//    raw.location.stateProvince = "Western Australia"
-//    raw.event.eventDate = "2001-01-01"
-//    processed.event.eventDate = "2001-01-01"
-//    (new LocationProcessor).process("test", raw, processed)
-//
-//    expectResult("") {
-//      processed.location.decimalLatitude
-//    }
-//    expectResult("") {
-//      raw.location.decimalLatitude
-//    }
-//    expectResult("") {
-//      processed.location.decimalLongitude
-//    }
-//    expectResult("") {
-//      raw.location.decimalLongitude
-//    }
-//
-//    expectResult("") {
-//      processed.event.eventDate
-//    }
-//    expectResult("") {
-//      raw.event.eventDate
-//    }
-//  }
-//
-//  test("Sensitive Species - Bactrocera tryoni - cat1") {
-//
-//    val raw = new FullRecord
-//    val processed = new FullRecord
-//    raw.classification.setScientificName("Bactrocera (Bactrocera) tryoni")
-//    processed.classification.setScientificName("Bactrocera (Bactrocera) tryoni")
-//    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:257175e9-9fbb-4283-b485-f27ad0e277b9")
-//    processed.classification.setTaxonRankID("7000")
-//    raw.location.decimalLatitude = "-31.92223"
-//    raw.location.decimalLongitude = "116.5122"
-//    raw.location.stateProvince = "Western Australia"
-//    raw.event.eventDate = "2001-01-01"
-//    processed.event.eventDate = "2001-01-01"
-//    (new LocationProcessor).process("test", raw, processed)
-//
-//    expectResult("") {
-//      processed.location.decimalLatitude
-//    }
-//    expectResult("") {
-//      raw.location.decimalLatitude
-//    }
-//    expectResult("") {
-//      processed.location.decimalLongitude
-//    }
-//    expectResult("") {
-//      raw.location.decimalLongitude
-//    }
-//
-//    expectResult("") {
-//      processed.event.eventDate
-//    }
-//    expectResult("") {
-//      raw.event.eventDate
-//    }
-//  }
-
-//  test("Sensitive Species Generalise - Calyptorhynchus baudinii -31.92223, 116.5122") {
-//    val raw = new FullRecord
-//    val processed = new FullRecord
-//    raw.classification.setScientificName("Calyptorhynchus (Zanda) baudinii")
-//    processed.classification.setScientificName("Calyptorhynchus (Zanda) baudinii")
-//    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:afd.taxon:df97e45b-5286-4c2b-aadb-f9717659394d")
-//    processed.classification.setTaxonRankID("7000")
-//    raw.location.decimalLatitude = "-31.92223"
-//    raw.location.decimalLongitude = "116.5122"
-//    raw.location.stateProvince = "Western Australia"
-//    raw.location.country = "Australia"
-//    raw.location.locationRemarks = "test remarks"
-//    raw.rowKey = "test"
-//    raw.event.day = "21"
-//    raw.event.month = "12"
-//    raw.event.year = "2000"
-//
-//    (new EventProcessor).process("test", raw, processed)
-//    (new LocationProcessor).process("test", raw, processed)
-//    (new SensitivityProcessor).process("test", raw, processed)
-//
-//    expectResult("-31.9") {
-//      processed.location.decimalLatitude
-//    }
-//    expectResult("116.5") {
-//      processed.location.decimalLongitude
-//    }
-//    expectResult(true) {
-//      processed.occurrence.dataGeneralizations != null && processed.occurrence.dataGeneralizations.length > 0
-//    }
-//    expectResult(true) {
-//      processed.event.day.isEmpty
-//    }
-//    expectResult("12") {
-//      processed.event.month
-//    }
-//    expectResult("2000") {
-//      processed.event.year
-//    }
-//
-//    val stringValues = Config.persistenceManager.get("test", "occ", "originalSensitiveValues")
-//    expectResult(false) {
-//      stringValues.isEmpty
-//    }
-//  }
-
   test("State based sensitivity") {
+
+    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl22" -> "New South Wales"))
+    SensitivityDAO.addToCache("Diuris disposita", "urn:lsid:biodiversity.org.au:apni.taxon:167966", true)
+
     val raw = new FullRecord
     val processed = new FullRecord
     raw.classification.scientificName = "Diuris disposita"
@@ -375,7 +261,10 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     }
   }
 
-  test("Habitat Mismatch") {
+  test("Habitat Mismatch - marine") {
+
+    SpatialLayerDAO.addToCache(145.52, -40.857, Map("cl23" -> "Fake Marine Location"))
+
     val raw = new FullRecord
     val processed = new FullRecord
     val locationProcessor = new LocationProcessor
@@ -383,7 +272,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     raw.location.decimalLatitude = "-40.857" // this point is in the water
     raw.location.decimalLongitude = "145.52"
     raw.location.coordinateUncertaintyInMeters = "100"
-    var qas = locationProcessor.process("test", raw, processed)
+    val qas = locationProcessor.process("test", raw, processed)
     expectResult(true) {
       val assertion = qas.find(_.code == AssertionCodes.COORDINATE_HABITAT_MISMATCH.code)
       val qaStatus = assertion match {
@@ -392,9 +281,19 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
       }
       qaStatus == 0
     }
+  }
+
+  test("Habitat Mismatch - terretrial") {
+
+    SpatialLayerDAO.addToCache(133.85720, -23.73750, Map("cl24" -> "Fake Terrestrial Location"))
+    val raw = new FullRecord
+    val processed = new FullRecord
+    val locationProcessor = new LocationProcessor
+    processed.classification.taxonConceptID = "urn:lsid:biodiversity.org.au:afd.taxon:aa745ff0-c776-4d0e-851d-369ba0e6f537"
+
     raw.location.decimalLatitude = "-23.73750"  // this point is on land
     raw.location.decimalLongitude = "133.85720"
-    qas = locationProcessor.process("test", raw, processed)
+    val qas = locationProcessor.process("test", raw, processed)
     expectResult(true) {
       val assertion = qas.find(_.code == AssertionCodes.COORDINATE_HABITAT_MISMATCH.code)
       val qaStatus = assertion match {
@@ -431,6 +330,9 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
   }
 
   test("stateProvince coordinate mismatch") {
+
+    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl22" -> "New South Wales"))
+
     val raw = new FullRecord
     var processed = new FullRecord
     raw.location.decimalLatitude = "-31.2532183"
@@ -444,7 +346,10 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     }
   }
 
-  test("coordinates center of stateprovince") {
+  test("coordinates center of stateProvince") {
+
+    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl22" -> "New South Wales"))
+
     val raw = new FullRecord
     var processed = new FullRecord
     raw.location.decimalLatitude = "-31.2532183"
@@ -459,6 +364,9 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
   }
 
   test("coordinates center of country") {
+
+    SpatialLayerDAO.addToCache(167.95, -29.04, Map("cl21" -> "Norfolk Island"))
+
     val raw = new FullRecord
     val processed = new FullRecord
     raw.location.country="Norfolk Island"

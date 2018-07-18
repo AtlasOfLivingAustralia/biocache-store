@@ -53,7 +53,7 @@ class EventProcessor extends Processor {
       && (raw.event.verbatimEventDate == null || raw.event.verbatimEventDate.isEmpty)
     ) {
       assertions += QualityAssertion(MISSING_COLLECTION_DATE, "No date information supplied")
-      return assertions.toArray
+//      return assertions.toArray
     }
 
     var date: Option[java.util.Date] = None

@@ -70,6 +70,9 @@ object FullRecordMapper {
     properties.put("rowKey", fullRecord.rowKey)
     properties.put(FullRecordMapper.defaultValuesColumn, fullRecord.defaultValuesUsed.toString)
     properties.put(FullRecordMapper.locationDeterminedColumn, fullRecord.locationDetermined.toString)
+    properties.put(FullRecordMapper.geospatialDecisionColumn, fullRecord.geospatiallyKosher.toString)
+    properties.put(FullRecordMapper.taxonomicDecisionColumn, fullRecord.taxonomicallyKosher.toString)
+
     if (fullRecord.lastModifiedTime != "") {
       properties.put(FullRecordMapper.markNameBasedOnVersion(FullRecordMapper.alaModifiedColumn, version), fullRecord.lastModifiedTime)
     }

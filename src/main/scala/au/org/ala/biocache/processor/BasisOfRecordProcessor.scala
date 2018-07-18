@@ -34,7 +34,7 @@ class BasisOfRecordProcessor extends Processor {
         Array(QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD, "Unrecognised basis of record"), QualityAssertion(MISSING_BASIS_OF_RECORD, PASSED))
       } else {
         processed.occurrence.basisOfRecord = term.get.canonical
-        Array[QualityAssertion](QualityAssertion(MISSING_BASIS_OF_RECORD, 1), QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD, PASSED))
+        Array[QualityAssertion](QualityAssertion(MISSING_BASIS_OF_RECORD, PASSED), QualityAssertion(BADLY_FORMED_BASIS_OF_RECORD, PASSED))
       }
     }
   }

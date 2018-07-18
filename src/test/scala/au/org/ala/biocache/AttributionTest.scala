@@ -11,13 +11,9 @@ import au.org.ala.biocache.processor.AttributionProcessor
 class AttributionTest extends ConfigFunSuite{
        
     test("Test DR lookup in collectory"){
-        val dr= AttributionDAO.getDataResourceFromWS("dr367")        
+        val dr = AttributionDAO.getDataResourceFromWS("dr367")
         expectResult(true){dr.get.hasMappedCollections}
         expectResult("dp33"){dr.get.dataProviderUid}
-        
-        val dr376 = AttributionDAO.getDataResourceFromWS("dr376")
-//        println(dr376)
-//        println(dr376.get.taxonomicHints)
     }
     
     test("Collection lookup"){

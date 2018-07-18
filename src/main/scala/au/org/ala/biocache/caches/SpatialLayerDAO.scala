@@ -3,6 +3,7 @@ package au.org.ala.biocache.caches
 import java.io.{File, FileInputStream}
 
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.caches.SensitivityDAO.lruSensitiveLookups
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.util.StringHelper
 import au.org.ala.layers.intersect.SimpleShapeFile
@@ -180,7 +181,7 @@ object SpatialLayerDAO {
       return Map[String,String]()
     }
 
-    val key = decimalLongitude + "|" + decimalLatitude
+    val key = getLatLongKey(decimalLongitude, decimalLatitude)
     val cachedObject = lock.synchronized { lru.get(key) }
 
     if(cachedObject != null){
@@ -200,6 +201,11 @@ object SpatialLayerDAO {
 
   private def getLatLongKey(longitude:Double, latitude:Double) : String = {
     longitude.toString +  "|" + latitude.toString
+  }
+
+
+  def addToCache(decimalLongitude:Double, decimalLatitude:Double, intersects:collection.Map[String, String]): Unit ={
+    lru.put(getLatLongKey(decimalLongitude, decimalLatitude), intersects)
   }
 
   def getCacheSize = lru.size()

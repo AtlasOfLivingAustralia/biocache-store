@@ -75,16 +75,10 @@ class LocationProcessor extends Processor {
         else if (intersectValues.getOrElse(Config.marineLayerID, null) != null) "Marine"
         else null
       }
-
-      //check matched stateProvince
-      checkForStateMismatch(raw, processed, assertions)
-
-      //add the conservation status if necessary
-      addConservationStatus(raw, processed)
-
-      //check marine/non-marine
-      checkForBiomeMismatch(raw, processed, assertions)
     }
+
+    //process state/country values if coordinates not determined
+    processStateCountryValues(raw, processed, assertions)
 
     //create flag if no location info was supplied for this record
     checkLocationSupplied(raw, processed, assertions)
@@ -92,11 +86,18 @@ class LocationProcessor extends Processor {
     //run validation tests against the processed coordinates
     validateCoordinates(raw, processed, assertions)
 
-    //process state/country values if coordinates not determined
-    processStateCountryValues(raw, processed, assertions)
-
     //validate the geo-reference values
     validateGeoreferenceValues(raw, processed, assertions)
+
+    //check matched stateProvince
+    checkForStateMismatch(raw, processed, assertions)
+
+    //add the conservation status if necessary
+    addConservationStatus(raw, processed)
+
+    //check marine/non-marine
+    checkForBiomeMismatch(raw, processed, assertions)
+
 
     //return the assertions created by this processor
     assertions.toArray

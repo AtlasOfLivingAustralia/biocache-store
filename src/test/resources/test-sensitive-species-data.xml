@@ -10,4 +10,9 @@
             <conservationInstance authority="Natural England" generalisation="10km" zone="Scotland" />
         </instances>
     </sensitiveSpecies>
+    <sensitiveSpecies name="Diuris disposita" family="Diuris" guid="urn:lsid:biodiversity.org.au:apni.taxon:167966" rank="SPECIES" commonName="">
+        <instances>
+            <conservationInstance authority="Natural NSW" generalisation="WITHHOLD" zone="New South Wales" />
+        </instances>
+    </sensitiveSpecies>
 </sensitiveSpeciesList>

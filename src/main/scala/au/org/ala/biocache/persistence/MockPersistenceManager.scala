@@ -19,6 +19,7 @@ class MockPersistenceManager extends PersistenceManager {
 
   private val mockStore = new HashMap[String, HashMap[String, HashMap[String, String]]]
 
+  //QA store has a composite key of rowkey, userId, qa type
   private val qaMockStore = new HashMap[(String,String,String), Map[String, String]]
 
   def clear = mockStore.clear
@@ -146,15 +147,15 @@ class MockPersistenceManager extends PersistenceManager {
     val recordMap = entityMap.getOrElse(uuid, HashMap[String, String]())
     if (overwrite) {
       val json: String = Json.toJSONWithGeneric(newList)
-      recordMap.put(propertyName, json);
+      recordMap.put(propertyName, json)
     } else {
-      val currentList = getList(uuid, entityName, propertyName, theClass);
+      val currentList = getList(uuid, entityName, propertyName, theClass).asInstanceOf[List[A]]
       var buffer = new ListBuffer[A]
 
-      for (theObject <- currentList) {
+      currentList.foreach { theObject =>
         if (!newList.contains(theObject)) {
           //add to buffer
-          buffer + theObject
+          buffer += theObject
         }
       }
 
@@ -197,7 +198,11 @@ class MockPersistenceManager extends PersistenceManager {
   }
 
   def delete(properties: Map[String, String], entityName: String) = {
-    throw new RuntimeException("not implemented yet")
+    if(entityName =="qa"){
+      qaMockStore.remove(properties.getOrElse("rowkey", ""),properties.getOrElse("userId", ""), properties.getOrElse("code", ""))
+    } else {
+      throw new RuntimeException("not implemented yet")
+    }
   }
 
   def shutdown = mockStore.clear

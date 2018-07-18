@@ -11,10 +11,9 @@ import org.scalatest.junit.JUnitRunner
   * Test for the SDS with non Australian data to ensure re-usability.
   */
 @RunWith(classOf[JUnitRunner])
-class ScotlandSensitivityTest extends ScottishConfigFunSuite {
+class ScotlandSensitivityTest extends ConfigFunSuite {
 
   test("Idempotent test - Numenius phaeopus in 55.9486° N, 3.2008° W"){
-    pm.clear
 
     val raw = new FullRecord
     val processed = new FullRecord
@@ -50,7 +49,6 @@ class ScotlandSensitivityTest extends ScottishConfigFunSuite {
   }
 
   test("Lutra lutra in 55.9486° N, 3.2008° W"){
-    pm.clear
 
     val raw = new FullRecord
     val processed = new FullRecord
@@ -69,7 +67,6 @@ class ScotlandSensitivityTest extends ScottishConfigFunSuite {
   }
 
   test("Lutra lutra in 56.65681, -3.15419"){
-    pm.clear
 
     val raw = new FullRecord
     val processed = new FullRecord

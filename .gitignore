@@ -1,3 +1,4 @@
+scalastyle-output.xml
 *.iml
 target/*
 .idea/*

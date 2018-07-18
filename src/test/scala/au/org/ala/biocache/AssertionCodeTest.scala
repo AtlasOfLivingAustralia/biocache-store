@@ -2,8 +2,9 @@ package au.org.ala.biocache
 
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
-import au.org.ala.biocache.model.{Versions, QualityAssertion, FullRecord}
+import au.org.ala.biocache.model.{FullRecord, QualityAssertion, Versions}
 import au.org.ala.biocache.load.FullRecordMapper
+import au.org.ala.biocache.processor.RecordProcessor
 import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.vocab.AssertionStatus
 
@@ -170,18 +171,25 @@ class AssertionCodeTest extends ConfigFunSuite {
    * A system assertion must take into account the values of the existing user assertions before updating
    */
   test("User Assertions checked during system assertions update") {
-    //add user asssertion
+    //add user assertion
     val qa1 = QualityAssertion(AssertionCodes.ID_PRE_OCCURRENCE, "", AssertionStatus.QA_UNCONFIRMED)
     qa1.comment = "Tests user assertion is still applied after system assertions updated"
     qa1.userId = "Natasha.Carter@csiro.au"
     qa1.userDisplayName = "Natasha Carter"
     occurrenceDAO.addUserAssertion(rowKey, qa1)
-    val processed = new FullRecord
-    processed.location.decimalLatitude = "123.123"
-    processed.location.decimalLongitude = "123.123"
-    processed.rowKey = uuid
+
+    val rawAndProcessed = occurrenceDAO.getRawProcessedByRowKey(rowKey).get
+
+    val oldProcessed = rawAndProcessed(1)
+    oldProcessed.location.decimalLatitude = "123.123"
+    oldProcessed.location.decimalLongitude = "123.123"
+    oldProcessed.rowKey = uuid
+
+    val processed = oldProcessed
+
     val assertions = Some(Map("loc" -> Array(QualityAssertion(AssertionCodes.GEOSPATIAL_ISSUE)), "event" -> Array[QualityAssertion]()))
-    occurrenceDAO.updateOccurrence(rowKey, processed, assertions, Versions.PROCESSED)
+    occurrenceDAO.updateOccurrence(rowKey, oldProcessed, processed, assertions, Versions.PROCESSED)
+
     expectResult(true) {
       val record = occurrenceDAO.getByRowKey(rowKey)
       record.get.assertions.contains("idPreOccurrence")
@@ -196,12 +204,11 @@ class AssertionCodeTest extends ConfigFunSuite {
       val record = occurrenceDAO.getByRowKey(rowKey)
       record.get.assertions.contains("idPreOccurrence")
     }
-    occurrenceDAO.updateOccurrence(rowKey, processed, assertions, Versions.PROCESSED)
+    occurrenceDAO.updateOccurrence(rowKey, oldProcessed, assertions, Versions.PROCESSED)
     expectResult(false) {
       val record = occurrenceDAO.getByRowKey(rowKey)
       record.get.assertions.contains("idPreOccurrence")
     }
-    //println(Config.persistenceManager)
   }
 
   test("Verify Record") {
@@ -229,13 +236,18 @@ class AssertionCodeTest extends ConfigFunSuite {
       val record = occurrenceDAO.getByRowKey(rowKey2)
       record.get.geospatiallyKosher
     }
-    val raw = occurrenceDAO.getByRowKey(rowKey2)
-    occurrenceDAO.updateOccurrence(rowKey2, raw.get.createNewProcessedRecord, assertions, Versions.PROCESSED)
+
+
     //test that reprocessing a verified record retains the geospatialKosher = true even when applying failing qa
+    val rawAndProcessed = occurrenceDAO.getRawProcessedByRowKey(rowKey2)
+    val raw = rawAndProcessed.get(0)
+    val currentProcessed = rawAndProcessed.get(1)
+    val recordProcessor = new RecordProcessor
+    recordProcessor.processRecord(raw, currentProcessed, false, false)
+
     expectResult(true) {
       val record = occurrenceDAO.getByRowKey(rowKey2)
-      //println(record.get.assertions.toList)
-      record.get.geospatiallyKosher //&& record.get.assertions.contains("userVerified")
+      record.get.geospatiallyKosher
 
     }
     //test that record 2 only reports back the 1 user assertion
@@ -243,8 +255,9 @@ class AssertionCodeTest extends ConfigFunSuite {
       occurrenceDAO.getUserAssertions(rowKey2).size
     }
     //test the record 1 reports back the 5 user assertions that have been assigned.
-    expectResult(5) {
-      occurrenceDAO.getUserAssertions(rowKey).size
+    expectResult(4) {
+      val userAssertions = occurrenceDAO.getUserAssertions(rowKey)
+      userAssertions.size
     }
   }
 
@@ -266,18 +279,33 @@ class AssertionCodeTest extends ConfigFunSuite {
   }
 
   test("Test add adhoc System assertion") {
+
+    import AssertionStatus._
+
     occurrenceDAO.addSystemAssertion("satest1", QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD))
-    occurrenceDAO.addSystemAssertion("satest1", QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD, 1))
 
-    expectResult(0) {
+    expectResult(1) {
+      val systemAssertions = occurrenceDAO.getSystemAssertions("satest1")
+      systemAssertions.size
+    }
+
+    expectResult(FAILED) {
       val dups = occurrenceDAO.getSystemAssertions("satest1").filter(_.code == AssertionCodes.INFERRED_DUPLICATE_RECORD.code)
-
       dups(0).qaStatus
     }
+
     //now we want to remove the existing first
-    occurrenceDAO.addSystemAssertion("satest1", QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD, 1), replaceExistCode = true)
-    expectResult(1) {
-      val dups = occurrenceDAO.getSystemAssertions("satest1").filter(_.code == AssertionCodes.INFERRED_DUPLICATE_RECORD.code)
+    occurrenceDAO.addSystemAssertion(
+      "satest1",
+      QualityAssertion(AssertionCodes.INFERRED_DUPLICATE_RECORD, PASSED),
+      replaceExistCode = true,
+      checkExisting = true
+    )
+
+    expectResult(PASSED) {
+      val systemAssertions = occurrenceDAO.getSystemAssertions("satest1")
+
+      val dups = systemAssertions.filter {_.code == AssertionCodes.INFERRED_DUPLICATE_RECORD.code }
 
       dups(0).qaStatus
     }
