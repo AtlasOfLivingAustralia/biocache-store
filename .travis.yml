@@ -7,7 +7,10 @@ branches:
   - master
 before_install:
 - mkdir -p ~/.m2; wget -q -O ~/.m2/settings.xml https://raw.githubusercontent.com/AtlasOfLivingAustralia/travis-build-configuration/master/travis_maven_settings.xml
-- sudo mkdir -p /data/lucene
+- sudo mkdir -p /data/lucene/namematching/cb
+- sudo mkdir -p /data/lucene/namematching/id
+- sudo mkdir -p /data/lucene/namematching/irmng
+- sudo mkdir -p /data/lucene/namematching/vernacular
 - cd $TRAVIS_BUILD_DIR
 
 script: "[ \"${TRAVIS_PULL_REQUEST}\" = \"false\" ] && mvn clean install deploy || mvn clean install"
