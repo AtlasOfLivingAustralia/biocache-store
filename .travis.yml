@@ -7,10 +7,10 @@ branches:
   - master
 before_install:
 - mkdir -p ~/.m2; wget -q -O ~/.m2/settings.xml https://raw.githubusercontent.com/AtlasOfLivingAustralia/travis-build-configuration/master/travis_maven_settings.xml
-- sudo mkdir -p /data/lucene/namematching/cb
-- sudo mkdir -p /data/lucene/namematching/id
-- sudo mkdir -p /data/lucene/namematching/irmng
-- sudo mkdir -p /data/lucene/namematching/vernacular
+- sudo mkdir -p /data/lucene; sudo wget -O /data/lucene/namematching.tgz http://biocache.ala.org.au/archives/nameindexes/latest/namematching-20171012-lucene5.tgz
+- cd /data/lucene
+- sudo tar zxvf namematching.tgz
+- ls -laF
 - cd $TRAVIS_BUILD_DIR
 
 script: "[ \"${TRAVIS_PULL_REQUEST}\" = \"false\" ] && mvn clean install deploy || mvn clean install"
