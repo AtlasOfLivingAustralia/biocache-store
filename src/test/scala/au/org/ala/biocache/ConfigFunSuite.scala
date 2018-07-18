@@ -13,8 +13,9 @@ import org.slf4j.LoggerFactory
 class ConfigFunSuite extends FunSuite {
 
   val logger = LoggerFactory.getLogger("ConfigFunSuite")
-  System.setProperty("biocache.config","/biocache-test-config.properties")
+  System.setProperty("biocache.config", "/biocache-test-config.properties")
 
+  println("Using test config " + System.getProperty("biocache.config"))
   Config.inj = Guice.createInjector(new TestConfigModule)
   val pm = Config.persistenceManager
 //  println("Loading up test suite with persistence manager - " + pm.getClass.getName)
@@ -32,6 +33,7 @@ class ConfigFunSuite extends FunSuite {
   tp.setGuid("urn:lsid:biodiversity.org.au:afd.taxon:aa745ff0-c776-4d0e-851d-369ba0e6f537")
   tp.setHabitats(Array("Terrestrial"))
   TaxonProfileDAO.add(tp)
+
 //FIXME these will use LocationDAO....
 //  //Add some location values - location lookup tests
 //  SpatialLayerDAO.add( 144.81060, -35.21667, Map(
