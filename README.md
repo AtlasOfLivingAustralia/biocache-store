@@ -12,8 +12,8 @@ https://github.com/AtlasOfLivingAustralia/ala-install
 
 We are currently running 2 development branches
 
-* 1.9.x which is using cassandra 1.x, with SOLR 4. 
-* 2.x development branch is using cassandra 3.9 and SOLR Cloud 6.
+* master branch is using cassandra 3.9 and SOLR Cloud 6.
+* legacy 1.9 which is using cassandra 1.x, with SOLR 4. 
 
 ## Build notes
 
@@ -33,7 +33,7 @@ For a list of built releases, see [here](http://nexus.ala.org.au/#nexus-search;q
 
 ## Version 2.x
 
-We are currently working on version 2.x of this code base  that makes use of cassandra 3.x and SOLR 6.x with SOLR cloud support.
+The 2.x version of this code base  that makes use of cassandra 3.x and SOLR 6.x with SOLR cloud support.
 See the [cassandra3](https://github.com/AtlasOfLivingAustralia/biocache-store/tree/cassandra3) branch for details.
 
 There are differences when using cassandra.case.sensitive=true
