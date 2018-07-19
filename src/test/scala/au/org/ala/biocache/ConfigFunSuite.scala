@@ -1,9 +1,11 @@
 package au.org.ala.biocache
 
+import java.io.File
+
 import org.scalatest.FunSuite
 import com.google.inject.Guice
-import au.org.ala.biocache.caches.{SpatialLayerDAO, LocationDAO, TaxonProfileDAO}
-import au.org.ala.biocache.model.{TaxonProfile, ConservationStatus}
+import au.org.ala.biocache.caches.{LocationDAO, SpatialLayerDAO, TaxonProfileDAO}
+import au.org.ala.biocache.model.{ConservationStatus, TaxonProfile}
 import au.org.ala.biocache.persistence.PersistenceManager
 import org.slf4j.LoggerFactory
 
@@ -13,9 +15,14 @@ import org.slf4j.LoggerFactory
 class ConfigFunSuite extends FunSuite {
 
   val logger = LoggerFactory.getLogger("ConfigFunSuite")
-  System.setProperty("biocache.config", "/biocache-test-config.properties")
 
-  println("Using test config " + System.getProperty("biocache.config"))
+  val configFilePath = System.getProperty("user.dir") +  "/src/test/resources/biocache-test-config.properties"
+
+  System.setProperty("biocache.config", configFilePath)
+  println("Using test config " + configFilePath)
+  println("Using test config exists : " + new File(configFilePath).exists())
+
+
   Config.inj = Guice.createInjector(new TestConfigModule)
   val pm = Config.persistenceManager
 //  println("Loading up test suite with persistence manager - " + pm.getClass.getName)

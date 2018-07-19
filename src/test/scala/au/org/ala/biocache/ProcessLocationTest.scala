@@ -36,9 +36,9 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     val raw = new FullRecord
     val processed = new FullRecord
     raw.classification.scientificName = "Diuris disposita"
-    processed.classification.setScientificName("Diuris disposita")
-    processed.classification.setTaxonConceptID("urn:lsid:biodiversity.org.au:apni.taxon:167966")
-    processed.classification.setTaxonRankID("7000")
+    processed.classification.scientificName = "Diuris disposita"
+    processed.classification.taxonConceptID = "urn:lsid:biodiversity.org.au:apni.taxon:167966"
+    processed.classification.taxonRankID = "7000"
     raw.location.stateProvince = "NSW"
     raw.location.locality = "My test locality"
 
