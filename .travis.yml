@@ -17,7 +17,7 @@ before_install:
 - ls -laF
 - cd $TRAVIS_BUILD_DIR
 
-script: "[ \"${TRAVIS_PULL_REQUEST}\" = \"false\" ] && mvn deploy -X || mvn install -X"
+script: "[ \"${TRAVIS_PULL_REQUEST}\" = \"false\" ] && mvn deploy || mvn install"
 env:
   global:
   - secure: ESKmT8MqCMhcmqlBdnhwv/EJOSuUYSAeTDdA/oXBC9g61k6KrxWZorqylh02LOqamg2r1tUn5i+H+L6vT0tEezdyO1+raFE7gMasbDmlPl/tqAKrwsU0x9YpeqFa2N48xlQlGVw4PfavBoeJ5WCwUovakhvmYauAEhc92rIXr7U=
