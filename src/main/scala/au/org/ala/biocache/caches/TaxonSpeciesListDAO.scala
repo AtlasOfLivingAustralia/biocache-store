@@ -55,12 +55,13 @@ object TaxonSpeciesListDAO {
       lock.synchronized {
         //only le the first thread actually perform the init by rechecking the null
         if(speciesListMap == null){
-          if(StringUtils.isNotEmpty(Config.listToolUrl)){
+          if(Config.loadSpeciesLists && StringUtils.isNotEmpty(Config.listToolUrl)){
             logger.info("Loading list information...")
             speciesListMap = buildTaxonListMap
             logger.info("Loading list information...completed.")
           } else {
             logger.info("List tool URL is not configured. Skipping list loading...")
+            speciesListMap = Map()
           }
         }
       }

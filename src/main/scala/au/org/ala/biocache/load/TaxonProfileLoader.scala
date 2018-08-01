@@ -134,20 +134,21 @@ object ConservationListLoader extends NoArgsTool {
   def run() {
 
     var taxonCounter = 0
-    println("empty conservation column")
-    var batch: mutable.Map[String, Map[String, String]] = mutable.Map[String, Map[String, String]]()
+    logger.info("empty conservation column")
+
+    val batch: mutable.Map[String, Map[String, String]] = mutable.Map[String, Map[String, String]]()
     Config.persistenceManager.pageOverSelect("taxon", (rowkey, map) => {
       batch.put(rowkey, Map("conservation" -> null))
       true
     }, 1000, 1, "rowkey")
 
-    print("writting")
+    logger.info("writing")
     Config.persistenceManager.putBatch("taxon", batch.toMap, false, false)
 
     val listUids = getListsForQuery("isThreatened=eq:true&isAuthoritative=eq:true&max=1000")
 
     // grab a list of distinct guids that form the list
-    listUids.foreach { case (listUid, region) => {
+    listUids.foreach { case (listUid, region) =>
       //get the taxon guids on the list
       val url = MessageFormat.format(guidUrl, listUid)
       val response = WebServiceLoader.getWSStringContent(url)
@@ -155,7 +156,8 @@ object ConservationListLoader extends NoArgsTool {
         val list = JSON.parseFull(response).get.asInstanceOf[List[String]]
         guidsArray ++= list.filter(_ != null)
       }
-    }}
+    }
+
     val guids = guidsArray.toSet
 
     logger.info("The number of species with conservation status reset " + taxonCounter)
@@ -163,7 +165,7 @@ object ConservationListLoader extends NoArgsTool {
     //now load all the details for each  taxon guids
     logger.info("The number of distinct species " + guids.size)
     var counter = 0
-    guids.foreach(guid => {
+    guids.foreach { guid =>
 
       counter += 1
       if(counter % 100 == 0){
@@ -174,7 +176,7 @@ object ConservationListLoader extends NoArgsTool {
       //now add the values to the DB
       val buff = new ListBuffer[ConservationStatus]
 
-      listUids.foreach { case (listUid, region) => {
+      listUids.foreach { case (listUid, region) =>
         if(props.getOrElse(listUid + "_status", "") != ""){
           val status = props.getOrElse(listUid + "_status", "")
           val rawStatus = props.getOrElse(listUid + "_sourceStatus", "")
@@ -186,12 +188,12 @@ object ConservationListLoader extends NoArgsTool {
           )
           buff += conservationStatus
         }
-      }}
+      }
 
       if(!buff.isEmpty) {
         val csAsJson = Json.toJSON(buff.toList)
         Config.persistenceManager.put(guid, "taxon", Map("conservation" -> csAsJson), true, false)
       }
-    })
+    }
   }
 }

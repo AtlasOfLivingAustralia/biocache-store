@@ -21,8 +21,19 @@ class TaxonProfile (
         val map: scala.collection.mutable.Map[String, String] = new scala.collection.mutable.HashMap[String, String]
         for (cs <- conservation) {
           //Only add the state if it is missing or replaces "null" state information
-          if (map.getOrElse(cs.region, "null").contains("null"))
-            map += cs.region -> (cs.status + "," + cs.rawStatus)
+          if (map.getOrElse(cs.region, "null").contains("null")){
+            val statusOutput = if(cs.status != null && cs.status != "null"){
+              cs.status
+            } else {
+              ""
+            }
+            val rawStatusOutput = if(cs.rawStatus != null && cs.rawStatus != "null"){
+              cs.rawStatus
+            } else {
+              ""
+            }
+            map += cs.region -> (statusOutput + "," + rawStatusOutput)
+          }
         }
         conservationMap = map.toMap
       }

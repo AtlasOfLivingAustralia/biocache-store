@@ -1557,17 +1557,30 @@ trait IndexDAO {
     //conservation
     val sconservation = getArrayValue(columnOrder.stateConservationP, array)
     if (StringUtils.isNotEmpty(sconservation)) {
+
       val split = sconservation.split(",")
-      addField(doc, "state_conservation", split(0))
-      if (split.length > 1)
+
+      if(StringUtils.isNotBlank(split(0))) {
+        addField(doc, "state_conservation", split(0))
+      }
+
+      if (split.length > 1 && StringUtils.isNotBlank(split(1))) {
         addField(doc, "raw_state_conservation", split(1))
+      }
     }
+
     val cconservation = getArrayValue(columnOrder.countryConservationP, array)
     if (StringUtils.isNotEmpty(cconservation)) {
+
       val split = cconservation.split(",")
-      addField(doc, "country_conservation", split(0))
-      if (split.length > 1)
+
+      if(StringUtils.isNotBlank(split(0))) {
+        addField(doc, "country_conservation", split(0))
+      }
+
+      if (split.length > 1 && StringUtils.isNotBlank(split(1))) {
         addField(doc, "raw_country_conservation", split(1))
+      }
     }
 
     //user_assertions
