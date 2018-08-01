@@ -77,7 +77,7 @@ class EventProcessor extends Processor {
       //are day and month transposed?
       val monthValue = raw.event.month.toInt
       val dayValue = raw.event.day.toInt
-      if (monthValue > 12 && dayValue < 12) {
+      if (monthValue > 12 && dayValue <= 12) {
         month = dayValue
         day = monthValue
         assertions += QualityAssertion(DAY_MONTH_TRANSPOSED, "Assume day and month transposed")
