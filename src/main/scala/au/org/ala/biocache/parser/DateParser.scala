@@ -486,8 +486,8 @@ object ISODayMonthRange {
       if (parts.length != 2) return None
       val startDateParsed = DateUtils.parseDateStrictly(parts(0),
         Array("yyyy-MM-dd"))
-      val endDateParsed = DateUtils.parseDateStrictly(parts(1),
-        Array("MM-dd"))
+      val endDateParsed = DateUtils.parseDateStrictly(DateFormatUtils.format(startDateParsed, "yyyy") + "-" + parts(1),
+        Array("yyyy-MM-dd")) //end dates of 02-29 must be allowed if leap year: parsing 02-29 without year fails
 
       val startDate = DateFormatUtils.format(startDateParsed, "yyyy-MM-dd")
       val startDay = DateFormatUtils.format(startDateParsed, "dd")
