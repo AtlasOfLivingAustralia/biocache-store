@@ -404,8 +404,8 @@ class DuplicationDetection {
           collector,
           oldStatus,
           oldDuplicateOf,
-          currentLine(24),
-          currentLine(25))
+          currentLine(15),
+          currentLine(16))
       } else {
         logger.warn("lsid " + currentLine(0) + " line " + counter + " has incorrect number of columns: "
           + currentLine.size + ", vs " + fieldsToExport.length)
@@ -690,7 +690,7 @@ class DuplicationDetection {
 
     //open the tmp file that contains the information about the lsid
     val reader = new CSVReader(new FileReader(sourceFileName), '\t', '`', '~')
-    var currentLine = reader.readNext //first line is header
+    var currentLine = reader.readNext //first line is data, not header
     val buff = new ArrayBuffer[DuplicateRecordDetails]
     var counter = 0
 
@@ -717,7 +717,7 @@ class DuplicationDetection {
         val oldDuplicateOf = StringUtils.trimToNull(currentLine(14).replaceAll("\\[", "").replaceAll("\\]", ""))
         buff += new DuplicateRecordDetails(rowKey, rowKey, taxon_lsid, year, month, day, currentLine(5), currentLine(6),
           currentLine(7), currentLine(8), currentLine(9), currentLine(10), rawName, collector, oldStatus, oldDuplicateOf,
-          currentLine(24), currentLine(25))
+          currentLine(15), currentLine(16))
       } else {
         logger.warn("lsid " + lsid + " line " + counter + " has incorrect column number: " + currentLine.size)
       }
