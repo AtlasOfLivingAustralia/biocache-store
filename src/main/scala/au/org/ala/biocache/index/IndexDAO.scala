@@ -326,7 +326,7 @@ trait IndexDAO {
     * These fields are not indexed by index-local-node-v2 for sensitive records.
     */
   lazy val headerAttributesFix = List(
-    ("verbatimElevation", "raw_min_elevation", -1, 2), // NEW
+    ("verbatimElevation", "raw_elevation", -1, 2), // NEW
     ("verbatimDepth", "raw_verbatim_depth", -1, 2), // NEW   - this is causing an error
     ("taxonRank", "raw_rank", -1, 2), // NEW
     ("stateProvince", "raw_state", -1, 2), // NEW
