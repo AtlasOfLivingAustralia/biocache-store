@@ -1742,19 +1742,26 @@ class ColumnOrder {
       columnNames(i) = formatNameForSolr(columnDefinitions.getName(i))
     }
 
+    //add _raw to fields when there is also a _p version
     (0 until columnNames.length).foreach { i =>
       val name = columnNames(i)
 
       if (!name.endsWith(Config.persistenceManager.fieldDelimiter + "p")) {
-        //add _raw to fields there is also a _p version
-        if (columnDefinitions.contains(name + Config.persistenceManager.fieldDelimiter + "p")) {
+        if (columnNames.contains(name + Config.persistenceManager.fieldDelimiter + "p")) {
           columnNames(i) = "raw_" + name
         }
-      } else {
-        //remove _p
+      }
+    }
+
+    //remove _p
+    (0 until columnNames.length).foreach { i =>
+      val name = columnNames(i)
+
+      if (name.endsWith(Config.persistenceManager.fieldDelimiter + "p")) {
         columnNames(i) = name.substring(0, name.length - 2)
       }
     }
+
 
     val fields = this.getClass.getDeclaredFields()
     (0 until fields.length).foreach { i =>

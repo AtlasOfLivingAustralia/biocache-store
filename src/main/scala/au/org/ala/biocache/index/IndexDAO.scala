@@ -1442,9 +1442,9 @@ trait IndexDAO {
       for (i <- headerAttributesFix.indices) {
         val h = headerAttributesFix(i)
         var value: String = {
-          if (h._4 == 3) {
+          if (h._4 == 3) { // Parsed
             getArrayValue(array_header_parsed_idx_fix(i), array)
-          } else if (h._4 >= 0) {
+          } else if (h._4 >= 0) { //Both
             val v = getArrayValue(array_header_idx_fix(i), array)
             if (StringUtils.isEmpty(v) && h._4 == 0) {
               getArrayValue(array_header_parsed_idx_fix(i), array)
@@ -1456,20 +1456,19 @@ trait IndexDAO {
           }
         }
 
-        if (h._3 == 0) {
+        if (h._3 == 0) {  // Date field
           try {
             val date = DateParser.parseStringToDate(value)
-            if (StringUtils.isNotEmpty(date.toString)) value = date + "T00:00:00Z"
-            else value = ""
+            value = DateFormatUtils.format(date.get, "yyyy-MM-dd'T'HH:mm:ss'Z'")
           } catch {
             case _: Exception => value = ""
           }
         }
 
         if (StringUtils.isNotEmpty(value)) {
-          if (h._3 == 4) {
+          if (h._3 == 4) { // Multivalue
             jsonArrayLoop(value, h._2, doc)
-          } else if (h._3 == -1) {
+          } else  { // Default
             addField(doc, h._2, value)
           }
         }
