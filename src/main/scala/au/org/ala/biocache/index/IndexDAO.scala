@@ -193,6 +193,10 @@ trait IndexDAO {
     }
   }
 
+  val RAW_AND_PARSED = 0
+  val RAW = 2
+  val PARSED = 3
+
   /**
     * header attributes used by index-local-node-v2
     *
@@ -202,123 +206,127 @@ trait IndexDAO {
     * TODO: 2. Simplify to CassandraColumnName -> SolrFieldName. Complexity is required to reflect backward compatibility.
     * TODO: 3. Remove all DWC fields. These should be indexed by default.
     */
-  lazy val headerAttributes = List(
-    ("dateIdentified", "identified_date", 0, 3),
-    ("firstLoaded", "first_loaded_date", 0, 2),
-    (FullRecordMapper.alaModifiedColumn, "last_load_date", 0, 2),
-    (FullRecordMapper.alaModifiedColumn, "last_processed_date", 0, 3),
-    (FullRecordMapper.lastUserAssertionDateColumn, "last_assertion_date", 0, 2),
-    ("eventDate", "occurrence_date", 0, 3),
-    ("eventDateEnd", "occurrence_date_end_dt", 0, 3),
-    ("loanDate", "loan_date", 0, 2),
-    ("loanReturnDate", "loan_return_date", 0, 2),
-    ("modified", "modified_date", 0, 3),
+  lazy val headerAttributes = List (
+    ("dateIdentified", "identified_date", 0, PARSED),
+    ("firstLoaded", "first_loaded_date", 0, RAW),
+    (FullRecordMapper.alaModifiedColumn, "last_load_date", 0, RAW),
+    (FullRecordMapper.alaModifiedColumn, "last_processed_date", 0, PARSED),
+    (FullRecordMapper.lastUserAssertionDateColumn, "last_assertion_date", 0, RAW),
+    ("eventDate", "occurrence_date", 0, PARSED),
+    ("eventDateEnd", "occurrence_date_end_dt", 0, PARSED),
+    ("loanDate", "loan_date", 0, RAW),
+    ("loanReturnDate", "loan_return_date", 0, RAW),
+    ("modified", "modified_date", 0, PARSED),
 
-    ("dataHubUid", "data_hub_uid", 4, 0),
-    ("speciesGroups", "species_group", 4, 3),
-    ("interactions", "interaction", 4, 3),
-    ("taxonomicIssue", "taxonomic_issue", 4, 3),
-    ("speciesHabitats", "species_habitats", 4, 3),
-    ("duplicationType", "duplicate_type", 4, 3),
-    ("establishmentMeans", "establishment_means", 4, 3),
+    ("dataHubUid", "data_hub_uid", 4, RAW_AND_PARSED),
+    ("speciesGroups", "species_group", 4, PARSED),
+    ("interactions", "interaction", 4, PARSED),
+    ("taxonomicIssue", "taxonomic_issue", 4, PARSED),
+    ("speciesHabitats", "species_habitats", 4, PARSED),
+    ("duplicationType", "duplicate_type", 4, PARSED),
+    ("establishmentMeans", "establishment_means", 4, PARSED),
 
-    ("year", "occurrence_year", 0, 3),
+    ("year", "occurrence_year", 0, PARSED),
 
-    ("dataProviderName", "data_provider", -1, 0),
-    ("dataProviderUid", "data_provider_uid", -1, 0),
-    ("dataResourceName", "data_resource", -1, 0),
-    ("dataResourceUid", "data_resource_uid", -1, 0),
+    ("dataProviderName", "data_provider", -1, RAW_AND_PARSED),
+    ("dataProviderUid", "data_provider_uid", -1, RAW_AND_PARSED),
+    ("dataResourceName", "data_resource", -1, RAW_AND_PARSED),
+    ("dataResourceUid", "data_resource_uid", -1, RAW_AND_PARSED),
 
-    ("catalogNumber", "catalogue_number", -1, 2),
-    ("collectionCode", "collection_code", -1, 2),
-    ("countryCode", "country_code", -1, 2),
-    ("datasetName", "dataset_name", -1, 2),
-    ("datePrecision", "date_precision", -1, 2),
-    ("decimalLatitude", "raw_latitude", -1, 2),
-    ("decimalLongitude", "raw_longitude", -1, 2),
-    ("duplicates", "duplicate_inst", -1, 2),
-    ("eventID", "event_id", -1, 2),
-    (FullRecordMapper.taxonomicDecisionColumn, "taxonomic_kosher", -1, 2),
-    ("geodeticDatum", "raw_datum", -1, 2),
-    ("georeferenceVerificationStatus", "raw_geo_validation_status", -1, 2),
-    ("identificationQualifier", "raw_identification_qualifier", -1, 2),
-    ("identifiedBy", "identified_by", -1, 2),
-    ("individualCount", "individual_count", -1, 2),
-    ("institutionCode", "institution_code", -1, 2),
-    ("loanDestination", "loan_destination", -1, 2),
-    ("loanForBotanist", "loan_botanist", -1, 2),
-    ("loanIdentifier", "loan_identifier", -1, 2),
-    ("loanSequenceNumber", "loan_number", -1, 2),
-    ("locality", "raw_locality", -1, 2),
-    ("locationID", "location_id", -1, 2),
-    ("locationRemarks", "location_remarks", -1, 2),
-    ("occurrenceDetails", "occurrence_details", -1, 2),
-    ("occurrenceID", "occurrence_id", -1, 2),
-    ("occurrenceRemarks", "occurrence_remarks", -1, 2),
-    ("occurrenceStatus", "raw_occurrence_status", -1, 2),
-    ("originalNameUsage", "original_name_usage", -1, 2),
-    ("phenology", "life_stage", -1, 2),
-    ("photographer", "photographer", -1, 2),
-    ("recordedBy", "collector", -1, 2),
-    ("recordNumber", "record_number", -1, 2),
-    ("reproductiveCondition", "reproductive_condition", -1, 2),
-    ("rights", "rights", -1, 2),
-    ("rowkey", "row_key", -1, 2),
-    ("sex", "raw_sex", -1, 2),
-    ("taxonConceptID", "taxon_concept_lsid", -1, 2),
-    ("typeStatus", "raw_type_status", -1, 2),
-    ("userId", "user_id", -1, 2),
-    ("userId", "alau_user_id", -1, 2),
-    ("uuid", "id", -1, 2),
-    ("vernacularName", "raw_common_name", -1, 2),
-    ("distanceOutsideExpertRange", "distance_outside_expert_range", -1, 3),
-    ("associatedOccurrences", "duplicate_record", -1, 3),
-    ("basisOfRecord", "basis_of_record", -1, 3),
-    ("classs", "class", -1, 3),
-    ("collectionName", "collection_name", -1, 3),
-    ("collectionUid", "collection_uid", -1, 3),
-    ("coordinateUncertaintyInMeters", "coordinate_uncertainty", -1, 3),
-    ("country", "country", -1, 3),
-    ("dataHub", "data_hub", -1, 3),
-    ("decimalLatitude", "latitude", -1, 3),
-    ("decimalLongitude", "longitude", -1, 3),
-    ("duplicationStatus", "duplicate_status", -1, 3),
-    ("family", "family", -1, 3),
-    ("georeferenceVerificationStatus", "georeference_verification_status", -1, 3),
-    ("genus", "genus", -1, 3),
-    ("genusID", "genus_guid", -1, 3),
-    ("identificationQualifier", "identification_qualifier", -1, 3),
-    ("identificationVerificationStatus", "identification_verification_status", -1, 3),
-    ("institutionName", "institution_name", -1, 3),
-    ("institutionUid", "institution_uid", -1, 3),
-    ("kingdom", "kingdom", -1, 3),
-    ("left", "lft", -1, 3),
-    ("lga", "places", -1, 3),
-    ("license", "license", -1, 3),
-    ("maximumDepthInMeters", "max_depth_d", -1, 3),
-    ("maximumElevationInMeters", "max_elevation_d", -1, 3),
-    ("minimumDepthInMeters", "min_depth_d", -1, 3),
-    ("minimumElevationInMeters", "min_elevation_d", -1, 3),
-    ("month", "month", -1, 3),
-    ("nameMatchMetric", "name_match_metric", -1, 3),
-    ("nameParseType", "name_parse_type", -1, 3),
-    ("occurrenceStatus", "occurrence_status", -1, 3),
-    ("order", "order", -1, 3),
-    ("phylum", "phylum", -1, 3),
-    ("provenance", "provenance", -1, 3),
-    ("recordedBy", "collectors", -1, 3),
-    ("right", "rgt", -1, 3),
-    ("scientificName", "taxon_name", -1, 3),
-    ("species", "species", -1, 3),
-    ("speciesID", "species_guid", -1, 3),
-    ("stateProvince", "state", -1, 3),
-    ("taxonRank", "rank", -1, 3),
-    ("taxonRankID", "rank_id", -1, 3),
-    ("typeStatus", "type_status", -1, 3),
-    ("verbatimDepth", "depth", -1, 3),
-    ("verbatimElevation", "elevation", -1, 3),
-    ("vernacularName", "common_name", -1, 3),
-    ("year", "year", -1, 3))
+    ("catalogNumber", "catalogue_number", -1, RAW),
+    ("collectionCode", "collection_code", -1, RAW),
+    ("countryCode", "country_code", -1, RAW),
+    ("datasetName", "dataset_name", -1, RAW),
+    ("datePrecision", "date_precision", -1, RAW),
+    ("decimalLatitude", "raw_latitude", -1, RAW),
+    ("decimalLongitude", "raw_longitude", -1, RAW),
+    ("duplicates", "duplicate_inst", -1, RAW),
+    ("eventID", "event_id", -1, RAW),
+    (FullRecordMapper.taxonomicDecisionColumn, "taxonomic_kosher", -1, RAW),
+    ("geodeticDatum", "raw_datum", -1, RAW),
+    ("geodeticDatum", "datum", -1, PARSED),
+    ("georeferenceVerificationStatus", "raw_geo_validation_status", -1, RAW),
+    ("identificationQualifier", "raw_identification_qualifier", -1, RAW),
+    ("identifiedBy", "identified_by", -1, RAW),
+    ("individualCount", "individual_count", -1, RAW),
+    ("institutionCode", "institution_code", -1, RAW),
+    ("loanDestination", "loan_destination", -1, RAW),
+    ("loanForBotanist", "loan_botanist", -1, RAW),
+    ("loanIdentifier", "loan_identifier", -1, RAW),
+    ("loanSequenceNumber", "loan_number", -1, RAW),
+    ("locality", "raw_locality", -1, RAW),
+    ("locationID", "location_id", -1, RAW),
+    ("locationRemarks", "location_remarks", -1, RAW),
+    ("occurrenceDetails", "occurrence_details", -1, RAW),
+    ("occurrenceID", "occurrence_id", -1, RAW),
+    ("occurrenceRemarks", "occurrence_remarks", -1, RAW),
+    ("occurrenceStatus", "raw_occurrence_status", -1, RAW),
+    ("originalNameUsage", "original_name_usage", -1, RAW),
+    ("phenology", "life_stage", -1, RAW),
+    ("photographer", "photographer", -1, RAW),
+    ("recordedBy", "collector", -1, RAW),
+    ("recordNumber", "record_number", -1, RAW),
+    ("reproductiveCondition", "reproductive_condition", -1, RAW),
+    ("rights", "rights", -1, RAW),
+    ("rowkey", "row_key", -1, RAW),
+    ("sex", "raw_sex", -1, RAW),
+    ("taxonConceptID", "taxon_concept_lsid", -1, RAW),
+    ("typeStatus", "raw_type_status", -1, RAW),
+    ("userId", "user_id", -1, RAW),
+    ("userId", "alau_user_id", -1, RAW),
+    ("uuid", "id", -1, RAW),
+    ("vernacularName", "raw_common_name", -1, RAW),
+    ("distanceOutsideExpertRange", "distance_outside_expert_range", -1, PARSED),
+    ("associatedOccurrences", "duplicate_record", -1, PARSED),
+    ("basisOfRecord", "basis_of_record", -1, PARSED),
+    ("classs", "class", -1, PARSED),
+    ("collectionName", "collection_name", -1, PARSED),
+    ("collectionUid", "collection_uid", -1, PARSED),
+    ("coordinateUncertaintyInMeters", "coordinate_uncertainty", -1, PARSED),
+    ("country", "country", -1, PARSED),
+    ("dataHub", "data_hub", -1, PARSED),
+    ("decimalLatitude", "latitude", -1, PARSED),
+    ("decimalLongitude", "longitude", -1, PARSED),
+    ("duplicationStatus", "duplicate_status", -1, PARSED),
+    ("family", "family", -1, PARSED),
+    ("georeferenceVerificationStatus", "georeference_verification_status", -1, PARSED),
+    ("genus", "genus", -1, PARSED),
+    ("genusID", "genus_guid", -1, PARSED),
+    ("identificationQualifier", "identification_qualifier", -1, PARSED),
+    ("identificationVerificationStatus", "identification_verification_status", -1, PARSED),
+    ("institutionName", "institution_name", -1, PARSED),
+    ("institutionUid", "institution_uid", -1, PARSED),
+    ("infraspecificEpithet", "infraspecific_epithet", -1, RAW),
+    ("kingdom", "kingdom", -1, PARSED),
+    ("left", "lft", -1, PARSED),
+    ("lga", "places", -1, PARSED),
+    ("license", "license", -1, PARSED),
+    ("maximumDepthInMeters", "max_depth_d", -1, PARSED),
+    ("maximumElevationInMeters", "max_elevation_d", -1, PARSED),
+    ("minimumDepthInMeters", "min_depth_d", -1, PARSED),
+    ("minimumElevationInMeters", "min_elevation_d", -1, PARSED),
+    ("month", "month", -1, PARSED),
+    ("nameMatchMetric", "name_match_metric", -1, PARSED),
+    ("nameParseType", "name_parse_type", -1, PARSED),
+    ("occurrenceStatus", "occurrence_status", -1, PARSED),
+    ("order", "order", -1, PARSED),
+    ("phylum", "phylum", -1, PARSED),
+    ("provenance", "provenance", -1, PARSED),
+    ("recordedBy", "collectors", -1, PARSED),
+    ("right", "rgt", -1, PARSED),
+    ("scientificName", "taxon_name", -1, PARSED),
+    ("species", "species", -1, PARSED),
+    ("speciesID", "species_guid", -1, PARSED),
+    ("specificEpithet", "specific_epithet", -1, RAW),
+    ("stateProvince", "state", -1, PARSED),
+    ("taxonRank", "rank", -1, PARSED),
+    ("taxonRankID", "rank_id", -1, PARSED),
+    ("typeStatus", "type_status", -1, PARSED),
+    ("verbatimDepth", "depth", -1, PARSED),
+    ("verbatimElevation", "elevation", -1, PARSED),
+    ("vernacularName", "common_name", -1, PARSED),
+    ("year", "year", -1, PARSED)
+  )
 
   /**
     * headerAttributesFix are the unprocessed fields excluded as a result of the backwards compatible headerAttributes.
@@ -326,33 +334,33 @@ trait IndexDAO {
     * These fields are not indexed by index-local-node-v2 for sensitive records.
     */
   lazy val headerAttributesFix = List(
-    ("verbatimElevation", "raw_elevation", -1, 2), // NEW
-    ("verbatimDepth", "raw_verbatim_depth", -1, 2), // NEW   - this is causing an error
-    ("taxonRank", "raw_rank", -1, 2), // NEW
-    ("stateProvince", "raw_state", -1, 2), // NEW
-    ("scientificName", "raw_taxon_name", -1, 2), // NEW
-    ("phylum", "raw_phylum", -1, 2), // NEW
-    ("order", "raw_order", -1, 2), // NEW
-    ("month", "raw_month", -1, 2), // NEW
-    ("minimumElevationInMeters", "raw_min_elevation", -1, 2), // NEW
-    ("minimumDepthInMeters", "raw_min_depth", -1, 2), // NEW
-    ("maximumElevationInMeters", "raw_max_elevation", -1, 2), // NEW
-    ("maximumDepthInMeters", "raw_max_depth", -1, 2), // NEW
-    ("license", "raw_license", -1, 2), // NEW
-    ("kingdom", "raw_kingdom", -1, 2), // NEW
-    ("genus", "raw_genus", -1, 2), // NEW
-    ("family", "raw_family", -1, 2), // NEW
-    ("country", "raw_country", -1, 2), // NEW
-    ("coordinateUncertaintyInMeters", "raw_coordinate_uncertainty", -1, 2), // NEW
-    ("classs", "raw_class", -1, 2), // NEW
-    ("basisOfRecord", "raw_basis_of_record", -1, 2), // NEW
-    ("associatedOccurrences", "raw_duplicate_record", -1, 2), // NEW
-    ("year", "raw_occurrence_year", 0, 2), // NEW
-    ("establishmentMeans", "raw_establishment_means", 4, 2), // NEW
-    ("dateIdentified", "raw_identified_date", 0, 2),  // NEW
-    ("eventDate", "raw_occurrence_date", 0, 2),  // NEW
-    ("eventDateEnd", "raw_occurrence_date_end_dt", 0, 2),  // NEW
-    ("modified", "raw_modified_date", 0, 2) // NEW
+    ("verbatimElevation", "raw_min_elevation", -1, RAW), // NEW
+    ("verbatimDepth", "raw_verbatim_depth", -1, RAW), // NEW   - this is causing an error
+    ("taxonRank", "raw_rank", -1, RAW), // NEW
+    ("stateProvince", "raw_state", -1, RAW), // NEW
+    ("scientificName", "raw_taxon_name", -1, RAW), // NEW
+    ("phylum", "raw_phylum", -1, RAW), // NEW
+    ("order", "raw_order", -1, RAW), // NEW
+    ("month", "raw_month", -1, RAW), // NEW
+    ("minimumElevationInMeters", "raw_min_elevation", -1, RAW), // NEW
+    ("minimumDepthInMeters", "raw_min_depth", -1, RAW), // NEW
+    ("maximumElevationInMeters", "raw_max_elevation", -1, RAW), // NEW
+    ("maximumDepthInMeters", "raw_max_depth", -1, RAW), // NEW
+    ("license", "raw_license", -1, RAW), // NEW
+    ("kingdom", "raw_kingdom", -1, RAW), // NEW
+    ("genus", "raw_genus", -1, RAW), // NEW
+    ("family", "raw_family", -1, RAW), // NEW
+    ("country", "raw_country", -1, RAW), // NEW
+    ("coordinateUncertaintyInMeters", "raw_coordinate_uncertainty", -1, RAW), // NEW
+    ("classs", "raw_class", -1, RAW), // NEW
+    ("basisOfRecord", "raw_basis_of_record", -1, RAW), // NEW
+    ("associatedOccurrences", "raw_duplicate_record", -1, RAW), // NEW
+    ("year", "raw_occurrence_year", 0, RAW), // NEW
+    ("establishmentMeans", "raw_establishment_means", 4, RAW), // NEW
+    ("dateIdentified", "raw_identified_date", 0, RAW),  // NEW
+    ("eventDate", "raw_occurrence_date", 0, RAW),  // NEW
+    ("eventDateEnd", "raw_occurrence_date_end_dt", 0, RAW),  // NEW
+    ("modified", "raw_modified_date", 0, RAW) // NEW
   )
 
   /**
