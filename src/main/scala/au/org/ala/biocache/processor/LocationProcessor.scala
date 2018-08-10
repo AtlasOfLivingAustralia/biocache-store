@@ -351,7 +351,7 @@ class LocationProcessor extends Processor {
 
     //check to see if we have coordinates specified
     if (rawLatitude != null && rawLongitude != null && !rawLatitude.toFloatWithOption.isEmpty && !rawLongitude.toFloatWithOption.isEmpty) {
-      processDecimalCoordinates(rawLatitude, rawLongitude, rawGeodeticDatum, assertions)
+      processDecimalCoordinates(rawLatitude, rawLongitude, rawGeodeticDatum, verbatimSRS, assertions)
       // Attempt to infer the decimal latitude and longitude from the verbatim latitude and longitude
     } else {
       //no decimal latitude/longitude was provided
@@ -394,7 +394,7 @@ class LocationProcessor extends Processor {
     * @param assertions
     * @return
     */
-  private def processDecimalCoordinates(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String,
+  private def processDecimalCoordinates(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String, verbatimSRS: String,
                                         assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
 
     //coordinates were supplied so the test passed
@@ -411,7 +411,20 @@ class LocationProcessor extends Processor {
         case None => rawGeodeticDatum
       }
 
-      val sourceEpsgCode = GridUtil.lookupEpsgCode(datum)
+      //lookup EPSG code
+      var sourceEpsgCode = GridUtil.lookupEpsgCode(datum)
+
+      //if empty - try verbatim SRS
+      if (!sourceEpsgCode.isEmpty && verbatimSRS != null) {
+        val matchedVerbatimSRS = GeodeticDatum.matchTerm(verbatimSRS)
+        val srs = if(!matchedVerbatimSRS.isEmpty){
+          matchedVerbatimSRS.get.canonical
+        } else {
+          verbatimSRS
+        }
+        sourceEpsgCode = GridUtil.lookupEpsgCode(srs)
+      }
+
       if (!sourceEpsgCode.isEmpty) {
         //datum is recognised so pass the test:
         assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, PASSED)
