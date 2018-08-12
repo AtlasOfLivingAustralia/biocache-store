@@ -1591,7 +1591,7 @@ trait IndexDAO {
 
     //user_assertions
     val userAssertionStatus = getArrayValue(columnOrder.userAssertionStatusColumn, array)
-    if (StringUtils.isNotEmpty(userAssertionStatus) && userAssertionStatus.equals(AssertionStatus.QA_NONE.toString)) {
+    if (StringUtils.isNotEmpty(userAssertionStatus) && !userAssertionStatus.equals(AssertionStatus.QA_NONE.toString)) {
       try {
         addField(doc, "user_assertions", userAssertionStatus.toInt.toString)
       } catch {
