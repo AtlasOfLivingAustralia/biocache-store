@@ -1677,22 +1677,27 @@ trait IndexDAO {
 
     if (StringUtils.isNotEmpty(jsonString)) {
 
-      var start: Integer = jsonString.indexOf("\"") + 1
-      var endOfCommaQuote: Integer = jsonString.indexOf("\",\"", start + 1)
-      var endQuote: Integer = jsonString.indexOf("\"", start + 1)
-      var pos: Integer = 0
+      if (!(jsonString.startsWith("["))) {
+        // when it is not a JSON array, use the unparsed value
+        proc(jsonString, 0)
+      } else {
+        var start: Integer = jsonString.indexOf("\"") + 1
+        var endOfCommaQuote: Integer = jsonString.indexOf("\",\"", start + 1)
+        var endQuote: Integer = jsonString.indexOf("\"", start + 1)
+        var pos: Integer = 0
 
-      while (endOfCommaQuote > 0 || endQuote > 0) {
-        if (endOfCommaQuote > 0) {
-          proc(jsonString.substring(start, endOfCommaQuote), pos)
-          start = endOfCommaQuote + 3
-        } else {
-          proc(jsonString.substring(start, endQuote), pos)
-          start = endQuote + 3
+        while (endOfCommaQuote > 0 || endQuote > 0) {
+          if (endOfCommaQuote > 0) {
+            proc(jsonString.substring(start, endOfCommaQuote), pos)
+            start = endOfCommaQuote + 3
+          } else {
+            proc(jsonString.substring(start, endQuote), pos)
+            start = endQuote + 3
+          }
+          endOfCommaQuote = jsonString.indexOf("\",\"", start + 1)
+          endQuote = jsonString.indexOf("\"", start + 1)
+          pos += 1
         }
-        endOfCommaQuote = jsonString.indexOf("\",\"", start + 1)
-        endQuote = jsonString.indexOf("\"", start + 1)
-        pos += 1
       }
     }
   }
