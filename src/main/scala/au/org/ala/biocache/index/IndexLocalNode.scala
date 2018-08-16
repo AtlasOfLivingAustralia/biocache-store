@@ -266,8 +266,18 @@ class IndexLocalNode {
       //download from SOLR server if available
       FileUtils.forceMkdir(sourceConfDir)
       if(Config.solrHome.startsWith("http")) {
-        Array("schema.xml", "additionalFields.list", "elevate.xml", "protwords.txt", "solrconfig.xml", "stopwords.txt", "synonyms.txt").foreach { fileName =>
-          downloadFile(Config.solrHome + "/admin/file?file=" + fileName, sourceConfDir.getAbsolutePath + File.separator + fileName)
+        Array("schema.xml", "schema.xml.bak", "additionalFields.list", "elevate.xml", "protwords.txt", "solrconfig.xml", "stopwords.txt", "synonyms.txt").foreach { fileName =>
+          downloadFile(Config.solrHome + "/admin/file?file=" + fileName, sourceConfDir.getAbsolutePath + File.separator + fileName, true)
+        }
+
+        if(!new File(sourceConfDir.getAbsolutePath + File.separator + "schema.xml").exists()){
+          if(new File(sourceConfDir.getAbsolutePath + File.separator + "schema.xml.bak").exists()){
+            new File(sourceConfDir.getAbsolutePath + File.separator + "schema.xml.bak").renameTo(
+              new File(sourceConfDir.getAbsolutePath + File.separator + "schema.xml")
+            )
+          } else {
+            throw new RuntimeException("Unable to find a schema.xml to use for indexing.")
+          }
         }
       }
     }
@@ -309,11 +319,16 @@ class IndexLocalNode {
     (schema, schemaFile, newIndexDir, confDir, sourceConfDir)
   }
 
-
-  def downloadFile(url: String, fileToDownload: String)  {
-    val src = scala.io.Source.fromURL(url)
-    val out = new java.io.FileWriter(fileToDownload)
-    out.write(src.mkString)
-    out.close
+  def downloadFile(url: String, fileToDownload: String, failSilently:Boolean)  {
+    try {
+      val src = scala.io.Source.fromURL(url)
+      val out = new java.io.FileWriter(fileToDownload)
+      out.write(src.mkString)
+      out.close
+    } catch {
+      case e:Exception => {
+        if(!failSilently) throw e
+      }
+    }
   }
 }
