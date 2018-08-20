@@ -689,7 +689,7 @@ class Cassandra3PersistenceManager  @Inject() (
     grandTotal
   }
 
-  def pageOverSelectArray(entityName: String, proc: ((String, GettableData, ColumnDefinitions) => Boolean),
+  def pageOverSelectArray(entityName: String, proc: ((String, DataRow) => Boolean),
                           indexedField: String, indexedFieldValue: String, pageSize: Int, threads: Int,
                           localOnly: Boolean, columnName: String*): Int = {
     pageOverLocalNotAsync(entityName, null, threads, columnName.toArray, null, indexedField, indexedFieldValue,
@@ -758,7 +758,7 @@ class Cassandra3PersistenceManager  @Inject() (
                             threads: Int, columns: Array[String] = Array(), rowKeyFile: File = null,
                             indexedField: String = "", indexedFieldValue: String = "",
                             localOnly: Boolean = true,
-                            procArray: ((String, GettableData, ColumnDefinitions) => Boolean) = null): Int = {
+                            procArray: ((String, DataRow) => Boolean) = null): Int = {
 
     val MAX_QUERY_RETRIES = 20
 
@@ -931,7 +931,7 @@ class Cassandra3PersistenceManager  @Inject() (
                     if (procArray != null) {
                       //process response as an array to avoid conversion to Map
                       try {
-                        continuePaging.set(procArray(rowkey, row, row.getColumnDefinitions))
+                        continuePaging.set(procArray(rowkey, new CassandraRow(row)))
                       } catch {
                         case e: Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
                       }

@@ -6,9 +6,9 @@ import java.util.concurrent.atomic.AtomicLong
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
-import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
+import au.org.ala.biocache.persistence.{Cassandra3PersistenceManager, DataRow}
 import au.org.ala.biocache.util.JMX
-import com.datastax.driver.core.{ColumnDefinitions, GettableData}
+import com.datastax.driver.core.{ColumnDefinitions, GettableData, Row}
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -119,7 +119,7 @@ class IndexRunner(centralCounter: Counter,
       null
     }
 
-    val queue: LinkedBlockingQueue[(String, GettableData, ColumnDefinitions)] = new LinkedBlockingQueue[(String, GettableData, ColumnDefinitions)](processorBufferSize)
+    val queue: LinkedBlockingQueue[(String, DataRow)] = new LinkedBlockingQueue[(String, DataRow)](processorBufferSize)
 
     val threads = mutable.ArrayBuffer[ProcessThread]()
 
@@ -155,7 +155,7 @@ class IndexRunner(centralCounter: Counter,
         indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
         var continue = true
         while (continue) {
-          val (guid, data, columnDefinitions) = queue.take()
+          val (guid, row) = queue.take()
           if (guid == null) {
             continue = false
           } else {
@@ -164,8 +164,7 @@ class IndexRunner(centralCounter: Counter,
 
               val t2 = indexer.indexFromArray(
                 guid,
-                data,
-                columnDefinitions,
+                row,
                 docBuilder = luceneIndexer.getDocBuilder,
                 lock = lock,
                 test = test)
@@ -190,7 +189,7 @@ class IndexRunner(centralCounter: Counter,
     var uuidIdx = -1
 
     //page through and create and index for this range
-    Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverSelectArray("occ", (guid, row, columnDefinitions) => {
+    Config.persistenceManager.pageOverSelectArray("occ", (guid, row) => {
 
       t2Total.addAndGet(System.nanoTime() - t2)
 
@@ -199,15 +198,15 @@ class IndexRunner(centralCounter: Counter,
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
         if (uuidIdx == -1) {
-          uuidIdx = columnDefinitions.getIndexOf("rowkey")
+          uuidIdx = row.getIndexOf("rowkey")
         }
         if (!StringUtils.isEmpty(row.getString(uuidIdx))) {
           val t1 = System.nanoTime()
           var t2 = 0L
           if (processingThreads > 0) {
-            queue.put((row.getString(uuidIdx), row, columnDefinitions))
+            queue.put((row.getString(uuidIdx), row))
           } else {
-            t2 = indexer.indexFromArray(row.getString(uuidIdx), row, columnDefinitions)
+            t2 = indexer.indexFromArray(row.getString(uuidIdx), row)
             timing.addAndGet(System.nanoTime() - t1 - t2)
           }
         }
@@ -287,7 +286,7 @@ class IndexRunner(centralCounter: Counter,
 
     //signal threads to end
     for (i <- 0 until processingThreads) {
-      queue.put((null, null, null))
+      queue.put((null, null))
     }
 
     //wait for threads to end

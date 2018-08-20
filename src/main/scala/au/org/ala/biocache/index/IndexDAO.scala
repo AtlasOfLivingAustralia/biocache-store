@@ -8,6 +8,7 @@ import au.org.ala.biocache.dao.OccurrenceDAO
 import au.org.ala.biocache.index.lucene.DocBuilder
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.parser.DateParser
+import au.org.ala.biocache.persistence.DataRow
 import au.org.ala.biocache.util.Json
 import au.org.ala.biocache.vocab.AssertionStatus
 import com.datastax.driver.core.GettableData
@@ -150,7 +151,7 @@ trait IndexDAO {
     }
   }
 
-  def getArrayValue(idx: Integer, array: GettableData, default: String = ""): String = {
+  def getArrayValue(idx: Integer, array: DataRow, default: String = ""): String = {
     if (idx >= 0) {
       var value = array.getString(idx)
       if (StringUtils.isEmpty(value)) {
@@ -270,7 +271,7 @@ trait IndexDAO {
     ("rights", "rights", -1, RAW),
     ("rowkey", "row_key", -1, RAW),
     ("sex", "raw_sex", -1, RAW),
-    ("taxonConceptID", "taxon_concept_lsid", -1, RAW),
+    ("taxonConceptID", "taxon_concept_lsid", -1, PARSED),
     ("typeStatus", "raw_type_status", -1, RAW),
     ("userId", "user_id", -1, RAW),
     ("userId", "alau_user_id", -1, RAW),
@@ -1378,7 +1379,7 @@ trait IndexDAO {
     }
   }
 
-  def writeOccIndexArrayToDoc(doc: DocBuilder, guid: String, array: GettableData) = {
+  def writeOccIndexArrayToDoc(doc: DocBuilder, guid: String, array: DataRow) = {
     try {
       //get the lat lon values so that we can determine all the point values
       val deleted = getArrayValue(columnOrder.deletedColumn, array)
@@ -1406,7 +1407,7 @@ trait IndexDAO {
     (actual, parsed)
   }
 
-  def addFields(doc: DocBuilder, array: GettableData): Unit = {
+  def addFields(doc: DocBuilder, array: DataRow): Unit = {
 
     //standard field copy
     headerAttributes.indices.foreach { i =>
