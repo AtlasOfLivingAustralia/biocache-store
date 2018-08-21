@@ -6,9 +6,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
-import au.org.ala.biocache.persistence.{Cassandra3PersistenceManager, DataRow}
+import au.org.ala.biocache.persistence.DataRow
 import au.org.ala.biocache.util.JMX
-import com.datastax.driver.core.{ColumnDefinitions, GettableData, Row}
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 

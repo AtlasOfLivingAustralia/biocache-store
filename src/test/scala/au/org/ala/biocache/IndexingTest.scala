@@ -36,9 +36,6 @@ class IndexingTest extends ConfigFunSuite {
       pm.put(idx.toString, "occ", data, true, false)
     }
 
-
-
-
     val i = new IndexLocalNode
     i.indexRecords(1,
       workingDir + "/src/test/resources/solr/biocache/", //solrHome: String,
@@ -63,11 +60,10 @@ class IndexingTest extends ConfigFunSuite {
     //verify the index
     val indexReader = DirectoryReader.open(FSDirectory.open(Paths.get(new URI("file://" + workingDir + "/src/test/resources/solr/biocache/merged_0"))))
     var counter = 0
-    val maxDocId = indexReader.maxDoc()
-    println("Number of documents...." + maxDocId)
-
     var lsidCount = 0
     var nameCount = 0
+
+    val maxDocId = indexReader.maxDoc()
 
     while(counter < maxDocId) {
       val doc = indexReader.document(counter)
@@ -77,7 +73,9 @@ class IndexingTest extends ConfigFunSuite {
     }
     indexReader.close
 
-    println("Number of documents....LSID:" + lsidCount + ", name:" + nameCount)
+    //previous tests may have added data
+    expectResult(true){lsidCount >= 10000}
+    expectResult(true){nameCount >= 10000}
 
     if(merged.exists()) FileUtils.deleteDirectory(merged)
     if(confTmp.exists()) FileUtils.deleteDirectory(confTmp)

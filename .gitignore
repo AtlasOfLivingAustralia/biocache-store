@@ -11,3 +11,5 @@ target
 .cache-main
 .cache-tests
 .tmpBin/
+src/test/resources/solr/biocache/merged_0
+src/test/resources/solr/biocache/solr-create

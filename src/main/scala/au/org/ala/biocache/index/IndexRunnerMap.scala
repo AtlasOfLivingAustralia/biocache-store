@@ -6,13 +6,11 @@ import java.util.concurrent.atomic.AtomicLong
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
-import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
 import au.org.ala.biocache.util.JMX
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 
 class IndexRunnerMap(centralCounter: Counter,
                      confDirPath: String, pageSize: Int = 200,
@@ -120,7 +118,7 @@ class IndexRunnerMap(centralCounter: Counter,
     val t2Total = new AtomicLong(0L)
     var t2 = System.nanoTime()
     var uuidIdx = -1
-    Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocal("occ", (guid, map, _) => {
+    Config.persistenceManager.pageOverLocal("occ", (guid, map, _) => {
       t2Total.addAndGet(System.nanoTime() - t2)
 
       counter += 1
