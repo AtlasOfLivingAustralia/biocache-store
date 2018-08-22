@@ -46,6 +46,8 @@ class Occurrence extends Cloneable with POSO {
   @BeanProperty var occurrenceDetails:String = _
   @BeanProperty var occurrenceRemarks:String = _
   @BeanProperty var occurrenceStatus:String = _
+  @BeanProperty var organismQuantity:String = _
+  @BeanProperty var organismQuantityType:String = _
   @BeanProperty var otherCatalogNumbers:String = _
   @BeanProperty var ownerInstitutionCode:String = _
   @BeanProperty var preparations:String = _
