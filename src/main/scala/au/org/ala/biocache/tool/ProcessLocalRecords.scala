@@ -168,7 +168,7 @@ class ProcessLocalRecords {
                 readCount.intValue()
               )
 
-              val processorTimings = processor.getProcessTimings.toMap
+              val processorTimings = processor.getProcessTimings
               JMX.updateProcessingCacheStatistics(
                 ClassificationDAO.getCacheSize,
                 LocationDAO.getCacheSize,
