@@ -185,8 +185,8 @@ class SampleLocalRecords extends Counter {
     var readCount = 0
     var rowkeys = Seq("")
     val queue = new util.HashSet[String]()
-    val dlat = "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p"
-    val dlon = "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
+    val dlat = (if (Config.caseSensitiveCassandra) "decimalLatitude" else "decimallatitude") + Config.persistenceManager.fieldDelimiter + "p"
+    val dlon = (if (Config.caseSensitiveCassandra) "decimalLongitude" else "decimallongitude") + Config.persistenceManager.fieldDelimiter + "p"
 
     val rowKeyFile : File = if (drs.size == 1) {
       Store.rowKeyFile(drs.iterator.next())
