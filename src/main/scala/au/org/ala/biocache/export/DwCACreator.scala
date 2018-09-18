@@ -461,11 +461,11 @@ class DwCACreator {
     list.foreach { dataResourceUid =>
 
       //find the archive....
-      val archivePath = archivesPath + "/" + dataResourceUid + ".zip"
-      val archive = new File(archivesPath + "/" + dataResourceUid + ".zip")
+      val archivePath = archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip"
+      val archive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip")
       if (archive.exists()){
 
-        val backupArchive = new File(archivesPath + "/" + dataResourceUid + ".zip.backup")
+        val backupArchive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip.backup")
         //rename
         FileUtils.moveFile(archive, backupArchive)
 
