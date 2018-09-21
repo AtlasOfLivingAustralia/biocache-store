@@ -968,7 +968,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
         persistenceManager.delete(
           Map(
             "rowkey" -> toBeDeleted.referenceRowKey,
-            "userId" -> toBeDeleted.getUserId,
+            (if (Config.caseSensitiveCassandra) "userId" else "userid") -> toBeDeleted.getUserId,
             "code"   -> toBeDeleted.code.toString
           ),
           qaEntityName
