@@ -128,7 +128,11 @@ object ProcessRecords extends Tool with IncrementalTool {
       p
     }
 
-    file.foreachLine(line => queue.put(line.trim))
+    file.foreachLine(line => 
+      if (!line.trim().isEmpty()) {
+        queue.put(line.trim)
+      }
+    )
     pool.foreach(t => t.shouldStop = true)
     pool.foreach(_.join)
 
