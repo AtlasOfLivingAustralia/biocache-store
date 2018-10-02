@@ -368,18 +368,20 @@ class Sampling  {
     val coordinates = new HashSet[String]
     val lp = new LocationProcessor
     rowKeys.foreachLine { line =>
-      val values = Config.persistenceManager.getSelected(line, "occ", properties)
-      if (values.isDefined) {
-        def map = values.get
+      if (!line.trim().isEmpty()) {
+        val values = Config.persistenceManager.getSelected(line, "occ", properties)
+        if (values.isDefined) {
+          def map = values.get
 
-        handleRecordMap(map, coordinates, lp)
+          handleRecordMap(map, coordinates, lp)
 
-        if (counter % 10000 == 0 && counter > 0) {
-          val numberOfCoordinates = coordinates.size
-          logger.debug(s"Distinct coordinates counter: $counter , current count: $numberOfCoordinates")
+          if (counter % 10000 == 0 && counter > 0) {
+            val numberOfCoordinates = coordinates.size
+            logger.debug(s"Distinct coordinates counter: $counter , current count: $numberOfCoordinates")
+          }
+          counter += 1
+          passed += 1
         }
-        counter += 1
-        passed += 1
       }
     }
     val noOfCoordinates = coordinates.size
