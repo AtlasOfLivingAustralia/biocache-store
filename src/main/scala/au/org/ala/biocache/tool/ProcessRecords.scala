@@ -82,11 +82,13 @@ object ProcessRecords extends Tool with IncrementalTool {
     var counter = 0
     val recordProcessor = new RecordProcessor
     rowkeys.foreach { guid =>
-      counter += 1
-      val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
-      if (!rawProcessed.isEmpty) {
-        val rp = rawProcessed.get
-        recordProcessor.processRecord(rp(0), rp(1))
+      if (!guid.trim().isEmpty()) {
+        counter += 1
+        val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
+        if (!rawProcessed.isEmpty) {
+          val rp = rawProcessed.get
+          recordProcessor.processRecord(rp(0), rp(1))
+        }
       }
     }
 
@@ -109,17 +111,19 @@ object ProcessRecords extends Tool with IncrementalTool {
       var finishTime = System.currentTimeMillis
 
       val p = new StringConsumer(queue, ids, { guid =>
-        counter += 1
-        val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
-        if (!rawProcessed.isEmpty) {
-          val rp = rawProcessed.get
-          recordProcessor.processRecord(rp(0), rp(1))
+        if (!guid.trim().isEmpty()) {
+          counter += 1
+          val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
+          if (!rawProcessed.isEmpty) {
+            val rp = rawProcessed.get
+            recordProcessor.processRecord(rp(0), rp(1))
 
-          //debug counter
-          if (counter % 1000 == 0) {
-            finishTime = System.currentTimeMillis
-            logger.info(counter + " >> Last key : " + rp(0).rowKey + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
-            startTime = System.currentTimeMillis
+            //debug counter
+            if (counter % 1000 == 0) {
+              finishTime = System.currentTimeMillis
+              logger.info(counter + " >> Last key : " + rp(0).rowKey + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
+              startTime = System.currentTimeMillis
+            }
           }
         }
       })
