@@ -188,29 +188,31 @@ object Sampling extends Tool with IncrementalTool with Counter {
       var finishTime = System.currentTimeMillis
 
       val p = new StringConsumer(queue, ids, { guid =>
-        counter += 1
+        if(!guid.trim().isEmpty()) {
+          counter += 1
 
-        val result = Config.persistenceManager.getSelected(guid, "occ", requiredFields)
-        if(!result.isEmpty){
-          val map = result.get
-          val lat = map.get("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p").get
-          val lon = map.get("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p").get
+          val result = Config.persistenceManager.getSelected(guid, "occ", requiredFields)
+          if(!result.isEmpty){
+            val map = result.get
+            val lat = map.get("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p").get
+            val lon = map.get("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p").get
 
-          val point = LocationDAO.getSamplesForLatLon(lat, lon)
-          if (!point.isEmpty) {
-            val (location, environmentalLayers, contextualLayers) = point.get
-            Config.persistenceManager.put(guid, "occ", Map(
-              "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
-              "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
-              false,
-              false
-            )
+            val point = LocationDAO.getSamplesForLatLon(lat, lon)
+            if (!point.isEmpty) {
+              val (location, environmentalLayers, contextualLayers) = point.get
+              Config.persistenceManager.put(guid, "occ", Map(
+                "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
+                "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
+                false,
+                false
+              )
+            }
           }
-        }
-        if (counter % 1000 == 0) {
-          finishTime = System.currentTimeMillis
-          logger.info(counter + " >> Loading sampling records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f) +", lastkey: " + guid )
-          startTime = System.currentTimeMillis
+          if (counter % 1000 == 0) {
+            finishTime = System.currentTimeMillis
+            logger.info(counter + " >> Loading sampling records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f) +", lastkey: " + guid )
+            startTime = System.currentTimeMillis
+          }
         }
       })
       ids += 1
@@ -218,7 +220,11 @@ object Sampling extends Tool with IncrementalTool with Counter {
       p
     }
 
-    new File(fileName).foreachLine(line => queue.put(line.trim))
+    new File(fileName).foreachLine(line => 
+      if(!line.trim().isEmpty()) {
+        queue.put(line.trim)
+      }
+    )
     pool.foreach(t => t.shouldStop = true)
     pool.foreach(_.join)
   }
@@ -368,18 +374,20 @@ class Sampling  {
     val coordinates = new HashSet[String]
     val lp = new LocationProcessor
     rowKeys.foreachLine { line =>
-      val values = Config.persistenceManager.getSelected(line, "occ", properties)
-      if (values.isDefined) {
-        def map = values.get
+      if (!line.trim().isEmpty()) {
+        val values = Config.persistenceManager.getSelected(line, "occ", properties)
+        if (values.isDefined) {
+          def map = values.get
 
-        handleRecordMap(map, coordinates, lp)
+          handleRecordMap(map, coordinates, lp)
 
-        if (counter % 10000 == 0 && counter > 0) {
-          val numberOfCoordinates = coordinates.size
-          logger.debug(s"Distinct coordinates counter: $counter , current count: $numberOfCoordinates")
+          if (counter % 10000 == 0 && counter > 0) {
+            val numberOfCoordinates = coordinates.size
+            logger.debug(s"Distinct coordinates counter: $counter , current count: $numberOfCoordinates")
+          }
+          counter += 1
+          passed += 1
         }
-        counter += 1
-        passed += 1
       }
     }
     val noOfCoordinates = coordinates.size

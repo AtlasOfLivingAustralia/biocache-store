@@ -234,7 +234,7 @@ class DwCALoader extends DataLoader {
         val uniqueID = {
           //create the unique ID
           if (!uniqueTerms.isEmpty) {
-            val uniqueTermValues = uniqueTerms.map(t => recordAsMap.get(t.simpleName()))
+            val uniqueTermValues = uniqueTerms.map(t => recordAsMap.get(t.simpleName()).get)
             val id = (List(resourceUid) ::: uniqueTermValues.toList).mkString("|").trim
             Some(if (stripSpaces) id.replaceAll("\\s", "") else id)
           } else {
