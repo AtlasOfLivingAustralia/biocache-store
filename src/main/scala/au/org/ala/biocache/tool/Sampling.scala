@@ -1,4 +1,4 @@
-package au.org.ala.biocache.tool
+  package au.org.ala.biocache.tool
 
 import java.io._
 import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue}
@@ -464,7 +464,9 @@ class Sampling  {
       if (Config.layersServiceSampling) {
         processBatchRemote(writer, points, fields, callback)
       } else {
-        processBatch(writer, points, fields, callback)
+        logger.info("Sampling is disabled.")
+        return
+//        processBatch(writer, points, fields, callback)
       }
 
       totalProcessed += points.size

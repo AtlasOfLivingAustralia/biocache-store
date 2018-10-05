@@ -158,14 +158,14 @@ object Store {
     *
     * Record is indexed if should index is true
     */
-  def loadRecord(dataResourceIdentifer:String, properties:java.util.Map[String,String], shouldIndex:Boolean){
+  def loadRecord(dataResourceIdentifer:String, properties:java.util.Map[String,String], shouldIndex:Boolean) : String = {
     (new RecordProcessor).addRecord(dataResourceIdentifer, properties.toMap[String,String])
   }
 
   /**
     * Load the record, download any media associated with the record.
     */
-  def loadRecord(dataResourceUid: String, fr: FullRecord, identifyingTerms: java.util.List[String], shouldIndex: Boolean = true) {
+  def loadRecord(dataResourceUid: String, fr: FullRecord, identifyingTerms: java.util.List[String], shouldIndex: Boolean = true) : String = {
     fr.lastModifiedTime = new Date()
     (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true, false)
     val processor = new RecordProcessor
@@ -173,6 +173,7 @@ object Store {
     if (shouldIndex) {
       occurrenceDAO.reIndex(fr.rowKey)
     }
+    fr.rowKey
   }
 
   /**
@@ -181,7 +182,7 @@ object Store {
     * It relies on identifyFields supplying a list dwc terms that make up the unique identifier for the data resource
     */
   def loadRecords(dataResourceUid: String, recordsProperties: java.util.List[java.util.Map[String, String]],
-                  identifyFields: java.util.List[String], shouldIndex: Boolean = true) {
+                  identifyFields: java.util.List[String], shouldIndex: Boolean = true) : Seq[String] = {
     val loader = new MapDataLoader
     val rowKeys = loader.load(dataResourceUid, recordsProperties.toList, identifyFields.toList)
     if (!rowKeys.isEmpty) {
@@ -190,6 +191,7 @@ object Store {
         IndexRecords.indexList(rowKeys)
       }
     }
+    rowKeys
   }
 
   /**
