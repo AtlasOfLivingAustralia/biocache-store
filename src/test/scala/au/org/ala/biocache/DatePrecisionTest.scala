@@ -15,7 +15,7 @@ import scala.collection.mutable.ArrayBuffer
   * @author Dave Martin (David.Martin@csiro.au)
   */
 @RunWith(classOf[JUnitRunner])
-class DatePrecisionTest extends FunSuite {
+class DatePrecisionTest extends ConfigFunSuite {
 
   test("2000-01-01 with blank precision - date shouldn't be affected"){
     val e = new EventProcessor
@@ -28,7 +28,55 @@ class DatePrecisionTest extends FunSuite {
     expectResult("2000-01-01"){ p.event.eventDate  }
   }
 
-  test("2000-01-01 with month precision"){
+  test("2000-01-01 with month precision - 'D'"){
+    val e = new EventProcessor
+    val r = new FullRecord
+    val p = new FullRecord
+    p.event.eventDate = "2000-01-01"
+    r.event.eventDate = "2000-01-01"
+    r.event.datePrecision = "D"
+    val assertions = new ArrayBuffer[QualityAssertion]
+    e.checkPrecision(r, p, assertions)
+    expectResult("2000-01-01"){ p.event.eventDate  }
+  }
+
+  test("2000-01-01 with month precision - 'd'"){
+    val e = new EventProcessor
+    val r = new FullRecord
+    val p = new FullRecord
+    p.event.eventDate = "2000-01-01"
+    r.event.eventDate = "2000-01-01"
+    r.event.datePrecision = "d"
+    val assertions = new ArrayBuffer[QualityAssertion]
+    e.checkPrecision(r, p, assertions)
+    expectResult("2000-01-01"){ p.event.eventDate  }
+  }
+
+  test("2000-01-01 with month precision - 'day'"){
+    val e = new EventProcessor
+    val r = new FullRecord
+    val p = new FullRecord
+    p.event.eventDate = "2000-01-01"
+    r.event.eventDate = "2000-01-01"
+    r.event.datePrecision = "day"
+    val assertions = new ArrayBuffer[QualityAssertion]
+    e.checkPrecision(r, p, assertions)
+    expectResult("2000-01-01"){ p.event.eventDate  }
+  }
+
+  test("2000-01-01 with month precision - 'Day'"){
+    val e = new EventProcessor
+    val r = new FullRecord
+    val p = new FullRecord
+    p.event.eventDate = "2000-01-01"
+    r.event.eventDate = "2000-01-01"
+    r.event.datePrecision = "Day"
+    val assertions = new ArrayBuffer[QualityAssertion]
+    e.checkPrecision(r, p, assertions)
+    expectResult("2000-01-01"){ p.event.eventDate  }
+  }
+
+  test("2000-01-01 with month precision - 'O'"){
     val e = new EventProcessor
     val r = new FullRecord
     val p = new FullRecord
@@ -64,7 +112,7 @@ class DatePrecisionTest extends FunSuite {
     expectResult("2000-01"){ p.event.eventDate  }
   }
 
-  test("2000-01-01 with year precision"){
+  test("2000-01-01 with year precision - 'Y'"){
     val e = new EventProcessor
     val r = new FullRecord
     val p = new FullRecord
@@ -76,7 +124,31 @@ class DatePrecisionTest extends FunSuite {
     expectResult("2000"){ p.event.eventDate  }
   }
 
+  test("2000-01-01 with year precision - 'y'"){
+    val e = new EventProcessor
+    val r = new FullRecord
+    val p = new FullRecord
+    p.event.eventDate = "2000-01-01"
+    r.event.eventDate = "2000-01-01"
+    r.event.datePrecision = "y"
+    val assertions = new ArrayBuffer[QualityAssertion]
+    e.checkPrecision(r, p, assertions)
+    expectResult("2000"){ p.event.eventDate  }
+  }
+
   test("2000-01-01 with year precision - 'year'"){
+    val e = new EventProcessor
+    val r = new FullRecord
+    val p = new FullRecord
+    p.event.eventDate = "2000-01-01"
+    r.event.eventDate = "2000-01-01"
+    r.event.datePrecision = "year"
+    val assertions = new ArrayBuffer[QualityAssertion]
+    e.checkPrecision(r, p, assertions)
+    expectResult("2000"){ p.event.eventDate  }
+  }
+
+  test("2000-01-01 with year precision - 'YEAR'"){
     val e = new EventProcessor
     val r = new FullRecord
     val p = new FullRecord
@@ -93,7 +165,7 @@ class DatePrecisionTest extends FunSuite {
     val r = new FullRecord
     val p = new FullRecord
     p.event.eventDate = "2000-01-01"
-    p.event.eventDate = "2003-01-01"
+    p.event.eventDateEnd = "2003-01-01"
     r.event.datePrecision = "YY"
     val assertions = new ArrayBuffer[QualityAssertion]
     e.checkPrecision(r, p, assertions)
