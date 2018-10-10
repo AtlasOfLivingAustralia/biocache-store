@@ -19,6 +19,8 @@ import org.apache.commons.lang3.time.DateUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
 
 /**
   * Companion object for the duplicate detection class.
@@ -254,12 +256,6 @@ object DuplicationDetection extends Tool {
       }
     }
 
-    pool.foreach { t =>
-      if (t.isInstanceOf[StringConsumer]) {
-        t.asInstanceOf[StringConsumer].shouldStop = true
-      }
-    }
-
     pool.foreach(_.join)
 
     if (loadOnly) {
@@ -461,21 +457,21 @@ class DuplicationDetection {
 
     var currentLsid = ""
     val queue = new ArrayBlockingQueue[String](100)
-    var ids = 0
+    val ids = new AtomicInteger(0)
     val buffer = new ArrayBuffer[String] // The buffer to store all the rowKeys that need to be reindexed
     val allDuplicates = new ArrayBuffer[String]
     val conceptPattern = """"taxonConceptLsid":"([A-Za-z0-9\-:\.]*)"""".r
 //    var oldDuplicates: Set[String] = null
 //    var oldDupMap: Map[String, String] = null
+    val sentinel = UUID.randomUUID().toString() + System.currentTimeMillis()
 
     val pool: Array[StringConsumer] = Array.fill(threads) {
-      val p = new StringConsumer(queue, ids, {
+      val p = new StringConsumer(queue, ids.incrementAndGet(), sentinel,  {
         duplicate => {
           val duplicateRecordDetails = mapper.readValue[DuplicateRecordDetails](duplicate, classOf[DuplicateRecordDetails])
           persistDuplicate(duplicateRecordDetails, buffer, allDuplicates)
         }
       })
-      ids += 1
       p.start
       p
     }
@@ -515,7 +511,9 @@ class DuplicationDetection {
       logger.error(s"$dupFilename does not exist - perhaps you need to run duplicate detection first...")
     }
 
-    pool.foreach(t => t.shouldStop = true)
+    for (i <- 1 to threads) {
+      queue.put(sentinel)
+    }
     pool.foreach(_.join)
 //
 //    val olddds = getCurrentDuplicates(currentLsid)
@@ -537,20 +535,22 @@ class DuplicationDetection {
     //get a list of the current records that are considered duplicates
     val (oldDuplicates, oldDupMap) = getCurrentDuplicates(lsid)
     val queue = new ArrayBlockingQueue[String](100)
-    var ids = 0
+    val ids = new AtomicInteger(0)
     val buffer = new ArrayBuffer[String]
     val allDuplicates = new ArrayBuffer[String]
+    val sentinel = UUID.randomUUID().toString() + System.currentTimeMillis()
     val pool: Array[StringConsumer] = Array.fill(threads) {
-      val p = new StringConsumer(queue, ids, { duplicate =>
+      val p = new StringConsumer(queue, ids.incrementAndGet(), sentinel, { duplicate =>
         val duplicateRecordDetails = mapper.readValue[DuplicateRecordDetails](duplicate, classOf[DuplicateRecordDetails])
          persistDuplicate(duplicateRecordDetails, buffer, allDuplicates)
       })
-      ids += 1
       p.start
       p
     }
     new File(dupFilename).foreachLine(line => queue.put(line))
-    pool.foreach(t => t.shouldStop = true)
+    for (i <- 1 to threads) {
+      queue.put(sentinel)
+    }
     pool.foreach(_.join)
     revertNonDuplicateRecords(oldDuplicates, oldDupMap, allDuplicates.toSet, oldDupWriter)
     oldDupWriter.flush

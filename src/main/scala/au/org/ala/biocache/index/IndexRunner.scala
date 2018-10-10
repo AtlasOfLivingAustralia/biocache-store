@@ -101,10 +101,10 @@ class IndexRunner(centralCounter: Counter,
 
     val indexer = new SolrIndexDAO(newIndexDir.getParentFile.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
-    var counter = new AtomicLong(0)
+    val counter = new AtomicLong(0)
     val start = System.currentTimeMillis
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
+    val startTime = new AtomicLong(System.currentTimeMillis)
+    val finishTime = new AtomicLong(0)
 
     val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) {
       indexer.getCsvWriter()
@@ -220,7 +220,7 @@ class IndexRunner(centralCounter: Counter,
       if (currentCounter % 1000 == 0) {
 
         centralCounter.setCounter(currentCounter.toInt)
-        finishTime = System.currentTimeMillis
+        finishTime.set(System.currentTimeMillis)
         if(currentCounter.toInt > 0) {
           centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
           logger.info("cassandraTime(s)=" + t2Total.get() / 1000000000 +
@@ -236,7 +236,7 @@ class IndexRunner(centralCounter: Counter,
 
         if(Config.jmxDebugEnabled){
           JMX.updateIndexStatus(
-            centralCounter.counter,
+            centralCounter.counter.get(),
             centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
             t2Total.get() / 1000000000, //cassandra time
             timing.get() / 1000000000, //processing time
@@ -252,11 +252,11 @@ class IndexRunner(centralCounter: Counter,
         }
       }
 
-      startTime = System.currentTimeMillis
+      startTime.set(System.currentTimeMillis)
 
       t2 = System.nanoTime()
 
-      if(maxRecordsToIndex > 0 && centralCounter.counter > maxRecordsToIndex){
+      if(maxRecordsToIndex > 0 && centralCounter.counter.get() > maxRecordsToIndex){
         logger.info("Suspending indexing. maxRecordsToIndex was reached: " + maxRecordsToIndex)
         false
       } else {
@@ -291,8 +291,8 @@ class IndexRunner(centralCounter: Counter,
     //wait for threads to end
     threads.foreach(t => t.join())
 
-    finishTime = System.currentTimeMillis
-    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes. Records indexed: " + counter.intValue())
+    finishTime.set(System.currentTimeMillis)
+    logger.info("Total indexing time for this thread " + (finishTime.get() - start).toFloat / 60000f + " minutes. Records indexed: " + counter.intValue())
     centralCounter.setCounter(counter.intValue())
 
     //close and merge the lucene index parts

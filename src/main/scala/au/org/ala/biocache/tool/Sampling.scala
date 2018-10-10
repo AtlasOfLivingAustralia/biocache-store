@@ -20,6 +20,9 @@ import au.org.ala.biocache.index.Counter
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashSet}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 /**
   * Executable for running the sampling for a data resource.
@@ -174,22 +177,23 @@ object Sampling extends Tool with IncrementalTool with Counter {
     logger.info(s"Starting loading sampling for " + fileName)
 
     val queue = new ArrayBlockingQueue[String](100)
-    var ids = 0
+    val ids = new AtomicInteger(0)
 
     val requiredFields = Array(
       "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p",
       "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
     )
 
+    val sentinel = UUID.randomUUID().toString() + System.currentTimeMillis()
+    val startTime = new AtomicLong(System.currentTimeMillis)
+    val finishTime = new AtomicLong(System.currentTimeMillis)
+
     //THIS NEEDS TO USE ROWKEY file.....
     val pool: Array[StringConsumer] = Array.fill(threads) {
 
-      var startTime = System.currentTimeMillis
-      var finishTime = System.currentTimeMillis
-
-      val p = new StringConsumer(queue, ids, { guid =>
+      val p = new StringConsumer(queue, ids.incrementAndGet(), sentinel, { guid =>
         if(!guid.trim().isEmpty()) {
-          counter += 1
+          val lastCounter = counter.incrementAndGet()
 
           val result = Config.persistenceManager.getSelected(guid, "occ", requiredFields)
           if(!result.isEmpty){
@@ -208,14 +212,13 @@ object Sampling extends Tool with IncrementalTool with Counter {
               )
             }
           }
-          if (counter % 1000 == 0) {
-            finishTime = System.currentTimeMillis
-            logger.info(counter + " >> Loading sampling records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f) +", lastkey: " + guid )
-            startTime = System.currentTimeMillis
+          if (lastCounter % 1000 == 0) {
+            finishTime.set(System.currentTimeMillis)
+            logger.info(counter + " >> Loading sampling records per sec: " + 1000f / (((finishTime.get() - startTime.get()).toFloat) / 1000f) +", lastkey: " + guid )
+            startTime.set(System.currentTimeMillis)
           }
         }
       })
-      ids += 1
       p.start
       p
     }
@@ -225,7 +228,9 @@ object Sampling extends Tool with IncrementalTool with Counter {
         queue.put(line.trim)
       }
     )
-    pool.foreach(t => t.shouldStop = true)
+    for (i <- 1 to threads) {
+      queue.put(sentinel)
+    }
     pool.foreach(_.join)
   }
 

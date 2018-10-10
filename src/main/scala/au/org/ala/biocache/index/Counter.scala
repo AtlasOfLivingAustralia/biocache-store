@@ -1,30 +1,39 @@
 package au.org.ala.biocache.index
 
 import org.slf4j.LoggerFactory
+import java.util.concurrent.atomic.AtomicLong
 
 trait Counter {
 
   val logger = LoggerFactory.getLogger("Counter")
 
-  var counter = 0
+  val counter = new AtomicLong(0)
 
-  def addToCounter(amount: Int) = counter += amount
-  def setCounter(amount: Int) = counter = amount
+  def addToCounter(amount: Int) = counter.addAndGet(amount)
+  def setCounter(amount: Int) = counter.set(amount)
 
-  var startTime = System.currentTimeMillis
-  var finishTime = System.currentTimeMillis
+  val startTime = new AtomicLong(System.currentTimeMillis)
+  val finishTime = new AtomicLong(0)
 
   def printOutStatus(threadId: Int, lastKey: String, runnerType: String, totalTime: Long = 0) = {
-    var average = ""
+    var overallAverage = ""
+    finishTime.set(System.currentTimeMillis)
     if (totalTime > 0) {
-      average = "Average record/s: " + getAverageRecsPerSec(totalTime)
+      overallAverage = "Average record/s: " + getAverageRecsPerSec(totalTime)
     }
-    finishTime = System.currentTimeMillis
-    logger.info("[" + runnerType + " Thread " + threadId + "] " + counter + " >> " + average + ", Last key : " + lastKey)
-    startTime = System.currentTimeMillis
+    var recentAverage = ""
+    if (totalTime > 0) {
+      recentAverage = "Average record/s: " + getAverageRecsPerSec(startTime.get())
+    }
+    startTime.set(System.currentTimeMillis)
+    if (logger.isInfoEnabled()) {
+      logger.info("[" + runnerType + " Thread " + threadId + "] " + counter.get + " >> overallAverage >> " + overallAverage + " recentAverage >> " + recentAverage + " , Last key : " + lastKey)
+    }
   }
 
-  def getAverageRecsPerSec(startTime: Long = 0) = counter / ((System.currentTimeMillis() - startTime) / 1000f)
+  def getAverageRecsPerSec(startTime: Long = 0) = {
+    counter.get / ((finishTime.get() - startTime) / 1000f)
+  }
 }
 
 class DefaultCounter extends Counter {}

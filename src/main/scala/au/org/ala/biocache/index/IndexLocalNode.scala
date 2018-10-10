@@ -61,7 +61,7 @@ class IndexLocalNode {
                    writerCount: Int,
                    testMap: Boolean,
                    maxRecordsToIndex:Int = -1
-                  ) : Int = {
+                  ) : Long = {
 
     val start = System.currentTimeMillis()
 
@@ -139,7 +139,7 @@ class IndexLocalNode {
     //Move checkpoint file if complete
     new File(checkpointFile).renameTo(new File(checkpointFile + ".complete"))
 
-    counter.counter
+    counter.counter.get()
   }
 
   /**
