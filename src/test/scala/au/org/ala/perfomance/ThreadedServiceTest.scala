@@ -19,6 +19,9 @@ import java.util.concurrent.ArrayBlockingQueue
 import au.org.ala.biocache.util.{StringConsumer, OptionParser, FileHelper}
 import org.junit.Ignore
 import scala.io.Source
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Will perform GET operations on the supplied number of threads.  The URLs for the get operations will be
@@ -39,33 +42,39 @@ object ThreadedServiceTest {
     if(parser.parse(args)){
 
       val queue = new ArrayBlockingQueue[String](100)
-      var ids =0
+      val ids = new AtomicInteger(0)
+      val sentinel = UUID.randomUUID().toString() + System.currentTimeMillis()
+      val counter = new AtomicLong(0)
+      val error = new AtomicLong(0)
+      val startTime = new AtomicLong(System.currentTimeMillis)
+      val finishTime = new AtomicLong(0)
       val pool:Array[StringConsumer] = Array.fill(numThreads){
-        var counter=0
-        var error=0
-        var startTime = System.currentTimeMillis
-        var finishTime = System.currentTimeMillis
-        val id = ids
-        val p = new StringConsumer(queue,ids,{url =>
-          counter +=1
+        val id = ids.incrementAndGet()
+        val p = new StringConsumer(queue, id, sentinel, {url =>
+          val lastCounter = counter.incrementAndGet()
           try {
             Source.fromURL(url)
           } catch {
-            case e:Exception => error+=1;println(e.getMessage)
+            case e:Exception => error.incrementAndGet();println(e.getMessage)
           }
           //debug counter
-          if (counter % 10 == 0) {
-            finishTime = System.currentTimeMillis
-            println(id +" >> " + counter +" >> errors >> " + error +" >> average speed for url request " + ((finishTime -startTime).toFloat)/10000f +" seconds " )
+          if (lastCounter % 10 == 0) {
+            finishTime.set(System.currentTimeMillis)
+            println(id +" >> " + lastCounter +" >> errors >> " + error.get() +" >> average speed for url request " + ((finishTime.get() -startTime.get()).toFloat)/10000f +" seconds " )
             //println(id + " >> " +counter + " >> Last url : " + url + ", records per sec: " + 10f / (((finishTime - startTime).toFloat) / 1000f))
-            startTime = System.currentTimeMillis
+            startTime.set(System.currentTimeMillis)
           }
-        });ids +=1;p.start;p }
+        });
+        p.start;
+        p
+      }
       new java.io.File(fileName).foreachLine(line =>{
         //add to the queue
         queue.put(line.trim)
       })
-      pool.foreach(t =>t.shouldStop = true)
+      for (i <- 1 to numThreads) {
+        queue.put(sentinel)
+      }
       pool.foreach(_.join)
 
     }
