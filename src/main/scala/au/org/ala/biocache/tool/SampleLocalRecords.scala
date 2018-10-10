@@ -353,7 +353,7 @@ class SampleLocalRecords extends Counter {
           counterLoaded.incrementAndGet()
         }
         if (lastCounter % 1000 == 0) {
-          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
+          logger.info(s"[Loading sampling] Import of sample data $lastCounter Last key $guid")
         }
         true
       })
@@ -382,7 +382,7 @@ class SampleLocalRecords extends Counter {
           counterLoaded.incrementAndGet()
         }
         if (lastCounter % 1000 == 0) {
-          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
+          logger.info(s"[Loading sampling] Import of sample data $lastCounter Last key $guid")
         }
         true
       }, threads, Array("rowkey", dlat, dlon), localOnly = !allNodes)
