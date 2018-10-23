@@ -1,10 +1,12 @@
 package au.org.ala.biocache.tool
 
-import java.io.{InputStream, FileOutputStream, File}
+import java.io.{File, FileOutputStream, InputStream}
+
 import scala.collection.mutable.ArrayBuffer
-import au.org.ala.biocache.util.{StringHelper, FileHelper}
+import au.org.ala.biocache.util.{FileHelper, SFTPTools, StringHelper}
 import net.sf.json.util.WebUtils
 import java.util.Date
+
 import org.apache.commons.io.FileUtils
 import au.org.ala.biocache.Config
 
@@ -14,6 +16,7 @@ import au.org.ala.biocache.Config
 class FileDelete(fileName: String, hasHeader:Boolean = false) extends RecordDeletor {
 
   import FileHelper._
+  val sftpPattern = """sftp://([a-zA-z\.]*):([0-9a-zA-Z_/\.\-]*)""".r
 
   //import the file constructs to allow lines to be easily iterated over
   override def deleteFromPersistent {
@@ -70,6 +73,19 @@ class FileDelete(fileName: String, hasHeader:Boolean = false) extends RecordDele
     f.createNewFile()
     downloadFile(f, in)
     f
+  } else  if(fileName.startsWith("sftp://")){
+    fileName match {
+      case sftpPattern(server, filepath) => {
+        val f = new File(Config.tmpWorkDir + "/delete_row_key_file.csv")
+        SFTPTools.scpFile(
+          server,
+          Config.getProperty("uploadUser"),
+          Config.getProperty("uploadPassword"),
+          filepath,
+          f)
+        f
+      }
+    }
   } else {
     new File(fileName)
   }
