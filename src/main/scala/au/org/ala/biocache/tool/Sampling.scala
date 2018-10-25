@@ -234,13 +234,19 @@ object Sampling extends Tool with IncrementalTool with Counter {
     pool.foreach(_.join)
   }
 
-  def sampleDataResource(dataResourceUid: String, callback: IntersectCallback = null, singleLayerName: String = "") {
+  def sampleDataResource(dataResourceUid: String, callback: IntersectCallback = null, singleLayerName: String = null) {
     val locFilePath = Config.tmpWorkDir + "/loc-" + dataResourceUid + ".txt"
     val s = new Sampling
     s.getDistinctCoordinatesForResourceThreaded(4, locFilePath, dataResourceUid)
     val samplingFilePath = Config.tmpWorkDir + "/sampling-" + dataResourceUid + ".txt"
     //generate sampling
-    s.sampling(locFilePath, samplingFilePath, callback, layers = Array(singleLayerName))
+    val layers = if (StringUtils.isNotBlank(singleLayerName)){
+      Array(singleLayerName)
+    } else {
+      Array[String]()
+    }
+
+    s.sampling(locFilePath, samplingFilePath, callback, concurrentLoading = true, keepFiles = true, layers = layers)
     //load the loc table
     s.loadSampling(samplingFilePath, callback)
     //clean up the file

@@ -159,7 +159,7 @@ object Config {
 
       val defaultFields = configModule.properties.getProperty("default.sample.fields", "")
 
-      if (str == null || str.trim == "") {
+      if (str == null || str.trim == "" || str.trim == "all") {
         val dbfields = try {
           new LayersStore(Config.layersServiceUrl).getFieldIds()
         } catch {

@@ -487,8 +487,9 @@ object Store {
     *
     * @param dataResourceUid
     */
-  def sample(dataResourceUid: java.lang.String, callback: IntersectCallback) =
-    Sampling.sampleDataResource(dataResourceUid, callback)
+  def sample(dataResourceUid: java.lang.String, callback: IntersectCallback) = {
+    Sampling.main(Array[String]("-dr", dataResourceUid, "--crk"))
+  }
 
   /**
     * Process records for the supplied resource
