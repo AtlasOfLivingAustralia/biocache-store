@@ -107,7 +107,7 @@ trait CompositePOSO extends POSO {
   }
 
   def getNestedProperty(name: String): Option[String] = {
-    val getter = posoGetterLookup.get(name)
+    val getter = posoGetterLookup.get(name.toLowerCase())
     getter match {
       case Some(method) => {
         val poso = method.invoke(this).asInstanceOf[POSO]
