@@ -13,6 +13,9 @@ class StringConsumer(q: BlockingQueue[String], id: Int, sentinel: String, proc: 
   protected val logger = LoggerFactory.getLogger("StringConsumer")
 
   override def run() {
+    if (logger.isDebugEnabled()) {
+      logger.debug("Starting StringConsumer " + id)
+    }
     var finished = false
     while (!finished && !Thread.currentThread().isInterrupted()) {
       try {
@@ -30,14 +33,18 @@ class StringConsumer(q: BlockingQueue[String], id: Int, sentinel: String, proc: 
         }
       } catch {
         case interrupted: InterruptedException => {
+          if (logger.isDebugEnabled()) {
+            logger.debug("Interrupted StringConsumer " + id)
+          }
           Thread.currentThread().interrupt()
+          finished = true
           throw interrupted
         }
         case e: Exception => e.printStackTrace()
       }
     }
     if (logger.isDebugEnabled()) {
-      logger.debug("Stopping " + id)
+      logger.debug("Stopping StringConsumer " + id)
     }
   }
 }
