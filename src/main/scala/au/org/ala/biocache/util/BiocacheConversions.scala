@@ -5,6 +5,9 @@ import java.util.Date
 import org.apache.commons.lang.time.DateFormatUtils
 import org.slf4j.LoggerFactory
 import au.org.ala.biocache.model.Classification
+import java.text.SimpleDateFormat
+import java.util.TimeZone
+import java.time.ZoneId
 
 object BiocacheConversions {
   val logger = LoggerFactory.getLogger("BiocacheConversions")
@@ -47,5 +50,10 @@ object BiocacheConversions {
     cl
   }
   
-  implicit def dateToString(date:Date):String = DateFormatUtils.format(date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
+  //implicit def dateToString(date:Date):String = DateFormatUtils.format(date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
+  implicit def dateToString(date:Date):String = {
+    val format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
+    format.setTimeZone(TimeZone.getTimeZone(ZoneId.of("UTC")))
+    format.format(date)
+  }
 }
