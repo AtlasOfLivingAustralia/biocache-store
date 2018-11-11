@@ -7,6 +7,7 @@ import org.slf4j.Logger
 import java.util.Date
 import java.text.ParseException
 import scala.Predef._
+import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.DateUtil
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatterBuilder
@@ -31,8 +32,7 @@ object DateParser {
 
   final val logger: Logger = LoggerFactory.getLogger("DateParser")
 
-  // TODO: Replace with Config.dateFormatCacheSize when finished testing
-  val dateFormatCache = CacheBuilder.newBuilder().maximumSize(10000).build[Tuple4[String, Boolean, Boolean, Boolean], DateTimeFormatter]()
+  val dateFormatCache = CacheBuilder.newBuilder().maximumSize(Config.dateFormatCacheSize).build[Tuple4[String, Boolean, Boolean, Boolean], DateTimeFormatter]()
 
   def fromLocalDate(toConvert: Option[LocalDate]): Option[Date] = {
     toConvert match {
