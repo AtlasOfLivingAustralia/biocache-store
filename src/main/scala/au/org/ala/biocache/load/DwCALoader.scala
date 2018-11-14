@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.collection.{JavaConversions, mutable}
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Loading utility for pulling in a darwin core archive file.
@@ -147,13 +148,9 @@ class DwCALoader extends DataLoader {
     }
   }
 
-  def getUuid(uniqueID:Option[String], star:StarRecord, uniqueTerms:Seq[Term], mappedProperties:Option[Map[String,String]]) : ((String, Boolean), Option[Map[String,String]]) = {
-    uniqueID match {
-      case Some(value) => (Config.occurrenceDAO.createOrRetrieveUuid(value), mappedProperties)
-      case None => ((Config.occurrenceDAO.createUuid, true), mappedProperties)
-    }
+  def getUuid(uniqueID:String, star:StarRecord, uniqueTerms:Seq[Term], mappedProperties:Option[Map[String,String]]) : ((String, Boolean), Option[Map[String,String]]) = {
+    (Config.occurrenceDAO.createOrRetrieveUuid(uniqueID), mappedProperties)
   }
-
 
   /**
     * Load archive. Currently only support archives with the core type Event or Occurrence.
@@ -195,126 +192,129 @@ class DwCALoader extends DataLoader {
       }
     }
 
-    var count = 0
-    var skipped = 0
-    var newCount = 0
+    val count = new AtomicLong(0)
+    // FIXME: This counter is never used
+    val skipped = new AtomicLong(0)
+    val newCount = new AtomicLong(0)
 
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
-    var currentBatch = new ArrayBuffer[FullRecord]
+    val startTime = new AtomicLong(System.currentTimeMillis)
+    val finishTime = new AtomicLong(0)
+    val currentBatch = new ArrayBuffer[FullRecord]
 
-    //store supplied institution and collection codes
+    // Debug supplied institution and collection codes when in test mode
     val newCollCodes = new scala.collection.mutable.HashSet[String]
     val newInstCodes = new scala.collection.mutable.HashSet[String]
 
     val iter = archive.iterator()
     val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
 
-    while (iter.hasNext) {
+    try {
+      while (iter.hasNext) {
 
-      //the newly assigned record UUID
-      val starRecord = iter.next
+        // the newly assigned record UUID
+        val starRecord = iter.next
 
-      if (testFile) {
-        //check to see if the key has at least on distinguishing value
-        val icode = starRecord.core.value(org.gbif.dwc.terms.DwcTerm.institutionCode)
-        newInstCodes.add(if (icode == null) "<NULL>" else icode)
-        val ccode = starRecord.core.value(org.gbif.dwc.terms.DwcTerm.collectionCode)
-        newCollCodes.add(if (ccode == null) "<NULL>" else ccode)
-      }
+        if (testFile) {
+          //check to see if the key has at least on distinguishing value
+          val icode = starRecord.core.value(org.gbif.dwc.terms.DwcTerm.institutionCode)
+          newInstCodes.add(if (icode == null) "<NULL>" else icode)
+          val ccode = starRecord.core.value(org.gbif.dwc.terms.DwcTerm.collectionCode)
+          newCollCodes.add(if (ccode == null) "<NULL>" else ccode)
+        }
 
-      //create a map of properties
-      val recordsExtracted = extractor.extractRecords(starRecord, removeNullFields)
+        // create a map of properties
+        val recordsExtracted = extractor.extractRecords(starRecord, removeNullFields)
 
-      recordsExtracted.foreach { extractedFieldTuples =>
+        recordsExtracted.foreach { extractedFieldTuples =>
 
-        val recordAsMap = extractedFieldTuples.toMap
+          val recordAsMap = extractedFieldTuples.toMap
 
-        //the details of how to construct the UniqueID belong in the Collectory
-        val uniqueID = {
-          //create the unique ID
-          if (!uniqueTerms.isEmpty) {
+          // the details of how to construct the UniqueID belong in the Collectory
+          val uniqueID = {
             val uniqueTermValues = uniqueTerms.map(t => recordAsMap.get(t.simpleName()).get)
-            val id = (List(resourceUid) ::: uniqueTermValues.toList).mkString("|").trim
-            Some(if (stripSpaces) id.replaceAll("\\s", "") else id)
-          } else {
-            None
+              Config.occurrenceDAO.createUniqueID(resourceUid, uniqueTermValues, stripSpaces)
           }
-        }
 
-        //lookup the column
-        val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, starRecord, uniqueTerms, None)
-        if (mappedProps.isDefined && uniqueID.isDefined) {
-          Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
-        }
-
-        val fieldTuples = new ListBuffer[(String, String)]
-        fieldTuples.addAll(extractedFieldTuples)
-
-        //add the data resource uid
-        fieldTuples += ("dataResourceUid" -> resourceUid)
-        //add last load time
-        fieldTuples += ("lastModifiedTime" -> loadTime)
-        if (isNew) {
-          fieldTuples += ("firstLoaded" -> loadTime)
-          newCount += 1
-        }
-
-        // Get any related multimedia
-        val multimedia = {
-          if (starRecord.core().rowType() == DwcTerm.Occurrence) {
-            loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
-              loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
-          } else {
-            List()
+          // lookup the ALA Internal UUID based on the public key
+          val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, starRecord, uniqueTerms, None)
+          if (mappedProps.isDefined) {
+            Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
           }
-        }
 
-        count += 1
+          val fieldTuples = new ListBuffer[(String, String)]
+          fieldTuples.addAll(extractedFieldTuples)
 
-        if (rowKeyWriter.isDefined) {
-          rowKeyWriter.get.write(recordUuid + "\n")
-        }
+          // add the data resource uid
+          fieldTuples += ("dataResourceUid" -> resourceUid)
+          // add last load time
+          fieldTuples += ("lastModifiedTime" -> loadTime)
+          if (isNew) {
+            fieldTuples += ("firstLoaded" -> loadTime)
+            newCount.incrementAndGet()
+          }
 
-        if (!testFile) {
-          val fullRecord = FullRecordMapper.createFullRecord(recordUuid, fieldTuples.toArray, Raw)
-          processMedia(resourceUid, fullRecord, multimedia)
-          currentBatch += fullRecord
-        }
+          // Get any related multimedia
+          val multimedia = {
+            if (starRecord.core().rowType() == DwcTerm.Occurrence) {
+              loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
+                loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
+            } else {
+              List()
+            }
+          }
 
-        //debug
-        if (count % 1000 == 0 && count > 0) {
+          if (rowKeyWriter.isDefined) {
+            rowKeyWriter.get.write(recordUuid + "\n")
+          }
+
           if (!testFile) {
-            Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
+            val fullRecord = FullRecordMapper.createFullRecord(recordUuid, fieldTuples.toArray, Raw)
+            processMedia(resourceUid, fullRecord, multimedia)
+            currentBatch += fullRecord
           }
-          finishTime = System.currentTimeMillis
-          val timeInSecs = 1000 / (((finishTime - startTime).toFloat) / 1000f)
-          logger.info(s"$count, >> last key : $uniqueID, UUID: $recordUuid, records per sec: $timeInSecs")
-          startTime = System.currentTimeMillis
-          //clear the buffer
-          currentBatch.clear
+
+          val lastCount = count.incrementAndGet()
+          // Emit progress information regularly
+          if (lastCount % 1000 == 0 && lastCount > 0) {
+            if (!testFile) {
+              Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
+            }
+            finishTime.set(System.currentTimeMillis)
+            val timeInSecs = 1000 / (((finishTime.get() - startTime.get()).toFloat) / 1000f)
+            logger.info(s"$lastCount, >> last key : $uniqueID, UUID: $recordUuid, records per sec: $timeInSecs")
+            startTime.set(System.currentTimeMillis)
+            // clear the buffer
+            currentBatch.clear
+          }
+        }
+      }
+    } finally {
+      if (rowKeyWriter.isDefined){
+        try {
+          rowKeyWriter.get.flush
+        } finally {
+          rowKeyWriter.get.close
         }
       }
     }
 
-    if(rowKeyWriter.isDefined){
-      rowKeyWriter.get.flush
-      rowKeyWriter.get.close
+    // check to see if the inst/coll codes are new if we are in test mode
+    if (testFile){
+      reportOnCollectionCodes(resourceUid, count.get(), newCount.get(), newCollCodes.toSet, newInstCodes.toSet)
     }
-
-    //check to see if the inst/coll codes are new
-    if(testFile){
-      reportOnCollectionCodes(resourceUid, count, newCount, newCollCodes.toSet, newInstCodes.toSet)
+    
+    // commit the remaining records if we are not in test mode
+    if (!testFile) {
+      Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
     }
-
-    //commit the batch
-    Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
-    logger.info("Finished DwCA loader. Records loaded into the system: " + count + ", records skipped:"  + skipped)
+    // Report the number of new/existing records
+    logger.info("Finished DwCA loader. Records loaded into the system: " + count + ", records skipped: "  + skipped.get() + ", new records: " + newCount.get())
     count
   }
 
   /**
-    * Log details of collection codes for this archive.
+    * Log details of collection and institution codes for this archive if they are different 
+    * to the first 100 institution and collection codes in the current solr index
     *
     * @param resourceUid
     * @param count
@@ -322,24 +322,23 @@ class DwCALoader extends DataLoader {
     * @param newCollCodes
     * @param newInstCodes
     */
-  private def reportOnCollectionCodes(resourceUid: String, count: Int, newCount: Int, newCollCodes: Set[String], newInstCodes: Set[String]) = {
-    val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:" + resourceUid, "institution_code", 100).getOrElse(List()).toSet[String]
-    val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:" + resourceUid, "collection_code", 100).getOrElse(List()).toSet[String]
-    logger.info("The current institution codes for the data resource: " + institutionCodes)
-    logger.info("The current collection codes for the data resource: " + collectionCodes)
-
-    val unknownInstitutions = newInstCodes &~ institutionCodes
-    val unknownCollections = newCollCodes &~ collectionCodes
-
-    if (!unknownInstitutions.isEmpty) {
-      logger.warn("Warning there are new institution codes in the set: " + unknownInstitutions.mkString(","))
+  private def reportOnCollectionCodes(resourceUid: String, count: Long, newCount: Long, newCollCodes: Set[String], newInstCodes: Set[String]) = {
+    if (logger.isWarnEnabled()) {
+      val institutionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:" + resourceUid, "institution_code", 100).getOrElse(List()).toSet[String]
+      val collectionCodes = Config.indexDAO.getDistinctValues("data_resource_uid:" + resourceUid, "collection_code", 100).getOrElse(List()).toSet[String]
+      logger.info("The current institution codes for the data resource: " + institutionCodes)
+      logger.info("The current collection codes for the data resource: " + collectionCodes)
+  
+      val unknownInstitutions = newInstCodes &~ institutionCodes
+      val unknownCollections = newCollCodes &~ collectionCodes
+  
+      if (!unknownInstitutions.isEmpty) {
+        logger.warn("Warning there are new institution codes in the set: " + unknownInstitutions.mkString(","))
+      }
+      if (!unknownCollections.isEmpty) {
+        logger.warn("Warning there are new collection codes in the set: " + unknownCollections.mkString(","))
+      }
     }
-    if (!unknownCollections.isEmpty) {
-      logger.warn("Warning there are new collection codes in the set: " + unknownCollections.mkString(","))
-    }
-
-    //Report the number of new/existing records
-    logger.info("There are " + count + " records in the file. The number of NEW records: " + newCount)
   }
 
   /**

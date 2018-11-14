@@ -56,16 +56,20 @@ object Store {
   /**
     * A java API friendly version of the getByUuid that does not require knowledge of a scala type.
     */
-  def getByUuid(uuid: java.lang.String, version: Version): FullRecord =
+  def getByUuid(uuid: java.lang.String, version: Version): FullRecord = {
     occurrenceDAO.getByRowKey(uuid, version).getOrElse(null)
+  }
 
-  def getSensitiveByUuid(uuid:java.lang.String, version:Version):FullRecord =
+  def getSensitiveByUuid(uuid:java.lang.String, version:Version):FullRecord = {
     occurrenceDAO.getByRowKey(uuid, version, true).getOrElse(null)
+  }
 
   /**
    * A java API friendly version of the getByUuid that doesnt require knowledge of a scala type.
    */
-  def getByUuid(uuid: java.lang.String): FullRecord = occurrenceDAO.getByRowKey(uuid, Raw).getOrElse(null)
+  def getByUuid(uuid: java.lang.String): FullRecord = {
+    occurrenceDAO.getByRowKey(uuid, Raw).getOrElse(null)
+  }
 
   /**
    * Retrieve all versions of the record with the supplied UUID.
@@ -285,7 +289,7 @@ object Store {
     * @return
     */
   def getSystemAssertions(uuid: java.lang.String): java.util.List[QualityAssertion] = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+    val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
     occurrenceDAO.getSystemAssertions(rowKey).filter(_.qaStatus == 0).asJava
   }
 
@@ -296,7 +300,7 @@ object Store {
     */
   def getAllSystemAssertions(uuid: java.lang.String): java.util.Map[String, java.util.List[QualityAssertion]] = {
     //system assertions are handled using row keys - this is unlike user assertions.
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+    val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
     val list = occurrenceDAO.getSystemAssertions(rowKey)
     val unchecked = AssertionCodes.getMissingCodes((list.map(it => AssertionCodes.getByCode(it.code).getOrElse(null))).toSet)
 
@@ -316,7 +320,7 @@ object Store {
     * Retrieve the user supplied systemAssertions.
     */
   def getUserAssertion(uuid: java.lang.String, assertionUuid: java.lang.String): QualityAssertion = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+    val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
     occurrenceDAO.getUserAssertions(rowKey).find { ass =>
       ass.uuid == assertionUuid
     }.getOrElse(null)
@@ -326,7 +330,7 @@ object Store {
     * Retrieve the user supplied systemAssertions.
     */
   def getUserAssertions(uuid: java.lang.String): java.util.List[QualityAssertion] = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+    val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
     occurrenceDAO.getUserAssertions(rowKey).asJava
   }
 
@@ -337,7 +341,7 @@ object Store {
     */
   def addUserAssertion(uuid: java.lang.String, qualityAssertion: QualityAssertion) {
     if (!readOnly) {
-      val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+      val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
       occurrenceDAO.addUserAssertion(rowKey, qualityAssertion)
       occurrenceDAO.reIndex(rowKey)
     } else {
@@ -358,7 +362,7 @@ object Store {
         case (uuid, qa) => {
           count += 1
           //apply the assertion and add to the reindex list
-          val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+          val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
           occurrenceDAO.addUserAssertion(rowKey, qa)
           arrayBuffer += rowKey
         }
@@ -393,7 +397,7 @@ object Store {
     */
   def deleteUserAssertion(uuid: java.lang.String, assertionUuid: java.lang.String) {
     if (!readOnly) {
-      val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid);
+      val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid);
       occurrenceDAO.deleteUserAssertion(rowKey, assertionUuid)
       occurrenceDAO.reIndex(rowKey)
     } else {

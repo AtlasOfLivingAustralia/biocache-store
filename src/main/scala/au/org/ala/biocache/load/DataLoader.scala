@@ -120,7 +120,7 @@ trait DataLoader {
     val uniqueTerms = connectionParameters.get("termsForUniqueKey") match {
       case Some(list: List[String]) => list
       case Some(singleValue: String) => List(singleValue)
-      case None => List[String]()
+      case None => throw new Exception("Unable to load resourceUid, no primary key defined: " + resourceUid)
     }
 
     //optional config params for custom services
@@ -147,7 +147,7 @@ trait DataLoader {
     )
   } catch {
     case e: Exception =>
-      logger.error(s"Problem retrieve data resource config for resource: $resourceUid", e)
+      logger.error(s"Problem retrieving the data resource config for: $resourceUid", e)
       None
   }
 
@@ -170,10 +170,11 @@ trait DataLoader {
    */
   protected def createUniqueID(dataResourceUid:String, identifyingTerms:Seq[String], stripSpaces:Boolean=false) : String = {
     val uniqueId = (List(dataResourceUid) ::: identifyingTerms.toList).mkString("|").trim
-    if (stripSpaces)
+    if (stripSpaces) {
       uniqueId.replaceAll("\\s", "")
-    else
+    } else {
       uniqueId
+    }
   }
 
   def load(dataResourceUid: String, fr: FullRecord, identifyingTerms: Seq[String], multimedia: Seq[Multimedia]): Boolean = {
@@ -208,31 +209,33 @@ trait DataLoader {
            downloadMedia: Boolean, stripSpaces: Boolean, rowKeyWriter: Option[Writer], multimedia: Seq[Multimedia],
            deleteIfNullValue: Boolean): Boolean = {
 
-    //the details of how to construct the UniqueID belong in the Collectory
+    // Use the list of identifying terms to create the format used to fetch the ALA internal UUID from the occ_uuid table
     val uniqueID = if (identifyingTerms.isEmpty) {
-      None
+      throw new Exception("Unable to load dataResourceUid, no primary key defined: " + dataResourceUid)
     } else {
-      Some(Config.occurrenceDAO.createUniqueID(dataResourceUid, identifyingTerms, stripSpaces))
+      Config.occurrenceDAO.createUniqueID(dataResourceUid, identifyingTerms, stripSpaces)
     }
 
-    //lookup the column
+    // lookup the ALA internal UUID using the occ_uuid table
     val (recordUuid, isNew) = {
       if(fr.rowKey != null && fr.rowKey.trim != ""){
         (fr.rowKey, false)
       } else {
-        uniqueID match {
-          case Some(value) => Config.occurrenceDAO.createOrRetrieveUuid(value)
-          case None => (Config.occurrenceDAO.createUuid, true)
-        }
+        Config.occurrenceDAO.createOrRetrieveUuid(uniqueID)
       }
     }
 
-
-    //The row key is the uniqueID for the record. This will always start with the dataResourceUid
+    // FIXME: Persist uniqueID in the record itself so that debugging 
+    // is possible without dumping the occ_uuid table
+    
+    // FIXME: This row key is currently the opaque ALA internal UUID for the record, 
+    // which is worse than useless for users attempting to correlate original records 
+    // with those the ALA provides
     fr.rowKey = recordUuid
 
     //write the rowkey to file if a writer is provided. allows large data resources to be
     //incrementally updated and only process/index changes
+    // FIXME: Extract this function to another location
     if (rowKeyWriter.isDefined) {
       rowKeyWriter.get.write(fr.rowKey + "\n")
     }
@@ -254,6 +257,9 @@ trait DataLoader {
 
     //load the record
     Config.occurrenceDAO.addRawOccurrence(fr, deleteIfNullValue)
+    
+    // FIXME: Why is this fixed value trivially returned instead of 
+    // the ALA Internal UUID or the public identifier
     true
   }
 
@@ -305,7 +311,7 @@ trait DataLoader {
               )))
             } catch {
               case e:Exception => {
-                logger.error("Unable to load mediaL " + e.getMessage, e)
+                logger.error("Unable to load media " + e.getMessage, e)
                 None
               }
             }
@@ -391,7 +397,7 @@ trait DataLoader {
         (file.getParentFile.getAbsolutePath, date)
       }
     } else {
-      logger.info(s"Unable to extract a new file for $resourceUid at $url")
+      logger.error(s"Unable to extract a new file for $resourceUid at $url")
       (null, null)
     }
   }
