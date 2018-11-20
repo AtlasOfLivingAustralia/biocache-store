@@ -1262,6 +1262,9 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
    */
   override def delete(uuidToDelete: String, removeFromIndex:Boolean=true, logDeleted:Boolean=false, removeFromOccUuid:Boolean=false) : Boolean = {
     val trimmedUUIDToDelete = uuidToDelete.trim()
+    if (logger.isInfoEnabled()) {
+      logger.info("Deleting by ALA Internal UUID: " + trimmedUUIDToDelete)
+    }
     if (!trimmedUUIDToDelete.isEmpty()) {
       val rowKeyOption = getRowKeyFromUuid(trimmedUUIDToDelete)
       val rowKey = if (rowKeyOption.isDefined) {
@@ -1271,10 +1274,13 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       }
       val timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
       val dellogPrimaryKey = trimmedUUIDToDelete + " " + timestamp + " " + rowKey
-      if (logger.isDebugEnabled()) {
-        logger.debug("Deleting record: " + dellogPrimaryKey)
+      if (logger.isInfoEnabled()) {
+        logger.info("Deleting record: " + dellogPrimaryKey)
       }
       if (logDeleted) {
+        if (logger.isInfoEnabled()) {
+          logger.info("Logging to dellog...")
+        }
         val map = persistenceManager.get(trimmedUUIDToDelete, entityName)
         if (map !=null && !map.isEmpty) {
           val stringValue = Json.toJSON(map.get)
@@ -1288,7 +1294,13 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       persistenceManager.delete(trimmedUUIDToDelete, entityName)
       if (removeFromOccUuid) {
         if (rowKeyOption.isDefined) {
+          if (logger.isInfoEnabled()) {
+            logger.info("Deleting by rowkey from occ_uuid: " + rowKey)
+          }
           persistenceManager.delete(rowKey, "occ_uuid")
+          if (logger.isInfoEnabled()) {
+            logger.info("Also attempting to delete by uuid occ_uuid: " + trimmedUUIDToDelete)
+          }
           persistenceManager.delete(trimmedUUIDToDelete, "occ_uuid")
         }
       }
