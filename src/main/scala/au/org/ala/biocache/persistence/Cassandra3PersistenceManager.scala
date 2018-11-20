@@ -149,7 +149,7 @@ class Cassandra3PersistenceManager  @Inject() (
     */
   def get(rowKey: String, entityName: String): Option[Map[String, String]] = {
     val stmt = getPreparedStmt(s"SELECT * FROM $entityName where rowkey = ? ALLOW FILTERING", entityName)
-    val boundStatement = stmt.bind(rowKey
+    val boundStatement = stmt.bind(rowKey)
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
     if (rows.hasNext()) {
