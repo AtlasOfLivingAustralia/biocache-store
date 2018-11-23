@@ -226,6 +226,7 @@ class DwCALoader extends DataLoader {
         val recordsExtracted = extractor.extractRecords(starRecord, removeNullFields)
 
         recordsExtracted.foreach { extractedFieldTuples =>
+          val lastCount = count.incrementAndGet()
 
           val recordAsMap = extractedFieldTuples.toMap
 
@@ -234,7 +235,7 @@ class DwCALoader extends DataLoader {
             val uniqueTermValues = uniqueTerms.map(t => {
               val nextUniqueTermValue = recordAsMap.get(t.simpleName())
               if(!nextUniqueTermValue.isDefined) {
-                throw new Exception("Unable to load resourceUid, a primary key value was missing: resourceUid=" + resourceUid + " missing unique term " + t.simpleName() + " uniqueTerms=" + uniqueTerms)
+                throw new Exception("Unable to load resourceUid, a primary key value was missing on record " + lastCount + " : resourceUid=" + resourceUid + " missing unique term " + t.simpleName() + " uniqueTerms=" + uniqueTerms)
               }
               nextUniqueTermValue.get
             })
@@ -279,7 +280,6 @@ class DwCALoader extends DataLoader {
             currentBatch += fullRecord
           }
 
-          val lastCount = count.incrementAndGet()
           // Emit progress information regularly
           if (lastCount % 1000 == 0 && lastCount > 0) {
             if (!testFile) {
