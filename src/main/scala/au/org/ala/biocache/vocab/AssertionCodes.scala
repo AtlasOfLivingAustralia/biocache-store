@@ -97,6 +97,7 @@ object AssertionCodes {
   val RECORDED_BY_UNPARSABLE = ErrorCode("recordedByUnparsable", 20016, false,"RecordedBy value unparseable", Warning)
   val UNRECOGNISED_OCCURRENCE_STATUS = ErrorCode("unrecognisedOccurrenceStatus", 20017, false, "Occurrence status not recognised", Error)
   val ASSUMED_PRESENT_OCCURRENCE_STATUS = ErrorCode("assumedPresentOccurrenceStatus", 20018, false, "Occurrence status assumed to be present", Warning)
+  val USER_ASSERTION_OTHER = ErrorCode("userAssertionOther", 20019,false,"Other error", Error)
 
   //temporal issues
   val TEMPORAL_ISSUE = ErrorCode("temporalIssue",30000,false,"Temporal issue", Error)  // general purpose option
@@ -150,7 +151,7 @@ object AssertionCodes {
   val miscellaneousCodes = all.filter(errorCode => {errorCode.code>=20000 && errorCode.code<30000})
   val temporalCodes = all.filter(errorCode => {errorCode.code>=30000 && errorCode.code<40000})
 
-  val userAssertionCodes = Array(GEOSPATIAL_ISSUE,COORDINATE_HABITAT_MISMATCH,DETECTED_OUTLIER,TAXONOMIC_ISSUE,IDENTIFICATION_INCORRECT,TEMPORAL_ISSUE)
+  val userAssertionCodes = Array(GEOSPATIAL_ISSUE,COORDINATE_HABITAT_MISMATCH,DETECTED_OUTLIER,TAXONOMIC_ISSUE,IDENTIFICATION_INCORRECT,TEMPORAL_ISSUE,USER_ASSERTION_OTHER)
   //the assertions that are NOT performed during the processing phase
   val offlineAssertionCodes = Array(INFERRED_DUPLICATE_RECORD, SPECIES_OUTSIDE_EXPERT_RANGE, DETECTED_OUTLIER)
 
