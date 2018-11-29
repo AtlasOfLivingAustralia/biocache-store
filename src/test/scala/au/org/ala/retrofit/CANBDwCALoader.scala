@@ -15,7 +15,7 @@ package au.org.ala.retrofit
  * rights and limitations under the License.
  */
 
-import org.gbif.dwca.record.StarRecord
+import org.gbif.dwc.record.StarRecord
 import org.gbif.dwc.terms.Term
 import au.com.bytecode.opencsv.CSVReader
 import java.io.{FileInputStream, InputStreamReader}
