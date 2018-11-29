@@ -29,7 +29,7 @@ import org.apache.http.entity.mime.content.{FileBody, StringBody}
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntity}
 import org.apache.http.impl.client.DefaultHttpClient
 import org.gbif.dwc.terms.DcTerm
-import org.gbif.dwca.io.ArchiveFactory
+import org.gbif.dwc.DwcFiles
 import org.junit.Ignore
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
