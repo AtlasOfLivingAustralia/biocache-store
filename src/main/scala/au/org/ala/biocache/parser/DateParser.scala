@@ -251,20 +251,7 @@ class SingleDate {
     try {
       //  2001-03-14T00:00:00+11:00
       //bug in commons lang - http://stackoverflow.com/questions/424522/how-can-i-recognize-the-zulu-time-zone-in-java-dateutils-parsedate
-      var strWithoutTime = str.replaceFirst("[+|-][0-2][0-9]:[0-5][0-9]","")
-      if (strWithoutTime == str) {
-        //date[+|-]hh or date[+|-]hhmm are also valid time modifiers, but get confused with basic dates like '2008-01-05' or '23-01-2008'
-        strWithoutTime = str.replaceFirst("[+][0-2][0-9][0-5][0-9]","") //first get rid of the easy '+' ones
-        strWithoutTime = str.replaceFirst("[+][0-2][0-9]","")
-        if (strWithoutTime == str) {
-          if (str.split("-").length > 3) {
-            val strRev = str.reverse
-            var strWithoutTimeRev = strRev.replaceFirst("[0-9][0-5][0-9][0-2][-]","") //note pattern reversed
-            strWithoutTimeRev = strRev.replaceFirst("[0-9][0-2][-]","")
-            strWithoutTime = strWithoutTimeRev.reverse
-          }
-        }
-      }
+      val strWithoutTime = str.replaceFirst("[+|-][0-2][0-9]:[0-5][0-9]","")
       val eventDateParsed = DateUtils.parseDateStrictly(strWithoutTime,formats)
       val startYear, endYear = DateFormatUtils.format(eventDateParsed, "yyyy")
       val startDate, endDate = DateFormatUtils.format(eventDateParsed, "yyyy-MM-dd")
