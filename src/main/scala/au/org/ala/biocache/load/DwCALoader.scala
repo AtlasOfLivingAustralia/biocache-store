@@ -2,6 +2,7 @@ package au.org.ala.biocache.load
 
 import java.io._
 import java.net.URL
+import java.nio.file.Paths
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.cmd.{CMD2, NoArgsTool, Tool}
@@ -10,9 +11,10 @@ import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import org.apache.commons.lang3.StringUtils
-import org.gbif.dwca.record.{Record, StarRecord}
+import org.gbif.dwc.record.{Record, StarRecord}
 import org.gbif.dwc.terms.{DcTerm, DwcTerm, GbifTerm, Term}
-import org.gbif.dwca.io.{Archive, ArchiveFactory, ArchiveFile}
+import org.gbif.dwc.DwcFiles
+import org.gbif.dwc.{Archive, ArchiveFile}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -183,7 +185,7 @@ class DwCALoader extends DataLoader {
     val archiveDir = new File(fileName)
     val imageBase = new URL(imageUrl getOrElse archiveDir.toURI.toURL.toString)
 
-    val archive = ArchiveFactory.openArchive(archiveDir)
+    val archive = DwcFiles.fromLocation(Paths.get(fileName))
 
     // create extractor
     val extractor:CoreExtractor = {
