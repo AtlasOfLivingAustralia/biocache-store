@@ -31,7 +31,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("locate multimedia 1") {
     val loader = new DwCALoader
-    val archive = ArchiveFactory.openArchive(WORK_DIR)
+    val archive = DwcFiles.fromLocation(WORK_DIR.toPath())
     val row = archive.getExtension(DwCALoader.IMAGE_TYPE).iterator().next()
     expectResult(Some(new URL(IMAGE_BASE, "672737.jpg"))) {
       loader.locateMultimedia(row, IMAGE_BASE)
