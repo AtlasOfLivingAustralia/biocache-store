@@ -6,10 +6,13 @@ import java.util.Date
 
 import au.org.ala.biocache._
 import java.io.{BufferedOutputStream, FileOutputStream, File}
+import java.nio.file.Paths
+
 import au.org.ala.biocache.cmd.NoArgsTool
 import au.org.ala.biocache.util.Json
 import org.gbif.dwc.terms.{DwcTerm, GbifTerm}
-import org.gbif.dwca.io.{Archive, ArchiveFactory}
+import org.gbif.dwc.DwcFiles
+import org.gbif.dwc.{Archive, ArchiveFile}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
@@ -50,7 +53,7 @@ object HabitatLoader extends NoArgsTool {
 
     val myArchiveFile = new File(archiveFile)
     val extractToFolder = new File(Config.tmpWorkDir + File.separator + "IRMNG_DWC")
-    val dwcArchive:Archive = ArchiveFactory.openArchive(myArchiveFile, extractToFolder)
+    val dwcArchive:Archive = DwcFiles.fromCompressed(Paths.get(archiveFile), Paths.get(Config.tmpWorkDir + File.separator + "IRMNG_DWC"))
     logger.info("Archive rowtype: " + dwcArchive.getCore().getRowType() + ", "
       + dwcArchive.getExtensions().size() + " extension(s)")
 

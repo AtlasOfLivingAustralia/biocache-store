@@ -16,10 +16,11 @@ package au.org.ala.biocache.load
 
 import java.io.File
 import java.net.URL
+import java.nio.file.Paths
 
 import au.org.ala.biocache.ConfigFunSuite
 import org.gbif.dwc.terms.{DcTerm, DwcTerm}
-import org.gbif.dwca.io.ArchiveFactory
+import org.gbif.dwc.DwcFiles
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 
@@ -30,7 +31,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("locate multimedia 1") {
     val loader = new DwCALoader
-    val archive = ArchiveFactory.openArchive(WORK_DIR)
+    val archive = DwcFiles.fromLocation(WORK_DIR.toPath())
     val row = archive.getExtension(DwCALoader.IMAGE_TYPE).iterator().next()
     expectResult(Some(new URL(IMAGE_BASE, "672737.jpg"))) {
       loader.locateMultimedia(row, IMAGE_BASE)
@@ -39,7 +40,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("locate multimedia 2") {
     val loader = new DwCALoader
-    val archive = ArchiveFactory.openArchive(WORK_DIR)
+    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
     val iterator = archive.getExtension(DwCALoader.IMAGE_TYPE).iterator()
     iterator.next()
     val row = iterator.next()
@@ -50,7 +51,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("locate multimedia 3") {
     val loader = new DwCALoader
-    val archive = ArchiveFactory.openArchive(WORK_DIR)
+    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
     val iterator = archive.getExtension(DwCALoader.IMAGE_TYPE).iterator()
     iterator.next()
     iterator.next()
@@ -62,7 +63,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("load multimedia 1") {
     val loader = new DwCALoader
-    val archive = ArchiveFactory.openArchive(WORK_DIR)
+    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
     val ai = archive.iterator()
     val record = ai.next()
     val multimediaList = loader.loadMultimedia(record, DwCALoader.IMAGE_TYPE, IMAGE_BASE)
@@ -81,7 +82,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("load multimedia 2") {
     val loader = new DwCALoader
-    val archive = ArchiveFactory.openArchive(WORK_DIR)
+    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
     val ai = archive.iterator()
     val record = ai.next()
     val multimediaList = loader.loadMultimedia(record, DwCALoader.IMAGE_TYPE, IMAGE_BASE)
@@ -100,7 +101,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("load multimedia 3") {
     val loader = new DwCALoader
-    val archive = ArchiveFactory.openArchive(WORK_DIR)
+    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
     val ai = archive.iterator()
     val record = ai.next()
     val multimediaList = loader.loadMultimedia(record, DwCALoader.IMAGE_TYPE, IMAGE_BASE)
@@ -119,7 +120,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("load multimedia 4") {
     val loader = new DwCALoader
-    val archive = ArchiveFactory.openArchive(WORK_DIR)
+    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
     val ai = archive.iterator()
     ai.next()
     val record = ai.next()
