@@ -6,9 +6,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
-import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
+import au.org.ala.biocache.persistence.DataRow
 import au.org.ala.biocache.util.JMX
-import com.datastax.driver.core.{ColumnDefinitions, GettableData}
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -102,10 +101,10 @@ class IndexRunner(centralCounter: Counter,
 
     val indexer = new SolrIndexDAO(newIndexDir.getParentFile.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
-    var counter = new AtomicLong(0)
+    val counter = new AtomicLong(0)
     val start = System.currentTimeMillis
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
+    val startTime = new AtomicLong(System.currentTimeMillis)
+    val finishTime = new AtomicLong(0)
 
     val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) {
       indexer.getCsvWriter()
@@ -119,7 +118,7 @@ class IndexRunner(centralCounter: Counter,
       null
     }
 
-    val queue: LinkedBlockingQueue[(String, GettableData, ColumnDefinitions)] = new LinkedBlockingQueue[(String, GettableData, ColumnDefinitions)](processorBufferSize)
+    val queue: LinkedBlockingQueue[(String, DataRow)] = new LinkedBlockingQueue[(String, DataRow)](processorBufferSize)
 
     val threads = mutable.ArrayBuffer[ProcessThread]()
 
@@ -155,7 +154,7 @@ class IndexRunner(centralCounter: Counter,
         indexer.solrConfigPath = newIndexDir.getAbsolutePath + "/solrconfig.xml"
         var continue = true
         while (continue) {
-          val (guid, data, columnDefinitions) = queue.take()
+          val (guid, row) = queue.take()
           if (guid == null) {
             continue = false
           } else {
@@ -164,8 +163,7 @@ class IndexRunner(centralCounter: Counter,
 
               val t2 = indexer.indexFromArray(
                 guid,
-                data,
-                columnDefinitions,
+                row,
                 docBuilder = luceneIndexer.getDocBuilder,
                 lock = lock,
                 test = test)
@@ -190,7 +188,7 @@ class IndexRunner(centralCounter: Counter,
     var uuidIdx = -1
 
     //page through and create and index for this range
-    Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverSelectArray("occ", (guid, row, columnDefinitions) => {
+    Config.persistenceManager.pageOverSelectArray("occ", (guid, row) => {
 
       t2Total.addAndGet(System.nanoTime() - t2)
 
@@ -199,15 +197,15 @@ class IndexRunner(centralCounter: Counter,
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
         if (uuidIdx == -1) {
-          uuidIdx = columnDefinitions.getIndexOf("rowkey")
+          uuidIdx = row.getIndexOf("rowkey")
         }
         if (!StringUtils.isEmpty(row.getString(uuidIdx))) {
           val t1 = System.nanoTime()
           var t2 = 0L
           if (processingThreads > 0) {
-            queue.put((row.getString(uuidIdx), row, columnDefinitions))
+            queue.put((row.getString(uuidIdx), row))
           } else {
-            t2 = indexer.indexFromArray(row.getString(uuidIdx), row, columnDefinitions)
+            t2 = indexer.indexFromArray(row.getString(uuidIdx), row)
             timing.addAndGet(System.nanoTime() - t1 - t2)
           }
         }
@@ -222,7 +220,7 @@ class IndexRunner(centralCounter: Counter,
       if (currentCounter % 1000 == 0) {
 
         centralCounter.setCounter(currentCounter.toInt)
-        finishTime = System.currentTimeMillis
+        finishTime.set(System.currentTimeMillis)
         if(currentCounter.toInt > 0) {
           centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
           logger.info("cassandraTime(s)=" + t2Total.get() / 1000000000 +
@@ -238,7 +236,7 @@ class IndexRunner(centralCounter: Counter,
 
         if(Config.jmxDebugEnabled){
           JMX.updateIndexStatus(
-            centralCounter.counter,
+            centralCounter.counter.get(),
             centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
             t2Total.get() / 1000000000, //cassandra time
             timing.get() / 1000000000, //processing time
@@ -254,11 +252,11 @@ class IndexRunner(centralCounter: Counter,
         }
       }
 
-      startTime = System.currentTimeMillis
+      startTime.set(System.currentTimeMillis)
 
       t2 = System.nanoTime()
 
-      if(maxRecordsToIndex > 0 && centralCounter.counter > maxRecordsToIndex){
+      if(maxRecordsToIndex > 0 && centralCounter.counter.get() > maxRecordsToIndex){
         logger.info("Suspending indexing. maxRecordsToIndex was reached: " + maxRecordsToIndex)
         false
       } else {
@@ -287,14 +285,14 @@ class IndexRunner(centralCounter: Counter,
 
     //signal threads to end
     for (i <- 0 until processingThreads) {
-      queue.put((null, null, null))
+      queue.put((null, null))
     }
 
     //wait for threads to end
     threads.foreach(t => t.join())
 
-    finishTime = System.currentTimeMillis
-    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes. Records indexed: " + counter.intValue())
+    finishTime.set(System.currentTimeMillis)
+    logger.info("Total indexing time for this thread " + (finishTime.get() - start).toFloat / 60000f + " minutes. Records indexed: " + counter.intValue())
     centralCounter.setCounter(counter.intValue())
 
     //close and merge the lucene index parts

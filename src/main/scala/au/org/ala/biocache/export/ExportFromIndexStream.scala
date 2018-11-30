@@ -89,8 +89,8 @@ object ExportFromIndexStream extends Tool with Counter {
     fileWriter.write("\n")
 
     Config.indexDAO.streamIndex(map => {
-      counter += 1
-      if (counter % 1000 == 0) {
+      val lastCounter = counter.incrementAndGet()
+      if (lastCounter % 1000 == 0) {
         logger.info("Exported records: $counter")
         fileWriter.flush
       }

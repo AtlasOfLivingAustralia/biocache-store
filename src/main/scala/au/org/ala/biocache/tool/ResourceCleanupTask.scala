@@ -156,7 +156,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, "dataresourceuid", dr, 1000)
+    }, "dataResourceUid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
@@ -189,7 +189,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, "dataresourceuid", dr, 1000)
+    }, "dataResourceUid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
@@ -297,7 +297,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, "dataresourceuid", dr, 1000)
+    }, "dataResourceUid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
@@ -342,7 +342,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
 //        }
 //      }
 //      true
-//    }, "dataresourceuid", dr, 1000,  "rowkey", "lastmodifiedtime", "datedeleted")
+//    }, "dataResourceUid", dr, 1000,  "rowkey", "lastmodifiedtime", "datedeleted")
 //    println("Finished cleanup for rows")
 //    println("Records checked: " + totalRecords + " Records deleted: " + deleted + " Records reinstated: " + reinstate)
 //  }
@@ -376,7 +376,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
 //        logger.info("Last key checked: " + guid)
 //      }
 //      true
-//    }, "dataresourceuid", dr, 1000, "rowkey", FullRecordMapper.deletedColumn, "lastmodifiedtime")
+//    }, "dataResourceUid", dr, 1000, "rowkey", FullRecordMapper.deletedColumn, "lastmodifiedtime")
 //
 //    println("Finished moving deleted occ rows to dellog")
 //    println("Records deleted: " + count)
@@ -423,7 +423,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, "dataresourceuid", dr, 1000)
+    }, "dataResourceUid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())
@@ -465,7 +465,7 @@ object ResourceCleanupTask extends Tool with IncrementalTool {
         }
       }
       true
-    }, "dataresourceuid", dr, 1000)
+    }, "dataResourceUid", dr, 1000)
     logger.info("Finished cleanup for columns")
     logger.info("List of columns that have been removed from one or more records:")
     logger.info(valueSet.toList.toString())

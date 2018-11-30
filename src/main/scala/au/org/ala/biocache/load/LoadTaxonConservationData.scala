@@ -28,7 +28,7 @@ class LoadTaxonConservationData(centralCounter: Counter, threadId: Int) extends 
 
     val batch: mutable.Map[String, Map[String, String]] = mutable.Map[String, Map[String, String]]()
 
-    Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocal("occ", (guid, map, _) => {
+    Config.persistenceManager.pageOverLocal("occ", (guid, map, _) => {
       val updates = mutable.Map[String, String]()
       val taxonProfileWithOption = TaxonProfileDAO.getByGuid(map.getOrElse("taxonConceptID" + sep + "p", ""))
       if (!taxonProfileWithOption.isEmpty) {

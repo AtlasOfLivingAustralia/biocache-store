@@ -351,7 +351,7 @@ class LocationProcessor extends Processor {
 
     //check to see if we have coordinates specified
     if (rawLatitude != null && rawLongitude != null && !rawLatitude.toFloatWithOption.isEmpty && !rawLongitude.toFloatWithOption.isEmpty) {
-      processDecimalCoordinates(rawLatitude, rawLongitude, rawGeodeticDatum, assertions)
+      processDecimalCoordinates(rawLatitude, rawLongitude, rawGeodeticDatum, verbatimSRS, assertions)
       // Attempt to infer the decimal latitude and longitude from the verbatim latitude and longitude
     } else {
       //no decimal latitude/longitude was provided
@@ -394,7 +394,7 @@ class LocationProcessor extends Processor {
     * @param assertions
     * @return
     */
-  private def processDecimalCoordinates(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String,
+  private def processDecimalCoordinates(rawLatitude: String, rawLongitude: String, rawGeodeticDatum: String, verbatimSRS: String,
                                         assertions: ArrayBuffer[QualityAssertion]): Option[GISPoint] = {
 
     //coordinates were supplied so the test passed
@@ -402,14 +402,34 @@ class LocationProcessor extends Processor {
     // if decimal lat/long is provided in a CRS other than WGS84, then we need to reproject
 
     if (rawGeodeticDatum != null) {
+
       //no assumptions about the datum is being made:
       assertions += QualityAssertion(GEODETIC_DATUM_ASSUMED_WGS84, PASSED)
-      val sourceEpsgCode = GridUtil.lookupEpsgCode(rawGeodeticDatum)
+
+      val datum = GeodeticDatum.matchTerm(rawGeodeticDatum) match {
+        case Some(term) => term.canonical
+        case None => rawGeodeticDatum
+      }
+
+      //lookup EPSG code
+      var sourceEpsgCode = GridUtil.lookupEpsgCode(datum)
+
+      //if empty - try verbatim SRS
+      if (!sourceEpsgCode.isEmpty && verbatimSRS != null) {
+        val matchedVerbatimSRS = GeodeticDatum.matchTerm(verbatimSRS)
+        val srs = if(!matchedVerbatimSRS.isEmpty){
+          matchedVerbatimSRS.get.canonical
+        } else {
+          verbatimSRS
+        }
+        sourceEpsgCode = GridUtil.lookupEpsgCode(srs)
+      }
+
       if (!sourceEpsgCode.isEmpty) {
         //datum is recognised so pass the test:
         assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, PASSED)
         if (sourceEpsgCode.get == GISUtil.WGS84_EPSG_Code) {
-          //already in WGS84, no need to reproject
+          //already in WGS84, no need to re-project
           Some(GISPoint(rawLatitude, rawLongitude, GISUtil.WGS84_EPSG_Code, null))
         } else {
           // Reproject decimal lat/long to WGS84
@@ -435,7 +455,7 @@ class LocationProcessor extends Processor {
         }
       } else {
         assertions += QualityAssertion(UNRECOGNIZED_GEODETIC_DATUM, s"Geodetic datum $rawGeodeticDatum not recognized.")
-        Some(GISPoint(rawLatitude, rawLongitude, rawGeodeticDatum, null))
+        Some(GISPoint(rawLatitude, rawLongitude, null, null))
       }
     } else {
       //assume coordinates already in WGS84

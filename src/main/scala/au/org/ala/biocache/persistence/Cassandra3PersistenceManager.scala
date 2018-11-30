@@ -135,7 +135,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
   def rowKeyExists(rowKey: String, entityName: String): Boolean = {
     val stmt = getPreparedStmt(s"SELECT rowkey FROM $entityName where rowkey = ? ALLOW FILTERING", entityName)
-    val boundStatement = stmt bind rowKey
+    val boundStatement = stmt.bind(rowKey)
     val rs = session.execute(boundStatement)
     rs.size != 0
   }
@@ -149,7 +149,7 @@ class Cassandra3PersistenceManager  @Inject() (
     */
   def get(rowKey: String, entityName: String): Option[Map[String, String]] = {
     val stmt = getPreparedStmt(s"SELECT * FROM $entityName where rowkey = ? ALLOW FILTERING", entityName)
-    val boundStatement = stmt bind rowKey
+    val boundStatement = stmt.bind(rowKey)
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
     if (rows.hasNext()) {
@@ -174,7 +174,7 @@ class Cassandra3PersistenceManager  @Inject() (
     */
   def getColumnsWithTimestamps(uuid: String, entityName: String): Option[Map[String, Long]] = {
     val stmt = getPreparedStmt(s"SELECT * FROM $entityName where rowkey = ?", entityName)
-    val boundStatement = stmt bind uuid
+    val boundStatement = stmt.bind(uuid)
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
     if (rows.hasNext()) {
@@ -194,7 +194,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
       //retrieve column timestamps
       val wtStmt = getPreparedStmt(s"SELECT $selectClause FROM $entityName where rowkey = ?", entityName)
-      val wtBoundStatement = wtStmt bind uuid
+      val wtBoundStatement = wtStmt.bind(uuid)
       val rs2 = session.execute(wtBoundStatement)
       val writeTimeRow = rs2.iterator.next()
 
@@ -239,7 +239,7 @@ class Cassandra3PersistenceManager  @Inject() (
     while(retriesCount < 10) {
       try {
         val stmt = getPreparedStmt(s"SELECT * FROM $entityName where $idxColumn = ?", entityName)
-        val boundStatement = stmt bind rowkey
+        val boundStatement = stmt.bind(rowkey)
         val rs = session.execute(boundStatement)
         val rows = rs.iterator
 
@@ -298,7 +298,7 @@ class Cassandra3PersistenceManager  @Inject() (
 
     val indexTable = entityName + "_" + idxColumn
     val stmt = getPreparedStmt(s"SELECT value FROM $indexTable where rowkey = ?", entityName)
-    val boundStatement = stmt bind indexedValue
+    val boundStatement = stmt.bind(indexedValue)
     val rs = session.execute(boundStatement)
     val rows = rs.iterator
     if (rows.hasNext()) {
@@ -319,7 +319,7 @@ class Cassandra3PersistenceManager  @Inject() (
     } else {
       getPreparedStmt(s"SELECT $propertyName FROM $entityName where rowkey = ?", entityName)
     }
-    val boundStatement = stmt bind uuid
+    val boundStatement = stmt.bind(uuid)
 
     //add retries....
     var retriesCount = 0
@@ -689,7 +689,7 @@ class Cassandra3PersistenceManager  @Inject() (
     grandTotal
   }
 
-  def pageOverSelectArray(entityName: String, proc: ((String, GettableData, ColumnDefinitions) => Boolean),
+  def pageOverSelectArray(entityName: String, proc: ((String, DataRow) => Boolean),
                           indexedField: String, indexedFieldValue: String, pageSize: Int, threads: Int,
                           localOnly: Boolean, columnName: String*): Int = {
     pageOverLocalNotAsync(entityName, null, threads, columnName.toArray, null, indexedField, indexedFieldValue,
@@ -758,7 +758,7 @@ class Cassandra3PersistenceManager  @Inject() (
                             threads: Int, columns: Array[String] = Array(), rowKeyFile: File = null,
                             indexedField: String = "", indexedFieldValue: String = "",
                             localOnly: Boolean = true,
-                            procArray: ((String, GettableData, ColumnDefinitions) => Boolean) = null): Int = {
+                            procArray: ((String, DataRow) => Boolean) = null): Int = {
 
     val MAX_QUERY_RETRIES = 20
 
@@ -931,7 +931,7 @@ class Cassandra3PersistenceManager  @Inject() (
                     if (procArray != null) {
                       //process response as an array to avoid conversion to Map
                       try {
-                        continuePaging.set(procArray(rowkey, row, row.getColumnDefinitions))
+                        continuePaging.set(procArray(rowkey, new CassandraRow(row)))
                       } catch {
                         case e: Exception => logger.error("Exception throw during paging: " + e.getMessage, e)
                       }
@@ -1215,7 +1215,7 @@ class Cassandra3PersistenceManager  @Inject() (
     */
   def delete(rowKey: String, entityName: String) = {
     val deleteStmt = getPreparedStmt(s"DELETE FROM $entityName where rowkey = ?", entityName)
-    val boundStatement = deleteStmt bind rowKey
+    val boundStatement = deleteStmt.bind(rowKey)
     val resultSet = session.execute(boundStatement)
     resultSet
   }

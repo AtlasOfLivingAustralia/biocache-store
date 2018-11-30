@@ -7,6 +7,8 @@ import java.util.concurrent.ArrayBlockingQueue
 import au.org.ala.biocache.tool.DuplicationDetection
 import au.org.ala.biocache.util.{CountAwareFacetConsumer, FileHelper, OptionParser, StringConsumer}
 import org.apache.commons.io.FileUtils
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
 
 /**
   * Utility to export based on facet and optional filter.
@@ -43,26 +45,29 @@ object ExportAllRecordFacetFilter {
       val filename = exportDirectory + File.separator + "species-guids.txt"
       FileUtils.forceMkdir(new File(exportDirectory))
       val args2 = if (filter.isDefined) Array(facet, filename, "-fq", filter.get, "--open", "-c", "true") else Array(facet, filename, "--open", "-c", "true")
-      println(new Date() + " Exporting the facets to be ued in the download")
+      println(new Date() + " Exporting the facets to be used in the download")
       ExportFacet.main(args2)
       //now based on the number of threads download the other data
-      val queue = new ArrayBlockingQueue[String](100)
-      var ids = 0
+      val queue = new ArrayBlockingQueue[String](1000)
+      val ids = new AtomicInteger(0)
+      val sentinel = UUID.randomUUID().toString() + System.currentTimeMillis()
       val pool: Array[Thread] = Array.fill(threads) {
-        val file = new File(exportDirectory + File.separator + ids + File.separator + "species.out")
+        val lastId = ids.incrementAndGet()
+        val file = new File(exportDirectory + File.separator + lastId + File.separator + "species.out")
         val subspeciesfile = new File(exportDirectory + File.separator + ids + File.separator + "subspecies.out")
         FileUtils.forceMkdir(file.getParentFile)
         val fileWriter = new FileWriter(file)
-        val p = new CountAwareFacetConsumer(queue, ids, {
+        val p = new CountAwareFacetConsumer(queue, lastId, sentinel, {
           lsids =>
             val query = lsids.mkString("species_guid:\"", "\" OR species_guid:\"", "\"")
-            DuplicationDetection.logger.info("Starting to download the occurrences for " + lsids.mkString(","))
+            if(DuplicationDetection.logger.isInfoEnabled()) {
+              DuplicationDetection.logger.info("Starting to download the occurrences for " + lsids.mkString(","))
+            }
             ExportByFacetQuery.downloadSingleTaxonByStream(query, null, fieldsToExport, "species_guid", Array("lat_long:[* TO *]"), Array("species_guid", "subspecies_guid", "row_key"), fileWriter, Some(new FileWriter(subspeciesfile)), Some(Array("duplicate_record")))
             fileWriter.flush()
           //at least 2 occurrences are necessary for the dump
         }, 10000, 2)
 
-        ids += 1
         p.start
         p
       }
@@ -70,7 +75,9 @@ object ExportAllRecordFacetFilter {
       //add to the queue
       new File(filename).foreachLine(line => queue.put(line.trim))
 
-      pool.foreach(t => if (t.isInstanceOf[StringConsumer]) t.asInstanceOf[StringConsumer].shouldStop = true)
+      for (i <- 1 to threads) {
+        queue.put(sentinel)
+      }
       pool.foreach(_.join)
     }
   }

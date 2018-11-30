@@ -4,6 +4,9 @@ import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import org.scalatest.Assertions._
 import au.org.ala.biocache.parser.DateParser
+import java.text.SimpleDateFormat
+import java.util.TimeZone
+import java.time.ZoneId
 
 /**
  * Tests for event date parsing. To run these tests create a new scala application
@@ -18,6 +21,52 @@ import au.org.ala.biocache.parser.DateParser
 @RunWith(classOf[JUnitRunner])
 class DateParserTest extends FunSuite {
 
+  test("2012-01-01T10:22:00") {
+    val result = DateParser.parseStringToDate("2012-01-01T10:22:00")
+    
+    expectResult(false){ result.isEmpty }
+    
+    val format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss")
+    format.setTimeZone(TimeZone.getTimeZone(ZoneId.of("UTC")))
+    expectResult("2012-01-01T10:22:00")(format.format(result.get))
+  }
+  
+  test("2013-11-06T19:59:14.961"){
+      val result = DateParser.parseDate("2013-11-06T19:59:14.961")
+      expectResult(false){ result.isEmpty }
+      expectResult("2013"){ result.get.startYear }
+      expectResult("11"){ result.get.startMonth }
+      expectResult("06"){ result.get.startDay }
+      expectResult(true){ result.get.singleDate }
+  }
+
+  test("2013-11-06T19:59:14.961+1000"){
+      val result = DateParser.parseDate("2013-11-06T19:59:14.961+1000")
+      expectResult(false){ result.isEmpty }
+      expectResult("2013"){ result.get.startYear }
+      expectResult("11"){ result.get.startMonth }
+      expectResult("06"){ result.get.startDay }
+      expectResult(true){ result.get.singleDate }
+  }
+
+  test("2013-11-06T19:59:14.961+10:00"){
+      val result = DateParser.parseDate("2013-11-06T19:59:14.961+10:00")
+      expectResult(false){ result.isEmpty }
+      expectResult("2013"){ result.get.startYear }
+      expectResult("11"){ result.get.startMonth }
+      expectResult("06"){ result.get.startDay }
+      expectResult(true){ result.get.singleDate }
+  }
+
+  test("2018-09-19T08:50+1000"){
+      val result = DateParser.parseDate("2018-09-19T08:50+1000")
+      expectResult(false){ result.isEmpty }
+      expectResult("2018"){ result.get.startYear }
+      expectResult("09"){ result.get.startMonth }
+      expectResult("19"){ result.get.startDay }
+      expectResult(true){ result.get.singleDate }
+  }
+  
   test("Single Year"){
     val result = DateParser.parseDate("1978")
     expectResult(false){ result.isEmpty }
@@ -158,13 +207,17 @@ class DateParserTest extends FunSuite {
     expectResult(false){ result.get.singleDate }
   }
 
-  test("2002-03-10 00:00:00.0/2002-03-10 00:00:00.0") {
+  test("2002-03-10 00:00:00.0/2003-03-10 00:00:00.0") {
 
     val result = DateParser.parseDate("2002-03-10 00:00:00.0/2003-03-10 00:00:00.0")
 
     expectResult(false){ result.isEmpty }
     expectResult("2002"){ result.get.startYear }
     expectResult("2003"){ result.get.endYear }
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("10"){result.get.startDay}
+    expectResult("10"){result.get.endDay}
     expectResult(false){ result.get.singleDate }
   }
 
@@ -173,7 +226,23 @@ class DateParserTest extends FunSuite {
     expectResult(false){ result.isEmpty }
     expectResult("2005"){ result.get.startYear }
     expectResult("2005"){ result.get.endYear }
+    expectResult("06"){result.get.startMonth}
+    expectResult("06"){result.get.endMonth}
+    expectResult("12"){result.get.startDay}
+    expectResult("12"){result.get.endDay}
     expectResult(true){ result.get.singleDate }
+  }
+
+  test("2005-06-12 00:00:00.0/2005-07-13 00:00:00.0") {
+    val result = DateParser.parseDate("2005-06-12 00:00:00.0/2006-07-13 00:00:00.0")
+    expectResult(false){ result.isEmpty }
+    expectResult("2005"){ result.get.startYear }
+    expectResult("2006"){ result.get.endYear }
+    expectResult("06"){result.get.startMonth}
+    expectResult("07"){result.get.endMonth}
+    expectResult("12"){result.get.startDay}
+    expectResult("13"){result.get.endDay}
+    expectResult(false){ result.get.singleDate }
   }
 
   test("12-06-2005") {
@@ -181,6 +250,10 @@ class DateParserTest extends FunSuite {
     expectResult(false){ result.isEmpty }
     expectResult("2005"){ result.get.startYear }
     expectResult("2005"){ result.get.endYear }
+    expectResult("06"){result.get.startMonth}
+    expectResult("06"){result.get.endMonth}
+    expectResult("12"){result.get.startDay}
+    expectResult("12"){result.get.endDay}
     expectResult(true){ result.get.singleDate }
   }
 
@@ -189,7 +262,55 @@ class DateParserTest extends FunSuite {
     expectResult(false){ result.isEmpty }
     expectResult("1984"){ result.get.startYear }
     expectResult("1984"){ result.get.endYear }
+    expectResult("04"){result.get.startMonth}
+    expectResult("04"){result.get.endMonth}
+    expectResult("23"){result.get.startDay}
+    expectResult("29"){result.get.endDay}
     expectResult(false){ result.get.singleDate }
+  }
+  
+  test("2001-03-14T00:00:00-11:00/2001-03-14T23:30:00-11:00"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00-11:00/2001-03-14T23:30:00-11:00")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("14"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
+
+  test("2001-03-14T00:00:00-11:00/2001-03-15T23:30:00-11:00"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00-11:00/2001-03-15T23:30:00-11:00")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("15"){result.get.endDay}
+    expectResult(false){result.get.singleDate}
+  }
+
+  test("2001-03-14T00:00:00-11:00/2001-03-14T23:30:00+10:00"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00-11:00/2001-03-14T23:30:00+10:00")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("14"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
+
+  test("2001-03-14T00:00:00-11:00/2001-03-15T23:30:00+10:00"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00-11:00/2001-03-15T23:30:00+10:00")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("15"){result.get.endDay}
+    expectResult(false){result.get.singleDate}
   }
 
   test("Fri Aug 12 15:19:20 EST 2011"){
@@ -244,6 +365,29 @@ class DateParserTest extends FunSuite {
     expectResult("07"){result.get.endDay}
   }
 
+  test("1998-09-30/10-07"){
+    val result = DateParser.parseDate("1998-09-30/10-07")
+    expectResult(false){ result.isEmpty}
+    expectResult("1998"){result.get.startYear}
+    expectResult("09"){result.get.startMonth}
+    expectResult("10"){result.get.endMonth}
+    expectResult("30"){result.get.startDay}
+    expectResult("07"){result.get.endDay}
+  }
+
+  test("2007-11-13/15") {
+    val result = DateParser.parseDate("2017-11-13/15")
+
+    expectResult(false){ result.isEmpty }
+    expectResult("2017"){ result.get.startYear }
+    expectResult("2017"){ result.get.endYear }
+    expectResult("11"){ result.get.startMonth }
+    expectResult("11"){ result.get.endMonth }
+    expectResult("13"){ result.get.startDay }
+    expectResult("15"){ result.get.endDay }
+    expectResult(false){ result.get.singleDate }
+  }
+  
   test("2011-10-31T18:50:00"){
     val result = DateParser.parseDate("2011-10-31T18:50:00")
     expectResult(false){ result.isEmpty}
@@ -276,11 +420,100 @@ class DateParserTest extends FunSuite {
     expectResult("14"){result.get.endDay}
     expectResult(true){result.get.singleDate}
   }
+  
+  test("2001-03-14T00:00:00+1100"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00+1100")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("14"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
 
-  test("Invalid date ranges"){
+  test("2001-03-14T00:00:00+11"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00+11")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("14"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
+
+  test("2001-03-14T00:00:00-11:00"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00-11:00")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("14"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
+
+  test("2001-03-14T00:00:00-1130"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00-1130")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("14"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
+
+  test("2001-03-14T00:00:00-05"){
+    val result = DateParser.parseDate("2001-03-14T00:00:00-05")
+    expectResult(false){result.isEmpty}
+    expectResult("2001"){result.get.startYear}
+    expectResult("03"){result.get.startMonth}
+    expectResult("03"){result.get.endMonth}
+    expectResult("14"){result.get.startDay}
+    expectResult("14"){result.get.endDay}
+    expectResult(true){result.get.singleDate}
+  }
+
+  test("2000-02-29"){
+      val result = DateParser.parseDate("2000-02-29")
+      expectResult(false){ result.isEmpty }
+      expectResult("2000"){ result.get.startYear }
+      expectResult("02"){ result.get.startMonth }
+      expectResult("29"){ result.get.startDay }
+      expectResult("2000"){ result.get.endYear }
+      expectResult("02"){ result.get.endMonth }
+      expectResult("29"){ result.get.endDay }
+      expectResult(true){ result.get.singleDate }
+  }
+
+  test("2012-02-29"){
+      val result = DateParser.parseDate("2012-02-29")
+      expectResult(false){ result.isEmpty }
+      expectResult("2012"){ result.get.startYear }
+      expectResult("02"){ result.get.startMonth }
+      expectResult("29"){ result.get.startDay }
+      expectResult("2012"){ result.get.endYear }
+      expectResult("02"){ result.get.endMonth }
+      expectResult("29"){ result.get.endDay }
+      expectResult(true){ result.get.singleDate }
+  }
+
+  test("Invalid date: Feb 29 Non-Leap year"){
     expectResult(None){DateParser.parseDate("2014-02-29")}
+  }
+  
+  test("Invalid date month 13"){
     expectResult(None){DateParser.parseDate("2013-13-01")}
+  }
+  
+  test("Invalid date month 23"){
     expectResult(None){DateParser.parseDate("2013-23-01")}
+  }
+
+  test("Invalid date day 32"){
+    expectResult(None){DateParser.parseDate("2013-01-32")}
   }
 
   test("yyyy-MM-00"){
@@ -298,8 +531,11 @@ class DateParserTest extends FunSuite {
     val result = DateParser.parseDate("2011-02-09 00:39:00.000")
     expectResult(false){result.isEmpty}
     expectResult("2011"){result.get.startYear}
+    expectResult("2011"){result.get.endYear}
     expectResult("02"){result.get.startMonth}
+    expectResult("02"){result.get.endMonth}
     expectResult("09"){result.get.startDay}
+    expectResult("09"){result.get.endDay}
     expectResult(true){result.get.singleDate}
   }
 
@@ -311,6 +547,7 @@ class DateParserTest extends FunSuite {
   test("dd/MM/yy - post 2000"){
     val result = DateParser.parseDate("01/02/01")
     expectResult("2001"){result.get.startYear}
+    expectResult("2001"){result.get.endYear}
     expectResult("02"){result.get.startMonth}
     expectResult("02"){result.get.endMonth}
     expectResult("01"){result.get.startDay}
@@ -321,6 +558,7 @@ class DateParserTest extends FunSuite {
   test("dd/MM/yy - pre 2000"){
     val result = DateParser.parseDate("05/02/78")
     expectResult("1978"){result.get.startYear}
+    expectResult("1978"){result.get.endYear}
     expectResult("02"){result.get.startMonth}
     expectResult("02"){result.get.endMonth}
     expectResult("05"){result.get.startDay}

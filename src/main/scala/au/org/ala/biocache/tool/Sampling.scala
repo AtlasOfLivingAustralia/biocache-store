@@ -1,4 +1,4 @@
-package au.org.ala.biocache.tool
+  package au.org.ala.biocache.tool
 
 import java.io._
 import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue}
@@ -20,6 +20,9 @@ import au.org.ala.biocache.index.Counter
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashSet}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 /**
   * Executable for running the sampling for a data resource.
@@ -174,62 +177,76 @@ object Sampling extends Tool with IncrementalTool with Counter {
     logger.info(s"Starting loading sampling for " + fileName)
 
     val queue = new ArrayBlockingQueue[String](100)
-    var ids = 0
+    val ids = new AtomicInteger(0)
 
     val requiredFields = Array(
       "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p",
       "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
     )
 
+    val sentinel = UUID.randomUUID().toString() + System.currentTimeMillis()
+    val startTime = new AtomicLong(System.currentTimeMillis)
+    val finishTime = new AtomicLong(System.currentTimeMillis)
+
     //THIS NEEDS TO USE ROWKEY file.....
     val pool: Array[StringConsumer] = Array.fill(threads) {
 
-      var startTime = System.currentTimeMillis
-      var finishTime = System.currentTimeMillis
+      val p = new StringConsumer(queue, ids.incrementAndGet(), sentinel, { guid =>
+        if(!guid.trim().isEmpty()) {
+          val lastCounter = counter.incrementAndGet()
 
-      val p = new StringConsumer(queue, ids, { guid =>
-        counter += 1
+          val result = Config.persistenceManager.getSelected(guid, "occ", requiredFields)
+          if(!result.isEmpty){
+            val map = result.get
+            val lat = map.get("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p").get
+            val lon = map.get("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p").get
 
-        val result = Config.persistenceManager.getSelected(guid, "occ", requiredFields)
-        if(!result.isEmpty){
-          val map = result.get
-          val lat = map.get("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p").get
-          val lon = map.get("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p").get
-
-          val point = LocationDAO.getSamplesForLatLon(lat, lon)
-          if (!point.isEmpty) {
-            val (location, environmentalLayers, contextualLayers) = point.get
-            Config.persistenceManager.put(guid, "occ", Map(
-              "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
-              "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
-              false,
-              false
-            )
+            val point = LocationDAO.getSamplesForLatLon(lat, lon)
+            if (!point.isEmpty) {
+              val (location, environmentalLayers, contextualLayers) = point.get
+              Config.persistenceManager.put(guid, "occ", Map(
+                "el" + Config.persistenceManager.fieldDelimiter + "p" -> environmentalLayers,
+                "cl" + Config.persistenceManager.fieldDelimiter + "p" -> contextualLayers),
+                false,
+                false
+              )
+            }
+          }
+          if (lastCounter % 1000 == 0) {
+            finishTime.set(System.currentTimeMillis)
+            logger.info(counter + " >> Loading sampling records per sec: " + 1000f / (((finishTime.get() - startTime.get()).toFloat) / 1000f) +", lastkey: " + guid )
+            startTime.set(System.currentTimeMillis)
           }
         }
-        if (counter % 1000 == 0) {
-          finishTime = System.currentTimeMillis
-          logger.info(counter + " >> Loading sampling records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f) +", lastkey: " + guid )
-          startTime = System.currentTimeMillis
-        }
       })
-      ids += 1
       p.start
       p
     }
 
-    new File(fileName).foreachLine(line => queue.put(line.trim))
-    pool.foreach(t => t.shouldStop = true)
+    new File(fileName).foreachLine(line => 
+      if(!line.trim().isEmpty()) {
+        queue.put(line.trim)
+      }
+    )
+    for (i <- 1 to threads) {
+      queue.put(sentinel)
+    }
     pool.foreach(_.join)
   }
 
-  def sampleDataResource(dataResourceUid: String, callback: IntersectCallback = null, singleLayerName: String = "") {
+  def sampleDataResource(dataResourceUid: String, callback: IntersectCallback = null, singleLayerName: String = null) {
     val locFilePath = Config.tmpWorkDir + "/loc-" + dataResourceUid + ".txt"
     val s = new Sampling
     s.getDistinctCoordinatesForResourceThreaded(4, locFilePath, dataResourceUid)
     val samplingFilePath = Config.tmpWorkDir + "/sampling-" + dataResourceUid + ".txt"
     //generate sampling
-    s.sampling(locFilePath, samplingFilePath, callback, layers = Array(singleLayerName))
+    val layers = if (StringUtils.isNotBlank(singleLayerName)){
+      Array(singleLayerName)
+    } else {
+      Array[String]()
+    }
+
+    s.sampling(locFilePath, samplingFilePath, callback, concurrentLoading = true, keepFiles = true, layers = layers)
     //load the loc table
     s.loadSampling(samplingFilePath, callback)
     //clean up the file
@@ -368,18 +385,20 @@ class Sampling  {
     val coordinates = new HashSet[String]
     val lp = new LocationProcessor
     rowKeys.foreachLine { line =>
-      val values = Config.persistenceManager.getSelected(line, "occ", properties)
-      if (values.isDefined) {
-        def map = values.get
+      if (!line.trim().isEmpty()) {
+        val values = Config.persistenceManager.getSelected(line, "occ", properties)
+        if (values.isDefined) {
+          def map = values.get
 
-        handleRecordMap(map, coordinates, lp)
+          handleRecordMap(map, coordinates, lp)
 
-        if (counter % 10000 == 0 && counter > 0) {
-          val numberOfCoordinates = coordinates.size
-          logger.debug(s"Distinct coordinates counter: $counter , current count: $numberOfCoordinates")
+          if (counter % 10000 == 0 && counter > 0) {
+            val numberOfCoordinates = coordinates.size
+            logger.debug(s"Distinct coordinates counter: $counter , current count: $numberOfCoordinates")
+          }
+          counter += 1
+          passed += 1
         }
-        counter += 1
-        passed += 1
       }
     }
     val noOfCoordinates = coordinates.size
@@ -464,7 +483,9 @@ class Sampling  {
       if (Config.layersServiceSampling) {
         processBatchRemote(writer, points, fields, callback)
       } else {
-        processBatch(writer, points, fields, callback)
+        logger.info("Sampling is disabled.")
+        return
+//        processBatch(writer, points, fields, callback)
       }
 
       totalProcessed += points.size

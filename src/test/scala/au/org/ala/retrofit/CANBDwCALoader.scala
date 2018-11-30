@@ -99,20 +99,15 @@ class CANBDwCALoader extends DwCALoader {
    * @param uniqueTerms
    * @return
    */
-  override def getUuid(uniqueID:Option[String], star:StarRecord, uniqueTerms:Seq[Term], mappedProperties:Option[Map[String,String]]) :((String, Boolean), Option[Map[String,String]])={
+  override def getUuid(uniqueID:String, star:StarRecord, uniqueTerms:Seq[Term], mappedProperties:Option[Map[String,String]]) :((String, Boolean), Option[Map[String,String]])={
     //Rule: If the catalogue number suffix is .1 OR is in the supplied CSV then we remove the suffix before we test for the UUID
 
     val newUniqueId = {
-      if (!uniqueTerms.isEmpty) {
-        val uniqueTermValues = uniqueTerms.map(t => getRetrofitValue(t,star.core.value(t)))
-        val id =(List("dr376") ::: uniqueTermValues.toList).mkString("|").trim
-        //we always strip the spaces for AVH dr376
-        Some(id.replaceAll("\\s",""))
-      } else {
-        None
-      }
+      val uniqueTermValues = uniqueTerms.map(t => getRetrofitValue(t,star.core.value(t)))
+      //we always strip the spaces for AVH dr376
+      Config.occurrenceDAO.createUniqueID("dr376", uniqueTermValues, true)
     }
-    val props = Config.persistenceManager.get(newUniqueId.get,"occ")
+    val props = Config.persistenceManager.get(newUniqueId,"occ")
     var mappedProps:Option[Map[String,String]]=None
     if(props.isDefined){
       val map = new mutable.HashMap[String,String]()
@@ -120,7 +115,6 @@ class CANBDwCALoader extends DwCALoader {
       sublist.foreach(i => map +=(i-> props.get.getOrElse(i, "")))
       mappedProps = Some(map.toMap)
     }
-    //
 
     super.getUuid(newUniqueId, star,uniqueTerms,mappedProps)
   }

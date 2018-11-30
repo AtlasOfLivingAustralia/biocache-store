@@ -11,6 +11,7 @@ import au.org.ala.biocache.util.{Json, OptionParser, ZookeeperUtil}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters
+import java.util.concurrent.atomic.AtomicLong
 
 object SampleLocalRecords extends au.org.ala.biocache.cmd.Tool {
 
@@ -185,8 +186,8 @@ class SampleLocalRecords extends Counter {
     var readCount = 0
     var rowkeys = Seq("")
     val queue = new util.HashSet[String]()
-    val dlat = "decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p"
-    val dlon = "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
+    val dlat = (if (Config.caseSensitiveCassandra) "decimalLatitude" else "decimallatitude") + Config.persistenceManager.fieldDelimiter + "p"
+    val dlon = (if (Config.caseSensitiveCassandra) "decimalLongitude" else "decimallongitude") + Config.persistenceManager.fieldDelimiter + "p"
 
     val rowKeyFile : File = if (drs.size == 1) {
       Store.rowKeyFile(drs.iterator.next())
@@ -319,7 +320,7 @@ class SampleLocalRecords extends Counter {
     sample(workingDir, threads, keepFiles, loadOccOnly, sampleOnly, queue, rowkeys, layers, allNodes)
   }
 
-  def loadSamplingIntoOccurrences(threads: Int, rowkeys: Seq[String], allNodes: Boolean) : (Int, Int) = {
+  def loadSamplingIntoOccurrences(threads: Int, rowkeys: Seq[String], allNodes: Boolean) : (Long, Long) = {
     if (rowkeys.length > 0 && !rowkeys.iterator.next().isEmpty) {
       logger.info(s"Starting loading sampling for ${rowkeys.length} records")
     } else {
@@ -329,13 +330,13 @@ class SampleLocalRecords extends Counter {
     val dlon = "decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p"
 
     if (rowkeys.length > 0 && !rowkeys.iterator.next().isEmpty) {
-      var counterLoaded = 0
+      val counterLoaded = new AtomicLong(0)
 
       Config.persistenceManager.selectRows(rowkeys, "occ", Seq("rowkey", dlat, dlon), (map) => {
         val lat = map.getOrElse(dlat, "")
         val lon = map.getOrElse(dlon, "")
         val guid = map.getOrElse("rowkey", "")
-        counter += 1
+        val lastCounter = counter.incrementAndGet()
         if (lat != "" && lon != "" && lat != null && lon != null && lat != "null" && lon != "null") {
           val point = LocationDAO.getSamplesForLatLon(lat, lon)
           if (!point.isEmpty) {
@@ -349,22 +350,22 @@ class SampleLocalRecords extends Counter {
           } else {
             logger.info(s"[Loading sampling] Missing sampled values for $guid, with $lat, $lon")
           }
-          counterLoaded += 1
+          counterLoaded.incrementAndGet()
         }
-        if (counter % 1000 == 0) {
-          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
+        if (lastCounter % 1000 == 0) {
+          logger.info(s"[Loading sampling] Import of sample data $lastCounter Last key $guid")
         }
         true
       })
       logger.info(s"[Loading sampling] Import of sample data complete. Records sampled:  $counter. Records with coordinates: $counterLoaded")
-      (counter,counterLoaded)
+      (counter.get(),counterLoaded.get())
     } else {
 
-      var counterLoaded = 0
+      val counterLoaded = new AtomicLong(0)
       Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocalNotAsync("occ", (guid, map, _) => {
         val lat = map.getOrElse(dlat, "")
         val lon = map.getOrElse(dlon, "")
-        counter += 1
+        val lastCounter = counter.incrementAndGet()
         if (lat != "" && lon != "" && lat != null && lon != null && lat != "null" && lon != "null") {
           val point = LocationDAO.getSamplesForLatLon(lat, lon)
           if (!point.isEmpty) {
@@ -378,16 +379,16 @@ class SampleLocalRecords extends Counter {
           } else {
             logger.info(s"[Loading sampling] Missing sampled values for $guid, with $lat, $lon")
           }
-          counterLoaded += 1
+          counterLoaded.incrementAndGet()
         }
-        if (counter % 1000 == 0) {
-          logger.info(s"[Loading sampling] Import of sample data $counter Last key $guid")
+        if (lastCounter % 1000 == 0) {
+          logger.info(s"[Loading sampling] Import of sample data $lastCounter Last key $guid")
         }
         true
       }, threads, Array("rowkey", dlat, dlon), localOnly = !allNodes)
       logger.info(s"[Loading sampling] Import of sample data complete. Records sampled:  $counter. Records with coordinates: $counterLoaded")
 
-      (counter,counterLoaded)
+      (counter.get(),counterLoaded.get())
     }
   }
 }

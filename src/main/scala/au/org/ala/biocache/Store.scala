@@ -56,16 +56,20 @@ object Store {
   /**
     * A java API friendly version of the getByUuid that does not require knowledge of a scala type.
     */
-  def getByUuid(uuid: java.lang.String, version: Version): FullRecord =
+  def getByUuid(uuid: java.lang.String, version: Version): FullRecord = {
     occurrenceDAO.getByRowKey(uuid, version).getOrElse(null)
+  }
 
-  def getSensitiveByUuid(uuid:java.lang.String, version:Version):FullRecord =
+  def getSensitiveByUuid(uuid:java.lang.String, version:Version):FullRecord = {
     occurrenceDAO.getByRowKey(uuid, version, true).getOrElse(null)
+  }
 
   /**
    * A java API friendly version of the getByUuid that doesnt require knowledge of a scala type.
    */
-  def getByUuid(uuid: java.lang.String): FullRecord = occurrenceDAO.getByRowKey(uuid, Raw).getOrElse(null)
+  def getByUuid(uuid: java.lang.String): FullRecord = {
+    occurrenceDAO.getByRowKey(uuid, Raw).getOrElse(null)
+  }
 
   /**
    * Retrieve all versions of the record with the supplied UUID.
@@ -158,14 +162,14 @@ object Store {
     *
     * Record is indexed if should index is true
     */
-  def loadRecord(dataResourceIdentifer:String, properties:java.util.Map[String,String], shouldIndex:Boolean){
+  def loadRecord(dataResourceIdentifer:String, properties:java.util.Map[String,String], shouldIndex:Boolean) : String = {
     (new RecordProcessor).addRecord(dataResourceIdentifer, properties.toMap[String,String])
   }
 
   /**
     * Load the record, download any media associated with the record.
     */
-  def loadRecord(dataResourceUid: String, fr: FullRecord, identifyingTerms: java.util.List[String], shouldIndex: Boolean = true) {
+  def loadRecord(dataResourceUid: String, fr: FullRecord, identifyingTerms: java.util.List[String], shouldIndex: Boolean = true) : String = {
     fr.lastModifiedTime = new Date()
     (new SimpleLoader).load(dataResourceUid, fr, identifyingTerms.toList, true, true, false)
     val processor = new RecordProcessor
@@ -173,6 +177,7 @@ object Store {
     if (shouldIndex) {
       occurrenceDAO.reIndex(fr.rowKey)
     }
+    fr.rowKey
   }
 
   /**
@@ -181,7 +186,7 @@ object Store {
     * It relies on identifyFields supplying a list dwc terms that make up the unique identifier for the data resource
     */
   def loadRecords(dataResourceUid: String, recordsProperties: java.util.List[java.util.Map[String, String]],
-                  identifyFields: java.util.List[String], shouldIndex: Boolean = true) {
+                  identifyFields: java.util.List[String], shouldIndex: Boolean = true) : Seq[String] = {
     val loader = new MapDataLoader
     val rowKeys = loader.load(dataResourceUid, recordsProperties.toList, identifyFields.toList)
     if (!rowKeys.isEmpty) {
@@ -190,6 +195,7 @@ object Store {
         IndexRecords.indexList(rowKeys)
       }
     }
+    rowKeys
   }
 
   /**
@@ -283,7 +289,7 @@ object Store {
     * @return
     */
   def getSystemAssertions(uuid: java.lang.String): java.util.List[QualityAssertion] = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+    val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
     occurrenceDAO.getSystemAssertions(rowKey).filter(_.qaStatus == 0).asJava
   }
 
@@ -294,7 +300,7 @@ object Store {
     */
   def getAllSystemAssertions(uuid: java.lang.String): java.util.Map[String, java.util.List[QualityAssertion]] = {
     //system assertions are handled using row keys - this is unlike user assertions.
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+    val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
     val list = occurrenceDAO.getSystemAssertions(rowKey)
     val unchecked = AssertionCodes.getMissingCodes((list.map(it => AssertionCodes.getByCode(it.code).getOrElse(null))).toSet)
 
@@ -314,7 +320,7 @@ object Store {
     * Retrieve the user supplied systemAssertions.
     */
   def getUserAssertion(uuid: java.lang.String, assertionUuid: java.lang.String): QualityAssertion = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+    val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
     occurrenceDAO.getUserAssertions(rowKey).find { ass =>
       ass.uuid == assertionUuid
     }.getOrElse(null)
@@ -324,7 +330,7 @@ object Store {
     * Retrieve the user supplied systemAssertions.
     */
   def getUserAssertions(uuid: java.lang.String): java.util.List[QualityAssertion] = {
-    val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+    val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
     occurrenceDAO.getUserAssertions(rowKey).asJava
   }
 
@@ -335,7 +341,7 @@ object Store {
     */
   def addUserAssertion(uuid: java.lang.String, qualityAssertion: QualityAssertion) {
     if (!readOnly) {
-      val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+      val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
       occurrenceDAO.addUserAssertion(rowKey, qualityAssertion)
       occurrenceDAO.reIndex(rowKey)
     } else {
@@ -356,7 +362,7 @@ object Store {
         case (uuid, qa) => {
           count += 1
           //apply the assertion and add to the reindex list
-          val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid)
+          val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid)
           occurrenceDAO.addUserAssertion(rowKey, qa)
           arrayBuffer += rowKey
         }
@@ -391,7 +397,7 @@ object Store {
     */
   def deleteUserAssertion(uuid: java.lang.String, assertionUuid: java.lang.String) {
     if (!readOnly) {
-      val rowKey = occurrenceDAO.getRowKeyFromUuid(uuid).getOrElse(uuid);
+      val rowKey = occurrenceDAO.getRowKeyFromUuidDB(uuid).getOrElse(uuid);
       occurrenceDAO.deleteUserAssertion(rowKey, assertionUuid)
       occurrenceDAO.reIndex(rowKey)
     } else {
@@ -485,8 +491,9 @@ object Store {
     *
     * @param dataResourceUid
     */
-  def sample(dataResourceUid: java.lang.String, callback: IntersectCallback) =
-    Sampling.sampleDataResource(dataResourceUid, callback)
+  def sample(dataResourceUid: java.lang.String, callback: IntersectCallback) = {
+    Sampling.main(Array[String]("-dr", dataResourceUid, "--crk"))
+  }
 
   /**
     * Process records for the supplied resource

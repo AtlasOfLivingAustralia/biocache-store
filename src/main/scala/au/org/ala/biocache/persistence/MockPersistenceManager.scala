@@ -3,12 +3,6 @@ package au.org.ala.biocache.persistence
 import scala.collection.mutable.{HashMap, ListBuffer}
 import au.org.ala.biocache.util.Json
 import java.util.UUID
-import java.util.concurrent.Executor
-
-import au.org.ala.biocache.dao.{OccurrenceDAO, OccurrenceDAOImpl}
-import au.org.ala.biocache.index.{IndexDAO, SolrIndexDAO}
-import com.datastax.driver.core.ResultSet
-import com.google.common.util.concurrent.FutureCallback
 import org.slf4j.LoggerFactory
 
 class MockPersistenceManager extends PersistenceManager {
@@ -209,6 +203,15 @@ class MockPersistenceManager extends PersistenceManager {
 
   def pageOverLocal(entityName: String, proc: (String, Map[String, String]) => Boolean, threads: Int, columns:Array[String]): Int = {
     throw new RuntimeException("Not implemented yet!!!")
+  }
+
+  def pageOverSelectArray(entityName: String, proc: ((String, DataRow) => Boolean),
+    indexedField: String, indexedFieldValue: String, pageSize: Int, threads: Int,
+    localOnly: Boolean, columnName: String*) : Int = {
+    this.mockStore.get(entityName).get.foreach { case (rowkey,  data) =>
+      proc( rowkey, new MockRow(data))
+    }
+    this.mockStore.get(entityName).get.size
   }
 
   def createSecondaryIndex(entityName:String, indexFieldName:String, threads:Int) = 0

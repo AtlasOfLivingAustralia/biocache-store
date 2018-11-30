@@ -17,6 +17,8 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConversions
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * A DAO for accessing occurrences.
@@ -167,12 +169,14 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   }
 
   /**
-   * Retrieve the UUID for a unique record ID
+   * Retrieve the UUID for a unique record ID if it already exists in occ_uuid, and None otherwise
    *
-   * @param uniqueID
-   * @return
+   * @param uniqueID The Primary key for a record
+   * @return A UUID matching the primary key, wrapped in an Option, and None otherwise
    */
-  def getUUIDForUniqueID(uniqueID: String) = persistenceManager.get(uniqueID, "occ_uuid", "value")
+  def getUUIDForUniqueID(uniqueID: String) : Option[String] = {
+    persistenceManager.get(uniqueID, "occ_uuid", "value")
+  }
 
   /**
     * Writes the supplied field values to the writer.  The Writer specifies the format in which the record is
@@ -1197,28 +1201,20 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     * Returns the rowKey based on the supplied uuid
     */
   def getRowKeyFromUuid(uuid: String): Option[String] = {
-    def rk = getRowKeyFromUuidDB(uuid)
-
-    if (rk.isDefined) {
-      rk
-    } else {
-      //work around so that index is searched if it can't be found in the cassandra secondary index.
-      getRowKeyFromUuidIndex(uuid)
-    }
+    val rk = getRowKeyFromUuidDB(uuid)
+    rk
   }
 
-  def getRowKeyFromUuidDB(uuid: String): Option[String] = persistenceManager.getByIndex(uuid, entityName, UUID, ROW_KEY)
+  def getRowKeyFromUuidDB(uuid: String): Option[String] = {
+    persistenceManager.getByIndex(uuid, entityName, UUID, ROW_KEY)
+  }
 
   def getRowKeyFromUuidIndex(uuid: String): Option[String] = {
-    if (uuid.startsWith("dr")) {
-      Some(uuid)
+    val list = Config.indexDAO.getRowKeysForQuery("id:" + uuid, 1)
+    if(list.isDefined){
+      list.get.headOption
     } else {
-      val list = Config.indexDAO.getRowKeysForQuery("id:" + uuid, 1)
-      if(list.isDefined){
-        list.get.headOption
-      } else {
-        None
-      }
+      None
     }
   }
 
@@ -1256,35 +1252,65 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   }
 
   /**
-   * Delete the record for the supplied UUID.
+   * Delete the record for the supplied ALA Internal UUID.
    *
-   * @param rowKey
-   * @param removeFromIndex
-   * @param logDeleted
-   * @return
+   * @param uuidToDelete The ALA Internal UUID to delete
+   * @param removeFromIndex True to also remove from Solr
+   * @param logDeleted True to create an entry in the dellog column family for the deleted record
+   * @param removeFromOccUuid True to delete from occ_uuid column family
+   * @return True
    */
-  def delete(rowKey: String, removeFromIndex:Boolean=true, logDeleted:Boolean=false) : Boolean = {
-
-    if (rowKey != "") {
+  override def delete(uuidToDelete: String, removeFromIndex:Boolean=true, logDeleted:Boolean=false, removeFromOccUuid:Boolean=false) : Boolean = {
+    val trimmedUUIDToDelete = uuidToDelete.trim()
+    if (logger.isInfoEnabled()) {
+      logger.info("Deleting by ALA Internal UUID: " + trimmedUUIDToDelete)
+    }
+    if (!trimmedUUIDToDelete.isEmpty()) {
+      val rowKeyOption = getRowKeyFromUuid(trimmedUUIDToDelete)
+      val rowKey = if (rowKeyOption.isDefined) {
+        rowKeyOption.get
+      } else {
+        "No row key found for uuid: " + trimmedUUIDToDelete
+      }
+      val timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+      val dellogPrimaryKey = trimmedUUIDToDelete + " " + timestamp + " " + rowKey
+      if (logger.isInfoEnabled()) {
+        logger.info("Deleting record: " + dellogPrimaryKey)
+      }
       if (logDeleted) {
-        val map = persistenceManager.get(rowKey, entityName)
-        if (map !=null && !map.isEmpty){
+        if (logger.isInfoEnabled()) {
+          logger.info("Logging to dellog...")
+        }
+        val map = persistenceManager.get(trimmedUUIDToDelete, entityName)
+        if (map !=null && !map.isEmpty) {
           val stringValue = Json.toJSON(map.get)
           //log the deleted record to history
           //get the map version of the record
-          val deletedTimestamp = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd HH:mm:ss")
-          val values = Map("id" -> rowKey, "value" -> stringValue)
-          persistenceManager.put(deletedTimestamp, "dellog", values, true, false)
+          val values = Map("id" -> trimmedUUIDToDelete, "value" -> stringValue)
+          persistenceManager.put(dellogPrimaryKey, "dellog", values, true, false)
         }
       }
-      //delete from the data store
-      persistenceManager.delete(rowKey, entityName)
+      // Delete from Cassandra
+      persistenceManager.delete(trimmedUUIDToDelete, entityName)
+      if (removeFromOccUuid) {
+        if (rowKeyOption.isDefined) {
+          if (logger.isInfoEnabled()) {
+            logger.info("Deleting by rowkey from occ_uuid: " + rowKey)
+          }
+          persistenceManager.delete(rowKey, "occ_uuid")
+          if (logger.isInfoEnabled()) {
+            logger.info("Also attempting to delete by uuid occ_uuid: " + trimmedUUIDToDelete)
+          }
+          persistenceManager.delete(trimmedUUIDToDelete, "occ_uuid")
+        }
+      }
+      
+      // Delete from Solr
+      if (removeFromIndex) {
+        indexDAO.removeFromIndex("id", trimmedUUIDToDelete)
+      }
     }
 
-    //delete from the index
-    if (removeFromIndex) {
-      indexDAO.removeFromIndex("id", rowKey)
-    }
     true
   }
 

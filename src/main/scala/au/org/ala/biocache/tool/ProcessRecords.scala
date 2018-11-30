@@ -7,6 +7,9 @@ import au.org.ala.biocache.util.{StringConsumer, OptionParser, FileHelper}
 import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
 import au.org.ala.biocache.processor.RecordProcessor
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
 
 /**
  * A simple threaded implementation of the processing.
@@ -78,19 +81,20 @@ object ProcessRecords extends Tool with IncrementalTool {
   def processRowKeys(rowkeys:List[String]) {
 
     val queue = rowkeys
-    var ids = 0
-    var counter = 0
+    val counter = new AtomicLong(0)
     val recordProcessor = new RecordProcessor
     rowkeys.foreach { guid =>
-      counter += 1
-      val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
-      if (!rawProcessed.isEmpty) {
-        val rp = rawProcessed.get
-        recordProcessor.processRecord(rp(0), rp(1))
+      if (!guid.trim().isEmpty()) {
+        counter.incrementAndGet()
+        val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
+        if (!rawProcessed.isEmpty) {
+          val rp = rawProcessed.get
+          recordProcessor.processRecord(rp(0), rp(1))
+        }
       }
     }
 
-    logger.info("Total records processed: " + counter)
+    logger.info("Total records processed: " + counter.get())
   }
 
   /**
@@ -99,39 +103,47 @@ object ProcessRecords extends Tool with IncrementalTool {
    * @param threads
    */
   def processFileOfRowKeys(file: java.io.File, threads: Int) {
-    val queue = new ArrayBlockingQueue[String](100)
-    var ids = 0
-    var counter = 0
+    val queue = new ArrayBlockingQueue[String](1000)
+    val ids = new AtomicInteger(0)
+    val counter = new AtomicLong(0)
     val recordProcessor = new RecordProcessor
+    val startTime = new AtomicLong(System.currentTimeMillis)
+    val finishTime = new AtomicLong(0)
+    // Sentinel that will not match any of the raw GUIDs in the file and signals the consumers to return
+    val sentinel = UUID.randomUUID().toString() + System.currentTimeMillis()
     val pool: Array[StringConsumer] = Array.fill(threads) {
 
-      var startTime = System.currentTimeMillis
-      var finishTime = System.currentTimeMillis
+      val p = new StringConsumer(queue, ids.incrementAndGet(), sentinel, { guid =>
+        if (!guid.trim().isEmpty()) {
+          var lastCounter = counter.incrementAndGet();
+          val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
+          if (!rawProcessed.isEmpty) {
+            val rp = rawProcessed.get
+            recordProcessor.processRecord(rp(0), rp(1))
 
-      val p = new StringConsumer(queue, ids, { guid =>
-        counter += 1
-        val rawProcessed = Config.occurrenceDAO.getRawProcessedByRowKey(guid)
-        if (!rawProcessed.isEmpty) {
-          val rp = rawProcessed.get
-          recordProcessor.processRecord(rp(0), rp(1))
-
-          //debug counter
-          if (counter % 1000 == 0) {
-            finishTime = System.currentTimeMillis
-            logger.info(counter + " >> Last key : " + rp(0).rowKey + ", records per sec: " + 1000f / (((finishTime - startTime).toFloat) / 1000f))
-            startTime = System.currentTimeMillis
+            //debug counter
+            if (lastCounter % 1000 == 0) {
+              finishTime.set(System.currentTimeMillis)
+              logger.info(lastCounter + " >> Last key : " + rp(0).rowKey + ", records per sec: " + 1000f / (((finishTime.get() - startTime.get()).toFloat) / 1000f))
+              startTime.set(System.currentTimeMillis)
+            }
           }
         }
       })
-      ids += 1
       p.start
       p
     }
 
-    file.foreachLine(line => queue.put(line.trim))
-    pool.foreach(t => t.shouldStop = true)
+    file.foreachLine(line => 
+      if (!line.trim().isEmpty()) {
+        queue.put(line.trim)
+      }
+    )
+    for (i <- 1 to threads) {
+      queue.put(sentinel)
+    }
     pool.foreach(_.join)
 
-    logger.info("Total records processed: " + counter)
+    logger.info("Total records processed: " + counter.get())
   }
 }

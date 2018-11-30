@@ -65,24 +65,24 @@ trait Vocab {
 
   def loadVocabFromVerticalFile(filePath:String) : Set[Term] = {
 
-    val map = getSource(filePath).getLines.toList.map({ row =>
+    val map = getSource(filePath).getLines.toList.map { row =>
         val values = row.split("\t")
         val variant = values.head.replaceAll(regexNorm, "").toLowerCase
         val canonical = values.last
         (variant, canonical)
-    }).toMap
+    }.toMap
 
     val grouped = map.groupBy({ case(k,v) => v })
 
-    grouped.map({ case(canonical, valueMap) => {
+    grouped.map { case(canonical, valueMap) =>
        val variants = valueMap.keys
        new Term(canonical, variants.toArray)
-    }}).toSet
+    }.toSet
   }
 
   def loadVocabFromFile(filePath:String) : Set[Term] = getSource(filePath).getLines.toList.map({ row =>
     val values = row.split("\t")
-    val variants = values.map(x => x.replaceAll(regexNorm, "").toLowerCase)
+    val variants = values.map(x => x.replaceAll(regexNorm, "").toLowerCase).filter( x => x != "")
     new Term(values.head, variants)
   }).toSet
 

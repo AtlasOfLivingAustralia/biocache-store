@@ -92,6 +92,22 @@ trait PersistenceManager {
   def pageOverAll(entityName:String, proc:((String, Map[String,String])=>Boolean), startRowkey:String="", endRowkey:String="", pageSize:Int = 1000)
 
   /**
+    *
+    * @param entityName
+    * @param proc
+    * @param indexedField
+    * @param indexedFieldValue
+    * @param pageSize
+    * @param threads
+    * @param localOnly
+    * @param columnName
+    * @return
+    */
+  def pageOverSelectArray(entityName: String, proc: ((String, DataRow) => Boolean),
+                          indexedField: String, indexedFieldValue: String, pageSize: Int, threads: Int,
+                          localOnly: Boolean, columnName: String*): Int
+
+  /**
    * Page over all records using an indexed field
    *
    * @param entityName
@@ -157,7 +173,7 @@ trait PersistenceManager {
   /**
    * The field delimiter to use
    */
-  def fieldDelimiter = '.'
+  def fieldDelimiter = '_'
 
   /**
    * The field delimiter to use

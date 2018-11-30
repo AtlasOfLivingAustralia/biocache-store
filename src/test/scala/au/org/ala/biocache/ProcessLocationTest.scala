@@ -786,7 +786,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
     expectResult("150.681") {
       processed.location.decimalLongitude
     }
-    expectResult("FOO") {
+    expectResult(null) {
       processed.location.geodeticDatum
     }
 

@@ -20,7 +20,17 @@ trait OccurrenceDAO extends DAO {
 
   def rowKeyExists(uuid:String) : Boolean
 
+  /**
+   * Get a rowkey from Cassandra if possible, checking Solr to possibly repersist a UUID if it 
+   * did not appear in Cassandra but was still in the current version of the Solr index.
+   */
   def getRowKeyFromUuid(uuid:String) : Option[String]
+
+  /**
+   * Get a rowkey starting with a UUID, searching solely in Cassandra, failing if the row key does not exist. Does not attempt to 
+   * check solr for a possibly out-of-date rowkey, as getRowKeyForUuid does.
+   */
+  def getRowKeyFromUuidDB(uuid:String) : Option[String]
 
   def getByRowKey(rowKey: String) : Option[FullRecord] = getByRowKey(rowKey, false)
 
@@ -80,7 +90,7 @@ trait OccurrenceDAO extends DAO {
 
   def reIndex(rowKey: String)
 
-  def delete(rowKey: String, removeFromIndex:Boolean = true, logDeleted:Boolean = false) : Boolean
+  def delete(rowKey: String, removeFromIndex:Boolean = true, logDeleted:Boolean = false, removeFromOccUuid:Boolean=false) : Boolean
 
   def downloadMedia(fr:FullRecord) : Boolean
 

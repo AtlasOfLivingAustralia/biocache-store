@@ -6,13 +6,11 @@ import java.util.concurrent.atomic.AtomicLong
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.LuceneIndexing
-import au.org.ala.biocache.persistence.Cassandra3PersistenceManager
 import au.org.ala.biocache.util.JMX
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 
 class IndexRunnerMap(centralCounter: Counter,
                      confDirPath: String, pageSize: Int = 200,
@@ -40,10 +38,10 @@ class IndexRunnerMap(centralCounter: Counter,
 
     val indexer = new SolrIndexDAO(newIndexDir.getParentFile.getParent, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
 
-    var counter = 0
+    val counter = new AtomicLong(0)
     val start = System.currentTimeMillis
-    var startTime = System.currentTimeMillis
-    var finishTime = System.currentTimeMillis
+    val startTime = new AtomicLong(System.currentTimeMillis)
+    val finishTime = new AtomicLong(System.currentTimeMillis)
 
     val csvFileWriter = if (Config.exportIndexAsCsvPath.length > 0) {
       indexer.getCsvWriter()
@@ -120,10 +118,10 @@ class IndexRunnerMap(centralCounter: Counter,
     val t2Total = new AtomicLong(0L)
     var t2 = System.nanoTime()
     var uuidIdx = -1
-    Config.persistenceManager.asInstanceOf[Cassandra3PersistenceManager].pageOverLocal("occ", (guid, map, _) => {
+    Config.persistenceManager.pageOverLocal("occ", (guid, map, _) => {
       t2Total.addAndGet(System.nanoTime() - t2)
 
-      counter += 1
+      val lastCounter = counter.incrementAndGet()
       //ignore the record if it has the guid that is the startKey this is because it will be indexed last by the previous thread.
       try {
         val uuid = map.getOrElse("uuid", "")
@@ -149,9 +147,9 @@ class IndexRunnerMap(centralCounter: Counter,
           }
       }
 
-      if (counter % pageSize * 10 == 0 && counter > 0) {
+      if (lastCounter % pageSize * 10 == 0 && lastCounter > 0) {
         centralCounter.addToCounter(pageSize)
-        finishTime = System.currentTimeMillis
+        finishTime.set(System.currentTimeMillis)
         centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
 
 
@@ -166,7 +164,7 @@ class IndexRunnerMap(centralCounter: Counter,
 
         if(Config.jmxDebugEnabled){
           JMX.updateIndexStatus(
-            centralCounter.counter,
+            centralCounter.counter.get(),
             centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
             t2Total.get() / 1000000000, //cassandra time
             timing.get() / 1000000000, //processing time
@@ -182,7 +180,7 @@ class IndexRunnerMap(centralCounter: Counter,
         }
       }
 
-      startTime = System.currentTimeMillis
+      startTime.set(System.currentTimeMillis)
 
       t2 = System.nanoTime()
 
@@ -219,8 +217,8 @@ class IndexRunnerMap(centralCounter: Counter,
     //wait for threads to end
     threads.foreach(t => t.join())
 
-    finishTime = System.currentTimeMillis
-    logger.info("Total indexing time for this thread " + (finishTime - start).toFloat / 60000f + " minutes.")
+    finishTime.set(System.currentTimeMillis)
+    logger.info("Total indexing time for this thread " + (finishTime.get() - start).toFloat / 60000f + " minutes.")
 
     //close and merge the lucene index parts
     if (luceneIndexing != null && !singleWriter) {

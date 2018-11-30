@@ -10,9 +10,10 @@ import au.org.ala.biocache.dao.OccurrenceDAO
 import au.org.ala.biocache.index.lucene.{DocBuilder, LuceneIndexing}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.parser.DateParser
+import au.org.ala.biocache.persistence.DataRow
 import au.org.ala.biocache.util.{GridUtil, Json}
 import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode, ErrorCodeCategory, SpeciesGroups}
-import com.datastax.driver.core.{ColumnDefinitions, GettableData}
+import com.datastax.driver.core.{ColumnDefinitions, GettableData, Row}
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang.StringUtils
@@ -448,7 +449,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     true
   }
 
-  def shouldIndex(array: GettableData, startDate: Option[Date]): Boolean = {
+  def shouldIndex(array: DataRow, startDate: Option[Date]): Boolean = {
     if (getArrayValue(columnOrder.deletedColumn, array).length() > 0) {
       return false
     }
@@ -1029,8 +1030,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   }
 
   def indexFromArray(guid: String,
-                     array: GettableData,
-                     columnDefinitions: ColumnDefinitions,
+                     dataRow:DataRow,
                      batch: Boolean = true,
                      startDate: Option[Date] = None,
                      commit: Boolean = false,
@@ -1043,14 +1043,14 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                      docBuilder: DocBuilder = null,
                      lock: Object = null): Long = {
     if (solrServer == null) {
-      columnOrder.init(columnDefinitions, headerAttributes, headerAttributesFix, array_header_idx, array_header_parsed_idx, array_header_idx_fix, array_header_parsed_idx_fix)
+      columnOrder.init(dataRow, headerAttributes, headerAttributesFix, array_header_idx, array_header_parsed_idx, array_header_idx_fix, array_header_parsed_idx_fix)
     }
 
     init
 
     var time = 0L
 
-    if (shouldIndex(array, startDate)) {
+    if (shouldIndex(dataRow, startDate)) {
 
       val doc = if (docBuilder == null) this.docBuilder else docBuilder
 
@@ -1058,7 +1058,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         doc.newDoc(guid)
         doc.addField("id", guid)
 
-        writeOccIndexArrayToDoc(doc, guid, array)
+        writeOccIndexArrayToDoc(doc, guid, dataRow)
 
         val fieldsAndType: Map[String, String] = Map[String, String]()
         if (userProvidedTypeMiscIndexProperties.nonEmpty || miscIndexProperties.nonEmpty || arrDefaultMiscFields.nonEmpty
@@ -1076,16 +1076,16 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           Config.additionalFieldsToIndex.foreach(field =>
             if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
 
-          addJsonMapToDoc(doc, getArrayValue(columnOrder.miscPropertiesColumn, array), fieldsAndType, null, true)
+          addJsonMapToDoc(doc, getArrayValue(columnOrder.miscPropertiesColumn, dataRow), fieldsAndType, null, true)
         } else {
           //when indexing everything always add miscPropertiesColumn values to the doc
-          addJsonMapToDoc(doc, getArrayValue(columnOrder.miscPropertiesColumn, array), fieldsAndType, null, true)
+          addJsonMapToDoc(doc, getArrayValue(columnOrder.miscPropertiesColumn, dataRow), fieldsAndType, null, true)
         }
 
-        addJsonArrayAssertionsToDoc(doc, getArrayValue(columnOrder.qualityAssertionColumn, array))
+        addJsonArrayAssertionsToDoc(doc, getArrayValue(columnOrder.qualityAssertionColumn, dataRow))
 
         //load the species lists that are configured for the matched guid.
-        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(getArrayValue(columnOrder.taxonConceptIDP, array))
+        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(getArrayValue(columnOrder.taxonConceptIDP, dataRow))
         speciesLists.foreach { v =>
           doc.addField("species_list_uid", v)
         }
@@ -1095,7 +1095,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           * TODO refactor so that additional indexing is pluggable without core changes.
           */
         if (Config.gridRefIndexingEnabled) {
-          val bboxString = getArrayValue(columnOrder.bboxP, array)
+          val bboxString = getArrayValue(columnOrder.bboxP, dataRow)
           if (bboxString != "") {
             val bbox = bboxString.split(",")
             doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
@@ -1104,11 +1104,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
             doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
           }
 
-          val easting = getArrayValue(columnOrder.eastingP, array)
+          val easting = getArrayValue(columnOrder.eastingP, dataRow)
           if (easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting).toInt)
-          val northing = getArrayValue(columnOrder.northingP, array)
+          val northing = getArrayValue(columnOrder.northingP, dataRow)
           if (northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing).toInt)
-          val gridRef = getArrayValue(columnOrder.gridReference, array)
+          val gridRef = getArrayValue(columnOrder.gridReference, dataRow)
           if (gridRef != "") {
             doc.addField("grid_ref", gridRef)
             val map = GridUtil.getGridRefAsResolutions(gridRef)
@@ -1118,13 +1118,13 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         /** UK NBN **/
 
         // user if userQA = true
-        val hasUserAssertions = getArrayValue(columnOrder.userQualityAssertionColumn, array)
+        val hasUserAssertions = getArrayValue(columnOrder.userQualityAssertionColumn, dataRow)
         if (StringUtils.isNotEmpty(hasUserAssertions)) {
           val assertionUserIds = extractUserIds(hasUserAssertions)
           assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
         }
 
-        var suitableForModelling = addJsonMapToDoc(doc, getArrayValue(columnOrder.queryAssertionColumn, array), null, typeNotSuitableForModelling)
+        var suitableForModelling = addJsonMapToDoc(doc, getArrayValue(columnOrder.queryAssertionColumn, dataRow), null, typeNotSuitableForModelling)
 
         //this will not exist for all records until a complete reindex is performed...
         doc.addField("suitable_modelling", suitableForModelling.toString)
@@ -1132,17 +1132,17 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         //index the available el and cl's - more efficient to use the supplied map than using the old way
 
 //        addJsonMapToDoc(doc, getArrayValue(columnOrder.elP, array))
-        val els = Json.toJavaMap(getArrayValue(columnOrder.elP, array))
+        val els = Json.toJavaMap(getArrayValue(columnOrder.elP, dataRow))
         els.foreach {
           case (key, value) => doc.addField(key, value)
         }
 
-        addJsonMapToDoc(doc, getArrayValue(columnOrder.clP, array))
+        addJsonMapToDoc(doc, getArrayValue(columnOrder.clP, dataRow))
 
         //index the additional species information - ie species groups
 
-        val lft = getArrayValue(columnOrder.leftP, array)
-        val rgt = getArrayValue(columnOrder.rightP, array)
+        val lft = getArrayValue(columnOrder.leftP, dataRow)
+        val rgt = getArrayValue(columnOrder.rightP, dataRow)
         if (!lft.isEmpty && !rgt.isEmpty) {
 
           // add the species groups
@@ -1158,7 +1158,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           }
         }
 
-        val datePrecision = getArrayValue(columnOrder.datePrecisionP, array)
+        val datePrecision = getArrayValue(columnOrder.datePrecisionP, dataRow)
         doc.addField("date_precision", datePrecision)
 
         if (batchID != "") {
@@ -1679,82 +1679,89 @@ class ColumnOrder {
     formatted
   }
 
-  def init(columnDefinitions: ColumnDefinitions, headerAttributes: List[(String, String, Int, Int)], headerAttributesFix: List[(String, String, Int, Int)], array_header_idx: Array[Integer], array_header_parsed_idx: Array[Integer], array_header_idx_fix: Array[Integer], array_header_parsed_idx_fix: Array[Integer]) = {
-    this.rowKey = columnDefinitions.getIndexOf("rowkey")
-    this.taxonConceptIDP = columnDefinitions.getIndexOf("taxonConceptID" + Config.persistenceManager.fieldDelimiter + "p")
-    this.deletedColumn = columnDefinitions.getIndexOf(FullRecordMapper.deletedColumn)
-    this.alaModifiedColumn = columnDefinitions.getIndexOf(FullRecordMapper.alaModifiedColumn)
-    this.alaModifiedColumnP = columnDefinitions.getIndexOf(FullRecordMapper.alaModifiedColumnP)
-    this.miscPropertiesColumn = columnDefinitions.getIndexOf(FullRecordMapper.miscPropertiesColumn)
-    this.qualityAssertionColumn = columnDefinitions.getIndexOf(FullRecordMapper.qualityAssertionColumn)
-    this.decimalLatitudeP = columnDefinitions.getIndexOf("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p")
-    this.decimalLongitudeP = columnDefinitions.getIndexOf("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p")
-    this.dataResourceUid = columnDefinitions.getIndexOf("dataResourceUid")
-    this.originalSensitiveValues = columnDefinitions.getIndexOf("originalSensitiveValues")
-    this.countryConservationP = columnDefinitions.getIndexOf("countryConservation" + Config.persistenceManager.fieldDelimiter + "p")
-    this.dataGeneralizationsP = columnDefinitions.getIndexOf("dataGeneralizations" + Config.persistenceManager.fieldDelimiter + "p")
-    this.outlierForLayersP = columnDefinitions.getIndexOf("outlierForLayers" + Config.persistenceManager.fieldDelimiter + "p")
-    this.geospatialDecisionColumn = columnDefinitions.getIndexOf(FullRecordMapper.geospatialDecisionColumn)
-    this.userAssertionStatusColumn = columnDefinitions.getIndexOf(FullRecordMapper.userAssertionStatusColumn)
-    this.taxonRankIDP = columnDefinitions.getIndexOf("taxonRankID" + Config.persistenceManager.fieldDelimiter + "p")
-    this.scientificNameP = columnDefinitions.getIndexOf("scientificName" + Config.persistenceManager.fieldDelimiter + "p")
-    this.vernacularNameP = columnDefinitions.getIndexOf("vernacularName" + Config.persistenceManager.fieldDelimiter + "p")
-    this.kingdomP = columnDefinitions.getIndexOf("kingdom" + Config.persistenceManager.fieldDelimiter + "p")
-    this.familyP = columnDefinitions.getIndexOf("family" + Config.persistenceManager.fieldDelimiter + "p")
-    this.images = columnDefinitions.getIndexOf("images")
-    this.sounds = columnDefinitions.getIndexOf("sounds")
-    this.videos = columnDefinitions.getIndexOf("videos")
-    this.outlierForLayersP = columnDefinitions.getIndexOf("outlierForLayers" + Config.persistenceManager.fieldDelimiter + "p")
-    this.interactionsP = columnDefinitions.getIndexOf("interactions" + Config.persistenceManager.fieldDelimiter + "p")
-    this.yearP = columnDefinitions.getIndexOf("year" + Config.persistenceManager.fieldDelimiter + "p")
-    this.scientificName = columnDefinitions.getIndexOf("scientificName")
-    this.genus = columnDefinitions.getIndexOf("genus")
-    this.family = columnDefinitions.getIndexOf("family")
-    this.specificEpithet = columnDefinitions.getIndexOf("specificEpithet")
-    this.species = columnDefinitions.getIndexOf("species")
-    this.infraspecificEpithet = columnDefinitions.getIndexOf("infraspecificEpithet")
-    this.subspecies = columnDefinitions.getIndexOf("subspecies")
+  def init(dataRow: DataRow, headerAttributes: List[(String, String, Int, Int)], headerAttributesFix: List[(String, String, Int, Int)], array_header_idx: Array[Integer], array_header_parsed_idx: Array[Integer], array_header_idx_fix: Array[Integer], array_header_parsed_idx_fix: Array[Integer]) = {
+    this.rowKey = dataRow.getIndexOf("rowkey")
+    this.taxonConceptIDP = dataRow.getIndexOf("taxonConceptID" + Config.persistenceManager.fieldDelimiter + "p")
+    this.deletedColumn = dataRow.getIndexOf(FullRecordMapper.deletedColumn)
+    this.alaModifiedColumn = dataRow.getIndexOf(FullRecordMapper.alaModifiedColumn)
+    this.alaModifiedColumnP = dataRow.getIndexOf(FullRecordMapper.alaModifiedColumnP)
+    this.miscPropertiesColumn = dataRow.getIndexOf(FullRecordMapper.miscPropertiesColumn)
+    this.qualityAssertionColumn = dataRow.getIndexOf(FullRecordMapper.qualityAssertionColumn)
+    this.decimalLatitudeP = dataRow.getIndexOf("decimalLatitude" + Config.persistenceManager.fieldDelimiter + "p")
+    this.decimalLongitudeP = dataRow.getIndexOf("decimalLongitude" + Config.persistenceManager.fieldDelimiter + "p")
+    this.dataResourceUid = dataRow.getIndexOf("dataResourceUid")
+    this.originalSensitiveValues = dataRow.getIndexOf("originalSensitiveValues")
+    this.countryConservationP = dataRow.getIndexOf("countryConservation" + Config.persistenceManager.fieldDelimiter + "p")
+    this.dataGeneralizationsP = dataRow.getIndexOf("dataGeneralizations" + Config.persistenceManager.fieldDelimiter + "p")
+    this.outlierForLayersP = dataRow.getIndexOf("outlierForLayers" + Config.persistenceManager.fieldDelimiter + "p")
+    this.geospatialDecisionColumn = dataRow.getIndexOf(FullRecordMapper.geospatialDecisionColumn)
+    this.userAssertionStatusColumn = dataRow.getIndexOf(FullRecordMapper.userAssertionStatusColumn)
+    this.taxonRankIDP = dataRow.getIndexOf("taxonRankID" + Config.persistenceManager.fieldDelimiter + "p")
+    this.scientificNameP = dataRow.getIndexOf("scientificName" + Config.persistenceManager.fieldDelimiter + "p")
+    this.vernacularNameP = dataRow.getIndexOf("vernacularName" + Config.persistenceManager.fieldDelimiter + "p")
+    this.kingdomP = dataRow.getIndexOf("kingdom" + Config.persistenceManager.fieldDelimiter + "p")
+    this.familyP = dataRow.getIndexOf("family" + Config.persistenceManager.fieldDelimiter + "p")
+    this.images = dataRow.getIndexOf("images")
+    this.sounds = dataRow.getIndexOf("sounds")
+    this.videos = dataRow.getIndexOf("videos")
+    this.outlierForLayersP = dataRow.getIndexOf("outlierForLayers" + Config.persistenceManager.fieldDelimiter + "p")
+    this.interactionsP = dataRow.getIndexOf("interactions" + Config.persistenceManager.fieldDelimiter + "p")
+    this.yearP = dataRow.getIndexOf("year" + Config.persistenceManager.fieldDelimiter + "p")
+    this.scientificName = dataRow.getIndexOf("scientificName")
+    this.genus = dataRow.getIndexOf("genus")
+    this.family = dataRow.getIndexOf("family")
+    this.specificEpithet = dataRow.getIndexOf("specificEpithet")
+    this.species = dataRow.getIndexOf("species")
+    this.infraspecificEpithet = dataRow.getIndexOf("infraspecificEpithet")
+    this.subspecies = dataRow.getIndexOf("subspecies")
 
-    this.stateConservationP = columnDefinitions.getIndexOf("stateConservation" + Config.persistenceManager.fieldDelimiter + "p")
-    this.countryConservationP = columnDefinitions.getIndexOf("countryConservation" + Config.persistenceManager.fieldDelimiter + "p")
-    this.taxonRankIDP = columnDefinitions.getIndexOf("taxonRankID" + Config.persistenceManager.fieldDelimiter + "p")
-    this.informationWithheldP = columnDefinitions.getIndexOf("informationWithheld" + Config.persistenceManager.fieldDelimiter + "p")
-    this.dataGeneralizationsP = columnDefinitions.getIndexOf("dataGeneralizations" + Config.persistenceManager.fieldDelimiter + "p")
-    this.originalSensitiveValues = columnDefinitions.getIndexOf("originalSensitiveValues")
-    this.userQualityAssertionColumn = columnDefinitions.getIndexOf(FullRecordMapper.userQualityAssertionColumn)
-    this.bboxP = columnDefinitions.getIndexOf("bbox")
-    this.eastingP = columnDefinitions.getIndexOf("easting" + Config.persistenceManager.fieldDelimiter + "p")
-    this.northingP = columnDefinitions.getIndexOf("northing" + Config.persistenceManager.fieldDelimiter + "p")
-    this.gridReference = columnDefinitions.getIndexOf("gridReference")
-    this.queryAssertionColumn = columnDefinitions.getIndexOf(FullRecordMapper.queryAssertionColumn)
-    this.elP = columnDefinitions.getIndexOf("el" + Config.persistenceManager.fieldDelimiter + "p")
-    this.clP = columnDefinitions.getIndexOf("cl" + Config.persistenceManager.fieldDelimiter + "p")
-    this.rowKey = columnDefinitions.getIndexOf("rowkey")
-    this.uuid = columnDefinitions.getIndexOf("rowkey")
-    this.leftP = columnDefinitions.getIndexOf("left" + Config.persistenceManager.fieldDelimiter + "p")
-    this.rightP = columnDefinitions.getIndexOf("right" + Config.persistenceManager.fieldDelimiter + "p")
-    this.datePrecisionP = columnDefinitions.getIndexOf("datePrecision" + Config.persistenceManager.fieldDelimiter + "p")
+    this.stateConservationP = dataRow.getIndexOf("stateConservation" + Config.persistenceManager.fieldDelimiter + "p")
+    this.countryConservationP = dataRow.getIndexOf("countryConservation" + Config.persistenceManager.fieldDelimiter + "p")
+    this.taxonRankIDP = dataRow.getIndexOf("taxonRankID" + Config.persistenceManager.fieldDelimiter + "p")
+    this.informationWithheldP = dataRow.getIndexOf("informationWithheld" + Config.persistenceManager.fieldDelimiter + "p")
+    this.dataGeneralizationsP = dataRow.getIndexOf("dataGeneralizations" + Config.persistenceManager.fieldDelimiter + "p")
+    this.originalSensitiveValues = dataRow.getIndexOf("originalSensitiveValues")
+    this.userQualityAssertionColumn = dataRow.getIndexOf(FullRecordMapper.userQualityAssertionColumn)
+    this.bboxP = dataRow.getIndexOf("bbox")
+    this.eastingP = dataRow.getIndexOf("easting" + Config.persistenceManager.fieldDelimiter + "p")
+    this.northingP = dataRow.getIndexOf("northing" + Config.persistenceManager.fieldDelimiter + "p")
+    this.gridReference = dataRow.getIndexOf("gridReference")
+    this.queryAssertionColumn = dataRow.getIndexOf(FullRecordMapper.queryAssertionColumn)
+    this.elP = dataRow.getIndexOf("el" + Config.persistenceManager.fieldDelimiter + "p")
+    this.clP = dataRow.getIndexOf("cl" + Config.persistenceManager.fieldDelimiter + "p")
+    this.rowKey = dataRow.getIndexOf("rowkey")
+    this.uuid = dataRow.getIndexOf("rowkey")
+    this.leftP = dataRow.getIndexOf("left" + Config.persistenceManager.fieldDelimiter + "p")
+    this.rightP = dataRow.getIndexOf("right" + Config.persistenceManager.fieldDelimiter + "p")
+    this.datePrecisionP = dataRow.getIndexOf("datePrecision" + Config.persistenceManager.fieldDelimiter + "p")
 
-    val isUsed: Array[Boolean] = new Array[Boolean](columnDefinitions.size())
-    val columnNames: Array[String] = new Array[String](columnDefinitions.size())
+    val isUsed: Array[Boolean] = new Array[Boolean](dataRow.getNumberOfFields())
+    val columnNames: Array[String] = new Array[String](dataRow.getNumberOfFields())
     (0 until isUsed.length).foreach { i =>
       isUsed(i) = false
-      columnNames(i) = formatNameForSolr(columnDefinitions.getName(i))
+      columnNames(i) = formatNameForSolr(dataRow.getName(i))
     }
 
+    //add _raw to fields when there is also a _p version
     (0 until columnNames.length).foreach { i =>
       val name = columnNames(i)
 
       if (!name.endsWith(Config.persistenceManager.fieldDelimiter + "p")) {
-        //add _raw to fields there is also a _p version
-        if (columnDefinitions.contains(name + Config.persistenceManager.fieldDelimiter + "p")) {
+        if (columnNames.contains(name + Config.persistenceManager.fieldDelimiter + "p")) {
           columnNames(i) = "raw_" + name
         }
-      } else {
-        //remove _p
+      }
+    }
+
+    //remove _p
+    (0 until columnNames.length).foreach { i =>
+      val name = columnNames(i)
+
+      if (name.endsWith(Config.persistenceManager.fieldDelimiter + "p")) {
         columnNames(i) = name.substring(0, name.length - 2)
       }
     }
+
 
     val fields = this.getClass.getDeclaredFields()
     (0 until fields.length).foreach { i =>
@@ -1762,7 +1769,7 @@ class ColumnOrder {
       if (f.getType.getName == "int") {
         f.setAccessible(true)
         val v = f.getInt(this)
-        if (v >= columnDefinitions.size())
+        if (v >= dataRow.getNumberOfFields())
           logger.error("ERROR not a valid occ column: " + f.getName)
         else if (v < 0)
           logger.error("ERROR missing occ column: " + f.getName)
@@ -1772,8 +1779,8 @@ class ColumnOrder {
     }
 
     (0 until headerAttributes.length).foreach { i =>
-      array_header_idx(i) = columnDefinitions.getIndexOf(headerAttributes(i)._1)
-      array_header_parsed_idx(i) = columnDefinitions.getIndexOf(headerAttributes(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
+      array_header_idx(i) = dataRow.getIndexOf(headerAttributes(i)._1)
+      array_header_parsed_idx(i) = dataRow.getIndexOf(headerAttributes(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
 
       if (array_header_idx(i) >= 0)
         isUsed(array_header_idx(i)) = true
@@ -1783,8 +1790,8 @@ class ColumnOrder {
 
     //TODO: remove when headerAttributesFix is not longer required
     (0 until headerAttributesFix.length).foreach { i =>
-      array_header_idx_fix(i) = columnDefinitions.getIndexOf(headerAttributesFix(i)._1)
-      array_header_parsed_idx_fix(i) = columnDefinitions.getIndexOf(headerAttributesFix(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
+      array_header_idx_fix(i) = dataRow.getIndexOf(headerAttributesFix(i)._1)
+      array_header_parsed_idx_fix(i) = dataRow.getIndexOf(headerAttributesFix(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
 
       if (array_header_idx_fix(i) >= 0)
         isUsed(array_header_idx_fix(i)) = true
@@ -1794,7 +1801,7 @@ class ColumnOrder {
 
     this.columnNames = columnNames
     this.isUsed = isUsed
-    this.length = columnDefinitions.size()
+    this.length = dataRow.getNumberOfFields()
   }
 
   def getValue(idx: Integer, array: GettableData, default: String = ""): String = {
