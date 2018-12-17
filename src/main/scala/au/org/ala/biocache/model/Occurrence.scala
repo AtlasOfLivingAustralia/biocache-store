@@ -12,7 +12,7 @@ import au.org.ala.biocache.poso.POSO
 class Occurrence extends Cloneable with POSO {
   override def clone : Occurrence = super.clone.asInstanceOf[Occurrence]
   @BeanProperty var occurrenceID:String = _
-  @BeanProperty var accessrights:String = _
+  @BeanProperty var accessRights:String = _
   @BeanProperty var associatedMedia:String = _
   @BeanProperty var associatedOccurrences:String = _
   @BeanProperty var associatedReferences:String = _
