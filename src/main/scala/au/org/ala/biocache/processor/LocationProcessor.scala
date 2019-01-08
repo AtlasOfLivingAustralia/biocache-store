@@ -415,7 +415,7 @@ class LocationProcessor extends Processor {
       var sourceEpsgCode = GridUtil.lookupEpsgCode(datum)
 
       //if empty - try verbatim SRS
-      if (!sourceEpsgCode.isEmpty && verbatimSRS != null) {
+      if (sourceEpsgCode.isEmpty && verbatimSRS != null) {
         val matchedVerbatimSRS = GeodeticDatum.matchTerm(verbatimSRS)
         val srs = if(!matchedVerbatimSRS.isEmpty){
           matchedVerbatimSRS.get.canonical

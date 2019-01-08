@@ -932,4 +932,31 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
       qas.find(_.getName == "locationNotSupplied").get.qaStatus
     }
   }
+
+  test("Check verbatimDatum does not override the geodeticDatum") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    processed.classification.setScientificName("Macropus rufus")
+    processed.classification.setTaxonRankID("7000")
+    raw.location.decimalLatitude = "-43.36697"
+    raw.location.decimalLongitude = "145.78746"
+    raw.location.geodeticDatum = "WGS84"
+
+    raw.location.verbatimLatitude = "43°22'06\" S"
+    raw.location.verbatimLongitude = "145°47'11\" E"
+    raw.location.verbatimSRS = "EPSG:4202"
+    raw.rowKey = "test"
+
+    val assertions = (new LocationProcessor).process("test", raw, processed)
+
+    expectResult("EPSG:4326") {
+      processed.location.geodeticDatum
+    }
+    expectResult("-43.36697") {
+      processed.location.decimalLatitude
+    }
+    expectResult("145.78746") {
+      processed.location.decimalLongitude
+    }
+  }
 }
