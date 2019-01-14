@@ -10,6 +10,7 @@ import au.org.ala.biocache.dao.OccurrenceDAO
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.model.{FullRecord, Processed, QualityAssertion, Versions}
 import org.slf4j.LoggerFactory
+import org.codehaus.jackson.map.ObjectMapper
 
 import scala.collection.mutable
 
@@ -68,6 +69,11 @@ class RecordProcessor {
    */
   def processRecord(raw: FullRecord, currentProcessed: FullRecord, batch: Boolean = false, firstLoad: Boolean = false,
                     processors: Option[String] = None) : Map[String, Object] = {
+    val objectMapper = if (logger.isTraceEnabled) {
+      Some(new ObjectMapper)
+    } else {
+      None
+    }
     try {
       val guid = raw.rowKey
       val occurrenceDAO = Config.getInstance(classOf[OccurrenceDAO]).asInstanceOf[OccurrenceDAO]
@@ -84,8 +90,15 @@ class RecordProcessor {
           try {
             if (processors.isEmpty || processors.get.contains(processor.getName)) {
               assertions += (processor.getName -> processor.process(guid, raw, processed, Some(currentProcessed)))
+              if (logger.isTraceEnabled()) {
+                logger.trace("Processing completed for '" + processor.getName + "' for record " + guid)
+                logger.trace(objectMapper.get.writeValueAsString(processed))
+              }
             } else {
               assertions += (processor.getName -> processor.skip(guid, raw, processed, Some(currentProcessed)))
+              if (logger.isTraceEnabled()) {
+                logger.trace("Processing skipped for '" + processor.getName + "' for record " + guid)
+              }
             }
           } catch {
             case e: Exception => {
