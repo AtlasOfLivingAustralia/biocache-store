@@ -9,6 +9,7 @@ import au.org.ala.biocache.vocab.AssertionCodes
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
+import org.codehaus.jackson.map.ObjectMapper
 
 /**
   * This object maps the data from key value pairs into the FullRecord object
@@ -44,6 +45,11 @@ object FullRecordMapper {
     * Convert a full record to a map of properties
     */
   def fullRecord2Map(fullRecord: FullRecord, version: Version): scala.collection.mutable.Map[String, String] = {
+    val objectMapper = if (logger.isTraceEnabled) {
+      Some(new ObjectMapper)
+    } else {
+      None
+    }
     val properties = scala.collection.mutable.Map[String, String]()
     fullRecord.objectArray.foreach(poso => {
       val map = FullRecordMapper.mapObjectToProperties(poso, version)
@@ -76,6 +82,12 @@ object FullRecordMapper {
     if (fullRecord.lastModifiedTime != "") {
       properties.put(FullRecordMapper.markNameBasedOnVersion(FullRecordMapper.alaModifiedColumn, version), fullRecord.lastModifiedTime)
     }
+
+    if (logger.isTraceEnabled()) {
+      logger.trace("Result from FullRecordMapper for a " + version + " version of ", fullRecord.rowKey)
+      logger.trace(objectMapper.get.writeValueAsString(properties))
+    }
+
     properties
   }
 
