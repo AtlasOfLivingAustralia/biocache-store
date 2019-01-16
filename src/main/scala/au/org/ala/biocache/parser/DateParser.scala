@@ -312,6 +312,10 @@ object DateParser {
         None
       } else if (localDateMatches(date, DateTimeFormatter.ISO_LOCAL_DATE)) {
         fromLocalDate(Some(LocalDate.parse(date, DateTimeFormatter.ISO_LOCAL_DATE)))
+      } else if (localDateMatches(date, DateParser.YEAR_TO_LOCAL_DATE)) {
+        fromLocalDate(Some(LocalDate.parse(date, DateParser.YEAR_TO_LOCAL_DATE)))
+      } else if (localDateMatches(date, DateParser.YEAR_MONTH_TO_LOCAL_DATE)) {
+        fromLocalDate(Some(LocalDate.parse(date, DateParser.YEAR_MONTH_TO_LOCAL_DATE)))
       } else if (localDateTimeMatches(date, DateTimeFormatter.ISO_LOCAL_DATE_TIME)) {
         // Add 'Z' to the original string so LocalDateTime instances are parsed as if they were all in UTC
         fromZonedDateTime(Some(ZonedDateTime.parse(date + "Z", DateTimeFormatter.ISO_DATE_TIME)))

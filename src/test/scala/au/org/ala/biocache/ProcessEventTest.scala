@@ -419,6 +419,86 @@ class ProcessEventTest extends ConfigFunSuite {
     expectResult(QA_FAIL){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
   }
   
+  test("dateIdentified as a year before eventDate") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.event.eventDate="2012-02-01"
+    raw.identification.dateIdentified="2011"
+    val qas = (new EventProcessor).process("test",raw,processed)
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
+    expectResult(QA_FAIL){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.ID_PRE_OCCURRENCE.code).get.getQaStatus}
+  }
+
+  test("dateIdentified as a year the same as eventDate first of year") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.event.eventDate="2012-01-01"
+    raw.identification.dateIdentified="2012"
+    val qas = (new EventProcessor).process("test",raw,processed)
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.ID_PRE_OCCURRENCE.code).get.getQaStatus}
+  }
+
+  test("dateIdentified before eventDate") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.event.eventDate="2012-02-01"
+    raw.identification.dateIdentified="2012-01-01"
+    val qas = (new EventProcessor).process("test",raw,processed)
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
+    expectResult(QA_FAIL){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.ID_PRE_OCCURRENCE.code).get.getQaStatus}
+  }
+
+  test("dateIdentified the same as eventDate") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.event.eventDate="2012-02-01"
+    raw.identification.dateIdentified="2012-02-01"
+    val qas = (new EventProcessor).process("test",raw,processed)
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.ID_PRE_OCCURRENCE.code).get.getQaStatus}
+  }
+  
+  test("dateIdentified after eventDate") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.event.eventDate="2012-02-01"
+    raw.identification.dateIdentified="2012-03-01"
+    val qas = (new EventProcessor).process("test",raw,processed)
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.ID_PRE_OCCURRENCE.code).get.getQaStatus}
+  }
+  
+  test("georeferencedDate before eventDate") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.event.eventDate="2012-02-01"
+    raw.location.georeferencedDate="2012-01-01"
+    val qas = (new EventProcessor).process("test",raw,processed)
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
+    expectResult(QA_FAIL){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.GEOREFERENCE_POST_OCCURRENCE.code).get.getQaStatus}
+  }
+
+  test("georeferencedDate the same as eventDate") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.event.eventDate="2012-02-01"
+    raw.location.georeferencedDate="2012-02-01"
+    val qas = (new EventProcessor).process("test",raw,processed)
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.GEOREFERENCE_POST_OCCURRENCE.code).get.getQaStatus}
+  }
+  
+  test("georeferencedDate after eventDate") {
+    val raw = new FullRecord
+    val processed = new FullRecord
+    raw.event.eventDate="2012-02-01"
+    raw.location.georeferencedDate="2012-03-01"
+    val qas = (new EventProcessor).process("test",raw,processed)
+    expectResult(QA_PASS){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.INVALID_COLLECTION_DATE.code).get.getQaStatus}
+    expectResult(QA_FAIL){qas.find(_.code ==au.org.ala.biocache.vocab.AssertionCodes.GEOREFERENCE_POST_OCCURRENCE.code).get.getQaStatus}
+  }
+  
   test("valid and complete event date") {
     val raw = new FullRecord
     val processed = new FullRecord

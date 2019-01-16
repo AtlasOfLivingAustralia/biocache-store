@@ -19,7 +19,7 @@ import java.time.ZoneId
  * @author Dave Martin (David.Martin@csiro.au)
  */
 @RunWith(classOf[JUnitRunner])
-class DateParserTest extends FunSuite {
+class DateParserTest extends ConfigFunSuite {
 
   test("2012-01-01T10:22:00") {
     val result = DateParser.parseStringToDate("2012-01-01T10:22:00")
@@ -29,6 +29,26 @@ class DateParserTest extends FunSuite {
     val format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss")
     format.setTimeZone(TimeZone.getTimeZone(ZoneId.of("UTC")))
     expectResult("2012-01-01T10:22:00")(format.format(result.get))
+  }
+  
+  test("2012") {
+    val result = DateParser.parseStringToDate("2012")
+    
+    expectResult(false){ result.isEmpty }
+    
+    val format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss")
+    format.setTimeZone(TimeZone.getTimeZone(ZoneId.of("UTC")))
+    expectResult("2012-01-01T00:00:00")(format.format(result.get))
+  }
+  
+  test("2012-02") {
+    val result = DateParser.parseStringToDate("2012-02")
+    
+    expectResult(false){ result.isEmpty }
+    
+    val format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss")
+    format.setTimeZone(TimeZone.getTimeZone(ZoneId.of("UTC")))
+    expectResult("2012-02-01T00:00:00")(format.format(result.get))
   }
   
   test("2013-11-06T19:59:14.961"){

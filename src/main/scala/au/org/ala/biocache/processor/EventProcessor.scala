@@ -418,25 +418,31 @@ class EventProcessor extends Processor {
     }
 
     if (StringUtils.isNotBlank(processed.event.eventDate)) {
-      val eventDate = DateParser.parseStringToDate(processed.event.eventDate)
+      val eventDate = DateParser.parseDate(processed.event.eventDate)
       if(eventDate.isDefined) {
         //now test if the record was identified before it was collected
         if (StringUtils.isNotBlank(processed.identification.dateIdentified)) {
-          if (DateParser.parseStringToDate(processed.identification.dateIdentified).get.before(eventDate.get)) {
-            //the record was identified before it was collected !!
-            assertions += QualityAssertion(ID_PRE_OCCURRENCE, "The records was identified before it was collected")
-          } else {
-            assertions += QualityAssertion(ID_PRE_OCCURRENCE, PASSED)
+          val dateIdentified = DateParser.parseDate(processed.identification.dateIdentified)
+          if (dateIdentified.isDefined) {
+            if (dateIdentified.get.parsedStartDate.before(eventDate.get.parsedStartDate)) {
+              //the record was identified before it was collected !!
+              assertions += QualityAssertion(ID_PRE_OCCURRENCE, "The records was identified before it was collected")
+            } else {
+              assertions += QualityAssertion(ID_PRE_OCCURRENCE, PASSED)
+            }
           }
         }
 
-        //now check if the record was georeferenced after the collection date
+        //now check if the record was georeferenced on the same day as the collection date
         if (StringUtils.isNotBlank(processed.location.georeferencedDate)) {
-          if (DateParser.parseStringToDate(processed.location.georeferencedDate).get.after(eventDate.get)) {
-            //the record was not georeference when it was collected!!
-            assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, "The record was not georeferenced when it was collected")
-          } else {
-            assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, PASSED)
+          val georeferencedDate = DateParser.parseDate(processed.location.georeferencedDate)
+          if (georeferencedDate.isDefined) {
+            if (georeferencedDate.get.parsedStartDate.before(eventDate.get.parsedStartDate) || georeferencedDate.get.parsedStartDate.after(eventDate.get.parsedStartDate)) {
+              //the record was not georeferenced on the same day it was collected!!
+              assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, "The record was not georeferenced on the day it was collected")
+            } else {
+              assertions += QualityAssertion(GEOREFERENCE_POST_OCCURRENCE, PASSED)
+            }
           }
         }
       }

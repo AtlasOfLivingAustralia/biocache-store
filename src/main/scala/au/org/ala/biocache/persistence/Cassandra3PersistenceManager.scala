@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.{JavaConversions, mutable}
 import scala.collection.mutable.ListBuffer
+import java.util.concurrent.atomic.AtomicLong
 
 /**
   * Cassandra 3 based implementation of a persistence manager.
@@ -751,7 +752,7 @@ class Cassandra3PersistenceManager  @Inject() (
     * Page over all the records in this local node.
     *
     * @param entityName
-    * @param proc
+    * @param proc 
     * @param threads
     */
   def pageOverLocalNotAsync(entityName: String, proc: ((String, Map[String, String], String) => Boolean),
@@ -841,7 +842,7 @@ class Cassandra3PersistenceManager  @Inject() (
                     Thread.sleep(600000)
                   } else {
                     logger.error(s"Backing off for 5 minutes. Retry count $retryCount", e)
-                    Thread.sleep(30000)
+                    Thread.sleep(300000)
                   }
                 }
               }
@@ -869,9 +870,11 @@ class Cassandra3PersistenceManager  @Inject() (
                 ""
               }
 
-            logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
+            if(logger.isDebugEnabled) {
+              logger.debug("Starting token range from " + tokenRanges(tokenRangeIdx).getStart() + " to " + tokenRanges(tokenRangeIdx).getEnd())
+            }
 
-            var counter = 0
+            var counter = new AtomicInteger(0)
             val tokenRangeToUse = tokenRanges(tokenRangeIdx)
 
             val tokenRangesSplits: Seq[TokenRange] = if (Config.cassandraTokenSplit != 1) {
@@ -953,14 +956,14 @@ class Cassandra3PersistenceManager  @Inject() (
                       }
                     }
 
-                    counter += 1
-                    if (counter % 10000 == 0) {
+                    var lastCounter = counter.incrementAndGet()
+                    if (lastCounter % 10000 == 0) {
                       val currentTime = System.currentTimeMillis()
                       val currentRowkey = row.getString(0)
-                      val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
+                      val recordsPerSec = (lastCounter.toFloat) / ((currentTime - start).toFloat / 1000f)
                       val totalTimeInSec = ((currentTime - start) / 1000)
                       if(logger.isDebugEnabled) {
-                        logger.debug(s"[Token range : $tokenRangeIdx] records read: $counter " +
+                        logger.debug(s"[Token range : $tokenRangeIdx] records read: $lastCounter " +
                           s"records per sec: $recordsPerSec  Time taken: $totalTimeInSec seconds, $currentRowkey")
                       }
                     }
@@ -969,7 +972,9 @@ class Cassandra3PersistenceManager  @Inject() (
               }
             }
 
-            logger.debug(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter)
+            if(logger.isDebugEnabled) {
+              logger.debug(s"[Token range total count : $tokenRangeIdx] start:" + tokenRangeToUse.getStart.getValue + ", count: " + counter.get())
+            }
 
             synchronized {
               try {
@@ -987,7 +992,7 @@ class Cassandra3PersistenceManager  @Inject() (
                 }
               }
             }
-            counter
+            counter.get()
           }
         }
         callables.add(scanTask)

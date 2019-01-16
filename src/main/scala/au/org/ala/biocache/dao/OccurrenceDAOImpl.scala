@@ -459,7 +459,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       val processed = FullRecordMapper.createFullRecord(guid, map, Versions.PROCESSED)
       //pass all version to the procedure, wrapped in the Option
       proc(Some(raw, processed))
-    }, "dataResourceUid", dataResourceUid, pageSize)
+    }, "dataResourceUid", dataResourceUid, threads)
   }
 
 

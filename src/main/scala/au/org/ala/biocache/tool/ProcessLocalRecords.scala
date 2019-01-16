@@ -128,9 +128,8 @@ class ProcessLocalRecords {
     val start = System.currentTimeMillis()
     var lastLog = System.currentTimeMillis()
 
-    //note this update count isn't thread safe, so its inaccurate
-    //its been left in to give a general idea of performance
     var updateCount = new AtomicLong(0)
+    var updateFailCount = new AtomicLong(0)
     var readCount = new AtomicLong(0)
 
     setCheckpoints(startTokenRangeIdx, checkpointFile)
@@ -147,17 +146,23 @@ class ProcessLocalRecords {
             !skipDrs.contains(raw.attribution.dataResourceUid)) {
             try {
               processor.processRecord(raw, processed, false, true)
+              updateCount.incrementAndGet()
             } catch {
-              case e:Exception => logger.error("Problem processing record with UUID:"  + uuid, e)
+              case e:Exception => {
+                logger.error("Problem processing record with UUID: "  + uuid, e)
+                updateFailCount.incrementAndGet()
+              }
             }
-            updateCount.incrementAndGet()
           }
 
-          if (updateCount.intValue() % 10000 == 0) {
+          val lastReadCount = readCount.get()
+          val lastUpdateCount = updateCount.get()
+          val lastUpdateFailCount = updateFailCount.get()
+          if (lastUpdateCount % 10000 == 0) {
             val end = System.currentTimeMillis()
             val timeInSecs = ((end - lastLog).toFloat / 1000f)
             val recordsPerSec = Math.round(10000f / timeInSecs)
-            logger.info(s"Record/sec:$recordsPerSec,  updated:$updateCount, read:$readCount,  Last rowkey: $uuid  Last 1000 in $timeInSecs")
+            logger.info(s"Record/sec:$recordsPerSec,  updated:$lastUpdateCount, read:$lastReadCount, updateFail:$lastUpdateFailCount  Last rowkey: $uuid  Last 1000 in $timeInSecs")
             lastLog = end
 
             if(Config.jmxDebugEnabled){
@@ -194,7 +199,7 @@ class ProcessLocalRecords {
     val end = System.currentTimeMillis()
     val timeInMinutes = ((end - start).toFloat / 100f / 60f / 60f)
     val timeInSecs = ((end - start).toFloat / 1000f)
-    logger.info(s"Total records processed : $total in $timeInSecs seconds (or $timeInMinutes minutes)")
+    logger.info(s"Total records processed : $total in $timeInSecs seconds (or $timeInMinutes minutes) readCount=" + readCount.get() + " updateCount=" + updateCount.get() + " updateFailCount=" + updateFailCount.get())
   }
 
   def setCheckpoints(startTokenRangeIdx: Int, checkpointFile: String): Any = {
