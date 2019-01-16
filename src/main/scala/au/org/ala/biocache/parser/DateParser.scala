@@ -406,7 +406,7 @@ object DateParser {
       true
     } catch {
       case e: Exception => {
-        logger.debug("Exception thrown parsing date: " + eventDate, e)
+        logger.trace("Exception thrown parsing date: " + eventDate, e)
         false
       }
     }
@@ -705,8 +705,8 @@ class DateRange {
       }
     } catch {
       case e: Exception => {
-        DateParser.logger.warn("Could not parse date range: ", e)
-        DateParser.logger.warn("formats={}", formats)
+        DateParser.logger.trace("Could not parse DateRange: ", e)
+        DateParser.logger.trace("formats={}", formats)
         None
       }
     }
@@ -748,7 +748,7 @@ object ISOMonthYearDateRange {
       }
     } catch {
       case e: Exception => {
-        DateParser.logger.warn("Could not parse ISOMonthDateRange: ", e)
+        DateParser.logger.trace("Could not parse ISOMonthYearDateRange: ", e)
         None
       }
     }
@@ -790,7 +790,7 @@ object ISOMonthDateRange {
       }
     } catch {
       case e: Exception => {
-        DateParser.logger.warn("Could not parse ISOMonthDateRange: ", e)
+        DateParser.logger.trace("Could not parse ISOMonthDateRange: ", e)
         None
       }
     }
@@ -832,7 +832,7 @@ object ISODateTimeRange {
       }
     } catch {
       case e: Exception => {
-        DateParser.logger.warn("Could not parse ISOMonthDateRange: ", e)
+        DateParser.logger.trace("Could not parse ISODateTimeRange: ", e)
         None
       }
     }
@@ -968,8 +968,8 @@ object ISODayMonthRange {
       }
     } catch {
       case e: Exception => {
-        DateParser.logger.warn("Could not parse date range: ", e)
-        DateParser.logger.warn("formats={}", formats)
+        DateParser.logger.trace("Could not parse ISODayMonthRange: ", e)
+        DateParser.logger.trace("formats={}", formats)
         None
       }
     }
@@ -1018,8 +1018,8 @@ object ISODayDateRange {
       }
     } catch {
       case e: Exception => {
-        DateParser.logger.warn("Could not parse date range: ", e)
-        DateParser.logger.warn("formats={}", formats)
+        DateParser.logger.trace("Could not parse ISODayDateRange: ", e)
+        DateParser.logger.trace("formats={}", formats)
         None
       }
     }
@@ -1072,8 +1072,8 @@ object ISOYearRange {
       }
     } catch {
       case e: Exception => {
-        DateParser.logger.warn("Could not parse date range: ", e)
-        DateParser.logger.warn("formats={}", formats)
+        DateParser.logger.trace("Could not parse ISOYearRange: ", e)
+        DateParser.logger.trace("formats={}", formats)
         None
       }
     }
