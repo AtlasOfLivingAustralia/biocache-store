@@ -53,6 +53,7 @@ class RecordProcessor {
   val logger = LoggerFactory.getLogger(classOf[RecordProcessor])
   //The time that the processing started - used to populate lastProcessed
   val processTime = org.apache.commons.lang.time.DateFormatUtils.format(new java.util.Date, "yyyy-MM-dd'T'HH:mm:ss'Z'")
+  logger.info("RecordProcessor is instantiated. processTime:" + processTime)
   val duplicates = List("D", "D1", "D2")
 
   val processTimings: ConcurrentHashMap[String, AtomicLong] = new ConcurrentHashMap[String, AtomicLong]()
