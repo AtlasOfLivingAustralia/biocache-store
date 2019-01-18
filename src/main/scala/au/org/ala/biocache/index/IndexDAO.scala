@@ -227,8 +227,6 @@ trait IndexDAO {
     ("duplicationType", "duplicate_type", 4, PARSED),
     ("establishmentMeans", "establishment_means", 4, PARSED),
 
-    ("year", "occurrence_year", 0, PARSED),
-
     ("dataProviderName", "data_provider", -1, RAW_AND_PARSED),
     ("dataProviderUid", "data_provider_uid", -1, RAW_AND_PARSED),
     ("dataResourceName", "data_resource", -1, RAW_AND_PARSED),
@@ -356,7 +354,6 @@ trait IndexDAO {
     ("classs", "raw_class", -1, RAW), // NEW
     ("basisOfRecord", "raw_basis_of_record", -1, RAW), // NEW
     ("associatedOccurrences", "raw_duplicate_record", -1, RAW), // NEW
-    ("year", "raw_occurrence_year", 0, RAW), // NEW
     ("establishmentMeans", "raw_establishment_means", 4, RAW), // NEW
     ("dateIdentified", "raw_identified_date", 0, RAW),  // NEW
     ("eventDate", "raw_occurrence_date", 0, RAW),  // NEW
@@ -1550,6 +1547,12 @@ trait IndexDAO {
       occurrenceYear += "-01-01T00:00:00Z"
       addField(doc, "occurrence_year", occurrenceYear)
       addField(doc, "occurrence_decade_i", occurrenceYear.substring(0, 3) + "0")
+    }
+
+    var rawOccurrenceYear = getArrayValue(columnOrder.year, array)
+    if (rawOccurrenceYear.length == 4) {
+      rawOccurrenceYear += "-01-01T00:00:00Z"
+      addField(doc, "raw_occurrence_year", rawOccurrenceYear)
     }
 
     //names_and_lsid, common_name_and_lsid

@@ -1707,6 +1707,7 @@ class ColumnOrder {
     this.outlierForLayersP = dataRow.getIndexOf("outlierForLayers" + Config.persistenceManager.fieldDelimiter + "p")
     this.interactionsP = dataRow.getIndexOf("interactions" + Config.persistenceManager.fieldDelimiter + "p")
     this.yearP = dataRow.getIndexOf("year" + Config.persistenceManager.fieldDelimiter + "p")
+    this.year = dataRow.getIndexOf("year")
     this.scientificName = dataRow.getIndexOf("scientificName")
     this.genus = dataRow.getIndexOf("genus")
     this.family = dataRow.getIndexOf("family")
@@ -1851,6 +1852,7 @@ class ColumnOrder {
   var vernacularNameP: Int = -1
 
   var yearP: Int = -1
+  var year: Int = -1
 
   var outlierForLayersP: Int = -1
 
