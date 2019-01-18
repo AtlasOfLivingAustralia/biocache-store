@@ -37,7 +37,16 @@ class SyncLocTable {
         logger.info(s"$field is present")
       } else {
         logger.info(s"$field is NOT present")
-        pm.addFieldToEntity("loc", field)
+        try {
+          pm.addFieldToEntity("loc", field)
+        } catch {
+          case e: Exception => {
+            // sync may run in parallel. Do not report exceptions when the new field already exists.
+            if (!pm.listFieldsForEntity("loc").contains(field)) {
+              logger.error(s"Problem adding field $field to loc table...", e)
+            }
+          }
+        }
       }
     }
     logger.info("Sync complete")
