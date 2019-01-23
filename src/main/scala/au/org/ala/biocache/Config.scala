@@ -7,7 +7,7 @@ import java.util.jar.Attributes
 import au.org.ala.biocache.caches.SpatialLayerDAO
 import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{IndexDAO, SolrIndexDAO}
-import au.org.ala.biocache.load.{LocalMediaStore, RemoteMediaStore}
+import au.org.ala.biocache.load.{LocalMediaStore, RemoteMediaStore, NullMediaStore}
 import au.org.ala.biocache.persistence._
 import au.org.ala.biocache.util.LayersStore
 import au.org.ala.names.search.ALANameSearcher
@@ -47,13 +47,24 @@ object Config {
   //URL to an instance of the ALA image-service
   val remoteMediaStoreUrl = configModule.properties.getProperty("media.store.url", "")
 
+  // Media store type
+  val mediaStoreType = configModule.properties.getProperty("media.store.type", "auto")
+
+  // Media not found image URL
+  val mediaNotFound = configModule.properties.getProperty("media.store.notFound.url", "https://www.ala.org.au/commonui-bs3/img/icon-camera.png")
+
   val mediaStore = {
-    if(StringUtils.isBlank(remoteMediaStoreUrl)){
-      logger.debug("Using local media store")
-      LocalMediaStore
-    } else {
-      logger.debug("Using remote media store")
-      RemoteMediaStore
+    (mediaStoreType) match {
+      case "none" => NullMediaStore
+      case "local" => LocalMediaStore
+      case "remote" => RemoteMediaStore
+      case _ => if (StringUtils.isBlank(remoteMediaStoreUrl)) {
+        logger.debug("Using local media store")
+        LocalMediaStore
+      } else {
+        logger.debug("Using remote media store")
+        RemoteMediaStore
+      }
     }
   }
 
