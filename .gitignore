@@ -14,4 +14,5 @@ target
 src/test/resources/solr/biocache/merged_0
 src/test/resources/solr/biocache/solr-create
 *-lock
+*-sorted
 pom.xml.versionsBackup

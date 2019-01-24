@@ -649,6 +649,60 @@ object LocalMediaStore extends MediaStore {
   }
 }
 
+/**
+  * A null store for media files that simply ignores media
+  *
+  * @author Doug Palmer
+  */
+object NullMediaStore extends MediaStore {
+
+  override val logger = LoggerFactory.getLogger("NullMediaStore")
+
+  val noImageUrl = Config.mediaNotFound
+
+  def getImageFormats(fileName: String): java.util.Map[String, String] = {
+    val map = new util.HashMap[String, String]
+    map.put("thumb", noImageUrl)
+    map.put("small", noImageUrl)
+    map.put("large", noImageUrl)
+    map.put("raw", noImageUrl)
+    map
+  }
+
+  def convertPathsToUrls(fullRecord: FullRecord, baseUrlPath: String) = if (fullRecord.occurrence.images != null) {
+    fullRecord.occurrence.images = fullRecord.occurrence.images.map(x => convertPathToUrl(x, baseUrlPath))
+  }
+
+  def convertPathToUrl(str: String, baseUrlPath: String) = { noImageUrl }
+
+  def convertPathToUrl(str: String) = { noImageUrl }
+
+  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String) = {
+    if (logger.isDebugEnabled)
+      logger.debug("Already stored media " + urlToMedia + " for record " + uuid + " resource " + resourceUID + " as not found image " + noImageUrl)
+    (true, "notFound", noImageUrl)
+  }
+
+  /**
+    * Saves the file to local filesystem and returns the file path where the file is stored.
+    */
+  def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
+    if (logger.isDebugEnabled)
+      logger.debug("Ignoring save media " + urlToMedia + " for record " + uuid + " resource " + resourceUID + " and using not found image " + noImageUrl)
+    Some("notFound", noImageUrl)
+  }
+
+  def getSoundFormats(filePath: String): java.util.Map[String, String] = {
+    val formats = new java.util.HashMap[String, String]()
+    formats
+  }
+
+  def getMetadata(uuid: String): java.util.Map[String, Object] = {
+    val result = new java.util.HashMap[String, Object]()
+    result
+  }
+}
+
 class SameNameDifferentExtensionFilter(name: String) extends FilenameFilter {
   val nameToMatch = FilenameUtils.removeExtension(FilenameUtils.getName(name)).toLowerCase
 

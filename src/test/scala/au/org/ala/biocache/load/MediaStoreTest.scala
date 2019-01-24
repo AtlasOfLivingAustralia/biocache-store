@@ -210,4 +210,12 @@ class MediaStoreTest extends ConfigFunSuite {
 //    }
   }
 
+  test("null media store") {
+    val store = NullMediaStore
+    expectResult(Config.mediaNotFound){ store.getImageFormats("test.png").get("large") }
+    expectResult(Config.mediaNotFound){ store.convertPathToUrl("test.png") }
+    expectResult((true, "notFound", Config.mediaNotFound)){ store.alreadyStored("xxx", "xxx", "test.png") }
+    expectResult(("notFound", Config.mediaNotFound)){ store.save("xxx", "xxx", "test.png", None).get }
+  }
+
 }
