@@ -678,7 +678,8 @@ object NullMediaStore extends MediaStore {
   def convertPathToUrl(str: String) = { noImageUrl }
 
   def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String) = {
-    logger.debug("Already stored media " + urlToMedia + " for record " + uuid + " resource " + resourceUID + " as not found image " + noImageUrl)
+    if (logger.isDebugEnabled)
+      logger.debug("Already stored media " + urlToMedia + " for record " + uuid + " resource " + resourceUID + " as not found image " + noImageUrl)
     (true, "notFound", noImageUrl)
   }
 
@@ -686,7 +687,8 @@ object NullMediaStore extends MediaStore {
     * Saves the file to local filesystem and returns the file path where the file is stored.
     */
   def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
-    logger.debug("Ignoring save media " + urlToMedia + " for record " + uuid + " resource " + resourceUID + " and using not found image " + noImageUrl)
+    if (logger.isDebugEnabled)
+      logger.debug("Ignoring save media " + urlToMedia + " for record " + uuid + " resource " + resourceUID + " and using not found image " + noImageUrl)
     Some("notFound", noImageUrl)
   }
 
