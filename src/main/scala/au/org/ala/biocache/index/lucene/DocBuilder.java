@@ -1,5 +1,6 @@
 package au.org.ala.biocache.index.lucene;
 
+import au.org.ala.biocache.Config;
 import org.apache.log4j.Logger;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexableField;
@@ -148,7 +149,6 @@ public class DocBuilder {
         SchemaObject s = schemaMap.get(field);
         if (s == null) {
             SchemaField f = schema.getFieldOrNull(field);
-            List<CopyField> cf = schema.getCopyFieldsList(field);
 
             if (f == null) {
                 if (DocBuilder.additionalSchemaEntries.get(field) == null) {
@@ -156,6 +156,8 @@ public class DocBuilder {
                 }
                 return;
             }
+
+            List<CopyField> cf = schema.getCopyFieldsList(field);
 
             s = new SchemaObject(f, cf);
             schemaMap.put(field, s);
@@ -208,6 +210,10 @@ public class DocBuilder {
      */
     private SchemaField makeField(String field, Boolean index) {
         //org.apache.solr.schema.FieldProperties, indexed=$index stored=true omitNorms=true
+        boolean stored = Config.schemaStoredMisc();
+        boolean multiValued = Config.schemaMultiValuedMisc();
+        boolean docValues = Config.schemaDocValuesMisc();
+
         int properties = (index ? 1 : 0) + 4 + 16;
 
         SchemaField sf;
@@ -215,7 +221,15 @@ public class DocBuilder {
         //TODO: should the _{type} be removed from the field name to make it clean?
 
         if (field.matches("^el[0-9]*$")) {
-            sf = new SchemaField(field, schema.getFieldTypeByName("tfloat"), properties, null);
+            sf = new SchemaField(field, schema.getFieldTypeByName(Config.schemaFieldTypeEl()), properties, null);
+            stored = Config.schemaStoredLayer();
+            multiValued = Config.schemaMultiValuedLayer();
+            docValues = Config.schemaDocValuesLayer();
+        } else if (field.matches("^cl[0-9]*$")) {
+            sf = new SchemaField(field, schema.getFieldTypeByName(Config.schemaFieldTypeCl()), properties, null);
+            stored = Config.schemaStoredLayer();
+            multiValued = Config.schemaMultiValuedLayer();
+            docValues = Config.schemaDocValuesLayer();
         } else if (field.endsWith("_i") || field.endsWith("_i_rng")) {
             sf = new SchemaField(field, schema.getFieldTypeByName("tint"), properties, null);
         } else if (field.endsWith("_l") && !field.endsWith("_per_l")) {
@@ -227,14 +241,14 @@ public class DocBuilder {
         } else if (field.endsWith("_dt")) {
             sf = new SchemaField(field, schema.getFieldTypeByName("tdate"), properties, null);
         } else {
-            sf = new SchemaField(field, schema.getFieldTypeByName("string"), properties, null);
+            sf = new SchemaField(field, schema.getFieldTypeByName(Config.schemaFieldTypeMisc()), properties, null);
         }
 
         synchronized (schema) {
             String exists = DocBuilder.additionalSchemaEntries.get(field);
 
             if (exists == null) {
-                DocBuilder.additionalSchemaEntries.put(field, "<field name=\"" + field + "\" type=\"" + sf.getType().getTypeName() + "\" indexed=\"" + index + "\" stored=\"true\" omitNorms=\"true\" />");
+                DocBuilder.additionalSchemaEntries.put(field, "<field name=\"" + field + "\" type=\"" + sf.getType().getTypeName() + "\" indexed=\"" + index + "\" stored=\"" + stored + "\" omitNorms=\"true\" multiValued=\"" + multiValued + "\" docValues=\"" + docValues + "\"/>");
             }
         }
 

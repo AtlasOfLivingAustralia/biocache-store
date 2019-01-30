@@ -26,7 +26,6 @@ object IndexLocalRecordsV2 extends Tool {
     var pageSize = 1000
     var mergeSegments = 1
     var test = false
-    var testMap = false
     var threads = 2
     var solrHome = "/data/solr/"
     val checkpointFile = Config.tmpWorkDir + "/index-local-records-checkpoints.txt"
@@ -46,9 +45,6 @@ object IndexLocalRecordsV2 extends Tool {
       })
       opt("test", "Test indexing. This skips the production of an index. Defaults to " + test, {
         test = true
-      })
-      opt("test-map", "Use map paging instead of array. Defaults to " + testMap, {
-        testMap = true
       })
       opt("optimise-only", "Optimise the index once writing has completed", {
         optimise = true
@@ -106,7 +102,6 @@ object IndexLocalRecordsV2 extends Tool {
         mergeSegments,
         test,
         writerCount,
-        testMap,
         maxRecordsToIndex
       )
     }

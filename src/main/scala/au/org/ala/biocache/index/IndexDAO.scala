@@ -11,7 +11,6 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.persistence.DataRow
 import au.org.ala.biocache.util.Json
 import au.org.ala.biocache.vocab.AssertionStatus
-import com.datastax.driver.core.GettableData
 import org.apache.commons.lang.StringUtils
 import org.apache.commons.lang.time.{DateFormatUtils, DateUtils}
 import org.slf4j.LoggerFactory
@@ -54,6 +53,8 @@ trait IndexDAO {
   def streamIndex(proc: java.util.Map[String, AnyRef] => Boolean, fieldsToRetrieve: Array[String], query: String, filterQueries: Array[String], sortFields: Array[String], multivaluedFields: Option[Array[String]] = None)
 
   def shouldIncludeSensitiveValue(dr: String): Boolean
+
+  def addLayerFieldsToSchema(): Unit
 
   /**
    * Index a record with the supplied properties.

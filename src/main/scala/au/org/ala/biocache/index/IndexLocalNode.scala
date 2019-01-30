@@ -4,11 +4,13 @@ import java.io.File
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.index.lucene.{DocBuilder, LuceneIndexing}
-import org.apache.commons.io.{FileUtils}
+import au.org.ala.biocache.util.Json
+import org.apache.commons.io.FileUtils
 import org.apache.solr.core.{SolrConfig, SolrResourceLoader}
 import org.apache.solr.schema.{IndexSchema, IndexSchemaFactory}
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
@@ -38,7 +40,6 @@ class IndexLocalNode {
     * @param mergeSegments
     * @param test
     * @param writerCount
-    * @param testMap
     * @param maxRecordsToIndex
     *
     * @return total number of records indexed.
@@ -59,7 +60,6 @@ class IndexLocalNode {
                    mergeSegments: Int,
                    test: Boolean,
                    writerCount: Int,
-                   testMap: Boolean,
                    maxRecordsToIndex:Int = -1
                   ) : Long = {
 
@@ -81,32 +81,19 @@ class IndexLocalNode {
     }
 
     val counter: Counter = new DefaultCounter()
-    if (testMap) {
-      new IndexRunnerMap(
-        counter,
-        confDir,
-        pageSize,
-        luceneIndexing,
-        threadsPerProcess,
-        processorBufferSize,
-        singleWriter,
-        test,
-        numThreads
-      ).run()
-    } else {
-      new IndexRunner(
-        counter,
-        confDir,
-        pageSize,
-        luceneIndexing,
-        threadsPerProcess,
-        processorBufferSize,
-        singleWriter,
-        test,
-        numThreads,
-        maxRecordsToIndex
-      ).run()
-    }
+
+    new IndexRunner(
+      counter,
+      confDir,
+      pageSize,
+      luceneIndexing,
+      threadsPerProcess,
+      processorBufferSize,
+      singleWriter,
+      test,
+      numThreads,
+      maxRecordsToIndex
+    ).run()
 
     val end = System.currentTimeMillis()
     logger.info("Indexing completed in " + ((end - start).toFloat / 1000f / 60f) + " minutes")
@@ -266,38 +253,38 @@ class IndexLocalNode {
       //download from SOLR server if available
       FileUtils.forceMkdir(sourceConfDir)
       if(Config.solrHome.startsWith("http")) {
-        Array("schema.xml", "schema.xml.bak", "additionalFields.list", "elevate.xml", "protwords.txt", "solrconfig.xml", "stopwords.txt", "synonyms.txt").foreach { fileName =>
-          downloadFile(Config.solrHome + "/admin/file?file=" + fileName, sourceConfDir.getAbsolutePath + File.separator + fileName, true)
-        }
+        // update SOLR schema with any newly sampled fields
+        val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
+        solrIndexUpdate.addLayerFieldsToSchema()
 
-        if(!new File(sourceConfDir.getAbsolutePath + File.separator + "schema.xml").exists()){
-          if(new File(sourceConfDir.getAbsolutePath + File.separator + "schema.xml.bak").exists()){
-            new File(sourceConfDir.getAbsolutePath + File.separator + "schema.xml.bak").renameTo(
-              new File(sourceConfDir.getAbsolutePath + File.separator + "schema.xml")
-            )
-          } else {
-            throw new RuntimeException("Unable to find a schema.xml to use for indexing.")
-          }
+        downloadDirectory(Config.solrHome, null, sourceConfDir.getPath, false)
+
+        // SOLR will internally import schema.xml and export it to managed-schema when managed-schema is absent.
+        // Dynamically added SOLR fields are only added to managed-schema.
+        // IndexLocalNode will only use schema.xml.
+
+        val schemaFile = new File(sourceConfDir.getAbsolutePath + "/schema.xml")
+        val schemaFileBak = new File(sourceConfDir.getAbsolutePath + "/schema.xml.bak")
+        val schemaManaged = new File(sourceConfDir.getAbsolutePath + "/managed-schema")
+
+        // Use the most up to date schema (manage-schema, else schema.xml, else schema.xml.bak)
+        if (schemaManaged.exists()) FileUtils.copyFile(schemaManaged, schemaFile)
+        if (!schemaFile.exists() && schemaFileBak.exists()) FileUtils.copyFile(schemaFileBak, schemaFile)
+
+        // Delete unused schema files
+        if (schemaManaged.exists()) schemaManaged.delete()
+        if (schemaFileBak.exists()) schemaFileBak.delete()
+
+        if (!schemaFile.exists()) {
+          throw new RuntimeException("Unable to find a schema.xml to use for indexing.")
         }
       }
     }
 
     FileUtils.copyDirectory(sourceConfDir, newIndexDir)
 
-    //identify the first valid schema
-    val s1 = new File(confDir + "/schema.xml")
-    val s2 = new File(confDir + "/schema.xml.bak")
-    val s3 = new File(confDir + "/schema-managed")
-    if (s3.exists()) {
-      s3.delete()
-    }
-    val schemaFile: File = {
-      if (s1.exists()) {
-        s1
-      } else {
-        s2
-      }
-    }
+    val schemaFile = new File(confDir + "/schema.xml")
+    val schemaFileBak = new File(confDir + "/schema.xml.bak")
 
     //with 6.6.2, this method moves the schema.xml to schema.xml.bak
     val schema = IndexSchemaFactory.buildIndexSchema(
@@ -309,14 +296,51 @@ class IndexLocalNode {
     )
 
     //recreate the /schema.xml
-    if(!s1.exists() && s2.exists()) {
-      FileUtils.copyFile(s2, s1)
+    if (!schemaFile.exists() && schemaFileBak.exists()) {
+      FileUtils.moveFile(schemaFileBak, schemaFile)
     }
 
     FileUtils.writeStringToFile(new File(solrHome + "/solr-create/solr.xml"), "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><solr></solr>", "UTF-8")
     FileUtils.writeStringToFile(new File(solrHome + "/solr-create/zoo.cfg"), "", "UTF-8" )
 
     (schema, schemaFile, newIndexDir, confDir, sourceConfDir)
+  }
+
+  def downloadDirectory(solrHome: String, path: String, outputPath: String, failSilently: Boolean): Unit = {
+    val url = if (path == null) {
+      solrHome + "/admin/file?wt=json"
+    } else {
+      solrHome + "/admin/file?wt=json&file=" + path
+    }
+
+    try {
+      val src = scala.io.Source.fromURL(url)
+      val response = Json.toMap(src.mkString)
+
+      response.get("files").get.asInstanceOf[java.util.Map[String, java.util.Map[String, Object]]].foreach(file => {
+
+        val fileOutputPath = outputPath + "/" + file._1
+
+        val newPath = if (path != null) {
+          path + "\\" + file._1
+        } else {
+          file._1
+        }
+        if ("true".equals(file._2.getOrElse("directory", "false").toString)) {
+          FileUtils.forceMkdir(new File(fileOutputPath + "/" + newPath))
+          downloadDirectory(solrHome, newPath, fileOutputPath, failSilently)
+        } else {
+          downloadFile(solrHome + "/admin/file?file=" + newPath, fileOutputPath, failSilently)
+        }
+
+
+      })
+
+    } catch {
+      case e: Exception => {
+        if (!failSilently) throw e
+      }
+    }
   }
 
   def downloadFile(url: String, fileToDownload: String, failSilently:Boolean)  {

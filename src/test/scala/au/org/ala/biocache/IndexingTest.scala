@@ -53,7 +53,6 @@ class IndexingTest extends ConfigFunSuite {
       1, //mergeSegments: Int,
       false, //test: Boolean,
       1, //writerCount: Int,
-      false, //testMap: Boolean,
       -1 //maxRecordsToIndex:Int = -1
     )
 

@@ -1,12 +1,16 @@
   package au.org.ala.biocache.tool
 
 import java.io._
+  import java.util.UUID
+  import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.concurrent.{ArrayBlockingQueue, LinkedBlockingQueue}
 
 import au.com.bytecode.opencsv.{CSVReader, CSVWriter}
 import au.org.ala.biocache.Config
+  import au.org.ala.biocache.Store.rowKeyFile
 import au.org.ala.biocache.caches.LocationDAO
 import au.org.ala.biocache.cmd.{IncrementalTool, Tool}
+  import au.org.ala.biocache.index.Counter
 import au.org.ala.biocache.model.QualityAssertion
 import au.org.ala.biocache.processor.LocationProcessor
 import au.org.ala.biocache.util._
@@ -15,14 +19,9 @@ import au.org.ala.layers.dto.IntersectionFile
 import org.apache.commons.lang.StringUtils
 import org.eclipse.jetty.util.ConcurrentHashSet
 import org.slf4j.LoggerFactory
-import au.org.ala.biocache.Store.rowKeyFile
-import au.org.ala.biocache.index.Counter
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashSet}
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
 
 /**
   * Executable for running the sampling for a data resource.
@@ -448,7 +447,6 @@ class Sampling  {
                batchSize: Int = 100000, concurrentLoading: Boolean = false,
                keepFiles: Boolean = true, layers: Seq[String]) {
 
-    new SyncLocTable().sync
 
     logger.info("********* START - TEST BATCH SAMPLING FROM FILE ***************")
     //load the CSV of points into memory
@@ -460,8 +458,7 @@ class Sampling  {
     }
     var filename = outputFilePath
 
-    import java.io.FileOutputStream
-    import java.io.OutputStreamWriter
+    import java.io.{FileOutputStream, OutputStreamWriter}
     import java.nio.charset.StandardCharsets
 
     val fileWriter = new OutputStreamWriter(new FileOutputStream(filename), StandardCharsets.UTF_8)

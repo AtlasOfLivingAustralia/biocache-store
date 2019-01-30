@@ -13,7 +13,7 @@ import au.org.ala.biocache.parser.DateParser
 import au.org.ala.biocache.persistence.DataRow
 import au.org.ala.biocache.util.{GridUtil, Json}
 import au.org.ala.biocache.vocab.{AssertionCodes, ErrorCode, ErrorCodeCategory, SpeciesGroups}
-import com.datastax.driver.core.{ColumnDefinitions, GettableData, Row}
+import com.datastax.driver.core.{ColumnDefinitions, GettableData}
 import com.google.inject.Inject
 import com.google.inject.name.Named
 import org.apache.commons.lang.StringUtils
@@ -21,14 +21,14 @@ import org.apache.commons.lang3.StringEscapeUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.conn.HttpClientConnectionManager
 import org.apache.http.impl.client.CloseableHttpClient
-import org.apache.http.impl.client.cache.CacheConfig
-import org.apache.http.impl.client.cache.CachingHttpClientBuilder
+import org.apache.http.impl.client.cache.{CacheConfig, CachingHttpClientBuilder}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer
 import org.apache.solr.client.solrj.impl.{CloudSolrClient, ConcurrentUpdateSolrClient}
+import org.apache.solr.client.solrj.request.schema.SchemaRequest
 import org.apache.solr.client.solrj.response.FacetField
 import org.apache.solr.client.solrj.{SolrClient, SolrQuery, StreamingResponseCallback}
-import org.apache.solr.common.params.{CursorMarkParams, MapSolrParams, ModifiableSolrParams}
+import org.apache.solr.common.params.CursorMarkParams
 import org.apache.solr.common.{SolrDocument, SolrInputDocument, SolrInputField}
 import org.apache.solr.core.CoreContainer
 import org.slf4j.LoggerFactory
@@ -65,7 +65,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   var cloudServer: CloudSolrClient = _
   var solrConfigPath: String = ""
   var httpClient: CloseableHttpClient = _
-  var connectionPoolManager: HttpClientConnectionManager = _  
+  var connectionPoolManager: HttpClientConnectionManager = _
 
   @Inject
   var occurrenceDAO: OccurrenceDAO = _
@@ -150,6 +150,78 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     }
   }
 
+  val solrFieldNames = mutable.Set[String]()
+  val solrDynamicFieldNames = mutable.Set[String]()
+
+  def getSchemaFields(): Unit = {
+    // fetch current schema
+    val currentSchema = new SchemaRequest().process(solrServer)
+
+    val currentFields = currentSchema.getSchemaRepresentation().getFields()
+    val currentDynamicFields = currentSchema.getSchemaRepresentation().getDynamicFields()
+
+    currentFields.foreach(field => {
+      solrFieldNames += field.get("name").toString
+    })
+
+    currentDynamicFields.foreach(field => {
+      solrDynamicFieldNames += "^" + field.get("name").toString.replace("*", ".*") + "$"
+    })
+  }
+
+  def isDynamicField(str: String): Boolean = {
+    var found = false
+    solrDynamicFieldNames.foreach(fieldName => {
+      if (str.matches(fieldName))
+        found = true
+    })
+
+    found
+  }
+
+  def addLayerFieldsToSchema(): Unit = {
+    init()
+
+    // do not add fields when using EmbeddedSolrServer
+    if (solrServer.isInstanceOf[EmbeddedSolrServer]) {
+      return
+    }
+
+    if (solrFieldNames.isEmpty) {
+      getSchemaFields()
+    }
+
+    def layers = Config.fieldsToSample(true)
+
+    if (!layers.isEmpty) {
+      layers.foreach(layer => {
+        if (!solrFieldNames.contains(layer) && !isDynamicField(layer)) {
+          val fieldType = if (layer.startsWith("cl")) {
+            Config.schemaFieldTypeCl
+          } else {
+            Config.schemaFieldTypeEl
+          }
+          addFieldToSolr(layer, fieldType,
+            Config.schemaMultiValuedLayer, Config.schemaDocValuesLayer, Config.schemaIndexedLayer, Config.schemaStoredLayer)
+        }
+      })
+    }
+  }
+
+  def addFieldToSolr(name: String, fieldType: String, multiValued: Boolean, docValues: Boolean, indexed: Boolean, stored: Boolean): Unit = {
+    val newField = Map("name" -> name, "type" -> fieldType, "multiValued" -> multiValued, "docValues" -> docValues, "indexed" -> indexed, "stored" -> stored)
+
+    val request = new SchemaRequest.AddField(newField.map { case (k, v) => k -> v.asInstanceOf[Object] }.asJava)
+
+    try {
+      request.process(solrServer)
+    } catch {
+      case err: Exception => {
+        logger.error("failed to add a new field '" + name + "' to SOLR schema", err)
+      }
+    }
+  }
+
   def reload = if (cc != null) cc.reload("biocache")
 
   override def shouldIncludeSensitiveValue(dr: String) = !drToExcludeSensitive.contains(dr)
@@ -185,8 +257,6 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
     } while (values != null && !values.isEmpty)
   }
-
-
 
   def streamIndex(proc: java.util.Map[String, AnyRef] => Boolean, fieldsToRetrieve: Array[String], query: String, filterQueries: Array[String], sortFields: Array[String], multivaluedFields: Option[Array[String]] = None) {
     pageOverIndex(proc, fieldsToRetrieve, query, filterQueries, None)
@@ -795,8 +865,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         cls.foreach {
           case (key, value) => doc.addField(key, value)
         }
-        
-        
+
+
         //Species groups - index the additional species information - ie species groups
         val lft = getParsedValue("left", map)
         val rgt = getParsedValue("right", map)
@@ -820,6 +890,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         }
 
         if (!test) {
+          syncDocFieldsWithSOLR(doc)
+
           if (!batch) {
 
             //if not a batch, add the doc and do a hard commit
@@ -867,166 +939,23 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     }
   }
 
-  /**
-    * New indexing implementation
-    * 
-    * @param guid
-    * @param map
-    * @param batch
-    * @param startDate
-    * @param commit
-    * @param miscIndexProperties
-    * @param userProvidedTypeMiscIndexProperties
-    * @param test
-    * @param batchID
-    * @param csvFileWriter
-    * @param csvFileWriterSensitive
-    * @param docBuilder
-    * @param lock
-    * @return
-    */
-  def indexFromMapNew(guid: String,
-                      map: scala.collection.Map[String, String],
-                      batch: Boolean = true,
-                      startDate: Option[Date] = None,
-                      commit: Boolean = false,
-                      miscIndexProperties: Seq[String] = Array[String](),
-                      userProvidedTypeMiscIndexProperties: Seq[String] = Array[String](),
-                      test: Boolean = false,
-                      batchID: String = "",
-                      csvFileWriter: FileWriter = null,
-                      csvFileWriterSensitive: FileWriter = null,
-                      docBuilder: DocBuilder = null,
-                      lock: Object = null): Long = {
-    init
-
-    var time = 0L
-
-    if (shouldIndex(map, startDate)) {
-
-      val doc = if (docBuilder == null) this.docBuilder else docBuilder
-
-      try {
-        doc.newDoc(guid)
-
-        writeOccIndexModelToDoc(doc, guid, map)
-
-        if (userProvidedTypeMiscIndexProperties.nonEmpty || miscIndexProperties.nonEmpty || arrDefaultMiscFields.nonEmpty
-          || Config.additionalFieldsToIndex.nonEmpty) {
-          val fieldsAndType: Map[String, String] = Map[String, String]()
-
-          userProvidedTypeMiscIndexProperties.foreach(field =>
-            if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
-
-          miscIndexProperties.foreach(field =>
-            if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
-
-          arrDefaultMiscFields.foreach(field =>
-            if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
-
-          Config.additionalFieldsToIndex.foreach(field =>
-            if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
-
-          addJsonMapToDoc(doc, getValue(FullRecordMapper.miscPropertiesColumn, map), fieldsAndType, null, true)
+  def syncDocFieldsWithSOLR(document: SolrInputDocument): Unit = {
+    document.getFieldNames.foreach(fieldName => {
+      //add field to SOLR schema if it is missing
+      if (!solrFieldNames.contains(fieldName) && !isDynamicField(fieldName)) {
+        if (fieldName.matches("^cl[0-9]+$")) {
+          addFieldToSolr(fieldName, Config.schemaFieldTypeCl, Config.schemaMultiValuedLayer, Config.schemaDocValuesLayer,
+            Config.schemaIndexedLayer, Config.schemaStoredLayer)
+        } else if (fieldName.matches("^el[0-9]+$")) {
+          addFieldToSolr(fieldName, Config.schemaFieldTypeEl, Config.schemaMultiValuedLayer, Config.schemaDocValuesLayer,
+            Config.schemaIndexedLayer, Config.schemaStoredLayer)
+        } else {
+          addFieldToSolr(fieldName, Config.schemaFieldTypeMisc, Config.schemaMultiValuedMisc, Config.schemaDocValuesMisc,
+            Config.solrIndexMisc, Config.schemaStoredMisc)
         }
-
-        addJsonArrayAssertionsToDoc(doc, getValue(FullRecordMapper.qualityAssertionColumn, map))
-
-        //load the species lists that are configured for the matched guid.
-        val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(getParsedValue("taxonConceptID", map))
-        speciesLists.foreach { v =>
-          doc.addField("species_list_uid", v)
-        }
-
-        /**
-          * Additional indexing for grid references.
-          */
-        if (Config.gridRefIndexingEnabled) {
-          val bboxString = getParsedValue("bbox", map)
-          if (bboxString != "") {
-            val bbox = bboxString.split(",")
-            doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
-            doc.addField("min_longitude", java.lang.Float.parseFloat(bbox(1)))
-            doc.addField("max_latitude", java.lang.Float.parseFloat(bbox(2)))
-            doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
-          }
-
-          val easting = getParsedValue("easting", map)
-          if (easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting).toInt)
-          val northing = getParsedValue("northing", map)
-          if (northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing).toInt)
-          val gridRef = getValue("gridReference", map)
-          if (gridRef != "") {
-            doc.addField("grid_ref", gridRef)
-            val map = GridUtil.getGridRefAsResolutions(gridRef)
-            map.keySet.foreach { key => doc.addField(key, map.getOrElse(key, "")) }
-          }
-        }
-        /** UK NBN **/
-
-        // user if userQA = true
-        val hasUserAssertions = getValue(FullRecordMapper.userQualityAssertionColumn, map)
-        if (StringUtils.isNotEmpty(hasUserAssertions)) {
-          val assertionUserIds = extractUserIds(hasUserAssertions)
-          assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
-        }
-
-        var suitableForModelling = addJsonMapToDoc(doc, getValue(FullRecordMapper.queryAssertionColumn, map), null, typeNotSuitableForModelling)
-
-        //this will not exist for all records until a complete reindex is performed...
-        doc.addField("suitable_modelling", suitableForModelling.toString)
-
-        //index the available el and cl's - more efficient to use the supplied map than using the old way
-        addJsonMapToDoc(doc, getParsedValue("el", map))
-        addJsonMapToDoc(doc, getParsedValue("cl", map))
-
-        //index the additional species information - ie species groups
-        val lft = getParsedValue("left", map)
-        val rgt = getParsedValue("right", map)
-        if (!lft.isEmpty && !rgt.isEmpty) {
-
-          // add the species groups
-          val sgs = SpeciesGroups.getSpeciesGroups(lft, rgt)
-          if (sgs.isDefined) {
-            sgs.get.foreach { v: String => doc.addField("species_group", v) }
-          }
-
-          // add the species subgroups
-          val ssgs = SpeciesGroups.getSpeciesSubGroups(lft, rgt)
-          if (ssgs.isDefined) {
-            ssgs.get.foreach { v: String => doc.addField("species_subgroup", v) }
-          }
-        }
-
-        if (batchID != "") {
-          doc.addField("batch_id_s", batchID)
-        }
-
-        if (!test) {
-          val t1 = System.nanoTime()
-          if (lock != null) {
-            lock.synchronized {
-              doc.index()
-            }
-          } else {
-            doc.index()
-          }
-          time = System.nanoTime() - t1
-        }
-
-        if (csvFileWriter != null) {
-          writeDocBuilderToCsv(doc, csvFileWriter)
-        }
-
-        if (csvFileWriterSensitive != null) {
-          writeDocBuilderToCsv(doc, csvFileWriterSensitive)
-        }
-      } finally {
-        //return the doc
-        doc.release()
+        solrFieldNames += fieldName
       }
-    }
-    time
+    })
   }
 
   def indexFromArray(guid: String,

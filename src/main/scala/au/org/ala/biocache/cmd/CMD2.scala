@@ -1,13 +1,12 @@
 package au.org.ala.biocache.cmd
 
 import au.org.ala.biocache.Config
+import au.org.ala.biocache.export._
 import au.org.ala.biocache.index.{IndexMergeTool, IndexRecords, OptimiseIndex}
 import au.org.ala.biocache.load._
-import au.org.ala.biocache.tool._
 import au.org.ala.biocache.outliers.ReverseJacknifeProcessor
+import au.org.ala.biocache.tool._
 import au.org.ala.biocache.util.{DebugRecord, ExportLocalNode, RemapUniqueKey}
-import au.org.ala.biocache.export._
-import au.org.ala.biocache.qa.ValidationRuleRunner
 
 import scala.collection.JavaConversions
 
@@ -69,8 +68,6 @@ object ShowVersion extends NoArgsTool {
 object CMD2 {
 
   def main(args: Array[String]) {
-
-    import JavaConversions._
 
     if(args.contains("--version") || args.contains("-version")){
       ShowVersion.main(Array[String]())
@@ -241,7 +238,6 @@ object CMD2 {
     Sampling,
     SampleLocalRecords,
     ShowConfig,
-    SyncLocTable,
     ReverseJacknifeProcessor,
     Thumbnailer,
 //    ValidationRuleRunner,

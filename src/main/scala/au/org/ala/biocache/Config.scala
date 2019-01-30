@@ -7,7 +7,7 @@ import java.util.jar.Attributes
 import au.org.ala.biocache.caches.SpatialLayerDAO
 import au.org.ala.biocache.dao._
 import au.org.ala.biocache.index.{IndexDAO, SolrIndexDAO}
-import au.org.ala.biocache.load.{LocalMediaStore, RemoteMediaStore, NullMediaStore}
+import au.org.ala.biocache.load.{LocalMediaStore, NullMediaStore, RemoteMediaStore}
 import au.org.ala.biocache.persistence._
 import au.org.ala.biocache.util.LayersStore
 import au.org.ala.names.search.ALANameSearcher
@@ -160,6 +160,18 @@ object Config {
 
   /** To index or only store, by default, all new misc fields */
   val solrIndexMisc: Boolean = configModule.properties.getProperty("solr.index.misc", "false").toBoolean
+
+  /** default values for new schema fields */
+  val schemaFieldTypeCl: String = configModule.properties.getProperty("solr.index.fieldtype.cl", "string")
+  val schemaFieldTypeEl: String = configModule.properties.getProperty("solr.index.fieldtype.el", "tfloat")
+  val schemaMultiValuedLayer: Boolean = configModule.properties.getProperty("solr.index.multivalued.layer", "false").toBoolean
+  val schemaDocValuesLayer: Boolean = configModule.properties.getProperty("solr.index.docvalues.layer", "false").toBoolean
+  val schemaIndexedLayer: Boolean = configModule.properties.getProperty("solr.index.indexed.layer", "true").toBoolean
+  val schemaStoredLayer: Boolean = configModule.properties.getProperty("solr.index.stored.layer", "true").toBoolean
+  val schemaFieldTypeMisc: String = configModule.properties.getProperty("solr.index.fieldtype.misc", "string")
+  val schemaMultiValuedMisc: Boolean = configModule.properties.getProperty("solr.index.multivalued.misc", "false").toBoolean
+  val schemaDocValuesMisc: Boolean = configModule.properties.getProperty("solr.index.docvalues.misc", "false").toBoolean
+  val schemaStoredMisc: Boolean = configModule.properties.getProperty("solr.index.stored.misc", "true").toBoolean
 
   private var fieldsToSampleCached = Array[String]()
 
