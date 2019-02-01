@@ -239,10 +239,10 @@ class DwcCSVLoader extends DataLoader {
           if(test){
             newInstCodes.add(map.getOrElse("institutionCode", "<NULL>"))
             newCollCodes.add(map.getOrElse("collectionCode", "<NULL>"))
-            val (uuid, isnew) = Config.occurrenceDAO.createOrRetrieveUuid(Config.occurrenceDAO.createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces))
-            if(isnew) {
-              newCount += 1
-            }
+          }
+          val (uuid, isnew) = Config.occurrenceDAO.createOrRetrieveUuid(Config.occurrenceDAO.createUniqueID(dataResourceUid, uniqueTermsValues, stripSpaces))
+          if(isnew) {
+            newCount += 1
           }
 
           if(!test){
@@ -322,8 +322,8 @@ class DwcCSVLoader extends DataLoader {
       if(!unknownCollections.isEmpty) {
         logger.warn("Warning there are new collection codes in the set. " + unknownCollections)
       }
-      logger.info("There are " + counter + " records in the file. The number of NEW records: " + newCount)
     }
+    logger.info("There are " + counter + " records in the file. The number of NEW records: " + newCount)
     logger.info("Load finished for " + file.getName())
   }
 
