@@ -245,6 +245,8 @@ trait IndexDAO {
     (FullRecordMapper.taxonomicDecisionColumn, "taxonomic_kosher", -1, RAW),
     ("geodeticDatum", "raw_datum", -1, RAW),
     ("geodeticDatum", "datum", -1, PARSED),
+    ("samplingProtocol", "raw_sampling_protocol", -1, RAW),
+    ("samplingProtocol", "sampling_protocol", -1, PARSED),
     ("georeferenceVerificationStatus", "raw_geo_validation_status", -1, RAW),
     ("identificationQualifier", "raw_identification_qualifier", -1, RAW),
     ("identifiedBy", "identified_by", -1, RAW),
@@ -385,7 +387,7 @@ trait IndexDAO {
     "depth_d", "min_depth_d", "max_depth_d", "name_parse_type", "occurrence_status", "occurrence_details", "photographer", "rights",
     "raw_geo_validation_status", "raw_occurrence_status", "raw_locality", "raw_latitude", "raw_longitude", "raw_datum", "raw_sex",
     "sensitive_locality", "event_id", "location_id", "dataset_name", "reproductive_condition", "license", "individual_count", "date_precision",
-    "identification_verification_status", "georeference_verification_status"
+    "identification_verification_status", "georeference_verification_status", "sampling_protocol", "raw_sampling_protocol"
 
   ) ::: Config.additionalFieldsToIndex
 
@@ -817,7 +819,9 @@ trait IndexDAO {
           getValue("individualCount", map),
           getParsedValueIfAvailable("datePrecision", map, ""),
           getParsedValue("identificationVerificationStatus", map),
-          getParsedValue("georeferenceVerificationStatus", map)
+          getParsedValue("georeferenceVerificationStatus", map),
+          getParsedValue("samplingProtocol", map),
+          getValue("samplingProtocol", map)
         ) ::: Config.additionalFieldsToIndex.map(field => getValue(field, map, ""))
       } else {
         return List()
@@ -1367,10 +1371,10 @@ trait IndexDAO {
         addField(doc, header(i), getValue("datePrecision", map))
         i = i + 1
 
-        Config.additionalFieldsToIndex.foreach(field => {
+        Config.additionalFieldsToIndex.foreach { field =>
           addField(doc, header(i), getValue(field, map))
           i = i + 1
-        })
+        }
       }
     } catch {
       case e: Exception => logger.error(e.getMessage, e); throw e
