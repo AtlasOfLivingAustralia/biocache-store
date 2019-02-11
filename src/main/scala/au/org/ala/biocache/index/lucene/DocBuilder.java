@@ -259,14 +259,11 @@ public class DocBuilder {
         try {
             if (val instanceof IndexableField) {
                 ((Field) val).setBoost(1f);
-                doc.add(field, (Field) val);
+                List<IndexableField> list = new ArrayList<IndexableField>();
+                list.add((IndexableField) val);
+                doc.add(field, list);
             } else {
-
-                for (IndexableField f : field.getType().createFields(field, val, 1f)) {
-                    if (f != null) {
-                        doc.add(field, f);
-                    }
-                }
+                doc.add(field, field.getType().createFields(field, val, 1f));
             }
         } catch (Exception e) {
             logger.error("ERROR adding one field '" + currentId + "' '" + field.getName() + "' = '" + val.toString() + "' > " + e.getMessage());
