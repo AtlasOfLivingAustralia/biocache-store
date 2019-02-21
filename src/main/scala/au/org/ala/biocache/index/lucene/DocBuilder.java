@@ -137,7 +137,7 @@ public class DocBuilder {
      */
 
     public void addField(String field, Object value, Boolean index) {
-        if (value == null || value.toString().length() == 0)
+        if (field == null || field.isEmpty() || value == null || value.toString().isEmpty())
             return;
 
         //reuse fields
@@ -193,7 +193,7 @@ public class DocBuilder {
                 }
 
             } catch (Exception ex) {
-                logger.error("ERROR: Error adding field to id:'" + currentId + "' '" + field + "'='" + value + "' msg=" + ex.getMessage());
+                logger.error("failed to add a field to id:'" + currentId + "' '" + field + "'='" + value + "' msg=" + ex.getMessage());
             }
 
             if (!used && !reused) {
@@ -263,10 +263,15 @@ public class DocBuilder {
                 list.add((IndexableField) val);
                 doc.add(field, list);
             } else {
-                doc.add(field, field.getType().createFields(field, val, 1f));
+                List<IndexableField> list = field.getType().createFields(field, val, 1f);
+                if (!list.isEmpty() && list.get(0) == null) {
+                    logger.error("schema definition of field '" + field.getName() + "' is invalid and will be ignored.");
+                } else {
+                    doc.add(field, list);
+                }
             }
         } catch (Exception e) {
-            logger.error("ERROR adding one field '" + currentId + "' '" + field.getName() + "' = '" + val.toString() + "' > " + e.getMessage());
+            logger.error("adding one field '" + currentId + "' '" + field.getName() + "' = '" + val.toString() + "' > " + e.getMessage());
         }
     }
 

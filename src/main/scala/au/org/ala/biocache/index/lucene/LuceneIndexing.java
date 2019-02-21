@@ -194,6 +194,7 @@ public class LuceneIndexing {
                         CheckIndex ci = new CheckIndex(d);
                         ci.setFailFast(true);
                         ci.checkIndex();
+                        ci.close();
 
                         valid = true;
                         validDirectories.add(dir);

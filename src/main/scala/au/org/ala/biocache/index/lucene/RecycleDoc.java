@@ -46,8 +46,20 @@ public class RecycleDoc implements Iterable<IndexableField> {
         this.schema = schema;
     }
 
-    public void add(SchemaField schemaField, List<IndexableField> field) {
+    public void add(SchemaField schemaField, List<IndexableField> field) throws Exception {
         List<Integer> list = fieldOrder.computeIfAbsent(schemaField.getName(), k -> new ArrayList<Integer>());
+
+        // Prevent multiple values being added to a field with multiValued=false. The exception will be thrown when
+        // there is a fault in the schema or the indexing configuration. e.g. a column in Cassandra occ.occ has the
+        // same SOLR formatted name as another field populated during indexing.
+        if (list.size() > 0 && !schemaField.multiValued()) {
+            String[] ids = get("id");
+            if (ids != null && ids.length > 0) {
+                throw new Exception("Attempting to add > 1 values for schema field '" + schemaField.getName() + "' when it is not multivalued. doc id=" + ids[0]);
+            } else {
+                throw new Exception("Attempting to add > 1 values for schema field '" + schemaField.getName() + "' when it is not multivalued.");
+            }
+        }
         list.add(fields.size());
 
         schemaFields.add(schemaField);
@@ -127,13 +139,13 @@ public class RecycleDoc implements Iterable<IndexableField> {
                         if (f instanceof SortedSetDocValuesField) {
                             //multivalued=true docvalues=true
                             //TrieField creates LegacyFloatField (etc) first (fields.get(i).get(0))
-                            ((Field) f).setBytesValue(storedToIndexed(fields.get(i).get(0), (Number) value).get());
+                            ((Field) f).setBytesValue(storedToIndexed(fields.get(i).get(0)).get());
 
                             found = true;
                         } else if (f instanceof NumericDocValuesField) {
                             //multivalued=false docvalues=true
                             //TrieField creates LegacyFloatField (etc) first (fields.get(i).get(0))
-                            ((Field) f).setLongValue(formatNumericDocValuesFieldValue(fields.get(i).get(0), value));
+                            ((Field) f).setLongValue(formatNumericDocValuesFieldValue(fields.get(i).get(0)));
 
                             found = true;
                         } else {
@@ -288,23 +300,24 @@ public class RecycleDoc implements Iterable<IndexableField> {
     }
 
     // from org.apache.solr.schema.TrieField.createFields
-    private long formatNumericDocValuesFieldValue(IndexableField field, Object value) {
+    private long formatNumericDocValuesFieldValue(IndexableField field) {
         long bits;
         if (!(field.numericValue() instanceof Integer) && !(field.numericValue() instanceof Long)) {
             if (field.numericValue() instanceof Float) {
-                bits = (long) Float.floatToIntBits(((Number) value).floatValue());
+                bits = (long) Float.floatToIntBits(((Number) field.numericValue()).floatValue());
             } else {
-                bits = Double.doubleToLongBits(((Number) value).doubleValue());
+                bits = Double.doubleToLongBits(((Number) field.numericValue()).doubleValue());
             }
         } else {
-            bits = ((Number) value).longValue();
+            bits = ((Number) field.numericValue()).longValue();
         }
 
         return bits;
     }
 
     // from org.apache.solr.schema.TrieField.storedToIndexed
-    private BytesRefBuilder storedToIndexed(IndexableField f, Number val) {
+    private BytesRefBuilder storedToIndexed(IndexableField f) {
+        Number val = f.numericValue();
         BytesRefBuilder bytes = new BytesRefBuilder();
         if (val != null) {
             switch (INTEGER) {

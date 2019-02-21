@@ -209,6 +209,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
   }
 
   def addFieldToSolr(name: String, fieldType: String, multiValued: Boolean, docValues: Boolean, indexed: Boolean, stored: Boolean): Unit = {
+    init()
 
     val newField = Map("name" -> name, "type" -> fieldType, "multiValued" -> multiValued, "docValues" -> docValues, "indexed" -> indexed, "stored" -> stored)
 
@@ -996,7 +997,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
       try {
         doc.newDoc(guid)
-        doc.addField("id", guid)
+        doc.addField("id", guid) // is set to IGNORE in IndexDAO.headerAttributes
 
         writeOccIndexArrayToDoc(doc, guid, dataRow)
 
@@ -1027,7 +1028,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         //load the species lists that are configured for the matched guid.
         val speciesLists = TaxonSpeciesListDAO.getCachedListsForTaxon(getArrayValue(columnOrder.taxonConceptIDP, dataRow))
         speciesLists.foreach { v =>
-          doc.addField("species_list_uid", v)
+          doc.addField("species_list_uid", v) // is set to IGNORE in IndexDAO.headerAttributes
         }
 
         /**
@@ -1038,19 +1039,19 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           val bboxString = getArrayValue(columnOrder.bboxP, dataRow)
           if (bboxString != "") {
             val bbox = bboxString.split(",")
-            doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0)))
-            doc.addField("min_longitude", java.lang.Float.parseFloat(bbox(1)))
-            doc.addField("max_latitude", java.lang.Float.parseFloat(bbox(2)))
-            doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3)))
+            doc.addField("min_latitude", java.lang.Float.parseFloat(bbox(0))) // is set to IGNORE in IndexDAO.headerAttributes
+            doc.addField("min_longitude", java.lang.Float.parseFloat(bbox(1))) // is set to IGNORE in IndexDAO.headerAttributes
+            doc.addField("max_latitude", java.lang.Float.parseFloat(bbox(2))) // is set to IGNORE in IndexDAO.headerAttributes
+            doc.addField("max_longitude", java.lang.Float.parseFloat(bbox(3))) // is set to IGNORE in IndexDAO.headerAttributes
           }
 
           val easting = getArrayValue(columnOrder.eastingP, dataRow)
-          if (easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting).toInt)
+          if (easting != "") doc.addField("easting", java.lang.Float.parseFloat(easting).toInt) // is set to IGNORE in IndexDAO.headerAttributes
           val northing = getArrayValue(columnOrder.northingP, dataRow)
-          if (northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing).toInt)
+          if (northing != "") doc.addField("northing", java.lang.Float.parseFloat(northing).toInt) // is set to IGNORE in IndexDAO.headerAttributes
           val gridRef = getArrayValue(columnOrder.gridReference, dataRow)
           if (gridRef != "") {
-            doc.addField("grid_ref", gridRef)
+            doc.addField("grid_ref", gridRef) // is set to IGNORE in IndexDAO.headerAttributes
             val map = GridUtil.getGridRefAsResolutions(gridRef)
             map.keySet.foreach { key => doc.addField(key, map.getOrElse(key, "")) }
           }
@@ -1061,13 +1062,13 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
         val hasUserAssertions = getArrayValue(columnOrder.userQualityAssertionColumn, dataRow)
         if (StringUtils.isNotEmpty(hasUserAssertions)) {
           val assertionUserIds = extractUserIds(hasUserAssertions)
-          assertionUserIds.foreach(id => doc.addField("assertion_user_id", id))
+          assertionUserIds.foreach(id => doc.addField("assertion_user_id", id)) // is set to IGNORE in IndexDAO.headerAttributes
         }
 
         var suitableForModelling = addJsonMapToDoc(doc, getArrayValue(columnOrder.queryAssertionColumn, dataRow), null, typeNotSuitableForModelling)
 
         //this will not exist for all records until a complete reindex is performed...
-        doc.addField("suitable_modelling", suitableForModelling.toString)
+        doc.addField("suitable_modelling", suitableForModelling.toString) // is set to IGNORE in IndexDAO.headerAttributes
 
         //index the available el and cl's - more efficient to use the supplied map than using the old way
 
@@ -1088,21 +1089,21 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           // add the species groups
           val sgs = SpeciesGroups.getSpeciesGroups(lft, rgt)
           if (sgs.isDefined) {
-            sgs.get.foreach { v: String => doc.addField("species_group", v) }
+            sgs.get.foreach { v: String => doc.addField("species_group", v) } // is set to IGNORE in IndexDAO.headerAttributes
           }
 
           // add the species subgroups
           val ssgs = SpeciesGroups.getSpeciesSubGroups(lft, rgt)
           if (ssgs.isDefined) {
-            ssgs.get.foreach { v: String => doc.addField("species_subgroup", v) }
+            ssgs.get.foreach { v: String => doc.addField("species_subgroup", v) } // is set to IGNORE in IndexDAO.headerAttributes
           }
         }
 
         val datePrecision = getArrayValue(columnOrder.datePrecisionP, dataRow)
-        doc.addField("date_precision", datePrecision)
+        doc.addField("date_precision", datePrecision) // is set to IGNORE in IndexDAO.headerAttributes
 
         if (batchID != "") {
-          doc.addField("batch_id_s", batchID)
+          doc.addField("batch_id_s", batchID) // is set to IGNORE in IndexDAO.headerAttributes
         }
 
         if (!test) {
@@ -1174,7 +1175,12 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
               if (StringUtils.isEmpty(validKey)) {
                 //when building SOLR doc, add everything use the default type of String and do not index by default
                 // Add delimiter as prefix to avoid key conflicts with other SOLR fields
-                key = "_" + key
+                if (StringUtils.isNotEmpty(key)) {
+                  key = "_" + key
+                } else {
+                  // set empty key so it is ignored
+                  key = ""
+                }
                 index = Config.solrIndexMisc
                 validKey = "_s"
               }
@@ -1190,8 +1196,8 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
                 }
 
               if (typeNotSuitableForModelling != null) {
-                doc.addField("query_assertion_uuid", key)
-                doc.addField("query_assertion_type_s", value)
+                doc.addField("query_assertion_uuid", key) // is set to IGNORE in IndexDAO.headerAttributes
+                doc.addField("query_assertion_type_s", value) // is set to IGNORE in IndexDAO.headerAttributes
               } else {
                 if (validKey.endsWith("_dt")) {
                   try {
@@ -1251,17 +1257,17 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
           val assertionCode = AssertionCodes.getByCode(code.toInt)
           if (qaStatus == '1') {
-            doc.addField("assertions_passed", assertionCode.get.name)
+            doc.addField("assertions_passed", assertionCode.get.name) // is set to IGNORE in IndexDAO.headerAttributes
           } else if (qaStatus == '0') {
             sa = true
 
             def indexField = if (!assertionCode.isEmpty && assertionCode.get.category == ErrorCodeCategory.Missing) {
-              "assertions_missing"
+              "assertions_missing" // is set to IGNORE in IndexDAO.headerAttributes
             } else {
-              "assertions"
+              "assertions" // is set to IGNORE in IndexDAO.headerAttributes
             }
 
-            doc.addField(indexField, assertionCode.get.name)
+            doc.addField(indexField, assertionCode.get.name) // indexField (above) is set to IGNORE in IndexDAO.headerAttributes
           }
 
           all.remove(assertionCode)
@@ -1271,9 +1277,9 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
       i = end + 1
     }
 
-    all.foreach(ec => doc.addField("assertions_unchecked", ec.name))
+    all.foreach(ec => doc.addField("assertions_unchecked", ec.name)) // is set to IGNORE in IndexDAO.headerAttributes
 
-    doc.addField("system_assertions", sa)
+    doc.addField("system_assertions", sa) // is set to IGNORE in IndexDAO.headerAttributes
   }
 
 
@@ -1719,14 +1725,25 @@ class ColumnOrder {
       }
     }
 
-    (0 until headerAttributes.length).foreach { i =>
-      array_header_idx(i) = dataRow.getIndexOf(headerAttributes(i)._1)
-      array_header_parsed_idx(i) = dataRow.getIndexOf(headerAttributes(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
+    (0 until headerAttributes.length).foreach { i => {
+      if (headerAttributes(i)._4 == 4) { // IndexDAO.IGNORE == 4
+        // set isUsed to true for this SOLR field name so it does not conflict with manually set
+        // SOLR fields using SolrIndexDAO.addField()
+        (0 until columnNames.length).foreach { j =>
+          if (columnNames(j) == headerAttributes(i)._2) {
+            isUsed(j) = true
+          }
+        }
+      } else {
+        array_header_idx(i) = dataRow.getIndexOf(headerAttributes(i)._1)
+        array_header_parsed_idx(i) = dataRow.getIndexOf(headerAttributes(i)._1 + Config.persistenceManager.fieldDelimiter + "p")
 
-      if (array_header_idx(i) >= 0)
-        isUsed(array_header_idx(i)) = true
-      if (array_header_parsed_idx(i) >= 0)
-        isUsed(array_header_parsed_idx(i)) = true
+        if (array_header_idx(i) >= 0)
+          isUsed(array_header_idx(i)) = true
+        if (array_header_parsed_idx(i) >= 0)
+          isUsed(array_header_parsed_idx(i)) = true
+      }
+    }
     }
 
     //TODO: remove when headerAttributesFix is not longer required

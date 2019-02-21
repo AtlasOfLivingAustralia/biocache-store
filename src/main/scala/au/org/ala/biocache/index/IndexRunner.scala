@@ -80,7 +80,7 @@ class IndexRunner(centralCounter: Counter,
 
   val logger: Logger = LoggerFactory.getLogger("IndexRunner")
 
-  val startTimeFinal: Long = System.currentTimeMillis()
+  var startTimeFinal: AtomicLong = new AtomicLong() // do not set startTimeFinal until after the first processed record
 
   val directoryList = new java.util.ArrayList[File]
 
@@ -170,6 +170,7 @@ class IndexRunner(centralCounter: Counter,
 
               if (timeCounterL.get() == 0) {
                 timeCounterL.set(System.currentTimeMillis())
+                startTimeFinal.set(System.currentTimeMillis())
               }
 
               timing.addAndGet(System.nanoTime() - t1 - t2)
@@ -222,7 +223,7 @@ class IndexRunner(centralCounter: Counter,
         centralCounter.setCounter(currentCounter.toInt)
         finishTime.set(System.currentTimeMillis)
         if(currentCounter.toInt > 0) {
-          centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal)
+          centralCounter.printOutStatus(threadId, guid, "Indexer", startTimeFinal.longValue())
           logger.info("cassandraTime(s)=" + t2Total.get() / 1000000000 +
             ", processingTime[" + processingThreads + "](s)=" + timing.get() / 1000000000 +
             ", solrTime[" + luceneIndexing(0).getThreadCount + "](s)=" + luceneIndexing(0).getTiming / 1000000000 +
@@ -237,7 +238,7 @@ class IndexRunner(centralCounter: Counter,
         if(Config.jmxDebugEnabled){
           JMX.updateIndexStatus(
             centralCounter.counter.get(),
-            centralCounter.getAverageRecsPerSec(startTimeFinal), //records per sec
+            centralCounter.getAverageRecsPerSec(startTimeFinal.longValue()), //records per sec
             t2Total.get() / 1000000000, //cassandra time
             timing.get() / 1000000000, //processing time
             luceneIndexing(0).getTiming / 1000000000, //solr time

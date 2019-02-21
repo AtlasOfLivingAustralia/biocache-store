@@ -198,6 +198,7 @@ trait IndexDAO {
   val RAW_AND_PARSED = 0
   val RAW = 2
   val PARSED = 3
+  val IGNORE = 4
 
   /**
     * header attributes used by index-local-node-v2
@@ -327,7 +328,72 @@ trait IndexDAO {
     ("verbatimDepth", "depth", -1, PARSED),
     ("verbatimElevation", "elevation", -1, PARSED),
     ("vernacularName", "common_name", -1, PARSED),
-    ("year", "year", -1, PARSED)
+    ("year", "year", -1, PARSED),
+
+    // These fields are manually added when indexing using SolrIndexDAO.addField() or DocBuilder.addField().
+    // When these also exist in Cassandra, before or after CassandraFieldName -> SOLRFieldName takes place,
+    // indexing can fail. Ignoring these fields is required.
+
+    // fields added using SolrIndexDAO.addField
+    (null, "all_image_url", -1, IGNORE),
+    (null, "common_name_and_lsid", -1, IGNORE),
+    (null, "country_conservation", -1, IGNORE),
+    (null, "geospatial_kosher", -1, IGNORE),
+    (null, "image_url", -1, IGNORE),
+    (null, "lat_long", -1, IGNORE),
+    (null, "multimedia", -1, IGNORE),
+    (null, "names_and_lsid", -1, IGNORE),
+    (null, "occurrence_decade_i", -1, IGNORE),
+    (null, "occurrence_year", -1, IGNORE),
+    (null, "outlier_layer", -1, IGNORE),
+    (null, "outlier_layer_count", -1, IGNORE),
+    (null, "pest_flag", -1, IGNORE),
+    (null, "point-0.0001", -1, IGNORE),
+    (null, "point-0.001", -1, IGNORE),
+    (null, "point-0.01", -1, IGNORE),
+    (null, "point-0.02", -1, IGNORE),
+    (null, "point-0.1", -1, IGNORE),
+    (null, "point-1", -1, IGNORE),
+    (null, "raw_country_conservation", -1, IGNORE),
+    (null, "raw_occurrence_year", -1, IGNORE),
+    (null, "raw_state_conservation", -1, IGNORE),
+    (null, "sensitive", -1, IGNORE),
+    (null, "sensitive", -1, IGNORE),
+    (null, "sensitive_coordinate_uncertainty", -1, IGNORE),
+    (null, "sensitive_event_date", -1, IGNORE),
+    (null, "sensitive_event_date_end", -1, IGNORE),
+    (null, "sensitive_grid_reference", -1, IGNORE),
+    (null, "sensitive_latitude", -1, IGNORE),
+    (null, "sensitive_locality", -1, IGNORE),
+    (null, "sensitive_longitude", -1, IGNORE),
+    (null, "state_conservation", -1, IGNORE),
+    (null, "subspecies_guid", -1, IGNORE),
+    (null, "subspecies_name", -1, IGNORE),
+    (null, "user_assertions", -1, IGNORE),
+
+    // fields added using DocBuilder.addField
+    (null, "system_assertions", -1, IGNORE),
+    (null, "suitable_modelling", -1, IGNORE),
+    (null, "species_subgroup", -1, IGNORE),
+    (null, "species_list_uid", -1, IGNORE),
+    (null, "species_group", -1, IGNORE),
+    (null, "query_assertion_uuid", -1, IGNORE),
+    (null, "query_assertion_type_s", -1, IGNORE),
+    (null, "northing", -1, IGNORE),
+    (null, "min_longitude", -1, IGNORE),
+    (null, "min_latitude", -1, IGNORE),
+    (null, "max_longitude", -1, IGNORE),
+    (null, "max_latitude", -1, IGNORE),
+    (null, "id", -1, IGNORE),
+    (null, "grid_ref", -1, IGNORE),
+    (null, "easting", -1, IGNORE),
+    (null, "date_precision", -1, IGNORE),
+    (null, "batch_id_s", -1, IGNORE),
+    (null, "assertions_unchecked", -1, IGNORE),
+    (null, "assertions_passed", -1, IGNORE),
+    (null, "assertion_user_id", -1, IGNORE),
+    (null, "assertions_missing", -1, IGNORE),
+    (null, "assertions", -1, IGNORE)
   )
 
   /**
@@ -336,7 +402,7 @@ trait IndexDAO {
     * These fields are not indexed by index-local-node-v2 for sensitive records.
     */
   lazy val headerAttributesFix = List(
-    ("verbatimElevation", "raw_min_elevation", -1, RAW), // NEW
+    ("verbatimElevation", "raw_verbatim_elevation", -1, RAW), // NEW
     ("verbatimDepth", "raw_verbatim_depth", -1, RAW), // NEW   - this is causing an error
     ("taxonRank", "raw_rank", -1, RAW), // NEW
     ("stateProvince", "raw_state", -1, RAW), // NEW
@@ -842,545 +908,6 @@ trait IndexDAO {
     fw
   }
 
-  def writeOccIndexModelToDoc(doc: DocBuilder, guid: String, map: scala.collection.Map[String, String]) = {
-    try {
-      //get the lat lon values so that we can determine all the point values
-      val deleted = getValue(FullRecordMapper.deletedColumn, map)
-      //only add it to the index is it is not deleted & not a blank record
-      if (!deleted.equals("true") && map.size > 1) {
-
-        var slat = getParsedValue("decimalLatitude", map)
-        var slon = getParsedValue("decimalLongitude", map)
-        var latlon = ""
-        val sciName = getParsedValue("scientificName", map)
-        val taxonConceptId = getParsedValue("taxonConceptID", map)
-        val vernacularName = getParsedValue("vernacularName", map).trim
-        val kingdom = getParsedValue("kingdom", map)
-        val family = getParsedValue("family", map)
-
-        val simages = getValue("images", map)
-        if (StringUtils.isNotEmpty(simages)) {
-          jsonArrayLoop(simages, (item, idx) => {
-            if (idx == 0) {
-              doc.getDoc.get("image_url")
-              addField(doc, "all_image_url", item)
-            }
-            addField(doc, "all_image_url", item)
-          })
-        }
-
-        //determine the type of multimedia that is available.
-        val im = getValue("images", map)
-        val s = getValue("sounds", map)
-        val v = getValue("videos", map)
-        if (im.length() > 0) addField(doc, "multimedia", "Image")
-        if (s.length() > 0) addField(doc, "multimedia", "Sound")
-        if (v.length() > 0) addField(doc, "multimedia", "Video")
-
-        val sinteractions = getParsedValue("interactions", map)
-        if (StringUtils.isNotEmpty(sinteractions))
-          jsonArrayLoop(sinteractions, (item, idx) => {
-            addField(doc, "interaction", item)
-          })
-
-        val sdatahubs = getValue("dataHubUid", map, checkParsed = true)
-        if (StringUtils.isNotEmpty(sdatahubs))
-          jsonArrayLoop(sdatahubs, (item, idx) => {
-            addField(doc, "data_hub_uid", item)
-          })
-
-        val habitats = getParsedValue("speciesHabitats", map)
-        if (StringUtils.isNotEmpty(sdatahubs))
-          jsonArrayLoop(habitats, (item, idx) => {
-            addField(doc, "species_habitats", item)
-          })
-
-        var eventDate = getParsedValue("eventDate", map)
-        var eventDateEnd = getParsedValue("eventDateEnd", map)
-        var occurrenceYear = getParsedValue("year", map)
-        var occurrenceDecade = ""
-        if (occurrenceYear.length == 4) {
-          occurrenceYear += "-01-01T00:00:00Z"
-          occurrenceDecade = occurrenceYear.substring(0, 3) + "0"
-        } else
-          occurrenceYear = ""
-        //only want to include eventDates that are in the correct format
-        try {
-          DateUtils.parseDate(eventDate, Array("yyyy-MM-dd"))
-        } catch {
-          case e: Exception => eventDate = ""
-        }
-        //only want to include eventDateEnds that are in the correct format
-        try {
-          DateUtils.parseDate(eventDateEnd, Array("yyyy-MM-dd"))
-        } catch {
-          case e: Exception => eventDateEnd = ""
-        }
-        var lat = java.lang.Double.NaN
-        var lon = java.lang.Double.NaN
-
-        if (slat != "" && slon != "") {
-          try {
-            lat = java.lang.Double.parseDouble(slat)
-            lon = java.lang.Double.parseDouble(slon)
-            val test = -90D
-            val test2 = -180D
-            //ensure that the lat longs are in the required range before
-            if (lat <= 90 && lat >= test && lon <= 180 && lon >= test2) {
-              latlon = slat + "," + slon
-            }
-          } catch {
-            //If the latitude or longitude can't be parsed into a double we don't want to index the values
-            case e: Exception => slat = ""; slon = ""
-          }
-        }
-        //get sensitive values map
-        val sensitiveMap = {
-          if (shouldIncludeSensitiveValue(getValue("dataResourceUid", map))) {
-            val osv = getValue("originalSensitiveValues", map, "{}")
-            if (StringUtils.isNotEmpty(osv)) {
-              try {
-                val parsed = JSON.parseFull(osv)
-                parsed.get.asInstanceOf[Map[String, String]]
-              } catch {
-                case _: Exception => Map[String, String]()
-              }
-            } else {
-              Map[String, String]()
-            }
-          } else {
-            Map[String, String]()
-          }
-        }
-        val sconservation = getParsedValue("stateConservation", map)
-        var stateCons = if (sconservation != "") sconservation.split(",")(0) else ""
-        val rawStateCons = if (sconservation != "") {
-          val sconversations = sconservation.split(",")
-          if (sconversations.length > 1)
-            sconversations(1)
-          else
-            ""
-        } else ""
-
-        if (stateCons == "null") stateCons = rawStateCons
-
-        val cconservation = getParsedValue("countryConservation", map)
-        var countryCons = if (cconservation != "") cconservation.split(",")(0) else ""
-        val rawCountryCons = if (cconservation != "") {
-          val cconservations = cconservation.split(",")
-          if (cconservations.length > 1)
-            cconservations(1)
-          else
-            ""
-        } else ""
-
-        if (countryCons == "null") countryCons = rawCountryCons
-
-        val sensitive: String = {
-          val dataGen = getParsedValue("dataGeneralizations", map)
-          if (dataGen.contains("already generalised"))
-            "alreadyGeneralised"
-          else if (dataGen != "")
-            "generalised"
-          else
-            ""
-        }
-
-        val outlierForLayerStr = getParsedValue("outlierForLayers", map)
-        if (StringUtils.isNotEmpty(outlierForLayerStr)) {
-          var max_idx: Integer = 0
-          jsonArrayLoop(outlierForLayerStr, (item, idx) => {
-            max_idx = idx
-            addField(doc, "outlier_layer", item)
-          })
-          addField(doc, "outlier_layer_count", max_idx)
-        }
-
-        val sDupType = getParsedValue("duplicationType", map, "[]")
-        if (StringUtils.isNotEmpty(sDupType))
-          jsonArrayLoop(outlierForLayerStr, (item, idx) => {
-            addField(doc, "duplicate_type", item)
-          })
-
-        //Only set the geospatially kosher field if there are coordinates supplied
-        val geoKosher = if (slat == "" && slon == "") "" else getValue(FullRecordMapper.geospatialDecisionColumn, map, "")
-
-        //val hasUserAss = map.getOrElse(FullRecordMapper.userQualityAssertionColumn, "")
-        val userAssertionStatus: Int = getValue(FullRecordMapper.userAssertionStatusColumn, map, AssertionStatus.QA_NONE.toString).toInt
-        val hasUserAss: String = userAssertionStatus match {
-          case AssertionStatus.QA_NONE => ""
-          case _ => userAssertionStatus.toString
-        }
-
-        val (subspeciesGuid, subspeciesName): (String, String) = {
-          if (hasParsedValue("taxonRankID", map)) {
-            try {
-              if (java.lang.Integer.parseInt(getParsedValue("taxonRankID", map, "")) > 7000)
-                (taxonConceptId, sciName)
-              else
-                ("", "")
-            } catch {
-              case _: Exception => ("", "")
-            }
-          } else {
-            ("", "")
-          }
-        }
-
-        val lastLoaded = DateParser.parseStringToDate(getValue(FullRecordMapper.alaModifiedColumn, map))
-
-        val lastProcessed = DateParser.parseStringToDate(getParsedValue(FullRecordMapper.alaModifiedColumn, map))
-
-        val lastUserAssertion = DateParser.parseStringToDate(getValue(FullRecordMapper.lastUserAssertionDateColumn, map, ""))
-
-        val firstLoadDate = DateParser.parseStringToDate(getValue("firstLoaded", map))
-
-        val loanDate = DateParser.parseStringToDate(getValue("loanDate", map, ""))
-
-        val loanReturnDate = DateParser.parseStringToDate(getValue("loanReturnDate", map, ""))
-
-        val dateIdentified = DateParser.parseStringToDate(getParsedValue("dateIdentified", map))
-
-        val modifiedDate = DateParser.parseStringToDate(getParsedValue("modified", map))
-
-        var taxonIssue = getParsedValue("taxonomicIssue", map, "[]")
-        if (!taxonIssue.startsWith("[")) {
-          logger.warn("WARNING " + map.getOrElse("rowkey", "") + " does not have an updated taxonIssue: " + guid)
-          taxonIssue = "[]"
-        } else if (StringUtils.isNotEmpty(taxonIssue) && taxonIssue.length() > 2) {
-          jsonArrayLoop(sdatahubs, (item, idx) => {
-            addField(doc, "taxonomic_issue", item)
-          })
-        }
-
-        val infoWith = getParsedValue("informationWithheld", map)
-        val pest_tmp = if (infoWith.contains("\t")) infoWith.substring(0, infoWith.indexOf("\t")) else ""
-
-        var distanceOutsideExpertRange = getParsedValue("distanceOutsideExpertRange", map)
-        //only want valid numbers
-        try {
-          distanceOutsideExpertRange.toDouble
-        } catch {
-          case e: Exception => distanceOutsideExpertRange = ""
-        }
-
-        var i: Integer = 0
-        addField(doc, header(i), getValue("uuid", map))
-        i = i + 1
-        addField(doc, header(i), getValue("rowkey", map))
-        i = i + 1
-        addField(doc, header(i), getValue("occurrenceID", map))
-        i = i + 1
-        //        if (dataHubUids != null)
-        //          for (j <- dataHubUids)
-        //            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
-        i = i + 1
-        addField(doc, header(i), getParsedValue("dataHub", map))
-        i = i + 1
-        addField(doc, header(i), getValue("dataProviderUid", map, checkParsed = true))
-        i = i + 1
-        addField(doc, header(i), getValue("dataProviderName", map, checkParsed = true))
-        i = i + 1
-        addField(doc, header(i), getValue("dataResourceUid", map, checkParsed = true))
-        i = i + 1
-        addField(doc, header(i), getValue("dataResourceName", map, checkParsed = true))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("institutionUid", map))
-        i = i + 1
-        addField(doc, header(i), getValue("institutionCode", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("institutionName", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("collectionUid", map))
-        i = i + 1
-        addField(doc, header(i), getValue("collectionCode", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("collectionName", map))
-        i = i + 1
-        addField(doc, header(i), getValue("catalogNumber", map))
-        i = i + 1
-        addField(doc, header(i), taxonConceptId)
-        i = i + 1
-        addField(doc, header(i), if (eventDate != "") eventDate + "T00:00:00Z" else "")
-        i = i + 1
-        addField(doc, header(i), if (eventDateEnd != "") eventDateEnd + "T00:00:00Z" else "")
-        i = i + 1
-        addField(doc, header(i), occurrenceYear)
-        i = i + 1
-        addField(doc, header(i), occurrenceDecade)
-        i = i + 1
-        addField(doc, header(i), sciName)
-        i = i + 1
-        addField(doc, header(i), vernacularName)
-        i = i + 1
-        addField(doc, header(i), sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family)
-        i = i + 1
-        addField(doc, header(i), vernacularName + "|" + sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family)
-        i = i + 1
-        addField(doc, header(i), getParsedValue("taxonRank", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("taxonRankID", map))
-        i = i + 1
-        addField(doc, header(i), getRawScientificName(map))
-        i = i + 1
-        addField(doc, header(i), getValue("vernacularName", map))
-        i = i + 1
-        //if (!images.isEmpty && images(0) != "") "Multimedia" else "None"
-        //        if (multimedia != null)
-        //          for (j <- multimedia)
-        //            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
-        i = i + 1
-        //        addField(doc,header(i), if (!images.isEmpty) images(0) else "")
-        i = i + 1
-        //        if (images != null)
-        //          for (j <- images)
-        //            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
-        i = i + 1
-        //        if (speciesGroup != null && speciesGroup.length > 0)
-        //          for (j <- speciesGroup)
-        //            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
-        i = i + 1
-        addField(doc, header(i), getValue("countryCode", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("country", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("left", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("right", map))
-        i = i + 1
-        addField(doc, header(i), kingdom)
-        i = i + 1
-        addField(doc, header(i), getParsedValue("phylum", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("classs", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("order", map))
-        i = i + 1
-        addField(doc, header(i), family)
-        i = i + 1
-        addField(doc, header(i), getParsedValue("genus", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("genusID", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("species", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("speciesID", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("stateProvince", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("lga", map))
-        i = i + 1
-        addField(doc, header(i), slat)
-        i = i + 1
-        addField(doc, header(i), slon)
-        i = i + 1
-        addField(doc, header(i), latlon)
-        i = i + 1
-        addField(doc, header(i), getLatLongString(lat, lon, "#"))
-        i = i + 1
-        addField(doc, header(i), getLatLongString(lat, lon, "#.#"))
-        i = i + 1
-        addField(doc, header(i), getLatLongString(lat, lon, "#.##"))
-        i = i + 1
-        addField(doc, header(i), getLatLongStringStep(lat, lon, "#.##", 0.02))
-        i = i + 1
-        addField(doc, header(i), getLatLongString(lat, lon, "#.###"))
-        i = i + 1
-        addField(doc, header(i), getLatLongString(lat, lon, "#.####"))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("year", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("month", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("basisOfRecord", map))
-        i = i + 1
-        addField(doc, header(i), getValue("basisOfRecord", map))
-        i = i + 1
-        addField(doc, header(i), getValue("typeStatus", map))
-        i = i + 1
-        addField(doc, header(i), getValue("typeStatus", map))
-        i = i + 1
-        addField(doc, header(i), getValue(FullRecordMapper.taxonomicDecisionColumn, map))
-        i = i + 1
-        addField(doc, header(i), geoKosher)
-        i = i + 1
-        //NC 2013-05-23: Assertions are now values, failed, passed and untested these will be handled separately
-        addField(doc, header(i), getValue("locationRemarks", map))
-        i = i + 1
-        addField(doc, header(i), getValue("occurrenceRemarks", map))
-        i = i + 1
-        addField(doc, header(i), hasUserAss)
-        i = i + 1
-        //  userAssertionStatu
-        addField(doc, header(i), getValue("recordedBy", map))
-        i = i + 1
-        addField(doc, header(i), stateCons)
-        i = i + 1 //stat
-        addField(doc, header(i), rawStateCons)
-        i = i + 1
-        addField(doc, header(i), countryCons)
-        i = i + 1
-        addField(doc, header(i), rawCountryCons)
-        i = i + 1
-        addField(doc, header(i), sensitive)
-        i = i + 1
-        addField(doc, header(i), getParsedIntValue("coordinateUncertaintyInMeters", map))
-        i = i + 1
-        addField(doc, header(i), getValue("userId", map, ""))
-        i = i + 1
-        addField(doc, header(i), getValue("userId", map, ""))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("provenance", map))
-        i = i + 1
-        addField(doc, header(i), subspeciesGuid)
-        i = i + 1
-        addField(doc, header(i), subspeciesName)
-        i = i + 1
-        //interactions (added above)
-        i = i + 1
-        addField(doc, header(i), if (lastUserAssertion.isEmpty) "" else DateFormatUtils.format(lastUserAssertion.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-        i = i + 1
-        addField(doc, header(i), if (lastLoaded.isEmpty) "2010-11-1T00:00:00Z" else DateFormatUtils.format(lastLoaded.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-        i = i + 1
-        addField(doc, header(i), if (lastProcessed.isEmpty) "" else DateFormatUtils.format(lastProcessed.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-        i = i + 1
-        addField(doc, header(i), if (modifiedDate.isEmpty) "" else DateFormatUtils.format(modifiedDate.get, "yyy-MM-dd'T'HH:mm:ss'Z'"))
-        i = i + 1
-        for (v1 <- getParsedValue("establishmentMeans", map).split("; "))
-          if (StringUtils.isNotEmpty(v1)) addField(doc, header(i), v1)
-        i = i + 1
-        addField(doc, header(i), map.getOrElse("loanSequenceNumber", ""))
-        i = i + 1
-        addField(doc, header(i), map.getOrElse("loanIdentifier", ""))
-        i = i + 1
-        addField(doc, header(i), map.getOrElse("loanDestination", ""))
-        i = i + 1
-        addField(doc, header(i), map.getOrElse("loanForBotanist", ""))
-        i = i + 1
-        addField(doc, header(i), if (loanDate.isEmpty) "" else DateFormatUtils.format(loanDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-        i = i + 1
-        addField(doc, header(i), if (loanReturnDate.isEmpty) "" else DateFormatUtils.format(loanReturnDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-        i = i + 1
-        addField(doc, header(i), getValue("originalNameUsage", map, getValue("typifiedName", map)))
-        i = i + 1
-        for (v2 <- map.getOrElse("duplicates", "").split('|'))
-          if (StringUtils.isNotEmpty(v2)) addField(doc, header(i), v2)
-        i = i + 1
-        addField(doc, header(i), getValue("recordNumber", map))
-        i = i + 1
-        addField(doc, header(i), if (firstLoadDate.isEmpty) "" else DateFormatUtils.format(firstLoadDate.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("nameMatchMetric", map))
-        i = i + 1
-        addField(doc, header(i), map.getOrElse("phenology", ""))
-        i = i + 1 //TODO make this a controlled vocab that gets mapped during processing...
-        //        if (outlierForLayers != null)
-        //          for (j <- outlierForLayers)
-        //            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
-        i = i + 1
-        //        addField(doc,header(i), outlierForLayers.length.toString)
-        i = i + 1
-        //        if (taxonIssueArray != null)
-        //          for (j <- taxonIssueArray)
-        //            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
-        i = i + 1
-        addField(doc, header(i), getValue("identificationQualifier", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("identificationQualifier", map))
-        i = i + 1
-        //        if (habitats != null)
-        //          for (j <- habitats)
-        //            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
-        i = i + 1
-        addField(doc, header(i), getValue("identifiedBy", map))
-        i = i + 1
-        addField(doc, header(i), if (dateIdentified.isEmpty) "" else DateFormatUtils.format(dateIdentified.get, "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-        i = i + 1
-        addField(doc, header(i), sensitiveMap.getOrElse("decimalLongitude", ""))
-        i = i + 1
-        addField(doc, header(i), sensitiveMap.getOrElse("decimalLatitude", ""))
-        i = i + 1
-        addField(doc, header(i), pest_tmp)
-        i = i + 1
-        for (v1 <- getParsedValue("recordedBy", map).split('|'))
-          if (StringUtils.isNotEmpty(v1)) addField(doc, header(i), v1)
-        i = i + 1
-        addField(doc, header(i), getParsedValue("duplicationStatus", map))
-        i = i + 1
-        for (v1 <- getParsedValue("associatedOccurrences", map).split('|'))
-          if (StringUtils.isNotEmpty(v1)) addField(doc, header(i), v1)
-        i = i + 1
-        //        if (dupTypes != null)
-        //          for (j <- dupTypes)
-        //            if (StringUtils.isNotEmpty(j)) addField(doc,header(i), j)
-        i = i + 1
-        addField(doc, header(i), getParsedValue("coordinateUncertaintyInMeters", sensitiveMap))
-        i = i + 1
-        addField(doc, header(i), distanceOutsideExpertRange)
-        i = i + 1
-        addField(doc, header(i), getParsedValue("verbatimElevation", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("minimumElevationInMeters", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("maximumElevationInMeters", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("verbatimDepth", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("minimumDepthInMeters", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("maximumDepthInMeters", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("nameParseType", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("occurrenceStatus", map))
-        i = i + 1
-        addField(doc, header(i), getValue("occurrenceDetails", map))
-        i = i + 1
-        addField(doc, header(i), getValue("photographer", map))
-        i = i + 1
-        addField(doc, header(i), getValue("rights", map))
-        i = i + 1
-        addField(doc, header(i), getValue("georeferenceVerificationStatus", map))
-        i = i + 1
-        addField(doc, header(i), getValue("occurrenceStatus", map))
-        i = i + 1
-        addField(doc, header(i), getValue("locality", map))
-        i = i + 1
-        addField(doc, header(i), getValue("decimalLatitude", map))
-        i = i + 1
-        addField(doc, header(i), getValue("decimalLongitude", map))
-        i = i + 1
-        addField(doc, header(i), getValue("geodeticDatum", map))
-        i = i + 1
-        addField(doc, header(i), getValue("sex", map))
-        i = i + 1
-        addField(doc, header(i), getValue("locality", sensitiveMap))
-        i = i + 1
-        addField(doc, header(i), getValue("eventID", map))
-        i = i + 1
-        addField(doc, header(i), getValue("locationID", map))
-        i = i + 1
-        addField(doc, header(i), getValue("datasetName", map))
-        i = i + 1
-        addField(doc, header(i), getValue("reproductiveCondition", map))
-        i = i + 1
-        addField(doc, header(i), getParsedValue("license", map))
-        i = i + 1
-        addField(doc, header(i), getValue("individualCount", map))
-        i = i + 1
-        addField(doc, header(i), getValue("datePrecision", map))
-        i = i + 1
-
-        Config.additionalFieldsToIndex.foreach { field =>
-          addField(doc, header(i), getValue(field, map))
-          i = i + 1
-        }
-      }
-    } catch {
-      case e: Exception => logger.error(e.getMessage, e); throw e
-    }
-  }
-
   def writeOccIndexArrayToDoc(doc: DocBuilder, guid: String, array: DataRow) = {
     try {
       //get the lat lon values so that we can determine all the point values
@@ -1415,17 +942,17 @@ trait IndexDAO {
     headerAttributes.indices.foreach { i =>
       val h = headerAttributes(i)
       var value: String = {
-        if (h._4 == 3) { // Parsed
+        if (h._4 == PARSED) { // Parsed only
           getArrayValue(array_header_parsed_idx(i), array)
-        } else if (h._4 >= 0) { //Both
+        } else if (h._4 == RAW || h._4 == RAW_AND_PARSED) { // Raw and Parsed allowed
           val v = getArrayValue(array_header_idx(i), array)
-          if (StringUtils.isEmpty(v) && h._4 == 0) {
+          if (StringUtils.isEmpty(v) && h._4 == RAW_AND_PARSED) {
             getArrayValue(array_header_parsed_idx(i), array)
           } else {
             v
           }
-        } else {
-          ""
+        } else { // h._4 == IGNORE
+          "" // empty strings are not written to fields
         }
       }
 
@@ -1453,17 +980,17 @@ trait IndexDAO {
       for (i <- headerAttributesFix.indices) {
         val h = headerAttributesFix(i)
         var value: String = {
-          if (h._4 == 3) { // Parsed
+          if (h._4 == PARSED) { // Parsed only
             getArrayValue(array_header_parsed_idx_fix(i), array)
-          } else if (h._4 >= 0) { //Both
+          } else if (h._4 == RAW || h._4 == RAW_AND_PARSED) { // Raw and Parsed allowed
             val v = getArrayValue(array_header_idx_fix(i), array)
-            if (StringUtils.isEmpty(v) && h._4 == 0) {
+            if (StringUtils.isEmpty(v) && h._4 == RAW_AND_PARSED) {
               getArrayValue(array_header_parsed_idx_fix(i), array)
             } else {
               v
             }
-          } else {
-            ""
+          } else { // h._4 == IGNORE
+            "" // empty strings are not written to fields
           }
         }
 
@@ -1503,15 +1030,15 @@ trait IndexDAO {
           latlon = slat + "," + slon
         }
 
-        addField(doc, "lat_long", latlon)
-        addField(doc, "point-1", getLatLongString(lat, lon, "#"))
-        addField(doc, "point-0.1", getLatLongString(lat, lon, "#.#"))
-        addField(doc, "point-0.01", getLatLongString(lat, lon, "#.##"))
-        addField(doc, "point-0.02", getLatLongStringStep(lat, lon, "#.##", 0.02))
-        addField(doc, "point-0.001", getLatLongString(lat, lon, "#.###"))
-        addField(doc, "point-0.0001", getLatLongString(lat, lon, "#.####"))
+        addField(doc, "lat_long", latlon) // is set to IGNORE in headerAttributes
+        addField(doc, "point-1", getLatLongString(lat, lon, "#")) // is set to IGNORE in headerAttributes
+        addField(doc, "point-0.1", getLatLongString(lat, lon, "#.#")) // is set to IGNORE in headerAttributes
+        addField(doc, "point-0.01", getLatLongString(lat, lon, "#.##")) // is set to IGNORE in headerAttributes
+        addField(doc, "point-0.02", getLatLongStringStep(lat, lon, "#.##", 0.02)) // is set to IGNORE in headerAttributes
+        addField(doc, "point-0.001", getLatLongString(lat, lon, "#.###")) // is set to IGNORE in headerAttributes
+        addField(doc, "point-0.0001", getLatLongString(lat, lon, "#.####")) // is set to IGNORE in headerAttributes
 
-        addField(doc, "geospatial_kosher", getArrayValue(columnOrder.geospatialDecisionColumn, array))
+        addField(doc, "geospatial_kosher", getArrayValue(columnOrder.geospatialDecisionColumn, array)) // set to IGNORE in headerAttributes
       } catch {
         //If the latitude or longitude can't be parsed into a double we don't want to index the values
         case e: Exception => slat = ""; slon = ""
@@ -1523,17 +1050,17 @@ trait IndexDAO {
     if (StringUtils.isNotEmpty(simages)) {
       jsonArrayLoop(simages, (item, idx) => {
         if (idx == 0)
-          addField(doc, "image_url", item)
-        addField(doc, "all_image_url", item)
+          addField(doc, "image_url", item) // is set to IGNORE in headerAttributes
+        addField(doc, "all_image_url", item) // is set to IGNORE in headerAttributes
       })
     }
 
     //multimedia
     val s = getArrayValue(columnOrder.sounds, array)
     val v = getArrayValue(columnOrder.videos, array)
-    if (simages.length() > 3) addField(doc, "multimedia", "Image")
-    if (s.length() > 3) addField(doc, "multimedia", "Sound")
-    if (v.length() > 3) addField(doc, "multimedia", "Video")
+    if (simages.length() > 3) addField(doc, "multimedia", "Image") // is set to IGNORE in headerAttributes
+    if (s.length() > 3) addField(doc, "multimedia", "Sound") // is set to IGNORE in headerAttributes
+    if (v.length() > 3) addField(doc, "multimedia", "Video") // is set to IGNORE in headerAttributes
 
     //outlier
     val outlierForLayerStr = getArrayValue(columnOrder.outlierForLayersP, array)
@@ -1541,23 +1068,23 @@ trait IndexDAO {
       var max_idx: Integer = 0
       jsonArrayLoop(outlierForLayerStr, (item, idx) => {
         max_idx = idx
-        addField(doc, "outlier_layer", item)
+        addField(doc, "outlier_layer", item) // is set to IGNORE in headerAttributes
       })
-      addField(doc, "outlier_layer_count", max_idx)
+      addField(doc, "outlier_layer_count", max_idx) // is set to IGNORE in headerAttributes
     }
 
     //decade
     var occurrenceYear = getArrayValue(columnOrder.yearP, array)
     if (occurrenceYear.length == 4) {
       occurrenceYear += "-01-01T00:00:00Z"
-      addField(doc, "occurrence_year", occurrenceYear)
-      addField(doc, "occurrence_decade_i", occurrenceYear.substring(0, 3) + "0")
+      addField(doc, "occurrence_year", occurrenceYear) // is set to IGNORE in headerAttributes
+      addField(doc, "occurrence_decade_i", occurrenceYear.substring(0, 3) + "0") // is set to IGNORE in headerAttributes
     }
 
     var rawOccurrenceYear = getArrayValue(columnOrder.year, array)
     if (rawOccurrenceYear.length == 4) {
       rawOccurrenceYear += "-01-01T00:00:00Z"
-      addField(doc, "raw_occurrence_year", rawOccurrenceYear)
+      addField(doc, "raw_occurrence_year", rawOccurrenceYear) // is set to IGNORE in headerAttributes
     }
 
     //names_and_lsid, common_name_and_lsid
@@ -1566,8 +1093,8 @@ trait IndexDAO {
     val vernacularName = getArrayValue(columnOrder.vernacularNameP, array).trim
     val kingdom = getArrayValue(columnOrder.kingdomP, array)
     val family = getArrayValue(columnOrder.familyP, array)
-    addField(doc, "names_and_lsid", sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family)
-    addField(doc, "common_name_and_lsid", vernacularName + "|" + sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family)
+    addField(doc, "names_and_lsid", sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family) // is set to IGNORE in headerAttributes
+    addField(doc, "common_name_and_lsid", vernacularName + "|" + sciName + "|" + taxonConceptId + "|" + vernacularName + "|" + kingdom + "|" + family) // is set to IGNORE in headerAttributes
 
     //conservation
     val sconservation = getArrayValue(columnOrder.stateConservationP, array)
@@ -1576,11 +1103,11 @@ trait IndexDAO {
       val split = sconservation.split(",")
 
       if(StringUtils.isNotBlank(split(0))) {
-        addField(doc, "state_conservation", split(0))
+        addField(doc, "state_conservation", split(0)) // is set to IGNORE in headerAttributes
       }
 
       if (split.length > 1 && StringUtils.isNotBlank(split(1))) {
-        addField(doc, "raw_state_conservation", split(1))
+        addField(doc, "raw_state_conservation", split(1)) // is set to IGNORE in headerAttributes
       }
     }
 
@@ -1590,11 +1117,11 @@ trait IndexDAO {
       val split = cconservation.split(",")
 
       if(StringUtils.isNotBlank(split(0))) {
-        addField(doc, "country_conservation", split(0))
+        addField(doc, "country_conservation", split(0)) // is set to IGNORE in headerAttributes
       }
 
       if (split.length > 1 && StringUtils.isNotBlank(split(1))) {
-        addField(doc, "raw_country_conservation", split(1))
+        addField(doc, "raw_country_conservation", split(1)) // is set to IGNORE in headerAttributes
       }
     }
 
@@ -1602,7 +1129,7 @@ trait IndexDAO {
     val userAssertionStatus = getArrayValue(columnOrder.userAssertionStatusColumn, array)
     if (StringUtils.isNotEmpty(userAssertionStatus) && !userAssertionStatus.equals(AssertionStatus.QA_NONE.toString)) {
       try {
-        addField(doc, "user_assertions", userAssertionStatus.toInt.toString)
+        addField(doc, "user_assertions", userAssertionStatus.toInt.toString) // is set to IGNORE in headerAttributes
       } catch {
         case _: Exception => {}
       }
@@ -1613,8 +1140,8 @@ trait IndexDAO {
     if (StringUtils.isNotEmpty(taxonRankIDP)) {
       try {
         if (taxonRankIDP.toInt > 7000) {
-          addField(doc, "subspecies_guid", taxonConceptId)
-          addField(doc, "subspecies_name", sciName)
+          addField(doc, "subspecies_guid", taxonConceptId) // is set to IGNORE in headerAttributes
+          addField(doc, "subspecies_name", sciName) // is set to IGNORE in headerAttributes
         }
       } catch {
         case _: Exception => {}
@@ -1625,16 +1152,16 @@ trait IndexDAO {
     val informationWithheldP = getArrayValue(columnOrder.informationWithheldP, array)
     if (StringUtils.isNotEmpty(informationWithheldP)) {
       if (informationWithheldP.contains("\t"))
-        addField(doc, "pest_flag", informationWithheldP.substring(0, informationWithheldP.indexOf("\t")))
+        addField(doc, "pest_flag", informationWithheldP.substring(0, informationWithheldP.indexOf("\t"))) // is set to IGNORE in headerAttributes
 
     }
 
     //sensitive fields
     if (StringUtils.isNotEmpty(dataGen)) {
       if (dataGen.contains("already generalised")) {
-        addField(doc, "sensitive", "alreadyGeneralised")
+        addField(doc, "sensitive", "alreadyGeneralised") // is set to IGNORE in headerAttributes
       } else if (dataGen != "") {
-        addField(doc, "sensitive", "generalised")
+        addField(doc, "sensitive", "generalised") // is set to IGNORE in headerAttributes
       }
     }
 
@@ -1645,13 +1172,13 @@ trait IndexDAO {
       if (StringUtils.isNotEmpty(osv)) {
         try {
           val parsed = JSON.parseFull(osv).get.asInstanceOf[Map[String, String]]
-          addField(doc, "sensitive_latitude", String.valueOf(parsed.getOrElse("decimalLatitude", "")))
-          addField(doc, "sensitive_longitude", String.valueOf(parsed.getOrElse("decimalLongitude", "")))
-          addField(doc, "sensitive_coordinate_uncertainty", String.valueOf(parsed.getOrElse("coordinateUncertaintyInMeters" + Config.persistenceManager.fieldDelimiter + "p", "")))
-          addField(doc, "sensitive_locality", String.valueOf(parsed.getOrElse("locality", "")))
-          addField(doc, "sensitive_event_date", String.valueOf(parsed.getOrElse("eventDate", "")))
-          addField(doc, "sensitive_event_date_end", String.valueOf(parsed.getOrElse("eventDateEnd", "")))
-          addField(doc, "sensitive_grid_reference", String.valueOf(parsed.getOrElse("gridReference", "")))
+          addField(doc, "sensitive_latitude", String.valueOf(parsed.getOrElse("decimalLatitude", ""))) // is set to IGNORE in headerAttributes
+          addField(doc, "sensitive_longitude", String.valueOf(parsed.getOrElse("decimalLongitude", ""))) // is set to IGNORE in headerAttributes
+          addField(doc, "sensitive_coordinate_uncertainty", String.valueOf(parsed.getOrElse("coordinateUncertaintyInMeters" + Config.persistenceManager.fieldDelimiter + "p", ""))) // is set to IGNORE in headerAttributes
+          addField(doc, "sensitive_locality", String.valueOf(parsed.getOrElse("locality", ""))) // is set to IGNORE in headerAttributes
+          addField(doc, "sensitive_event_date", String.valueOf(parsed.getOrElse("eventDate", ""))) // is set to IGNORE in headerAttributes
+          addField(doc, "sensitive_event_date_end", String.valueOf(parsed.getOrElse("eventDateEnd", ""))) // is set to IGNORE in headerAttributes
+          addField(doc, "sensitive_grid_reference", String.valueOf(parsed.getOrElse("gridReference", ""))) // is set to IGNORE in headerAttributes
         } catch {
           case _: Exception => Map[String, String]()
         }
@@ -1669,10 +1196,8 @@ trait IndexDAO {
   }
 
   def addField(doc: DocBuilder, field: String, value: Object) {
-    if (value != null && value != "null") {
-      if (value.toString.length > 0) {
+    if (value != "null") {
         doc.addField(field, value)
-      }
     }
   }
 

@@ -2,7 +2,7 @@ package au.org.ala.biocache.index
 
 import java.io.File
 
-import au.org.ala.biocache._
+import au.org.ala.biocache.Config
 import au.org.ala.biocache.index.lucene.{DocBuilder, LuceneIndexing}
 import au.org.ala.biocache.util.Json
 import org.apache.commons.io.FileUtils
@@ -117,7 +117,16 @@ class IndexLocalNode {
 
     val mem = Math.max((Runtime.getRuntime.freeMemory() * 0.75) / 1024 / 1024, writerCount * ramPerWriter).toInt
 
-    writeAdditionalSchemaEntries(schemaFile, sourceConfDir)
+    def additionalFieldsFile = new File(sourceConfDir + "/additionalFields.list")
+
+    writeAdditionalSchemaEntries(schemaFile, sourceConfDir, additionalFieldsFile)
+    importAdditionalFieldsToSOLR(additionalFieldsFile)
+
+    // finished with additionalFields.list, rename it
+    def oldFile = new File(sourceConfDir + "/additionalFields.old")
+
+    if (oldFile.exists()) oldFile.delete()
+    FileUtils.moveFile(additionalFieldsFile, oldFile)
 
     performMerge(solrHome, optimise, mergeSegments, schemaFile, dirs, mem)
 
@@ -166,7 +175,7 @@ class IndexLocalNode {
     * @param schemaFile
     * @param sourceConfDir
     */
-  private def writeAdditionalSchemaEntries(schemaFile: File, sourceConfDir: File) = {
+  private def writeAdditionalSchemaEntries(schemaFile: File, sourceConfDir: File, outputFile: File) = {
     if (!DocBuilder.getAdditionalSchemaEntries.isEmpty) {
 
       logger.info("Writing " + DocBuilder.getAdditionalSchemaEntries.size() + " new fields into updated schema: " + schemaFile.getPath)
@@ -182,9 +191,28 @@ class IndexLocalNode {
       }
 
       //export additional fields to a separate file
-      FileUtils.writeStringToFile(new File(sourceConfDir + "/additionalFields.list"), sb.toString(), "UTF-8")
+      FileUtils.writeStringToFile(outputFile, sb.toString(), "UTF-8")
     } else {
-      FileUtils.writeStringToFile(new File(sourceConfDir + "/additionalFields.list"), "", "UTF-8")
+      FileUtils.writeStringToFile(outputFile, "", "UTF-8")
+    }
+  }
+
+  private def importAdditionalFieldsToSOLR(fieldsFile: File) {
+    try {
+      val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
+
+      scala.io.Source.fromFile(fieldsFile).getLines.foreach(line => {
+        val newField = scala.xml.XML.loadString(line)
+        solrIndexUpdate.addFieldToSolr(newField.attributes.get("name").get.toString,
+          newField.attributes.get("type").get.toString,
+          newField.attributes.get("multiValued").get.toString.toBoolean,
+          newField.attributes.get("docValues").get.toString.toBoolean,
+          newField.attributes.get("indexed").get.toString.toBoolean,
+          newField.attributes.get("stored").get.toString.toBoolean)
+      }
+      )
+    } catch {
+      case e: Exception => logger.error("failed to add new fields into SOLR: " + Config.solrHome, e)
     }
   }
 
