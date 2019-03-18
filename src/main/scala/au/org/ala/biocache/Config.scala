@@ -124,6 +124,8 @@ object Config {
 
   val excludeSensitiveValuesFor = configModule.properties.getProperty("exclude.sensitive.values","")
 
+  val solrCollection = configModule.properties.getProperty("solr.collection", "biocache1")
+
   val allowCollectoryUpdates = configModule.properties.getProperty("allow.registry.updates","false")
 
   val commonNameLanguages:Array[String] = {

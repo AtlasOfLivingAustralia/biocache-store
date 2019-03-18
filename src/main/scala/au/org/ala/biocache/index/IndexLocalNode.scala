@@ -199,7 +199,8 @@ class IndexLocalNode {
 
   private def importAdditionalFieldsToSOLR(fieldsFile: File) {
     try {
-      val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
+      val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor,
+        Config.extraMiscFields, Config.solrCollection)
 
       scala.io.Source.fromFile(fieldsFile).getLines.foreach(line => {
         val newField = scala.xml.XML.loadString(line)
@@ -282,7 +283,9 @@ class IndexLocalNode {
       FileUtils.forceMkdir(sourceConfDir)
       if(Config.solrHome.startsWith("http")) {
         // update SOLR schema with any newly sampled fields
-        val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor, Config.extraMiscFields)
+        val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor,
+          Config.extraMiscFields, Config.solrCollection)
+
         solrIndexUpdate.addLayerFieldsToSchema()
 
         downloadDirectory(Config.solrHome, null, sourceConfDir.getPath, false)
