@@ -6,6 +6,7 @@ import au.org.ala.biocache.Config
 import au.org.ala.biocache.index.lucene.{DocBuilder, LuceneIndexing}
 import au.org.ala.biocache.util.Json
 import org.apache.commons.io.FileUtils
+import org.apache.solr.client.solrj.impl.ZkClientClusterStateProvider
 import org.apache.solr.core.{SolrConfig, SolrResourceLoader}
 import org.apache.solr.schema.{IndexSchema, IndexSchemaFactory}
 import org.slf4j.{Logger, LoggerFactory}
@@ -279,36 +280,43 @@ class IndexLocalNode {
 
     val sourceConfDir = new File(solrConfigXmlPath).getParentFile
     if(!sourceConfDir.exists()){
-      //download from SOLR server if available
-      FileUtils.forceMkdir(sourceConfDir)
-      if(Config.solrHome.startsWith("http")) {
-        // update SOLR schema with any newly sampled fields
-        val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor,
-          Config.extraMiscFields, Config.solrCollection)
+      // update SOLR schema with any newly sampled fields
+      val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor,
+        Config.extraMiscFields, Config.solrCollection)
 
-        solrIndexUpdate.addLayerFieldsToSchema()
+      solrIndexUpdate.addLayerFieldsToSchema()
+
+      if (Config.solrHome.contains(":")) {
+        // SOLR Cloud
+        solrIndexUpdate.init()
+        var actualCollection = solrIndexUpdate.cloudServer.getClusterStateProvider.getAlias(Config.solrCollection)
+        if (actualCollection == null) actualCollection = Config.solrCollection
+        solrIndexUpdate.cloudServer.getClusterStateProvider.asInstanceOf[ZkClientClusterStateProvider].downloadConfig(actualCollection, sourceConfDir.toPath)
+      } else if (Config.solrHome.startsWith("http")) {
+        //download from SOLR server if available
+        FileUtils.forceMkdir(sourceConfDir)
 
         downloadDirectory(Config.solrHome, null, sourceConfDir.getPath, false)
+      }
 
-        // SOLR will internally import schema.xml and export it to managed-schema when managed-schema is absent.
-        // Dynamically added SOLR fields are only added to managed-schema.
-        // IndexLocalNode will only use schema.xml.
+      // SOLR will internally import schema.xml and export it to managed-schema when managed-schema is absent.
+      // Dynamically added SOLR fields are only added to managed-schema.
+      // IndexLocalNode will only use schema.xml.
 
-        val schemaFile = new File(sourceConfDir.getAbsolutePath + "/schema.xml")
-        val schemaFileBak = new File(sourceConfDir.getAbsolutePath + "/schema.xml.bak")
-        val schemaManaged = new File(sourceConfDir.getAbsolutePath + "/managed-schema")
+      val schemaFile = new File(sourceConfDir.getAbsolutePath + "/schema.xml")
+      val schemaFileBak = new File(sourceConfDir.getAbsolutePath + "/schema.xml.bak")
+      val schemaManaged = new File(sourceConfDir.getAbsolutePath + "/managed-schema")
 
-        // Use the most up to date schema (manage-schema, else schema.xml, else schema.xml.bak)
-        if (schemaManaged.exists()) FileUtils.copyFile(schemaManaged, schemaFile)
-        if (!schemaFile.exists() && schemaFileBak.exists()) FileUtils.copyFile(schemaFileBak, schemaFile)
+      // Use the most up to date schema (manage-schema, else schema.xml, else schema.xml.bak)
+      if (schemaManaged.exists()) FileUtils.copyFile(schemaManaged, schemaFile)
+      if (!schemaFile.exists() && schemaFileBak.exists()) FileUtils.copyFile(schemaFileBak, schemaFile)
 
-        // Delete unused schema files
-        if (schemaManaged.exists()) schemaManaged.delete()
-        if (schemaFileBak.exists()) schemaFileBak.delete()
+      // Delete unused schema files
+      if (schemaManaged.exists()) schemaManaged.delete()
+      if (schemaFileBak.exists()) schemaFileBak.delete()
 
-        if (!schemaFile.exists()) {
-          throw new RuntimeException("Unable to find a schema.xml to use for indexing.")
-        }
+      if (!schemaFile.exists()) {
+        throw new RuntimeException("Unable to find a schema.xml to use for indexing.")
       }
     }
 
