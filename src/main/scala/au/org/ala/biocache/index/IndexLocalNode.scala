@@ -294,9 +294,8 @@ class IndexLocalNode {
       } else if (Config.solrHome.contains(":")) {
         // SOLR Cloud
         solrIndexUpdate.init()
-        var actualCollectionList = solrIndexUpdate.cloudServer.getClusterStateProvider.resolveAlias(Config.solrCollection)
-        var actualCollection: String = if (actualCollectionList == null && actualCollectionList.size() > 0) Config.solrCollection
-        else actualCollectionList.get(0)
+        var actualCollection = solrIndexUpdate.cloudServer.getClusterStateProvider.getAlias(Config.solrCollection)
+        if (actualCollection == null) actualCollection = Config.solrCollection
         solrIndexUpdate.cloudServer.getClusterStateProvider.asInstanceOf[ZkClientClusterStateProvider].downloadConfig(actualCollection, sourceConfDir.toPath)
       }
 
