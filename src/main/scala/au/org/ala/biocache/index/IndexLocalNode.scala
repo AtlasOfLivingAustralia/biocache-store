@@ -286,17 +286,18 @@ class IndexLocalNode {
 
       solrIndexUpdate.addLayerFieldsToSchema()
 
-      if (Config.solrHome.contains(":")) {
-        // SOLR Cloud
-        solrIndexUpdate.init()
-        var actualCollection = solrIndexUpdate.cloudServer.getClusterStateProvider.getAlias(Config.solrCollection)
-        if (actualCollection == null) actualCollection = Config.solrCollection
-        solrIndexUpdate.cloudServer.getClusterStateProvider.asInstanceOf[ZkClientClusterStateProvider].downloadConfig(actualCollection, sourceConfDir.toPath)
-      } else if (Config.solrHome.startsWith("http")) {
+      if (Config.solrHome.startsWith("http")) {
         //download from SOLR server if available
         FileUtils.forceMkdir(sourceConfDir)
 
         downloadDirectory(Config.solrHome, null, sourceConfDir.getPath, false)
+      } else if (Config.solrHome.contains(":")) {
+        // SOLR Cloud
+        solrIndexUpdate.init()
+        var actualCollectionList = solrIndexUpdate.cloudServer.getClusterStateProvider.resolveAlias(Config.solrCollection)
+        var actualCollection: String = if (actualCollectionList == null && actualCollectionList.size() > 0) Config.solrCollection
+        else actualCollectionList.get(0)
+        solrIndexUpdate.cloudServer.getClusterStateProvider.asInstanceOf[ZkClientClusterStateProvider].downloadConfig(actualCollection, sourceConfDir.toPath)
       }
 
       // SOLR will internally import schema.xml and export it to managed-schema when managed-schema is absent.
