@@ -1,12 +1,14 @@
 package au.org.ala.biocache.index
 
 import java.io.File
+import java.util
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.index.lucene.{DocBuilder, LuceneIndexing}
 import au.org.ala.biocache.util.Json
 import org.apache.commons.io.FileUtils
 import org.apache.solr.client.solrj.impl.ZkClientClusterStateProvider
+import org.apache.solr.client.solrj.request.CollectionAdminRequest.ClusterStatus
 import org.apache.solr.core.{SolrConfig, SolrResourceLoader}
 import org.apache.solr.schema.{IndexSchema, IndexSchemaFactory}
 import org.slf4j.{Logger, LoggerFactory}
@@ -294,9 +296,19 @@ class IndexLocalNode {
       } else if (Config.solrHome.contains(":")) {
         // SOLR Cloud
         solrIndexUpdate.init()
+
+        // get collection name
         var actualCollection = solrIndexUpdate.cloudServer.getClusterStateProvider.getAlias(Config.solrCollection)
         if (actualCollection == null) actualCollection = Config.solrCollection
-        solrIndexUpdate.cloudServer.getClusterStateProvider.asInstanceOf[ZkClientClusterStateProvider].downloadConfig(actualCollection, sourceConfDir.toPath)
+
+        // get config name
+        var statusRequest = new ClusterStatus()
+        statusRequest.setCollectionName(actualCollection)
+        var status = solrIndexUpdate.cloudServer.request(statusRequest).asMap(10)
+        var configName = status.get("cluster").asInstanceOf[util.LinkedHashMap[String, Object]].
+          get("collections").asInstanceOf[util.LinkedHashMap[String, Object]].
+          get(actualCollection).asInstanceOf[util.LinkedHashMap[String, Object]].get("configName")
+        solrIndexUpdate.cloudServer.getClusterStateProvider.asInstanceOf[ZkClientClusterStateProvider].downloadConfig(configName.toString(), sourceConfDir.toPath)
       }
 
       // SOLR will internally import schema.xml and export it to managed-schema when managed-schema is absent.
