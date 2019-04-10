@@ -1067,7 +1067,7 @@ trait IndexDAO {
     if (StringUtils.isNotEmpty(outlierForLayerStr)) {
       var max_idx: Integer = 0
       jsonArrayLoop(outlierForLayerStr, (item, idx) => {
-        max_idx = idx
+        max_idx = idx + 1
         addField(doc, "outlier_layer", item) // is set to IGNORE in headerAttributes
       })
       addField(doc, "outlier_layer_count", max_idx) // is set to IGNORE in headerAttributes
