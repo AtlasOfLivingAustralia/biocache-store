@@ -46,10 +46,12 @@ object ReverseJacknifeProcessor extends Tool {
   def main(args: Array[String]) {
 
     var fullDumpFilePath: String = ""
-    var headerForDumpFile: List[String] = mandatoryHeaders ++ Config.outlierLayerIDs
+    val headerForDumpFile: List[String] = mandatoryHeaders ++ Config.outlierLayerIDs
     var persistResults = true
     var taxonRankThreshold = 7000
     var threads = 1
+    var dumpFileSeparator = ','
+    var dumpFileQuoteChar = '"'
 
     val parser = new OptionParser(help) {
       arg("full-dump-file", "Filepath to full extract of data. This is a dump file with the following columns: " +
@@ -60,6 +62,8 @@ object ReverseJacknifeProcessor extends Tool {
       intOpt("taxonRankThreshold", "The minimum taxon rank threshold to use. The default is 7000 = species.", { v: Int => taxonRankThreshold = v })
       intOpt("t", "threads", "The minimum taxon rank threshold to use. The default is 7000 = species.", { v: Int => threads = v })
       opt("test", "Run jacknife but dont persist results  to the database", { persistResults = false })
+      opt("dump-file-separator-char", "Field delimiter used in dump file", { v:String => dumpFileSeparator = v.charAt(0) })
+      opt("dump-file-quote-char", "Quote character used in dump file", { v:String => dumpFileQuoteChar = v.charAt(0) })
     }
 
     if (parser.parse(args)) {
@@ -69,7 +73,8 @@ object ReverseJacknifeProcessor extends Tool {
         logger.error("Dump file " + fullDumpFilePath + " not available.")
         parser.showUsage
       } else {
-        runOutlierTestingForDumpFile(fullDumpFilePath, headerForDumpFile, persistResults, taxonRankThreshold, threads)
+        logger.info(s"Using file $fullDumpFilePath, Expecting headers: " + headerForDumpFile.mkString(","))
+        runOutlierTestingForDumpFile(fullDumpFilePath, headerForDumpFile, persistResults, taxonRankThreshold, threads, dumpFileSeparator, dumpFileQuoteChar)
         logger.info("Finished.")
         Config.persistenceManager.shutdown
       }
@@ -86,10 +91,12 @@ object ReverseJacknifeProcessor extends Tool {
                                    columnHeaders: List[String] = List(),
                                    persistResults: Boolean = false,
                                    rankThreshold:Int,
-                                   threads:Int
+                                   threads:Int,
+                                   dumpFileSeparator:Char,
+                                   dumpFileQuoteChar:Char
                                   ) {
 
-    val reader: CSVReader = new CSVReader(new FileReader(dumpFilePath), '\t', '|')
+    val reader: CSVReader = new CSVReader(new FileReader(dumpFilePath), dumpFileSeparator, dumpFileQuoteChar)
 
     val headers = if (columnHeaders.isEmpty) reader.readNext.toList else columnHeaders
 
@@ -120,6 +127,8 @@ object ReverseJacknifeProcessor extends Tool {
     val taxonRankIDIdx = headers.indexOf("taxonRankID")
     val uuidIdx = headers.indexOf("rowkey")
     val rowKeyIdx = headers.indexOf("rowkey")
+
+    logger.info(s"latitudeIdx: $latitudeIdx, longitudeIdx: $longitudeIdx, taxonIDIdx: $taxonIDIdx, taxonRankIDIdx: $taxonRankIDIdx, uuidIdx: $uuidIdx, rowKeyIdx: $rowKeyIdx")
 
     val queue = new ArrayBlockingQueue[(String, Int, Seq[Array[String]])](30)
 
@@ -268,8 +277,10 @@ object ReverseJacknifeProcessor extends Tool {
     * @return
     */
   def readAllForTaxon(reader: CSVReader,
-                      taxonConceptID: String, taxonConceptIDIdx: Int,
-                      taxonRankID: Int, taxonRankIDIdx: Int,
+                      taxonConceptID: String,
+                      taxonConceptIDIdx: Int,
+                      taxonRankID: Int,
+                      taxonRankIDIdx: Int,
                       lastLine: Array[String] = Array()): (String, Int, Seq[Array[String]], Array[String]) = {
 
     var currentLine: Array[String] = reader.readNext()
@@ -278,8 +289,11 @@ object ReverseJacknifeProcessor extends Tool {
     } else {
       currentLine(taxonConceptIDIdx)
     }
-    val rankIdForBatch: Int = if(StringUtils.isNotBlank(currentLine(taxonRankIDIdx))){
-      currentLine(taxonRankIDIdx).toInt
+
+    val taxonRankID = currentLine(taxonRankIDIdx)
+
+    val rankIdForBatch: Int = if(StringUtils.isNotBlank(taxonRankID)){
+      taxonRankID.toInt
     } else {
       0
     }
