@@ -120,7 +120,7 @@ object Config {
 
   val mediaFileStore = configModule.properties.getProperty("media.dir","/data/biocache-media/")
 
-  val mediaBaseUrl = configModule.properties.getProperty("media.url","http://biocache.ala.org.au/biocache-media")
+  val mediaBaseUrl = configModule.properties.getProperty("media.url","https://biocache.ala.org.au/biocache-media")
 
   val excludeSensitiveValuesFor = configModule.properties.getProperty("exclude.sensitive.values","")
 
@@ -233,19 +233,19 @@ object Config {
 
   val speciesGroupsUrl = configModule.properties.getProperty("species.groups.url","")
 
-  val speciesSubgroupsUrl = configModule.properties.getProperty("species.subgroups.url","http://bie.ala.org.au/subgroups.json")
+  val speciesSubgroupsUrl = configModule.properties.getProperty("species.subgroups.url","https://bie.ala.org.au/subgroups.json")
 
-  val listToolUrl = configModule.properties.getProperty("list.tool.url","http://lists.ala.org.au")
+  val listToolUrl = configModule.properties.getProperty("list.tool.url","https://lists.ala.org.au")
 
-  val volunteerUrl = configModule.properties.getProperty("volunteer.url","http://volunteer.ala.org.au")
+  val volunteerUrl = configModule.properties.getProperty("volunteer.url","https://volunteer.ala.org.au")
 
   val tmpWorkDir = configModule.properties.getProperty("tmp.work.dir","/tmp")
 
-  val registryUrl = configModule.properties.getProperty("registry.url","http://collections.ala.org.au/ws")
+  val registryUrl = configModule.properties.getProperty("registry.url","https://collections.ala.org.au/ws")
 
   val persistPointsFile = configModule.properties.getProperty("persist.points.file", "")
 
-  lazy val flickrUsersUrl = configModule.properties.getProperty("flickr.users.url", "http://auth.ala.org.au/userdetails/external/flickr")
+  lazy val flickrUsersUrl = configModule.properties.getProperty("flickr.users.url", "https://auth.ala.org.au/userdetails/external/flickr")
 
   lazy val reindexUrl = configModule.properties.getProperty("reindex.url")
 
@@ -261,7 +261,7 @@ object Config {
 
   lazy val layerServiceRetryWait = configModule.properties.getProperty("layers.service.retry.wait", "30000").toInt
 
-  lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","http://biocache.ala.org.au/ws")
+  lazy val biocacheServiceUrl = configModule.properties.getProperty("webservices.root","https://biocache-ws.ala.org.au/ws")
 
   lazy val solrBatchSize = configModule.properties.getProperty("solr.batch.size", "1000").toInt
 
@@ -341,7 +341,7 @@ object Config {
   }
 
   // SDS URL
-  val sdsUrl = configModule.properties.getProperty("sds.url", "http://sds.ala.org.au")
+  val sdsUrl = configModule.properties.getProperty("sds.url", "https://sds.ala.org.au")
 
   val sdsLayersUrl = {
     val layersUrl = configModule.properties.getProperty("sds.layers.url", "")
