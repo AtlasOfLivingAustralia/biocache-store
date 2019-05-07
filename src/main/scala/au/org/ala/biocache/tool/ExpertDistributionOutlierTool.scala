@@ -2,6 +2,7 @@ package au.org.ala.biocache.tool
 
 import java.io.{File, FileReader, FileWriter}
 import java.text.{MessageFormat, SimpleDateFormat}
+import java.util
 import java.util.Date
 import java.util.concurrent.{ArrayBlockingQueue, CountDownLatch}
 
@@ -250,8 +251,8 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
       }
     } else {
       //we will take out file and try to locate lsids to test
-      handleFile(directory.get + File.separator + id + File.separator + "species.out", 2, test)
-      handleFile(directory.get + File.separator + id + File.separator + "subspecies.out", 3, test)
+      handleFile(directory.get + File.separator + id + File.separator + "species.out", 1, test)
+      handleFile(directory.get + File.separator + id + File.separator + "subspecies.out", 2, test)
       //tell dispatcher that we are finished
       dispatcher ! ("EXITED", self)
       exit()
@@ -271,8 +272,8 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
 
     val uuidIdx = 1
     val rowIdx = 0
-    val latIdx = 17
-    val longIdx = 18
+    val latIdx = 16
+    val longIdx = 17
     val coorIdx = 23
 
     val reader: CSVReader = new CSVReader(new FileReader(fileName), '\t', '~')
@@ -319,50 +320,54 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
     val rowKeyPassed = new ListBuffer[String]
     // get wkt for lsid
     logger.info("Get the WKT for " + lsid)
-    val (wkt, bbox) = getExpertDistributionWkt(lsid)
-    logger.info("Finished getting WKT for " + lsid)
+    val distributionMaps = getExpertDistributionWkt(lsid)
+    distributionMaps.foreach( distributionMap => {
+      val wkt = distributionMap.get("geometry")
+      var bbox= distributionMap.get("bounding_box")
+      logger.info("Finished getting WKT for " + lsid)
 
-    // Some distributions have an extremely large number of records associated with them. Handle the records one "page" at a time.
-    logger.info("Get records for " + lsid)
-    var recordsMap = if (occPoints.isDefined) occPoints.get else getRecordsOutsideDistribution(lsid, wkt)
+      // Some distributions have an extremely large number of records associated with them. Handle the records one "page" at a time.
+      logger.info("Get records for " + lsid)
+      var recordsMap = if (occPoints.isDefined) occPoints.get else getRecordsOutsideDistribution(lsid, wkt)
 
-    logger.info("Finished getting records fo " + lsid)
+      logger.info("Finished getting records fo " + lsid)
 
-    logger.info(recordsMap.size + " records for " + lsid)
+      logger.info(recordsMap.size + " records for " + lsid)
 
-    if (!recordsMap.isEmpty) {
-      val coords = getDistinctCoordinatesWithinBoundingBox(recordsMap, bbox)
 
-      //maximum of 1000 points to be tested at once.
-      val limitedMaps = coords.grouped(1000)
-      var ids = 0
-      var outlierDistances: scala.collection.mutable.Map[String, Double] = scala.collection.mutable.Map[String, Double]()
-      val queue = new ArrayBlockingQueue[scala.collection.mutable.Map[String, Map[String, Object]]](100)
-      val pool: Array[GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]]] = Array.fill(10) {
-        val thread = new GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]](queue, ids, (value, id) => {
-          logger.info("Starting to retrieve outlier distances for " + lsid + " on thread " + id + " for " + value.size + " points")
-          val outlierRecordDistances = getOutlierRecordDistances(lsid, value, wkt)
-          outlierDistances.synchronized {
-            outlierDistances ++= outlierRecordDistances
-            //logger.info(outlierDistances.toString)
-          }
-          logger.info("Finished getting the distances for " + lsid + " on thread " + id)
-        })
-        thread.start()
-        ids += 1
-        thread
+      if (!recordsMap.isEmpty) {
+        val coords = getDistinctCoordinatesWithinBoundingBox(recordsMap, bbox)
+
+        //maximum of 1000 points to be tested at once.
+        val limitedMaps = coords.grouped(1000)
+        var ids = 0
+        var outlierDistances: scala.collection.mutable.Map[String, Double] = scala.collection.mutable.Map[String, Double]()
+        val queue = new ArrayBlockingQueue[scala.collection.mutable.Map[String, Map[String, Object]]](100)
+        val pool: Array[GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]]] = Array.fill(10) {
+          val thread = new GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]](queue, ids, (value, id) => {
+            logger.info("Starting to retrieve outlier distances for " + lsid + " on thread " + id + " for " + value.size + " points")
+            val outlierRecordDistances = getOutlierRecordDistances(lsid, value, wkt)
+            outlierDistances.synchronized {
+              outlierDistances ++= outlierRecordDistances
+              //logger.info(outlierDistances.toString)
+            }
+            logger.info("Finished getting the distances for " + lsid + " on thread " + id)
+          })
+          thread.start()
+          ids += 1
+          thread
+        }
+        limitedMaps.foreach(value => queue.put(value))
+        pool.foreach(t => t.shouldStop = true)
+        pool.foreach(_.join)
+        logger.info("Finished all the threaded distance lookups for " + lsid)
+        logger.info("Starting to retrieve outlier distances for " + lsid)
+        //val outlierRecordDistances = getOutlierRecordDistances(lsid, recordsMap)
+        logger.info("Finished getting the distances for " + lsid)
+        rowKeysForIndexing ++= markOutlierOccurrences(lsid, outlierDistances, recordsMap, coords, test, qaPasser)
+        logger.info("Finished marking the outlier records for " + lsid)
       }
-      limitedMaps.foreach(value => queue.put(value))
-      pool.foreach(t => t.shouldStop = true)
-      pool.foreach(_.join)
-      logger.info("Finished all the threaded distance lookups for " + lsid)
-      logger.info("Starting to retrieve outlier distances for " + lsid)
-      //val outlierRecordDistances = getOutlierRecordDistances(lsid, recordsMap)
-      logger.info("Finished getting the distances for " + lsid)
-      rowKeysForIndexing ++= markOutlierOccurrences(lsid, outlierDistances, recordsMap, coords, test, qaPasser)
-      logger.info("Finished marking the outlier records for " + lsid)
-    }
-
+    })
     rowKeysForIndexing
   }
 
@@ -553,7 +558,7 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
     * @param speciesLsid
     * @return
     */
-  def getExpertDistributionWkt(speciesLsid: String): (String, String) = {
+  def getExpertDistributionWkt(speciesLsid: String): Array[util.Map[String, String]] = {
 
     val httpClient = new HttpClient()
     val get = new GetMethod(MessageFormat.format(ExpertDistributionOutlierTool.DISTRIBUTION_DETAILS_URL_TEMPLATE, speciesLsid))
@@ -562,10 +567,10 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
       if (responseCode == 200) {
         val dataJSON = get.getResponseBodyAsString();
         val mapper = new ObjectMapper();
-        val mapClass = classOf[java.util.Map[String, String]]
+        val mapClass = classOf[Array[java.util.Map[String, String]]]
         val detailsMap = mapper.readValue(dataJSON, mapClass)
 
-        (detailsMap.get("geometry"), detailsMap.get("bounding_box"))
+        (detailsMap)
       } else {
         throw new Exception("getExpertDistributionLsids Request failed (" + responseCode + ")")
       }
