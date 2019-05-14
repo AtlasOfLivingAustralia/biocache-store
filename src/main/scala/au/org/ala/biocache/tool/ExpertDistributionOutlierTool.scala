@@ -184,7 +184,7 @@ class ExpertDistributionOutlierTool {
     * @return The list of taxon concept LSIDS for which an expert distribution has been loaded into the ALA
     */
   def getExpertDistributionLsids: ListBuffer[String] = {
-    logger.info("Starting to get the expert distribution LSIDS")
+    logger.info("Starting to get the expert distribution LSIDs")
     val httpClient = new HttpClient()
     val get = new GetMethod(ExpertDistributionOutlierTool.DISTRIBUTIONS_URL)
     try {
@@ -315,25 +315,28 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
     * @param lsid a taxon concept lsid
     */
   def findOutliersForLsid(lsid: String, test: Boolean, occPoints: Option[scala.collection.mutable.Map[String, Map[String, Object]]] = None): ListBuffer[String] = {
+
     logger.info("Starting to find the outliers for " + lsid)
     val rowKeysForIndexing = new ListBuffer[String]
     val rowKeyPassed = new ListBuffer[String]
+
     // get wkt for lsid
     logger.info("Get the WKT for " + lsid)
     val distributionMaps = getExpertDistributionWkt(lsid)
-    distributionMaps.foreach( distributionMap => {
+    distributionMaps.foreach { distributionMap =>
       val wkt = distributionMap.get("geometry")
-      var bbox= distributionMap.get("bounding_box")
+      val bbox= distributionMap.get("bounding_box")
       logger.info("Finished getting WKT for " + lsid)
 
       // Some distributions have an extremely large number of records associated with them. Handle the records one "page" at a time.
       logger.info("Get records for " + lsid)
-      var recordsMap = if (occPoints.isDefined) occPoints.get else getRecordsOutsideDistribution(lsid, wkt)
+      val recordsMap = if (occPoints.isDefined) {
+        occPoints.get
+      } else {
+        getRecordsOutsideDistribution(lsid, wkt)
+      }
 
-      logger.info("Finished getting records fo " + lsid)
-
-      logger.info(recordsMap.size + " records for " + lsid)
-
+      logger.info("Finished getting records fo " + lsid +", " + recordsMap.size + " records for " + lsid)
 
       if (!recordsMap.isEmpty) {
         val coords = getDistinctCoordinatesWithinBoundingBox(recordsMap, bbox)
@@ -362,12 +365,12 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
         pool.foreach(_.join)
         logger.info("Finished all the threaded distance lookups for " + lsid)
         logger.info("Starting to retrieve outlier distances for " + lsid)
-        //val outlierRecordDistances = getOutlierRecordDistances(lsid, recordsMap)
+//        val outlierRecordDistances = getOutlierRecordDistances(lsid, recordsMap, wkt)
         logger.info("Finished getting the distances for " + lsid)
         rowKeysForIndexing ++= markOutlierOccurrences(lsid, outlierDistances, recordsMap, coords, test, qaPasser)
         logger.info("Finished marking the outlier records for " + lsid)
       }
-    })
+    }
     rowKeysForIndexing
   }
 
@@ -401,20 +404,24 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
     */
   def getRecordsOutsideDistribution(lsid: String, distributionWkt: String): scala.collection.mutable.Map[String, Map[String, Object]] = {
 
-    var resultsMap = scala.collection.mutable.Map[String, Map[String, Object]]()
+    val resultsMap = scala.collection.mutable.Map[String, Map[String, Object]]()
 
     def addRecordToMap(occurrenceMap: java.util.Map[String, AnyRef]): Boolean = {
       val uuid = occurrenceMap.get("id").asInstanceOf[String]
-      val rowKey = occurrenceMap.get("row_key")
+      val rowKey = occurrenceMap.get("id")
       val latitude = occurrenceMap.get("latitude")
       val longitude = occurrenceMap.get("longitude")
       val coordinateUncertainty = occurrenceMap.get("coordinate_uncertainty")
-      resultsMap(uuid) = Map("rowkey" -> rowKey, "decimalLatitude" -> latitude, "decimalLongitude" -> longitude, "coordinateUncertaintyInMeters" -> coordinateUncertainty)
+      resultsMap(uuid) = Map(
+        "rowkey" -> rowKey,
+        "decimalLatitude" -> latitude,
+        "decimalLongitude" -> longitude,
+        "coordinateUncertaintyInMeters" -> coordinateUncertainty
+      )
       true
     }
 
     val query = MessageFormat.format(ExpertDistributionOutlierTool.RECORDS_QUERY_TEMPLATE, ClientUtils.escapeQueryChars(lsid))
-    //val filterQuery = MessageFormat.format(ExpertDistributionOutlierTool.RECORDS_FILTER_QUERY_TEMPLATE, distributionWkt)
     var filterQuery = Array(ExpertDistributionOutlierTool.RECORDS_FILTER_QUERY_TEMPLATE)
     if (lastModifiedDate.isDefined) {
       filterQuery = filterQuery ++ Array(MessageFormat.format(ExpertDistributionOutlierTool.DATE_RANGE_FILTER, lastModifiedDate.get))
@@ -438,15 +445,15 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
     val reader = new WKTReader()
     val geo = reader.read(wkt)
 
-    val newMap = recordsMap.mapValues(v => {
-      val latitude = v.getOrElse("decimalLatitude", "0");
-      val longitude = v.getOrElse("decimalLongitude", "0");
+    val newMap = recordsMap.mapValues { v =>
+      val latitude = v.getOrElse("decimalLatitude", "0")
+      val longitude = v.getOrElse("decimalLongitude", "0")
       val point = "POINT(" + longitude + " " + latitude + ")"
       val pointGeo = reader.read(point)
       val points = DistanceOp.nearestPoints(geo, pointGeo)
 
       org.geotools.geometry.jts.JTS.orthodromicDistance(points(0), points(1), org.geotools.referencing.crs.DefaultGeographicCRS.WGS84)
-    })
+    }
     scala.collection.mutable.Map[String, Double]() ++ newMap.filter(_._2 > 0)
   }
 
@@ -565,8 +572,8 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
     try {
       val responseCode = httpClient.executeMethod(get)
       if (responseCode == 200) {
-        val dataJSON = get.getResponseBodyAsString();
-        val mapper = new ObjectMapper();
+        val dataJSON = get.getResponseBodyAsString()
+        val mapper = new ObjectMapper()
         val mapClass = classOf[Array[java.util.Map[String, String]]]
         val detailsMap = mapper.readValue(dataJSON, mapClass)
 

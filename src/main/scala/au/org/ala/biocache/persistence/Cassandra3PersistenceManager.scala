@@ -1211,8 +1211,11 @@ class Cassandra3PersistenceManager  @Inject() (
   /**
     * Delete the value for the supplied column
     */
-  def deleteColumns(uuid: String, entityName: String, columnName: String*) = {
-    throw new RuntimeException("Currently not implemented!!!")
+  def deleteColumns(rowKey: String, entityName: String, columnName: String*) = {
+    val columnStr = columnName.toArray.map("\"" + _ + "\"").mkString(",")
+    val deleteStmt = getPreparedStmt(s"DELETE $columnStr FROM $entityName where rowkey = ?", entityName)
+    val boundStatement = deleteStmt.bind(rowKey)
+    session.execute(boundStatement)
   }
 
   /**
@@ -1221,8 +1224,7 @@ class Cassandra3PersistenceManager  @Inject() (
   def delete(rowKey: String, entityName: String) = {
     val deleteStmt = getPreparedStmt(s"DELETE FROM $entityName where rowkey = ?", entityName)
     val boundStatement = deleteStmt.bind(rowKey)
-    val resultSet = session.execute(boundStatement)
-    resultSet
+    session.execute(boundStatement)
   }
 
   /**
