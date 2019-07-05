@@ -279,25 +279,27 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
     val reader: CSVReader = new CSVReader(new FileReader(fileName), '\t', '~')
     var currentLsid = ""
     var currentLine = reader.readNext()
-    var isValid = false
+    var hasDistributionAvailable = false
     val map = scala.collection.mutable.Map[String, Map[String, Object]]()
     while (currentLine != null) {
-      if (currentLsid != currentLine(guidIdx)) {
-        if (!map.isEmpty) {
-          val rowKeysForIndexing = findOutliersForLsid(currentLsid, test, Some(map))
-          dispatcher ! ("PROCESSED", currentLsid, rowKeysForIndexing, self)
-          map.clear()
+      if (currentLine.length >= (guidIdx + 1) ) {
+        if (currentLsid != currentLine(guidIdx)) {
+          if (!map.isEmpty) {
+            val rowKeysForIndexing = findOutliersForLsid(currentLsid, test, Some(map))
+            dispatcher ! ("PROCESSED", currentLsid, rowKeysForIndexing, self)
+            map.clear()
+          }
+          currentLsid = currentLine(guidIdx)
+          hasDistributionAvailable = distributionLsids.contains(currentLsid)
+          logger.info("will gather all records for taxonID: " + currentLsid + ", hasDistributionAvailable: " + hasDistributionAvailable)
         }
-        currentLsid = currentLine(guidIdx)
-        isValid = distributionLsids.contains(currentLsid)
-        logger.info("will gather all records for " + currentLsid + " " + isValid)
-      }
 
-      if (isValid) {
-        //add it to the map
-        val uncertainty = StringUtils.trimToNull(currentLine(coorIdx))
-        map(currentLine(uuidIdx)) = Map("rowkey" -> currentLine(rowIdx), "decimalLatitude" -> currentLine(latIdx),
-          "decimalLongitude" -> currentLine(longIdx), "coordinateUncertaintyInMeters" -> (if (uncertainty == null) uncertainty else java.lang.Double.parseDouble(uncertainty).asInstanceOf[Object]))
+        if (hasDistributionAvailable) {
+          //add it to the map
+          val uncertainty = StringUtils.trimToNull(currentLine(coorIdx))
+          map(currentLine(uuidIdx)) = Map("rowkey" -> currentLine(rowIdx), "decimalLatitude" -> currentLine(latIdx),
+            "decimalLongitude" -> currentLine(longIdx), "coordinateUncertaintyInMeters" -> (if (uncertainty == null) uncertainty else java.lang.Double.parseDouble(uncertainty).asInstanceOf[Object]))
+        }
       }
       currentLine = reader.readNext
     }
@@ -323,52 +325,63 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
     // get wkt for lsid
     logger.info("Get the WKT for " + lsid)
     val distributionMaps = getExpertDistributionWkt(lsid)
+
+    if (distributionMaps.isEmpty){
+      logger.info("No available WKT for " + lsid)
+      return ListBuffer[String]()
+    }
+
     distributionMaps.foreach { distributionMap =>
       val wkt = distributionMap.get("geometry")
-      val bbox= distributionMap.get("bounding_box")
+      val bbox = distributionMap.get("bounding_box")
       logger.info("Finished getting WKT for " + lsid)
 
-      // Some distributions have an extremely large number of records associated with them. Handle the records one "page" at a time.
-      logger.info("Get records for " + lsid)
-      val recordsMap = if (occPoints.isDefined) {
-        occPoints.get
-      } else {
-        getRecordsOutsideDistribution(lsid, wkt)
-      }
+      if (StringUtils.isNotBlank(wkt) && wkt != "MULTIPOLYGON EMPTY") {
 
-      logger.info("Finished getting records fo " + lsid +", " + recordsMap.size + " records for " + lsid)
-
-      if (!recordsMap.isEmpty) {
-        val coords = getDistinctCoordinatesWithinBoundingBox(recordsMap, bbox)
-
-        //maximum of 1000 points to be tested at once.
-        val limitedMaps = coords.grouped(1000)
-        var ids = 0
-        var outlierDistances: scala.collection.mutable.Map[String, Double] = scala.collection.mutable.Map[String, Double]()
-        val queue = new ArrayBlockingQueue[scala.collection.mutable.Map[String, Map[String, Object]]](100)
-        val pool: Array[GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]]] = Array.fill(10) {
-          val thread = new GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]](queue, ids, (value, id) => {
-            logger.info("Starting to retrieve outlier distances for " + lsid + " on thread " + id + " for " + value.size + " points")
-            val outlierRecordDistances = getOutlierRecordDistances(lsid, value, wkt)
-            outlierDistances.synchronized {
-              outlierDistances ++= outlierRecordDistances
-              //logger.info(outlierDistances.toString)
-            }
-            logger.info("Finished getting the distances for " + lsid + " on thread " + id)
-          })
-          thread.start()
-          ids += 1
-          thread
+        // Some distributions have an extremely large number of records associated with them. Handle the records one "page" at a time.
+        logger.info("Get records for " + lsid)
+        val recordsMap = if (occPoints.isDefined) {
+          occPoints.get
+        } else {
+          logger.warn("Retrieving records from webservice for:  " + lsid)
+          getRecordsOutsideDistribution(lsid, wkt)
         }
-        limitedMaps.foreach(value => queue.put(value))
-        pool.foreach(t => t.shouldStop = true)
-        pool.foreach(_.join)
-        logger.info("Finished all the threaded distance lookups for " + lsid)
-        logger.info("Starting to retrieve outlier distances for " + lsid)
-//        val outlierRecordDistances = getOutlierRecordDistances(lsid, recordsMap, wkt)
-        logger.info("Finished getting the distances for " + lsid)
-        rowKeysForIndexing ++= markOutlierOccurrences(lsid, outlierDistances, recordsMap, coords, test, qaPasser)
-        logger.info("Finished marking the outlier records for " + lsid)
+
+        logger.info("Finished getting records fo " + lsid + ", " + recordsMap.size + " records for " + lsid)
+
+        if (!recordsMap.isEmpty) {
+          val coords = getDistinctCoordinatesWithinBoundingBox(recordsMap, bbox)
+
+          //maximum of 1000 points to be tested at once.
+          val limitedMaps = coords.grouped(1000)
+          var ids = 0
+          var outlierDistances: scala.collection.mutable.Map[String, Double] = scala.collection.mutable.Map[String, Double]()
+          val queue = new ArrayBlockingQueue[scala.collection.mutable.Map[String, Map[String, Object]]](100)
+          val pool: Array[GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]]] = Array.fill(10) {
+            val thread = new GenericConsumer[scala.collection.mutable.Map[String, Map[String, Object]]](queue, ids, (value, id) => {
+              logger.info("Starting to retrieve outlier distances for " + lsid + " on thread " + id + " for " + value.size + " points")
+              val outlierRecordDistances = getOutlierRecordDistances(lsid, value, wkt)
+              outlierDistances.synchronized {
+                outlierDistances ++= outlierRecordDistances
+                //logger.info(outlierDistances.toString)
+              }
+              logger.info("Finished getting the distances for " + lsid + " on thread " + id)
+            })
+            thread.start()
+            ids += 1
+            thread
+          }
+          limitedMaps.foreach(value => queue.put(value))
+          pool.foreach(t => t.shouldStop = true)
+          pool.foreach(_.join)
+          logger.info("Finished all the threaded distance lookups for " + lsid)
+          logger.info("Starting to retrieve outlier distances for " + lsid)
+          logger.info("Finished getting the distances for " + lsid)
+          rowKeysForIndexing ++= markOutlierOccurrences(lsid, outlierDistances, recordsMap, coords, test, qaPasser)
+          logger.info("Finished marking the outlier records for " + lsid)
+        }
+      } else {
+        logger.info("WKT is empty for:  " + lsid)
       }
     }
     rowKeysForIndexing
@@ -576,10 +589,11 @@ class ExpertDistributionActor(val id: Int, val dispatcher: Actor, test: Boolean,
         val mapper = new ObjectMapper()
         val mapClass = classOf[Array[java.util.Map[String, String]]]
         val detailsMap = mapper.readValue(dataJSON, mapClass)
-
         (detailsMap)
+      } else if (responseCode == 404) {
+        Array()
       } else {
-        throw new Exception("getExpertDistributionLsids Request failed (" + responseCode + ")")
+        throw new Exception("getExpertDistributionWkt Request failed (" + responseCode + ") for " + speciesLsid)
       }
     } finally {
       get.releaseConnection()
