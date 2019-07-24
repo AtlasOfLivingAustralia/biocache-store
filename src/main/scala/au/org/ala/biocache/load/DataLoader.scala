@@ -319,6 +319,8 @@ trait DataLoader {
         }
       }
 
+      val start = System.currentTimeMillis()
+
       // save() checks to see if the media has already been stored
       val savedTo = Config.mediaStore.save(fr.rowKey, fr.attribution.dataResourceUid, fileToStore, media)
       savedTo match {
@@ -351,6 +353,10 @@ trait DataLoader {
         }
         case None => logger.warn("Unable to save file: " + fileToStore)
       }
+
+      val finish = System.currentTimeMillis()
+//      println(s"Multimedia saved in " + (finish - start) + "ms")
+
 
       //add the references
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")

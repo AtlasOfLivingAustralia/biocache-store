@@ -279,7 +279,7 @@ object RemoteMediaStore extends MediaStore {
         }
       }
       // Case 2:
-      //   http://images.ala.org.au/store/e/7/f/3/eb024033-4da4-4124-83f7-317365783f7e/original
+      // http://images.ala.org.au/store/e/7/f/3/eb024033-4da4-4124-83f7-317365783f7e/original
       else if (urlToMedia.contains("/store/")) {
         for (pathSegment <- uri.getPath().split("/")) {
           // Do not attempt parsing short segments
@@ -321,22 +321,13 @@ object RemoteMediaStore extends MediaStore {
       }
       Some((fileName, imageId))
     } else {
-      //download to temp file and upload image
-      downloadToTmpFile(resourceUID, uuid, urlToMedia) match {
-        case Some(tmpFile) => {
-          try {
-            val imageId = uploadImage(uuid, resourceUID, urlToMedia, tmpFile, media)
-            logger.info("Media file " + urlToMedia + " stored to " + imageId)
-            if (imageId.isDefined) {
-              Some((extractFileName(urlToMedia), imageId.getOrElse("")))
-            } else {
-              None
-            }
-          } finally {
-            FileUtils.forceDelete(tmpFile)
-          }
-        }
-        case None => None
+      //if its a URL - let the image service download it....
+      val imageId = uploadImageFromUrl(uuid, resourceUID,urlToMedia, media)
+      //if its a local file -  upload....
+      if (imageId.isDefined) {
+        Some((extractFileName(urlToMedia), imageId.getOrElse("")))
+      } else {
+        None
       }
     }
   }
@@ -393,6 +384,7 @@ object RemoteMediaStore extends MediaStore {
     */
   private def updateMetadata(imageId: String, media: Multimedia): Unit = {
 
+    val start = System.currentTimeMillis()
     logger.info(s"Updating the metadata for $imageId")
     //upload an image
     val httpClient = new DefaultHttpClient()
@@ -417,6 +409,53 @@ object RemoteMediaStore extends MediaStore {
       }
     } finally {
       httpClient.close()
+    }
+  }
+
+
+  private def uploadImageFromUrl(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[String] = {
+
+    //upload an image
+    val client = new DefaultHttpClient()
+    val builder = MultipartEntityBuilder.create()
+    builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+
+    val metadata = mutable.Map(
+      "occurrenceId" -> uuid,
+      "dataResourceUid" -> resourceUID,
+      "originalFileName" -> extractFileName(urlToMedia),
+      "fullOriginalUrl" -> urlToMedia
+    )
+
+    if (media isDefined) {
+      metadata ++= media.get.metadata
+    }
+
+    builder.addPart("imageUrl", new org.apache.http.entity.mime.content.StringBody(urlToMedia))
+    builder.addPart("metadata",
+      new org.apache.http.entity.mime.content.StringBody(
+        Json.toJSON(
+          metadata
+        )
+      )
+    )
+
+    val entity = builder.build()
+
+    val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/uploadImage")
+    httpPost.setEntity(entity)
+    val response = client.execute(httpPost)
+    val result = response.getStatusLine()
+    val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+    logger.debug("Image service response code: " + result.getStatusCode)
+    val map = Json.toMap(responseBody)
+    logger.debug("Image ID: " + map.getOrElse("imageId", ""))
+    map.get("imageId") match {
+      case Some(o) => Some(o.toString())
+      case None => {
+        logger.warn(s"Unable to persist image. Response code $result.getStatusCode.  Image service response body: $responseBody")
+        None
+      }
     }
   }
 

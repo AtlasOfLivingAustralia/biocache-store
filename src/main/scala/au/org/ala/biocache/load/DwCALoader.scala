@@ -3,11 +3,11 @@ package au.org.ala.biocache.load
 import java.io._
 import java.net.URL
 import java.nio.file.Paths
+import java.util.concurrent.{ArrayBlockingQueue, BlockingQueue, Callable, Executors}
 
 import au.org.ala.biocache._
-import au.org.ala.biocache.cmd.{CMD2, NoArgsTool, Tool}
+import au.org.ala.biocache.cmd.Tool
 import au.org.ala.biocache.model.{FullRecord, Multimedia, Raw}
-import au.org.ala.biocache.persistence.PersistenceManager
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.vocab.DwC
 import org.apache.commons.lang3.StringUtils
@@ -210,7 +210,14 @@ class DwCALoader extends DataLoader {
     val iter = archive.iterator()
     val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
 
+    val queue = new ArrayBlockingQueue[ConsumableRecord](10)
+    val c1 = new Thread(new PersistConsumer(queue)).start()
+    val c2 = new Thread(new PersistConsumer(queue)).start()
+    val c3 = new Thread(new PersistConsumer(queue)).start()
+    val c4 = new Thread(new PersistConsumer(queue)).start()
+
     try {
+
       while (iter.hasNext) {
 
         // the newly assigned record UUID
@@ -226,70 +233,72 @@ class DwCALoader extends DataLoader {
 
         // create a map of properties
         val recordsExtracted = extractor.extractRecords(starRecord, removeNullFields)
+        var lastID = ""
+        var lastUUID = ""
 
         recordsExtracted.foreach { extractedFieldTuples =>
-          val lastCount = count.incrementAndGet()
 
-          val recordAsMap = extractedFieldTuples.toMap
+          count.incrementAndGet()
+            val recordAsMap = extractedFieldTuples.toMap
 
-          // the details of how to construct the UniqueID belong in the Collectory
-          val uniqueID = {
-            val uniqueTermValues = uniqueTerms.map(t => {
-              val nextUniqueTermValue = recordAsMap.get(t.simpleName())
-              if(!nextUniqueTermValue.isDefined) {
-                throw new Exception("Unable to load resourceUid, a primary key value was missing on record " + lastCount + " : resourceUid=" + resourceUid + " missing unique term " + t.simpleName() + " uniqueTerms=" + uniqueTerms)
+            // the details of how to construct the UniqueID belong in the Collectory
+            val uniqueID = {
+              val uniqueTermValues = uniqueTerms.map { t =>
+                val nextUniqueTermValue = recordAsMap.get(t.simpleName())
+                if (!nextUniqueTermValue.isDefined) {
+                  throw new Exception("Unable to load resourceUid, a primary key value was missing on record " + count.get() + " : resourceUid=" + resourceUid + " missing unique term " + t.simpleName() + " uniqueTerms=" + uniqueTerms)
+                }
+                nextUniqueTermValue.get
               }
-              nextUniqueTermValue.get
-            })
-            Config.occurrenceDAO.createUniqueID(resourceUid, uniqueTermValues, stripSpaces)
-          }
-
-          // lookup the ALA Internal UUID based on the public key
-          val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, starRecord, uniqueTerms, None)
-          if (mappedProps.isDefined) {
-            Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
-          }
-
-          val fieldTuples = new ListBuffer[(String, String)]
-          fieldTuples.addAll(extractedFieldTuples)
-
-          // add the data resource uid
-          fieldTuples += ("dataResourceUid" -> resourceUid)
-          // add last load time
-          fieldTuples += ("lastModifiedTime" -> loadTime)
-          if (isNew) {
-            fieldTuples += ("firstLoaded" -> loadTime)
-            newCount.incrementAndGet()
-          }
-
-          // Get any related multimedia
-          val multimedia = {
-            if (starRecord.core().rowType() == DwcTerm.Occurrence) {
-              loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
-                loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
-            } else {
-              List()
+              Config.occurrenceDAO.createUniqueID(resourceUid, uniqueTermValues, stripSpaces)
             }
-          }
 
-          if (rowKeyWriter.isDefined) {
-            rowKeyWriter.get.write(recordUuid + "\n")
-          }
+            // lookup the ALA Internal UUID based on the public key
+            val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, starRecord, uniqueTerms, None)
+            if (mappedProps.isDefined) {
+              Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
+            }
 
-          if (!testFile) {
+            lastUUID = recordUuid
+
+            val fieldTuples = new ListBuffer[(String, String)]
+            fieldTuples.addAll(extractedFieldTuples)
+
+            // add the data resource uid
+            fieldTuples += ("dataResourceUid" -> resourceUid)
+            // add last load time
+            fieldTuples += ("lastModifiedTime" -> loadTime)
+            if (isNew) {
+              fieldTuples += ("firstLoaded" -> loadTime)
+              newCount.incrementAndGet()
+            }
+
+            // Get any related multimedia
+            val multimedia = {
+              if (starRecord.core().rowType() == DwcTerm.Occurrence) {
+                loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
+                  loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
+              } else {
+                List()
+              }
+            }
+
+            if (rowKeyWriter.isDefined) {
+              rowKeyWriter.get.write(recordUuid + "\n")
+            }
+
             val fullRecord = FullRecordMapper.createFullRecord(recordUuid, fieldTuples.toArray, Raw)
-            processMedia(resourceUid, fullRecord, multimedia)
-            currentBatch += fullRecord
-          }
+            queue.put(ConsumableRecord(resourceUid, recordUuid, fullRecord, multimedia, removeNullFields))
+
+            lastID = uniqueID
+            lastUUID = ""
 
           // Emit progress information regularly
-          if (lastCount % 1000 == 0 && lastCount > 0) {
-            if (!testFile) {
-              Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
-            }
+          if (count.get() % 10 == 0 && count.get()  > 0) {
+            val currentCount = count.get()
             finishTime.set(System.currentTimeMillis)
-            val timeInSecs = 1000 / (((finishTime.get() - startTime.get()).toFloat) / 1000f)
-            logger.info(s"$lastCount, >> last key : $uniqueID, UUID: $recordUuid, records per sec: $timeInSecs")
+            val timeInSecs = 10 / (((finishTime.get() - startTime.get()).toFloat) / 1000f)
+            logger.info(s"$currentCount, >> last key : $lastID, UUID: $lastUUID, records per sec: $timeInSecs")
             startTime.set(System.currentTimeMillis)
             // clear the buffer
             currentBatch.clear
@@ -310,7 +319,7 @@ class DwCALoader extends DataLoader {
     if (testFile){
       reportOnCollectionCodes(resourceUid, count.get(), newCount.get(), newCollCodes.toSet, newInstCodes.toSet)
     }
-    
+
     // commit the remaining records if we are not in test mode
     if (!testFile) {
       Config.occurrenceDAO.addRawOccurrenceBatch(currentBatch.toArray, removeNullFields)
@@ -382,6 +391,25 @@ class DwCALoader extends DataLoader {
       None
     }
   }
+
+  class PersistConsumer(queue:ArrayBlockingQueue[ConsumableRecord])  extends Runnable {
+
+    override def run(): Unit = {
+      try {
+        println("starting....................")
+        while (true) {
+          val r = queue.take()
+          processMedia(r.resourceUid, r.fullRecord, r.multimedia)
+          Config.occurrenceDAO.addRawOccurrenceBatch(Array(r.fullRecord), r.removeNullFields)
+        }
+      } catch {
+        case e: InterruptedException =>
+          Thread.currentThread.interrupt()
+      }
+    }
+  }
+
+  case class ConsumableRecord(resourceUid:String, recordUuid:String, fullRecord:FullRecord, multimedia:Seq[Multimedia], removeNullFields:Boolean)
 }
 
 /**
@@ -526,6 +554,9 @@ class EventCoreExtractor (archive:Archive) extends CoreExtractor {
     recordsExtracted.toList
   }
 }
+
+
+
 
 
 /**

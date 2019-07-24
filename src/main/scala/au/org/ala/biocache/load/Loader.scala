@@ -89,13 +89,15 @@ object Loader extends Tool {
         }
       } else {
 
+        val start = System.currentTimeMillis()
         logger.info("Starting to load resource: " + dataResourceUid)
         val listOfResources = dataResourceUid.split(",").map(uid => uid.trim())
         val l = new Loader
         listOfResources.foreach {
           l.load(_, testLoad, forceLoad, removeNullFields, None, localFilePath, bypassConnParamLookup, logRowKeys, loadMissingOnly)
         }
-        logger.info("Completed loading resource: " + dataResourceUid)
+        val finish = System.currentTimeMillis()
+        logger.info("Completed loading resource: " + dataResourceUid + ". Completed in " + ((finish-start) / 1000f) + "seconds (" + ((finish-start) / 60000f) + " minutes)")
       }
     }
   }
