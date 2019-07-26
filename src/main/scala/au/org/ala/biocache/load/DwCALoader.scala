@@ -3,7 +3,7 @@ package au.org.ala.biocache.load
 import java.io._
 import java.net.URL
 import java.nio.file.Paths
-import java.util.concurrent.{ArrayBlockingQueue, BlockingQueue, Callable, Executors}
+import java.util.concurrent.{ArrayBlockingQueue, BlockingQueue, Callable, Executors, TimeUnit}
 
 import au.org.ala.biocache._
 import au.org.ala.biocache.cmd.Tool
@@ -209,12 +209,23 @@ class DwCALoader extends DataLoader {
 
     val iter = archive.iterator()
     val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
+    val queue = new ArrayBlockingQueue[ConsumableRecord](100)
 
-    val queue = new ArrayBlockingQueue[ConsumableRecord](10)
-    val c1 = new Thread(new PersistConsumer(queue)).start()
-    val c2 = new Thread(new PersistConsumer(queue)).start()
-    val c3 = new Thread(new PersistConsumer(queue)).start()
-    val c4 = new Thread(new PersistConsumer(queue)).start()
+    val c1 = new PersistConsumer(queue)
+    val c2 = new PersistConsumer(queue)
+    val c3 = new PersistConsumer(queue)
+    val c4 = new PersistConsumer(queue)
+
+    val t1 = new Thread(c1)
+    val t2 = new Thread(c2)
+    val t3 = new Thread(c3)
+    val t4 = new Thread(c4)
+
+
+    t1.start()
+    t2.start()
+    t3.start()
+    t4.start()
 
     try {
 
@@ -305,6 +316,16 @@ class DwCALoader extends DataLoader {
           }
         }
       }
+      c1.noMoreToCome = true
+      c2.noMoreToCome = true
+      c3.noMoreToCome = true
+      c4.noMoreToCome = true
+
+      t1.join()
+      t2.join()
+      t3.join()
+      t4.join()
+
     } finally {
       if (rowKeyWriter.isDefined){
         try {
@@ -314,6 +335,9 @@ class DwCALoader extends DataLoader {
         }
       }
     }
+
+
+
 
     // check to see if the inst/coll codes are new if we are in test mode
     if (testFile){
@@ -394,11 +418,11 @@ class DwCALoader extends DataLoader {
 
   class PersistConsumer(queue:ArrayBlockingQueue[ConsumableRecord])  extends Runnable {
 
+    var noMoreToCome = false
     override def run(): Unit = {
       try {
-        println("starting....................")
-        while (true) {
-          val r = queue.take()
+        while (!noMoreToCome) {
+          val r = queue.poll(5, TimeUnit.SECONDS)
           processMedia(r.resourceUid, r.fullRecord, r.multimedia)
           Config.occurrenceDAO.addRawOccurrenceBatch(Array(r.fullRecord), r.removeNullFields)
         }
