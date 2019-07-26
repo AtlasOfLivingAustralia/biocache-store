@@ -59,6 +59,7 @@ object DwCALoader extends Tool {
     var bypassConnParamLookup = false
     var removeNullFields = false
     var loadMissingOnly = false
+    var loadingThreads = 1
     val parser = new OptionParser("load darwin core archive") {
       arg("<data resource UID>", "The UID of the data resource to load", { v: String => resourceUid = v })
       opt("l", "local", "skip the download and use local file", { v:String => localFilePath = Some(v) } )
@@ -68,17 +69,18 @@ object DwCALoader extends Tool {
       opt("test", "test the file only do not load", { testFile = true })
       opt("rnf", "remove-null-fields", "Remove the null/Empty fields currently exist in the atlas", { removeNullFields = true })
       opt("lmo", "load-missing-only", "Load missing records only", { loadMissingOnly = true })
+      intOpt("t", "number-of-threads", "Number of loading threads to use. Default is " + loadingThreads, { v: Int => loadingThreads = v })
     }
     if(parser.parse(args)){
       val l = new DwCALoader
       l.deleteOldRowKeys(resourceUid)
       if(localFilePath.isEmpty){
-        l.load(resourceUid, logRowKeys, testFile, removeNullFields=removeNullFields, loadMissingOnly=loadMissingOnly)
+        l.load(resourceUid, logRowKeys, testFile, removeNullFields=removeNullFields, loadMissingOnly=loadMissingOnly, loadingThreads = loadingThreads)
       } else {
         if(bypassConnParamLookup){
-          l.loadArchive(localFilePath.get, resourceUid, List(), None, false, logRowKeys, testFile, removeNullFields, loadMissingOnly)
+          l.loadArchive(localFilePath.get, resourceUid, List(), None, false, logRowKeys, testFile, removeNullFields, loadMissingOnly, loadingThreads)
         } else {
-          l.loadLocal(resourceUid, localFilePath.get, logRowKeys, testFile)
+          l.loadLocal(resourceUid, localFilePath.get, logRowKeys, testFile, removeNullFields, loadMissingOnly, loadingThreads)
         }
       }
       //initialise the delete & update the collectory information
@@ -102,7 +104,7 @@ class DwCALoader extends DataLoader {
    * @param testFile
    * @param forceLoad
    */
-  def load(resourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean = false, removeNullFields:Boolean=false, loadMissingOnly:Boolean = false){
+  def load(resourceUid:String, logRowKeys:Boolean=false, testFile:Boolean=false, forceLoad:Boolean = false, removeNullFields:Boolean=false, loadMissingOnly:Boolean = false, loadingThreads:Int){
     //remove the old files
     emptyTempFileStore(resourceUid)
     //remove the old row keys:
@@ -125,7 +127,7 @@ class DwCALoader extends DataLoader {
           logger.info("File last modified date: " + maxLastModifiedDate)
           if(fileName != null){
             //load the DWC file
-            loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental, testFile, removeNullFields, loadMissingOnly)
+            loadArchive(fileName, resourceUid, conceptTerms, imageUrl, strip, logRowKeys||incremental, testFile, removeNullFields, loadMissingOnly, loadingThreads)
             loaded = true
           }
         }
@@ -139,14 +141,14 @@ class DwCALoader extends DataLoader {
     }
   }
 
-  def loadLocal(resourceUid:String, fileName:String, logRowKeys:Boolean, testFile:Boolean, removeNullFields:Boolean=false, loadMissingOnly:Boolean = false){
+  def loadLocal(resourceUid:String, fileName:String, logRowKeys:Boolean, testFile:Boolean, removeNullFields:Boolean=false, loadMissingOnly:Boolean = false, loadingThreads:Int){
     retrieveConnectionParameters(resourceUid) match {
       case None => throw new Exception("Unable to load resourceUid: " + resourceUid)
       case Some(dataResourceConfig) =>
         val conceptTerms = mapConceptTerms(dataResourceConfig.uniqueTerms)
         val strip = dataResourceConfig.connectionParams.getOrElse("strip", false).asInstanceOf[Boolean]
         //load the DWC file
-        loadArchive(fileName, resourceUid, conceptTerms, dataResourceConfig.connectionParams.get("imageUrl"), strip, logRowKeys, testFile, removeNullFields, loadMissingOnly)
+        loadArchive(fileName, resourceUid, conceptTerms, dataResourceConfig.connectionParams.get("imageUrl"), strip, logRowKeys, testFile, removeNullFields, loadMissingOnly, loadingThreads)
     }
   }
 
@@ -169,7 +171,7 @@ class DwCALoader extends DataLoader {
     */
   def loadArchive(fileName:String, resourceUid:String, uniqueTerms:Seq[Term], imageUrl:Option[String],
                   stripSpaces:Boolean, logRowKeys:Boolean, testFile:Boolean,
-                  removeNullFields:Boolean = false, loadMissingOnly:Boolean){
+                  removeNullFields:Boolean = false, loadMissingOnly:Boolean, noOfThreads:Int){
 
     logger.info(s"Loading archive: $fileName " +
       s"for resource: $resourceUid, " +
@@ -211,21 +213,11 @@ class DwCALoader extends DataLoader {
     val rowKeyWriter = getRowKeyWriter(resourceUid, logRowKeys)
     val queue = new ArrayBlockingQueue[ConsumableRecord](100)
 
-    val c1 = new PersistConsumer(queue)
-    val c2 = new PersistConsumer(queue)
-    val c3 = new PersistConsumer(queue)
-    val c4 = new PersistConsumer(queue)
+    val consumers = Array.fill(noOfThreads){new PersistConsumer(queue)}
+    val threads = consumers.map { new Thread(_) }
 
-    val t1 = new Thread(c1)
-    val t2 = new Thread(c2)
-    val t3 = new Thread(c3)
-    val t4 = new Thread(c4)
-
-
-    t1.start()
-    t2.start()
-    t3.start()
-    t4.start()
+    // start consumer threads
+    threads.foreach { _.start()}
 
     try {
 
@@ -316,15 +308,11 @@ class DwCALoader extends DataLoader {
           }
         }
       }
-      c1.noMoreToCome = true
-      c2.noMoreToCome = true
-      c3.noMoreToCome = true
-      c4.noMoreToCome = true
 
-      t1.join()
-      t2.join()
-      t3.join()
-      t4.join()
+      // flag that there is nothing more to be added to queue
+      consumers.foreach { _.noMoreToCome = true }
+      // wait for threads to complete
+      threads.foreach { _.join()}
 
     } finally {
       if (rowKeyWriter.isDefined){
@@ -335,9 +323,6 @@ class DwCALoader extends DataLoader {
         }
       }
     }
-
-
-
 
     // check to see if the inst/coll codes are new if we are in test mode
     if (testFile){
@@ -423,8 +408,10 @@ class DwCALoader extends DataLoader {
       try {
         while (!noMoreToCome) {
           val r = queue.poll(5, TimeUnit.SECONDS)
-          processMedia(r.resourceUid, r.fullRecord, r.multimedia)
-          Config.occurrenceDAO.addRawOccurrenceBatch(Array(r.fullRecord), r.removeNullFields)
+          if(r != null) {
+            processMedia(r.resourceUid, r.fullRecord, r.multimedia)
+            Config.occurrenceDAO.addRawOccurrenceBatch(Array(r.fullRecord), r.removeNullFields)
+          }
         }
       } catch {
         case e: InterruptedException =>

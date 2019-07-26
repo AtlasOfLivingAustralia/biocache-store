@@ -38,6 +38,7 @@ object Loader extends Tool {
     var logRowKeys = true
     var testFile = false
     var bypassConnParamLookup = false
+    var loadingThreads = 1
 
     val parser = new OptionParser(help) {
       arg("data-resource-uid", "The data resource to load. Supports a comma separated list. Specify 'all' to load all", {
@@ -66,6 +67,7 @@ object Loader extends Tool {
       }
       )
       opt("lmo", "load-missing-only", "Load missing records only", { loadMissingOnly = true })
+      intOpt("t", "number-of-threads", "Number of loading threads to use. Default is " + loadingThreads + ". DWCA Loading only", { v: Int => loadingThreads = v })
     }
 
     Config.indexDAO.init
@@ -80,7 +82,7 @@ object Loader extends Tool {
           logger.info(s"Loading resource $name, uid: $uid")
           if (uid != "") {
             try {
-              l.load(uid, testLoad, forceLoad, removeNullFields, None, localFilePath, bypassConnParamLookup, logRowKeys, loadMissingOnly)
+              l.load(uid, testLoad, forceLoad, removeNullFields, None, localFilePath, bypassConnParamLookup, logRowKeys, loadMissingOnly, loadingThreads)
             } catch {
               case e: Exception => logger.error(s"Unable to load data resource with $uid. Exception message: $e.getMessage", e)
             }
@@ -94,7 +96,7 @@ object Loader extends Tool {
         val listOfResources = dataResourceUid.split(",").map(uid => uid.trim())
         val l = new Loader
         listOfResources.foreach {
-          l.load(_, testLoad, forceLoad, removeNullFields, None, localFilePath, bypassConnParamLookup, logRowKeys, loadMissingOnly)
+          l.load(_, testLoad, forceLoad, removeNullFields, None, localFilePath, bypassConnParamLookup, logRowKeys, loadMissingOnly, loadingThreads)
         }
         val finish = System.currentTimeMillis()
         logger.info("Completed loading resource: " + dataResourceUid + ". Completed in " + ((finish-start) / 1000f) + "seconds (" + ((finish-start) / 60000f) + " minutes)")
@@ -184,7 +186,7 @@ class Loader extends DataLoader {
 
   def load(dataResourceUid: String, test: Boolean = false, forceLoad: Boolean = false, removeNullFields: Boolean = false,
            startDate: Option[Date] = None, localFilePath: Option[String] = None,
-           bypassConnParamLookup: Boolean = false, logRowKeys: Boolean = true, loadMissingOnly: Boolean = false) {
+           bypassConnParamLookup: Boolean = false, logRowKeys: Boolean = true, loadMissingOnly: Boolean = false, loadingThreads:Int = 1) {
     try {
       val config = retrieveConnectionParameters(dataResourceUid)
       if (config.isEmpty) {
@@ -208,12 +210,12 @@ class Loader extends DataLoader {
           val l = new DwCALoader
           l.deleteOldRowKeys(dataResourceUid)
           if (localFilePath.isEmpty) {
-            l.load(dataResourceUid, logRowKeys, test, forceLoad, removeNullFields, loadMissingOnly)
+            l.load(dataResourceUid, logRowKeys, test, forceLoad, removeNullFields, loadMissingOnly, loadingThreads)
           } else {
             if (bypassConnParamLookup) {
-              l.loadArchive(localFilePath.get, dataResourceUid, List(), None, false, logRowKeys, test, removeNullFields, loadMissingOnly)
+              l.loadArchive(localFilePath.get, dataResourceUid, List(), None, false, logRowKeys, test, removeNullFields, loadMissingOnly, loadingThreads)
             } else {
-              l.loadLocal(dataResourceUid, localFilePath.get, logRowKeys, test, removeNullFields, loadMissingOnly)
+              l.loadLocal(dataResourceUid, localFilePath.get, logRowKeys, test, removeNullFields, loadMissingOnly, loadingThreads)
             }
           }
           //initialise the delete & update the collectory information
