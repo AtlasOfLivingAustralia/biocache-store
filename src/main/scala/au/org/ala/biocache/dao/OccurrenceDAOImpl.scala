@@ -587,15 +587,15 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
   def downloadMedia(fr: FullRecord): Boolean = {
     if (fr.occurrence.associatedMedia != null) {
       val filesToImport = DownloadMedia.unpackAssociatedMedia(fr.occurrence.associatedMedia)
-      val associatedMediaBuffer = new ArrayBuffer[String]
-      filesToImport.foreach(fileToStore =>
+      val associatedMediaBuffer = scala.collection.mutable.SortedSet[String]()
+      filesToImport.foreach { fileToStore =>
         Config.mediaStore.save(fr.rowKey, fr.attribution.dataResourceUid, fileToStore, None) match {
           case Some((filename, filePath)) => associatedMediaBuffer += filePath
           case None => logger.error("Unable to save media: " + fileToStore)
         }
-      )
+      }
       fr.occurrence.associatedMedia = associatedMediaBuffer.toArray.mkString(";")
-      fr.occurrence.images = associatedMediaBuffer.toArray.toArray
+      fr.occurrence.images = associatedMediaBuffer.toArray
       true
     } else {
       false
