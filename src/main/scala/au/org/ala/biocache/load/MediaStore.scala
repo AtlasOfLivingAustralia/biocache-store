@@ -2,7 +2,7 @@ package au.org.ala.biocache.load
 
 import java.io._
 import java.net.URI
-import java.nio.charset.Charset
+import java.nio.charset.{StandardCharsets}
 import java.security.MessageDigest
 import java.util
 import java.util.UUID
@@ -21,7 +21,7 @@ import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.mime.content.{FileBody, StringBody}
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntityBuilder}
-import org.apache.http.impl.client.{HttpClientBuilder}
+import org.apache.http.impl.client.HttpClientBuilder
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
@@ -180,6 +180,13 @@ object RemoteMediaStore extends MediaStore {
 
   override val logger = LoggerFactory.getLogger("RemoteMediaStore")
 
+  import org.apache.http.impl.client.CloseableHttpClient
+  import org.apache.http.impl.client.HttpClients
+  import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
+
+  val cm = new PoolingHttpClientConnectionManager
+  val client: CloseableHttpClient = HttpClients.custom.setConnectionManager(cm).build
+
   def getImageFormats(imageId: String): java.util.Map[String, String] = {
     val map = new util.HashMap[String, String]
     map.put("thumb", Config.remoteMediaStoreUrl + "/image/proxyImageThumbnail?imageId=" + imageId)
@@ -267,7 +274,7 @@ object RemoteMediaStore extends MediaStore {
       if (urlToMedia.contains("/image/proxy")) {
         // Case 1:
         //   http://images.ala.org.au/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf
-        val params: java.util.List[NameValuePair] = URLEncodedUtils.parse(uri, Charset.forName("UTF-8"))
+        val params: java.util.List[NameValuePair] = URLEncodedUtils.parse(uri, StandardCharsets.UTF_8)
         for (param <- params) {
           if (param.getName.toLowerCase == "imageid") {
             val originalUUID = param.getValue().toLowerCase
@@ -400,10 +407,10 @@ object RemoteMediaStore extends MediaStore {
     }
   }
 
+
   private def uploadImageFromUrl(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[String] = {
 
     //upload an image
-    val client = HttpClientBuilder.create().build()
     val builder = MultipartEntityBuilder.create()
     builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
 
@@ -427,23 +434,27 @@ object RemoteMediaStore extends MediaStore {
     )
 
     val entity = builder.build()
-
     val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/uploadImage")
     httpPost.setEntity(entity)
-    httpPost.setHeader("apiKey", "d75f5560-a4eb-4b5f-9178-5f049a8ec85e")
+    httpPost.setHeader("apiKey", Config.mediaStoreApiKey)
 
     val response = client.execute(httpPost)
-    val result = response.getStatusLine()
-    val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-    logger.debug("Image service response code: " + result.getStatusCode)
-    val map = Json.toMap(responseBody)
-    logger.debug("Image ID: " + map.getOrElse("imageId", ""))
-    map.get("imageId") match {
-      case Some(o) => Some(o.toString())
-      case None => {
-        logger.warn(s"Unable to persist image from URL. Response code ${result.getStatusCode}.  Image service response body: $responseBody")
-        None
+
+    try {
+      val result = response.getStatusLine()
+      val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+      logger.debug("Image service response code: " + result.getStatusCode)
+      val map = Json.toMap(responseBody)
+      logger.debug("Image ID: " + map.getOrElse("imageId", ""))
+      map.get("imageId") match {
+        case Some(o) => Some(o.toString())
+        case None => {
+          logger.warn(s"Unable to persist image from URL. Response code ${result.getStatusCode}.  Image service response body: $responseBody")
+          None
+        }
       }
+    } finally {
+      response.close()
     }
   }
 
@@ -456,7 +467,6 @@ object RemoteMediaStore extends MediaStore {
   private def uploadImage(uuid: String, resourceUID: String, urlToMedia: String, fileToUpload: File,
                           media: Option[Multimedia]): Option[String] = {
     //upload an image
-    val client = HttpClientBuilder.create().build()
     val builder = MultipartEntityBuilder.create()
     builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
 
