@@ -30,7 +30,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("State based sensitivity") {
 
-    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl22" -> "New South Wales"))
+    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl10925" -> "New South Wales"))
     SensitivityDAO.addToCache("Diuris disposita", "urn:lsid:biodiversity.org.au:apni.taxon:167966", true)
 
     val raw = new FullRecord
@@ -331,7 +331,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("stateProvince coordinate mismatch") {
 
-    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl22" -> "New South Wales"))
+    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl10925" -> "New South Wales"))
 
     val raw = new FullRecord
     var processed = new FullRecord
@@ -348,7 +348,7 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
 
   test("coordinates center of stateProvince") {
 
-    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl22" -> "New South Wales"))
+    SpatialLayerDAO.addToCache(146.921099, -31.2532183, Map("cl10925" -> "New South Wales"))
 
     val raw = new FullRecord
     var processed = new FullRecord
