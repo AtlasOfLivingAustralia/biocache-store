@@ -407,7 +407,6 @@ object RemoteMediaStore extends MediaStore {
     }
   }
 
-
   private def uploadImageFromUrl(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[String] = {
 
     //upload an image
@@ -442,16 +441,44 @@ object RemoteMediaStore extends MediaStore {
 
     try {
       val result = response.getStatusLine()
-      val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-      logger.debug("Image service response code: " + result.getStatusCode)
-      val map = Json.toMap(responseBody)
-      logger.debug("Image ID: " + map.getOrElse("imageId", ""))
-      map.get("imageId") match {
-        case Some(o) => Some(o.toString())
-        case None => {
-          logger.warn(s"Unable to persist image from URL. Response code ${result.getStatusCode}.  Image service response body: $responseBody")
+      val entity = response.getEntity()
+      if(entity != null){
+        val content = entity.getContent()
+        if (content != null) {
+          val bufferedSource = Source.fromInputStream(content)
+          val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+          if (logger.isDebugEnabled()) {
+            logger.debug("Image service response code: " + result.getStatusCode)
+          }
+          val map = Json.toMap(responseBody)
+
+          if (logger.isDebugEnabled()) {
+            logger.debug("Image ID: " + map.getOrElse("imageId", ""))
+          }
+
+          map.get("imageId") match {
+            case Some(o) => Some(o.toString())
+            case None => {
+              logger.warn(s"Unable to persist image from URL. Response code ${result.getStatusCode}.  Image service response body: $responseBody")
+              None
+            }
+          }
+        } else {
+          logger.warn(s"Unable to persist image from URL. Response entity was null indicating a failure")
           None
         }
+      } else {
+        logger.warn(s"Unable to persist image from URL. Response content was empty indicating a failure")
+        None
+      }
+    } catch {
+      case eio:IOException => {
+        logger.error(s"Unable to persist image from URL. IOException thrown", eio)
+        None
+      }
+      case eu:UnsupportedOperationException => {
+        logger.error(s"Unable to persist image from URL. UnsupportedOperationException thrown", eu)
+        None
       }
     } finally {
       response.close()

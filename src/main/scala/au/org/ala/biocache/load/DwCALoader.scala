@@ -96,6 +96,8 @@ class DwCALoader extends DataLoader {
 
   import JavaConversions._
 
+  val END_OF_QUEUE = "END_OF_QUEUE"
+
   /**
    * Load a resource
    *
@@ -309,8 +311,11 @@ class DwCALoader extends DataLoader {
         }
       }
 
-      // flag that there is nothing more to be added to queue
-      consumers.foreach { _.noMoreToCome = true }
+      // send sentinels
+      0.to(consumers.size).foreach { idx =>
+        queue.put(ConsumableRecord(null, END_OF_QUEUE, null, null, false))
+      }
+
       // wait for threads to complete
       threads.foreach { _.join()}
 
@@ -403,19 +408,22 @@ class DwCALoader extends DataLoader {
 
   class PersistConsumer(queue:ArrayBlockingQueue[ConsumableRecord])  extends Runnable {
 
-    var noMoreToCome = false
+    private var noMoreToCome = false
+
+
     override def run(): Unit = {
       try {
         while (!noMoreToCome) {
-          val r = queue.poll(5, TimeUnit.SECONDS)
-          if(r != null) {
+          val r = queue.take()
+          if (r != null && r.recordUuid != END_OF_QUEUE) {
             processMedia(r.resourceUid, r.fullRecord, r.multimedia)
             Config.occurrenceDAO.addRawOccurrenceBatch(Array(r.fullRecord), r.removeNullFields)
+          } else {
+            noMoreToCome = true
           }
         }
       } catch {
-        case e: InterruptedException =>
-          Thread.currentThread.interrupt()
+        case e: InterruptedException => Thread.currentThread.interrupt()
       }
     }
   }
