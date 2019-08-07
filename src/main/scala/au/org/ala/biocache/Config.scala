@@ -108,6 +108,8 @@ object Config {
 
   val collectoryApiKey = configModule.properties.getProperty("registry.api.key","xxxxxxxxxxxxxxxxx")
 
+  val imagesApiKey = configModule.properties.getProperty("images.api.key","xxxxxxxxxxxxxxxxx")
+
   val loadFileStore = configModule.properties.getProperty("load.dir","/data/biocache-load/")
 
   val vocabDirectory = configModule.properties.getProperty("vocab.dir","/data/biocache/vocab/")
