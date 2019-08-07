@@ -101,7 +101,12 @@ object DwCACreator extends Tool {
         dwcc.addImageExportsToArchives(directory)
       } else {
         try {
-          val dataResource2OutputStreams = getDataResourceUids.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
+          var dataResource2OutputStreams = Map[String, Option[(ZipOutputStream, CSVWriter)]]()
+          if (resourceUid == "" || resourceUid == "all") {
+            dataResource2OutputStreams = getDataResourceUids.map { uid => (uid, dwcc.createOutputForCSV(directory, uid)) }.toMap
+          } else {
+            dataResource2OutputStreams = Map(resourceUid -> dwcc.createOutputForCSV(directory, resourceUid))
+          }
           Config.persistenceManager.pageOverSelect("occ", (key, map) => {
             synchronized {
               val dr = map.getOrElse("dataResourceUid", "")
