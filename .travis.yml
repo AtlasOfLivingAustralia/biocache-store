@@ -5,7 +5,7 @@ cache:
   - .autoconf
   - $HOME/.m2
 jdk:
-- openjdk
+- openjdk8
 branches:
   only:
   - master
