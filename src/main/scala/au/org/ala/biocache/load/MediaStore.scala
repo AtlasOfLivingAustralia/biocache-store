@@ -21,7 +21,6 @@ import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.mime.content.{FileBody, StringBody}
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntityBuilder}
-import org.apache.http.impl.client.HttpClientBuilder
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
@@ -211,7 +210,9 @@ object RemoteMediaStore extends MediaStore {
     // filenames=http://biocache.ala.org.au/biocache-media/dr836/29790/1b6c48ab-0c11-4d2e-835e-85d016f335eb/PWCnSmwl.jpeg
     val jsonToPost = Json.toJSON(Map("filenames" -> Array(constructFileID(resourceUID, uuid, urlToMedia))))
 
-    logger.debug(jsonToPost)
+    if(logger.isDebugEnabled()) {
+      logger.debug(jsonToPost)
+    }
 
     val (code, body) = HttpUtil.postBody(
       Config.remoteMediaStoreUrl + "/ws/findImagesByOriginalFilename",
@@ -382,28 +383,23 @@ object RemoteMediaStore extends MediaStore {
     val start = System.currentTimeMillis()
     logger.info(s"Updating the metadata for $imageId")
     //upload an image
-    val httpClient = HttpClientBuilder.create().build()
-    try {
-      val entity = MultipartEntityBuilder.create()
-        .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
-        .addPart("metadata",
-          new StringBody(
-            Json.toJSON(media.metadata),
-            ContentType.APPLICATION_JSON
-         )
-        )
-        .build()
+    val entity = MultipartEntityBuilder.create()
+      .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+      .addPart("metadata",
+        new StringBody(
+          Json.toJSON(media.metadata),
+          ContentType.APPLICATION_JSON
+       )
+      )
+      .build()
 
-      val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/updateMetadata/" + imageId)
-      httpPost.setEntity(entity)
-      val response = httpClient.execute(httpPost)
-      try {
-        val status = response.getStatusLine()
-      } finally {
-        response.close()
-      }
+    val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/updateMetadata/" + imageId)
+    httpPost.setEntity(entity)
+    val response = client.execute(httpPost)
+    try {
+      val status = response.getStatusLine()
     } finally {
-      httpClient.close()
+      response.close()
     }
   }
 
