@@ -244,59 +244,59 @@ class DwCALoader extends DataLoader {
         recordsExtracted.foreach { extractedFieldTuples =>
 
           count.incrementAndGet()
-            val recordAsMap = extractedFieldTuples.toMap
+          val recordAsMap = extractedFieldTuples.toMap
 
-            // the details of how to construct the UniqueID belong in the Collectory
-            val uniqueID = {
-              val uniqueTermValues = uniqueTerms.map { t =>
-                val nextUniqueTermValue = recordAsMap.get(t.simpleName())
-                if (!nextUniqueTermValue.isDefined) {
-                  throw new Exception("Unable to load resourceUid, a primary key value was missing on record " + count.get() + " : resourceUid=" + resourceUid + " missing unique term " + t.simpleName() + " uniqueTerms=" + uniqueTerms)
-                }
-                nextUniqueTermValue.get
+          // the details of how to construct the UniqueID belong in the Collectory
+          val uniqueID = {
+            val uniqueTermValues = uniqueTerms.map { t =>
+              val nextUniqueTermValue = recordAsMap.get(t.simpleName())
+              if (!nextUniqueTermValue.isDefined) {
+                throw new Exception("Unable to load resourceUid, a primary key value was missing on record " + count.get() + " : resourceUid=" + resourceUid + " missing unique term " + t.simpleName() + " uniqueTerms=" + uniqueTerms)
               }
-              Config.occurrenceDAO.createUniqueID(resourceUid, uniqueTermValues, stripSpaces)
+              nextUniqueTermValue.get
             }
+            Config.occurrenceDAO.createUniqueID(resourceUid, uniqueTermValues, stripSpaces)
+          }
 
-            // lookup the ALA Internal UUID based on the public key
-            val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, starRecord, uniqueTerms, None)
-            if (mappedProps.isDefined) {
-              Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
+          // lookup the ALA Internal UUID based on the public key
+          val ((recordUuid, isNew), mappedProps) = getUuid(uniqueID, starRecord, uniqueTerms, None)
+          if (mappedProps.isDefined) {
+            Config.persistenceManager.put(recordUuid, "occ", mappedProps.get, isNew, removeNullFields)
+          }
+
+          lastUUID = recordUuid
+
+          val fieldTuples = new ListBuffer[(String, String)]
+          fieldTuples.addAll(extractedFieldTuples)
+
+          // add the data resource uid
+          fieldTuples += ("dataResourceUid" -> resourceUid)
+          // add last load time
+          fieldTuples += ("lastModifiedTime" -> loadTime)
+          if (isNew) {
+            fieldTuples += ("firstLoaded" -> loadTime)
+            newCount.incrementAndGet()
+          }
+
+          // Get any related multimedia
+          val multimedia = {
+            if (starRecord.core().rowType() == DwcTerm.Occurrence) {
+              loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
+                loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
+            } else {
+              List()
             }
+          }
 
-            lastUUID = recordUuid
+          if (rowKeyWriter.isDefined) {
+            rowKeyWriter.get.write(recordUuid + "\n")
+          }
 
-            val fieldTuples = new ListBuffer[(String, String)]
-            fieldTuples.addAll(extractedFieldTuples)
+          val fullRecord = FullRecordMapper.createFullRecord(recordUuid, fieldTuples.toArray, Raw)
+          queue.put(ConsumableRecord(resourceUid, recordUuid, fullRecord, multimedia, removeNullFields))
 
-            // add the data resource uid
-            fieldTuples += ("dataResourceUid" -> resourceUid)
-            // add last load time
-            fieldTuples += ("lastModifiedTime" -> loadTime)
-            if (isNew) {
-              fieldTuples += ("firstLoaded" -> loadTime)
-              newCount.incrementAndGet()
-            }
-
-            // Get any related multimedia
-            val multimedia = {
-              if (starRecord.core().rowType() == DwcTerm.Occurrence) {
-                loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
-                  loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
-              } else {
-                List()
-              }
-            }
-
-            if (rowKeyWriter.isDefined) {
-              rowKeyWriter.get.write(recordUuid + "\n")
-            }
-
-            val fullRecord = FullRecordMapper.createFullRecord(recordUuid, fieldTuples.toArray, Raw)
-            queue.put(ConsumableRecord(resourceUid, recordUuid, fullRecord, multimedia, removeNullFields))
-
-            lastID = uniqueID
-            lastUUID = ""
+          lastID = uniqueID
+          lastUUID = ""
 
           // Emit progress information regularly
           if (count.get() % 10 == 0 && count.get()  > 0) {
