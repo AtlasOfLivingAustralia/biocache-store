@@ -92,6 +92,14 @@ object Config {
   // 1024 * 256 = 262144 bytes
   val solrConnectionCacheObjectSize = configModule.properties.getProperty("solr.connection.cache.object.size", "262144").toInt
 
+
+  // Set to the same as the connection pool size by default, assuming a single Solr server
+  // Configure this and the connection pool size as required to fit a Solr cluster setup if one is in use
+
+  val remoteMediaConnectionPoolSize = configModule.properties.getProperty("mediastore.connection.pool.size", "25").toInt
+
+  val remoteMediaConnectionMaxPerRoute = configModule.properties.getProperty("mediastore.connection.pool.maxperroute", "25").toInt
+
   val userAgent = configModule.properties.getProperty("biocache.useragent", "Biocache")
 
   val solrUpdateThreads = configModule.properties.getProperty("solr.update.threads", "4").toInt
@@ -107,6 +115,8 @@ object Config {
   val volunteerDataProviderUid = configModule.properties.getProperty("volunteer.dp.uid", "")
 
   val collectoryApiKey = configModule.properties.getProperty("registry.api.key","xxxxxxxxxxxxxxxxx")
+
+  val mediaStoreApiKey = configModule.properties.getProperty("imageservice.api.key","xxxxxxxxxxxxxxxxx")
 
   val loadFileStore = configModule.properties.getProperty("load.dir","/data/biocache-load/")
 

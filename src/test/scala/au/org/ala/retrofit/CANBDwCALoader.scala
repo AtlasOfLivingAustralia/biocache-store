@@ -46,7 +46,7 @@ object CANBDwCALoader{
       if(localFilePath.isDefined){
         if(mapFilePath.isDefined){
           l.setNonDefaultMapping(mapFilePath.get)
-          l.loadLocal(resourceUid, localFilePath.get, logRowKeys, testFile)
+          l.loadLocal(resourceUid, localFilePath.get, logRowKeys, testFile, loadingThreads = 1)
         }
         l.updateLastChecked(resourceUid)
       }

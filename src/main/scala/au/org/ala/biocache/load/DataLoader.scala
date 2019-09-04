@@ -287,10 +287,10 @@ trait DataLoader {
       return fr
     }
 
-    val associatedMediaBuffer = new ArrayBuffer[String]
-    val imagesBuffer = new ArrayBuffer[String]
-    val soundsBuffer = new ArrayBuffer[String]
-    val videosBuffer = new ArrayBuffer[String]
+    val associatedMediaBuffer = scala.collection.mutable.SortedSet[String]()
+    val imagesBuffer = scala.collection.mutable.SortedSet[String]()
+    val soundsBuffer = scala.collection.mutable.SortedSet[String]()
+    val videosBuffer = scala.collection.mutable.SortedSet[String]()
 
     filesToImport.foreach { fileToStore =>
 
