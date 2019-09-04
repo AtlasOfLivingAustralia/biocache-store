@@ -414,11 +414,13 @@ class DwCALoader extends DataLoader {
     override def run(): Unit = {
       try {
         while (!noMoreToCome) {
-          val r = queue.take()
+          val r = queue.poll()
           if (r != null && r.recordUuid != END_OF_QUEUE) {
             processMedia(r.resourceUid, r.fullRecord, r.multimedia)
             Config.occurrenceDAO.addRawOccurrenceBatch(Array(r.fullRecord), r.removeNullFields)
-          } else {
+          }
+
+          if ((r != null && r.recordUuid == END_OF_QUEUE) || Thread.currentThread().isInterrupted()) {
             noMoreToCome = true
           }
         }

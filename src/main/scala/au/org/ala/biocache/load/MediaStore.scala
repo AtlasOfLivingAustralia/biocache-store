@@ -183,8 +183,18 @@ object RemoteMediaStore extends MediaStore {
   import org.apache.http.impl.client.HttpClients
   import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 
-  val cm = new PoolingHttpClientConnectionManager
-  val client: CloseableHttpClient = HttpClients.custom.setConnectionManager(cm).build
+  var cm:PoolingHttpClientConnectionManager = null
+  var client: CloseableHttpClient = null
+
+  def getClient : CloseableHttpClient = {
+    if (cm == null) {
+      cm = new PoolingHttpClientConnectionManager
+      cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
+      cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
+      client = HttpClients.custom.setConnectionManager(cm).build
+    }
+    client
+  }
 
   def getImageFormats(imageId: String): java.util.Map[String, String] = {
     val map = new util.HashMap[String, String]
@@ -395,7 +405,7 @@ object RemoteMediaStore extends MediaStore {
 
     val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/updateMetadata/" + imageId)
     httpPost.setEntity(entity)
-    val response = client.execute(httpPost)
+    val response = getClient.execute(httpPost)
     try {
       val status = response.getStatusLine()
     } finally {
@@ -433,7 +443,7 @@ object RemoteMediaStore extends MediaStore {
     httpPost.setEntity(entity)
     httpPost.setHeader("apiKey", Config.mediaStoreApiKey)
 
-    val response = client.execute(httpPost)
+    val response = getClient.execute(httpPost)
 
     try {
       val result = response.getStatusLine()
@@ -528,7 +538,7 @@ object RemoteMediaStore extends MediaStore {
     httpPost.setEntity(entity)
     httpPost.setHeader("apiKey", "d75f5560-a4eb-4b5f-9178-5f049a8ec85e")
 
-    val response = client.execute(httpPost)
+    val response = getClient.execute(httpPost)
     val result = response.getStatusLine()
     val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
     logger.debug("Image service response code: " + result.getStatusCode)
