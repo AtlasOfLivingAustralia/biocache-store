@@ -187,11 +187,13 @@ object RemoteMediaStore extends MediaStore {
   var client: CloseableHttpClient = null
 
   def getClient : CloseableHttpClient = {
-    if (cm == null) {
-      cm = new PoolingHttpClientConnectionManager
-      cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
-      cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
-      client = HttpClients.custom.setConnectionManager(cm).build
+    this.synchronized {
+      if (client == null) {
+        cm = new PoolingHttpClientConnectionManager
+        cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
+        cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
+        client = HttpClients.custom.setConnectionManager(cm).build
+      }
     }
     client
   }
@@ -422,7 +424,7 @@ object RemoteMediaStore extends MediaStore {
     val metadata = mutable.Map(
       "occurrenceId" -> uuid,
       "dataResourceUid" -> resourceUID,
-      "originalFileName" -> extractFileName(urlToMedia),
+      "originalFileName" -> urlToMedia,
       "fullOriginalUrl" -> urlToMedia
     )
 
@@ -515,7 +517,7 @@ object RemoteMediaStore extends MediaStore {
     val metadata = mutable.Map(
       "occurrenceId" -> uuid,
       "dataResourceUid" -> resourceUID,
-      "originalFileName" -> extractFileName(urlToMedia),
+      "originalFileName" -> urlToMedia,
       "fullOriginalUrl" -> urlToMedia
     )
 
