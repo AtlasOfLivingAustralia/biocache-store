@@ -326,7 +326,12 @@ object RemoteMediaStore extends MediaStore {
         return None
       } else {
         val metadata = getMetadata(imageId.get)
-        return Some((metadata.getOrDefault("originalFileName", "").toString, imageId.get))
+        if (metadata != null) {
+          return Some((metadata.getOrDefault("originalFileName", "").toString, imageId.get))
+        } else {
+          logger.error("Unable to retrieve metadata for image already stored in image service: " + imageId.get)
+          return None
+        }
       }
     }
 
