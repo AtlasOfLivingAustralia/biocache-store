@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.cmd.Tool
-import com.opencsv.CSVReader
+import com.opencsv.{CSVParserBuilder, CSVReader, CSVReaderBuilder, RFC4180Parser}
 import org.apache.commons.lang.StringUtils
 
 import scala.collection.mutable.ListBuffer
@@ -71,6 +71,50 @@ object DwCACreator extends Tool {
     "individualCount",
     "eventID",
     "dataGeneralizations_p"
+  )
+
+  val rawFields = List(
+    "rowkey",
+    "dataResourceUid",
+    "catalogNumber",
+    "collectionCode",
+    "institutionCode",
+    "scientificName",
+    "recordedBy",
+    "taxonConceptID",
+    "taxonRank",
+    "kingdom",
+    "phylum",
+    "classs",
+    "order",
+    "family",
+    "genus",
+    "decimalLatitude",
+    "decimalLongitude",
+    "coordinateUncertaintyInMeters",
+    "maximumElevationInMeters",
+    "minimumElevationInMeters",
+    "minimumDepthInMeters",
+    "maximumDepthInMeters",
+    "geodeticDatum",
+    "country",
+    "stateProvince",
+    "locality",
+    "occurrenceStatus",
+    "year",
+    "month",
+    "day",
+    "eventDate",
+    "eventDateEnd",
+    "basisOfRecord",
+    "identifiedBy",
+    "occurrenceRemarks",
+    "locationRemarks",
+    "recordNumber",
+    "vernacularName",
+    "individualCount",
+    "eventID",
+    "dataGeneralizations"
   )
 
   def main(args: Array[String]): Unit = {
@@ -161,7 +205,8 @@ object DwCACreator extends Tool {
                       cleanValue(map.getOrElse("eventID", "")),
                       cleanValue(map.getOrElse("identifiedBy", "")),
                       cleanValue(map.getOrElse("occurrenceRemarks", "")),
-                      cleanValue(map.getOrElse("dataGeneralizations_p", ""))
+                      cleanValue(map.getOrElse("dataGeneralizations_p", "")),
+                      cleanValue(map.getOrElse("occurrenceID", "")) //provide the raw occurrence ID in associated
                     ))
                     csv.flush()
                   }
@@ -311,6 +356,7 @@ class DwCACreator {
         <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
         <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
         <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
+        <field index="39" term="http://rs.tdwg.org/dwc/terms/associatedReferences" />
       </core>
     </archive>
     //add the XML
@@ -368,6 +414,7 @@ class DwCACreator {
         <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
         <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
         <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
+        <field index="39" term="http://rs.tdwg.org/dwc/terms/associatedReferences" />
       </core>
       <extension encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
         <files>
@@ -420,8 +467,12 @@ class DwCACreator {
     logger.info("Extracting Gzip....")
     extractGzip(imagesExport, workingDir + "/images-export.csv")
 
-    //split the files by data resource
-    val reader = new CSVReader(new FileReader(workingDir + "/images-export.csv"))
+    //assume output is RFC4180 - i.e. no escape character is in use, and quotes are respected.
+    val reader = new CSVReaderBuilder(new FileReader(workingDir + "/images-export.csv"))
+      .withSkipLines(1)
+      .withCSVParser(new RFC4180Parser())
+      .build()
+
     var line = reader.readNext()
 
     var currentUid = ""
