@@ -73,50 +73,6 @@ object DwCACreator extends Tool {
     "dataGeneralizations_p"
   )
 
-  val rawFields = List(
-    "rowkey",
-    "dataResourceUid",
-    "catalogNumber",
-    "collectionCode",
-    "institutionCode",
-    "scientificName",
-    "recordedBy",
-    "taxonConceptID",
-    "taxonRank",
-    "kingdom",
-    "phylum",
-    "classs",
-    "order",
-    "family",
-    "genus",
-    "decimalLatitude",
-    "decimalLongitude",
-    "coordinateUncertaintyInMeters",
-    "maximumElevationInMeters",
-    "minimumElevationInMeters",
-    "minimumDepthInMeters",
-    "maximumDepthInMeters",
-    "geodeticDatum",
-    "country",
-    "stateProvince",
-    "locality",
-    "occurrenceStatus",
-    "year",
-    "month",
-    "day",
-    "eventDate",
-    "eventDateEnd",
-    "basisOfRecord",
-    "identifiedBy",
-    "occurrenceRemarks",
-    "locationRemarks",
-    "recordNumber",
-    "vernacularName",
-    "individualCount",
-    "eventID",
-    "dataGeneralizations"
-  )
-
   def main(args: Array[String]): Unit = {
 
     var resourceUid = ""
@@ -206,7 +162,7 @@ object DwCACreator extends Tool {
                       cleanValue(map.getOrElse("identifiedBy", "")),
                       cleanValue(map.getOrElse("occurrenceRemarks", "")),
                       cleanValue(map.getOrElse("dataGeneralizations_p", "")),
-                      cleanValue(map.getOrElse("occurrenceID", "")) //provide the raw occurrence ID in associated
+                      cleanValue(map.getOrElse("occurrenceID", "")) //provide the raw occurrence ID in otherCatalogNumbers - discussed with GBIF
                     ))
                     csv.flush()
                   }
@@ -356,7 +312,7 @@ class DwCACreator {
         <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
         <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
         <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
-        <field index="39" term="http://rs.tdwg.org/dwc/terms/associatedReferences" />
+        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
       </core>
     </archive>
     //add the XML
@@ -414,7 +370,7 @@ class DwCACreator {
         <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
         <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
         <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
-        <field index="39" term="http://rs.tdwg.org/dwc/terms/associatedReferences" />
+        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
       </core>
       <extension encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
         <files>
