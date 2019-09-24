@@ -13,14 +13,14 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.cmd.Tool
-import com.opencsv.{CSVParserBuilder, CSVReader, CSVReaderBuilder, RFC4180Parser}
+import com.opencsv.{CSVReaderBuilder, RFC4180Parser}
 import org.apache.commons.lang.StringUtils
 
 import scala.collection.mutable.ListBuffer
 
 /**
- * Companion object for the DwCACreator class.
- */
+  * Companion object for the DwCACreator class.
+  */
 object DwCACreator extends Tool {
 
   def cmd = "create-dwc"
@@ -35,7 +35,9 @@ object DwCACreator extends Tool {
     "catalogNumber",
     "collectionCode",
     "institutionCode",
+    "scientificName",
     "scientificName_p",
+    "scientificNameAuthorship",
     "recordedBy",
     "taxonConceptID_p",
     "taxonRank_p",
@@ -45,6 +47,12 @@ object DwCACreator extends Tool {
     "order_p",
     "family_p",
     "genus_p",
+    "kingdom",
+    "phylum",
+    "classs",
+    "order",
+    "family",
+    "genus",
     "decimalLatitude_p",
     "decimalLongitude_p",
     "coordinateUncertaintyInMeters_p",
@@ -67,6 +75,7 @@ object DwCACreator extends Tool {
     "occurrenceRemarks",
     "locationRemarks",
     "recordNumber",
+    "vernacularName",
     "vernacularName_p",
     "individualCount",
     "eventID",
@@ -101,12 +110,20 @@ object DwCACreator extends Tool {
         dwcc.addImageExportsToArchives(directory)
       } else {
         try {
-          val dataResource2OutputStreams = getDataResourceUids.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
+
+          val resourceIDs = if (resourceUid == "all"){
+            getDataResourceUids
+          } else {
+            List(resourceUid)
+          }
+
+
+          val dataResource2OutputStreams = resourceIDs.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
           Config.persistenceManager.pageOverSelect("occ", (key, map) => {
             synchronized {
               val dr = map.getOrElse("dataResourceUid", "")
               val deletedDate = map.getOrElse("deletedDate", "")
-              if (dr != "" && deletedDate =="") {
+              if (dr != "" && resourceIDs.contains(dr) && deletedDate =="") {
                 val dataResourceMap = dataResource2OutputStreams.get(dr)
                 if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty){
                   val (zop, csv) = dataResourceMap.get.get
@@ -122,6 +139,62 @@ object DwCACreator extends Tool {
                       }
                     }
 
+                    // we will provide the processed if we can, but also supply the verbatim in
+                    val (scientificName, kingdom, phylum, classs, order, family, genus, vernacularName, processedTaxonomyProvided) = {
+                      val processedSciName = cleanValue(map.getOrElse("scientificName_p", ""))
+                      if (StringUtils.isEmpty(processedSciName)){
+                        (
+                          cleanValue(map.getOrElse("scientificName", "")),
+                          cleanValue(map.getOrElse("kingdom", "")),
+                          cleanValue(map.getOrElse("phylum", "")),
+                          cleanValue(map.getOrElse("classs", "")),
+                          cleanValue(map.getOrElse("order", "")),
+                          cleanValue(map.getOrElse("family", "")),
+                          cleanValue(map.getOrElse("genus", "")),
+                          cleanValue(map.getOrElse("vernacularName", "")),
+
+                          false
+                        )
+                      } else {
+                        (processedSciName,
+                          cleanValue(map.getOrElse("kingdom_p", "")),
+                          cleanValue(map.getOrElse("phylum_p", "")),
+                          cleanValue(map.getOrElse("classs_p", "")),
+                          cleanValue(map.getOrElse("order_p", "")),
+                          cleanValue(map.getOrElse("family_p", "")),
+                          cleanValue(map.getOrElse("genus_p", "")),
+                          cleanValue(map.getOrElse("vernacularName_p", "")),
+                          true
+                        )
+                      }
+                    }
+
+                    //Advice from GBIF team : Appending a "Identification aligned to ALA taxonomy" or
+                    // "Verbatim identification provided (did not align to ALA taxonomy)"
+                    val dataGeneralisations = {
+                      var dataGeneralization = cleanValue(map.getOrElse("dataGeneralizations_p", ""))
+                      if (StringUtils.isNotEmpty(dataGeneralization)){
+                        dataGeneralization = dataGeneralization + " "
+                      }
+
+                      if (processedTaxonomyProvided){
+                        dataGeneralization = dataGeneralization + "Identification aligned to national taxonomy. Originally supplied as " +
+                          "[[ " +
+                          cleanValue(map.getOrElse("kingdom", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("phylum", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("classs", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("order", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("family", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("genus", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("scientificName", "<not-supplied>")) +
+                          "]]"
+                      } else {
+                        dataGeneralization = dataGeneralization + "Verbatim identification provided (did not align to national taxonomy)"
+                      }
+
+                      dataGeneralization
+                    }
+
                     csv.writeNext(Array(
                       cleanValue(map.getOrElse("rowkey", "")),
                       cleanValue(map.getOrElse("catalogNumber",  "")),
@@ -132,16 +205,16 @@ object DwCACreator extends Tool {
                       cleanValue(map.getOrElse("recordedBy", "")),
                       cleanValue(map.getOrElse("occurrenceStatus_p", "")),
                       cleanValue(map.getOrElse("individualCount", "")),
-                      cleanValue(map.getOrElse("scientificName_p", "")),
+                      scientificName,
                       cleanValue(map.getOrElse("taxonConceptID_p", "")),
                       cleanValue(map.getOrElse("taxonRank_p", "")),
-                      cleanValue(map.getOrElse("kingdom_p", "")),
-                      cleanValue(map.getOrElse("phylum_p", "")),
-                      cleanValue(map.getOrElse("classs_p", "")),
-                      cleanValue(map.getOrElse("order_p", "")),
-                      cleanValue(map.getOrElse("family_p", "")),
-                      cleanValue(map.getOrElse("genus_p", "")),
-                      cleanValue(map.getOrElse("vernacularName_p", "")),
+                      kingdom,
+                      phylum,
+                      classs,
+                      order,
+                      family,
+                      genus,
+                      vernacularName,
                       cleanValue(map.getOrElse("decimalLatitude_p", "")),
                       cleanValue(map.getOrElse("decimalLongitude_p", "")),
                       cleanValue(map.getOrElse("geodeticDatum_p", "")),
@@ -161,7 +234,7 @@ object DwCACreator extends Tool {
                       cleanValue(map.getOrElse("eventID", "")),
                       cleanValue(map.getOrElse("identifiedBy", "")),
                       cleanValue(map.getOrElse("occurrenceRemarks", "")),
-                      cleanValue(map.getOrElse("dataGeneralizations_p", "")),
+                      dataGeneralisations,
                       cleanValue(map.getOrElse("occurrenceID", "")) //provide the raw occurrence ID in otherCatalogNumbers - discussed with GBIF
                     ))
                     csv.flush()
@@ -212,10 +285,10 @@ object DwCACreator extends Tool {
 }
 
 /**
- * Class for creating a Darwin Core Archive from data in the biocache.
- *
- * TODO support for dwc fields in registry metadata. When not available use the default fields.
- */
+  * Class for creating a Darwin Core Archive from data in the biocache.
+  *
+  * TODO support for dwc fields in registry metadata. When not available use the default fields.
+  */
 class DwCACreator {
 
   val logger = LoggerFactory.getLogger("DwCACreator")
@@ -225,11 +298,11 @@ class DwCACreator {
     logger.info("Creating archive for " + dataResource)
     val zipFile = new java.io.File (
       directory +
-      System.getProperty("file.separator") +
-      dataResource +
-      System.getProperty("file.separator") +
-      dataResource +
-      ".zip"
+        System.getProperty("file.separator") +
+        dataResource +
+        System.getProperty("file.separator") +
+        dataResource +
+        ".zip"
     )
 
     FileUtils.forceMkdir(zipFile.getParentFile)
@@ -270,7 +343,7 @@ class DwCACreator {
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
-              <location>occurrence.csv</location>
+          <location>occurrence.csv</location>
         </files>
         <id index="0"/>
         <field index="0"  term="http://rs.tdwg.org/dwc/terms/occurrenceID" />
@@ -450,14 +523,14 @@ class DwCACreator {
         writer = new CSVWriter(new FileWriter(workingDirSplitFiles + "/" + dataResourceUid))
       }
 
-      if(StringUtils.isNotEmpty(dataResourceUid)){
+      if (StringUtils.isNotEmpty(dataResourceUid)){
         writer.writeNext(line.slice(1, line.length))
       }
 
       line = reader.readNext()
     }
 
-    if(writer != null) {
+    if (writer != null) {
       writer.flush()
       writer.close()
       writer = null
@@ -473,6 +546,10 @@ class DwCACreator {
       if (archive.exists()){
 
         val backupArchive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip.backup")
+        if (backupArchive.exists()){
+          backupArchive.delete()
+        }
+
         //rename
         FileUtils.moveFile(archive, backupArchive)
 
@@ -499,7 +576,7 @@ class DwCACreator {
           val entries = zipFile.entries
           while (entries.hasMoreElements) {
             val entry = entries.nextElement
-            if(entry.getName == "occurrence.csv"){
+            if (entry.getName == "occurrence.csv"){
               stream = zipFile.getInputStream(entry)
             }
           }
