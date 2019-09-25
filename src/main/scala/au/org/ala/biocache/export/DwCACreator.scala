@@ -117,7 +117,6 @@ object DwCACreator extends Tool {
             List(resourceUid)
           }
 
-
           val dataResource2OutputStreams = resourceIDs.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
           Config.persistenceManager.pageOverSelect("occ", (key, map) => {
             synchronized {
@@ -245,9 +244,11 @@ object DwCACreator extends Tool {
             true
           }, threads, pageSize, defaultFields:_*)
           dataResource2OutputStreams.values.foreach { zopAndCsv =>
-            zopAndCsv.get._1.flush()
-            zopAndCsv.get._1.closeEntry()
-            zopAndCsv.get._1.close()
+            if(!zopAndCsv.isEmpty){
+              zopAndCsv.get._1.flush()
+              zopAndCsv.get._1.closeEntry()
+              zopAndCsv.get._1.close()
+            }
           }
           dwcc.addImageExportsToArchives(directory)
         } catch {
