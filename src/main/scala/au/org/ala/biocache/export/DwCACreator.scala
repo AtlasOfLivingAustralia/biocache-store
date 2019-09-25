@@ -243,6 +243,8 @@ object DwCACreator extends Tool {
             }
             true
           }, threads, pageSize, defaultFields:_*)
+
+          //finish write of CSV to zip
           dataResource2OutputStreams.values.foreach { zopAndCsv =>
             if(!zopAndCsv.isEmpty){
               zopAndCsv.get._1.flush()
@@ -250,7 +252,9 @@ object DwCACreator extends Tool {
               zopAndCsv.get._1.close()
             }
           }
+          //add images
           dwcc.addImageExportsToArchives(directory)
+
         } catch {
           case e:Exception => {
             logger.error(e.getMessage(), e)
