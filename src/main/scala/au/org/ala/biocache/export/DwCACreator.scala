@@ -234,7 +234,8 @@ object DwCACreator extends Tool {
                       cleanValue(map.getOrElse("identifiedBy", "")),
                       cleanValue(map.getOrElse("occurrenceRemarks", "")),
                       dataGeneralisations,
-                      cleanValue(map.getOrElse("occurrenceID", "")) //provide the raw occurrence ID in otherCatalogNumbers - discussed with GBIF
+                      cleanValue(map.getOrElse("occurrenceID", "")), //provide the raw occurrence ID in otherCatalogNumbers - discussed with GBIF
+                      Config.biocacheUiUrl + "/occurrences/" + cleanValue(map.getOrElse("rowkey", ""))
                     ))
                     csv.flush()
                   }
@@ -246,7 +247,7 @@ object DwCACreator extends Tool {
 
           //finish write of CSV to zip
           dataResource2OutputStreams.values.foreach { zopAndCsv =>
-            if(!zopAndCsv.isEmpty){
+            if (!zopAndCsv.isEmpty){
               zopAndCsv.get._1.flush()
               zopAndCsv.get._1.closeEntry()
               zopAndCsv.get._1.close()
@@ -391,6 +392,7 @@ class DwCACreator {
         <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
         <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
         <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
+        <field index="40" term="http://purl.org/dc/terms/references" />
       </core>
     </archive>
     //add the XML
@@ -449,6 +451,7 @@ class DwCACreator {
         <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
         <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
         <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
+        <field index="40" term="http://purl.org/dc/terms/references" />
       </core>
       <extension encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
         <files>

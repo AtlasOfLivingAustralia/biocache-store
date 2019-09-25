@@ -132,6 +132,8 @@ object Config {
 
   val mediaBaseUrl = configModule.properties.getProperty("media.url","https://biocache.ala.org.au/biocache-media")
 
+  val biocacheUiUrl = configModule.properties.getProperty("biocache.ui.url","https://biocache.ala.org.au")
+
   val excludeSensitiveValuesFor = configModule.properties.getProperty("exclude.sensitive.values","")
 
   val solrCollection = configModule.properties.getProperty("solr.collection", "biocache1")
