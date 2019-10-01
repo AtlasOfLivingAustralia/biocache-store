@@ -2,7 +2,7 @@ package au.org.ala.biocache.load
 
 import java.io._
 import java.net.URI
-import java.nio.charset.{StandardCharsets}
+import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util
 import java.util.UUID
@@ -10,6 +10,7 @@ import java.util.UUID
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.{FullRecord, Multimedia}
 import au.org.ala.biocache.util.{HttpUtil, Json}
+import com.google.common.util.concurrent.RateLimiter
 import com.jayway.jsonpath.JsonPath
 import net.minidev.json.JSONArray
 import org.apache.commons.codec.digest.DigestUtils
@@ -185,6 +186,7 @@ object RemoteMediaStore extends MediaStore {
 
   var cm:PoolingHttpClientConnectionManager = null
   var client: CloseableHttpClient = null
+  var rateLimiter: RateLimiter = null
 
   def getClient : CloseableHttpClient = {
     this.synchronized {
@@ -193,8 +195,10 @@ object RemoteMediaStore extends MediaStore {
         cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
         cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
         client = HttpClients.custom.setConnectionManager(cm).build
+        rateLimiter = RateLimiter.create(Config.remoteMediaStoreMaxRequests)
       }
     }
+    rateLimiter.acquire()
     client
   }
 

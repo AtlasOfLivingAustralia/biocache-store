@@ -46,6 +46,7 @@ object Config {
 
   //URL to an instance of the ALA image-service
   val remoteMediaStoreUrl = configModule.properties.getProperty("media.store.url", "")
+  val remoteMediaStoreMaxRequests = configModule.properties.getProperty("media.store.maxrequests.persec", "10").toInt
 
   // Media store type
   val mediaStoreType = configModule.properties.getProperty("media.store.type", "auto")
