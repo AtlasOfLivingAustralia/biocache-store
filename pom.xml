@@ -27,7 +27,7 @@
         <org.springframework.version>4.3.24.RELEASE</org.springframework.version>
         <solr.version>6.6.5</solr.version>
         <jts.version>1.13</jts.version>
-        <jackson.version>2.9.8</jackson.version>
+        <jackson.version>2.10.0</jackson.version>
         <gt.version>11.1</gt.version>
         <cassandra.version>3.6.0</cassandra.version>
         <targetJdk>1.8</targetJdk>
