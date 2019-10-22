@@ -17,11 +17,12 @@ import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.io.{FileUtils, FilenameUtils}
 import org.apache.commons.lang3.StringUtils
 import org.apache.http.NameValuePair
-import org.apache.http.client.methods.HttpPost
+import org.apache.http.client.methods.{HttpGet, HttpPost}
 import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.mime.content.{FileBody, StringBody}
 import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntityBuilder}
+import org.apache.http.util.EntityUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
@@ -364,8 +365,15 @@ object RemoteMediaStore extends MediaStore {
 
   def getMetadata(uuid: String): java.util.Map[String, Object] = {
     val url = Config.remoteMediaStoreUrl + "/ws/image/" + uuid + ".json"
-    val result = Json.toJavaMap(HttpUtil.get(url))
-    result
+    val httpResponse = getClient.execute(new HttpGet(url))
+    if (httpResponse.getStatusLine().getStatusCode == 200){
+      val jsonStr = EntityUtils.toString(httpResponse.getEntity())
+      val result = Json.toJavaMap(jsonStr)
+      result
+    } else {
+      logger.warn("Unable to retrieve metadata for image already stored in image service: " + url)
+      null
+    }
   }
 
   private def downloadToTmpFile(resourceUID: String, uuid: String, urlToMedia: String): Option[File] = try {
