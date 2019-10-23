@@ -568,7 +568,7 @@ object RemoteMediaStore extends MediaStore {
 
     val httpPost = new HttpPost(Config.remoteMediaStoreUrl + "/ws/uploadImage")
     httpPost.setEntity(entity)
-    httpPost.setHeader("apiKey", "d75f5560-a4eb-4b5f-9178-5f049a8ec85e")
+    httpPost.setHeader("apiKey", Config.mediaStoreApiKey)
 
     val response = getClient.execute(httpPost)
     val result = response.getStatusLine()
