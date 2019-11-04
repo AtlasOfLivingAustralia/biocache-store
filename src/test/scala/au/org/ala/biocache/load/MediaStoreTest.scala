@@ -14,28 +14,16 @@
  */
 package au.org.ala.biocache.load
 
-import java.io.{File, FileOutputStream}
-import java.net.{URI, URL}
+import java.io.File
 import java.util
 
-import au.org.ala.biocache.util.Json
-import au.org.ala.biocache.{Config, ConfigFunSuite}
 import au.org.ala.biocache.model.{FullRecord, Multimedia}
-import org.apache.commons.io.FileUtils
-import org.apache.http.NameValuePair
-import org.apache.http.client.methods.HttpPost
-import org.apache.http.client.utils.URLEncodedUtils
-import org.apache.http.entity.mime.content.{FileBody, StringBody}
-import org.apache.http.entity.mime.{HttpMultipartMode, MultipartEntity}
-import org.apache.http.impl.client.DefaultHttpClient
-import org.gbif.dwc.terms.DcTerm
-import org.gbif.dwc.DwcFiles
+import au.org.ala.biocache.{Config, ConfigFunSuite}
 import org.junit.Ignore
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 
 import scala.collection.mutable
-import scala.io.Source
 
 @Ignore
 class TestMediaStore extends MediaStore {
@@ -69,7 +57,7 @@ class TestMediaStore extends MediaStore {
     formats
   }
 
-  override def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String) = (false, "", "")
+  override def alreadyStored(uuid: String, resourceUID: String, file: File): (Boolean, String, String) = (false, "", "")
 
   override def getMetadata(uuid: String): java.util.Map[String, Object] = {
     val result = new java.util.HashMap[String, Object]
@@ -212,9 +200,10 @@ class MediaStoreTest extends ConfigFunSuite {
 
   test("null media store") {
     val store = NullMediaStore
+    val file =
     expectResult(Config.mediaNotFound){ store.getImageFormats("test.png").get("large") }
     expectResult(Config.mediaNotFound){ store.convertPathToUrl("test.png") }
-    expectResult((true, "notFound", Config.mediaNotFound)){ store.alreadyStored("xxx", "xxx", "test.png") }
+    expectResult((true, "notFound", Config.mediaNotFound)){ store.alreadyStored("xxx", "xxx", new File("test.png")) }
     expectResult(("notFound", Config.mediaNotFound)){ store.save("xxx", "xxx", "test.png", None).get }
   }
 

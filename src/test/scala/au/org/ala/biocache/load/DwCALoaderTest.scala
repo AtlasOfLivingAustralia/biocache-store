@@ -40,7 +40,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("locate multimedia 2") {
     val loader = new DwCALoader
-    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
+    val archive = DwcFiles.fromLocation(WORK_DIR.toPath())
     val iterator = archive.getExtension(DwCALoader.IMAGE_TYPE).iterator()
     iterator.next()
     val row = iterator.next()
@@ -51,7 +51,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("locate multimedia 3") {
     val loader = new DwCALoader
-    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
+    val archive = DwcFiles.fromLocation(WORK_DIR.toPath())
     val iterator = archive.getExtension(DwCALoader.IMAGE_TYPE).iterator()
     iterator.next()
     iterator.next()
@@ -63,7 +63,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("load multimedia 1") {
     val loader = new DwCALoader
-    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
+    val archive = DwcFiles.fromLocation(WORK_DIR.toPath())
     val ai = archive.iterator()
     val record = ai.next()
     val multimediaList = loader.loadMultimedia(record, DwCALoader.IMAGE_TYPE, IMAGE_BASE)
@@ -82,7 +82,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("load multimedia 2") {
     val loader = new DwCALoader
-    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
+    val archive = DwcFiles.fromLocation(WORK_DIR.toPath())
     val ai = archive.iterator()
     val record = ai.next()
     val multimediaList = loader.loadMultimedia(record, DwCALoader.IMAGE_TYPE, IMAGE_BASE)
@@ -101,7 +101,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("load multimedia 3") {
     val loader = new DwCALoader
-    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
+    val archive = DwcFiles.fromLocation(WORK_DIR.toPath())
     val ai = archive.iterator()
     val record = ai.next()
     val multimediaList = loader.loadMultimedia(record, DwCALoader.IMAGE_TYPE, IMAGE_BASE)
@@ -120,7 +120,7 @@ class DwCALoaderTest extends ConfigFunSuite {
 
   test("load multimedia 4") {
     val loader = new DwCALoader
-    val archive = DwcFiles.fromLocation(Paths.get("src/test/resources/au/org/ala/load/test-dwca"))
+    val archive = DwcFiles.fromLocation(WORK_DIR.toPath())
     val ai = archive.iterator()
     ai.next()
     val record = ai.next()
