@@ -104,12 +104,12 @@ trait MediaStore {
     * String - identifier or filesystem path to where the media is stored.
     *
     * @param uuid
-    * @param dataResouceUid The data resource
+    * @param resourceUID The data resource
     * @param file The local file
     *
     * @return
     */
-  def alreadyStored(uuid: String, dataResouceUid: String, file: File): (Boolean, String, String)
+  def alreadyStored(uuid: String, resourceUID: String, file: File): (Boolean, String, String)
 
   /**
     * Checks to see if the supplied media file is accessible on the file system
