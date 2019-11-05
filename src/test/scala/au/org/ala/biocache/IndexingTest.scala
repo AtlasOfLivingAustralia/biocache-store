@@ -10,9 +10,11 @@ import org.apache.lucene.index.DirectoryReader
 import org.apache.lucene.store.FSDirectory
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
+import org.slf4j.LoggerFactory
 
 @RunWith(classOf[JUnitRunner])
 class IndexingTest extends ConfigFunSuite {
+  override val logger = LoggerFactory.getLogger("IndexingTest")
 
   test("Test range parsing"){
 
@@ -73,7 +75,9 @@ class IndexingTest extends ConfigFunSuite {
     indexReader.close
 
     //previous tests may have added data
+    logger.info("LSID count = " + lsidCount)
     expectResult(true){lsidCount >= 10000}
+    logger.info("LSID count = " + nameCount)
     expectResult(true){nameCount >= 10000}
 
     if(merged.exists()) FileUtils.deleteDirectory(merged)
