@@ -280,7 +280,7 @@ class DwCALoader extends DataLoader {
 
           // Get any related multimedia
           val multimedia = {
-            if (starRecord.core().rowType() == DwcTerm.Occurrence) {
+            if (starRecord.core().rowType() == DwcTerm.Occurrence || starRecord.core().rowType().simpleName() == "SimpleDarwinRecord") {
               loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
                 loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
             } else {
