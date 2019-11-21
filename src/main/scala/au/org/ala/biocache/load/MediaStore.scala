@@ -200,6 +200,12 @@ object RemoteMediaStore extends MediaStore {
           cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
           cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
           client = HttpClients.custom.setConnectionManager(cm).build
+        }
+      }
+    }
+    if (rateLimiter == null) {
+      this.synchronized {
+        if (rateLimiter == null) {
           rateLimiter = RateLimiter.create(Config.remoteMediaStoreMaxRequests)
         }
       }
