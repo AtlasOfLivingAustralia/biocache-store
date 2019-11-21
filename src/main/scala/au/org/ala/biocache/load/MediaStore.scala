@@ -193,13 +193,15 @@ object RemoteMediaStore extends MediaStore {
   var rateLimiter: RateLimiter = null
 
   def getClient : CloseableHttpClient = {
-    this.synchronized {
-      if (client == null) {
-        cm = new PoolingHttpClientConnectionManager
-        cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
-        cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
-        client = HttpClients.custom.setConnectionManager(cm).build
-        rateLimiter = RateLimiter.create(Config.remoteMediaStoreMaxRequests)
+    if (client == null) {
+      this.synchronized {
+        if (client == null) {
+          cm = new PoolingHttpClientConnectionManager
+          cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
+          cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
+          client = HttpClients.custom.setConnectionManager(cm).build
+          rateLimiter = RateLimiter.create(Config.remoteMediaStoreMaxRequests)
+        }
       }
     }
     rateLimiter.acquire()
@@ -230,18 +232,23 @@ object RemoteMediaStore extends MediaStore {
       val hash = FileHelper.file2helper(file).sha1Hash()
       val httpGet = new HttpGet(Config.remoteMediaStoreUrl + "/ws/search?q=contentsha1hash:" + hash + "&fq=dataResourceUid:" + resourceUID)
       val response = getClient.execute(httpGet)
-      if (response.getStatusLine.getStatusCode != 200) {
-        logger.warn("Unable to test storage status for " + file + " reason " + response.getStatusLine + " treating as not stored")
-        (false, "", "")
-      } else {
-        val body = Source.fromInputStream(response.getEntity.getContent).mkString
-        val jsonPath = JsonPath.compile("$..imageIdentifier")
-        val idArray = jsonPath.read(body).asInstanceOf[JSONArray]
-
-        if (idArray.isEmpty)
+      try {
+        if (response.getStatusLine.getStatusCode != 200) {
+          logger.warn("Unable to test storage status for " + file + " reason " + response.getStatusLine + " treating as not stored")
           (false, "", "")
-        else
-          (true, file.getName, idArray.get(0).asInstanceOf[String])
+        } else {
+          val body = Source.fromInputStream(response.getEntity.getContent).mkString
+          val jsonPath = JsonPath.compile("$..imageIdentifier")
+          val idArray = jsonPath.read(body).asInstanceOf[JSONArray]
+
+          if (idArray.isEmpty) {
+            (false, "", "")
+          } else {
+            (true, file.getName, idArray.get(0).asInstanceOf[String])
+          }
+        }
+      } finally {
+        response.close()
       }
     }
   }
@@ -569,17 +576,21 @@ object RemoteMediaStore extends MediaStore {
     httpPost.setHeader("apiKey", Config.mediaStoreApiKey)
 
     val response = getClient.execute(httpPost)
-    val result = response.getStatusLine()
-    val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-    logger.debug("Image service response code: " + result.getStatusCode)
-    val map = Json.toMap(responseBody)
-    logger.debug("Image ID: " + map.getOrElse("imageId", ""))
-    map.get("imageId") match {
-      case Some(o) => Some(o.toString())
-      case None => {
-        logger.warn(s"Unable to persist image with multipart upload. Response code $result.getStatusCode.  Image service response body: $responseBody")
-        None
+    try {
+      val result = response.getStatusLine()
+      val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+      logger.debug("Image service response code: " + result.getStatusCode)
+      val map = Json.toMap(responseBody)
+      logger.debug("Image ID: " + map.getOrElse("imageId", ""))
+      map.get("imageId") match {
+        case Some(o) => Some(o.toString())
+        case None => {
+          logger.warn(s"Unable to persist image with multipart upload. Response code $result.getStatusCode.  Image service response body: $responseBody")
+          None
+        }
       }
+    } finally {
+      response.close()
     }
   }
 

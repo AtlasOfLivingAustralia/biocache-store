@@ -133,17 +133,21 @@ class FileHelper(file: File) {
       val sha1 = MessageDigest.getInstance("SHA-1")
       val buffer = new Array[Byte](4096)
       val is = new io.FileInputStream(file)
-      var n  = is.read(buffer)
+      try {
+        var n  = is.read(buffer)
 
-      while (n > 0) {
-        sha1.update(buffer, 0, n)
-        n = is.read(buffer)
+        while (n > 0) {
+          sha1.update(buffer, 0, n)
+          n = is.read(buffer)
+        }
+
+        val sb = new mutable.StringBuilder
+        for (b <- sha1.digest)
+          sb.append(String.format("%02x", Byte.box(b)))
+        sb.toString()
+      } finally {
+        is.close()
       }
-
-      val sb = new mutable.StringBuilder
-      for (b <- sha1.digest)
-        sb.append(String.format("%02x", Byte.box(b)))
-      sb.toString()
     }
 
 }
