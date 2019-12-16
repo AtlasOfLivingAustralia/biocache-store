@@ -91,7 +91,7 @@ object DwCACreator extends Tool {
     var addImagesToExisting = false
 
     val parser = new OptionParser(help) {
-      arg("data-resource-uid", "The UID of the data resource to load or 'all' to generate for all",
+      arg("data-resource-uid", "Comma separated list of DRs or 'all' to generate for all",
         { v: String => resourceUid = v }
       )
       arg("directory-to-dump", "Directory to place the created archives",
@@ -114,7 +114,7 @@ object DwCACreator extends Tool {
           val resourceIDs = if (resourceUid == "all"){
             getDataResourceUids
           } else {
-            List(resourceUid)
+            resourceUid.split(",").map(_.trim).toList
           }
 
           val dataResource2OutputStreams = resourceIDs.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
