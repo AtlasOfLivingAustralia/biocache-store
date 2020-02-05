@@ -541,7 +541,7 @@ CREATE TABLE occ.occ (
     year text,
     year_p text,
     zone text,
-    PRIMARY KEY (rowkey)
+    PRIMARY KEY (rowkey, "dataResourceUid")
 ) WITH CLUSTERING ORDER BY ("dataResourceUid" ASC)
     AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
