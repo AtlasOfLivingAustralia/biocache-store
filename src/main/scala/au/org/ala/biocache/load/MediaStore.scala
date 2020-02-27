@@ -1,7 +1,7 @@
 package au.org.ala.biocache.load
 
 import java.io._
-import java.net.URI
+import java.net.{URI, URL}
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.{io, util}
@@ -271,6 +271,33 @@ object RemoteMediaStore extends MediaStore {
   protected def constructFileID(resourceUID: String, uuid: String, urlToMedia: String) =
     resourceUID + "||" + uuid + "||" + extractFileName(urlToMedia)
 
+
+  /**
+    * Check if the URL looks like an image service URL. This test will ignore
+    * differences of protocol (http vs https).
+    *
+    * @param urlToMedia the URL to test
+    * @return true if URL looks like an image service URL.
+    */
+  def isRemoteMediaStoreUrl(urlToMedia:String): Boolean = {
+
+    if (urlToMedia == null) return false
+
+    if (urlToMedia.startsWith(Config.remoteMediaStoreUrl)) {
+      return true
+    }
+
+    //ignore the protocol, and look at host
+    val urlToMediaHost = new URL(urlToMedia).getHost()
+    val urlToRemoteMediaStoreHost = new URL(Config.remoteMediaStoreUrl).getHost()
+
+    if (urlToMediaHost.equals(urlToRemoteMediaStoreHost)) {
+      return true
+    }
+
+    false
+  }
+
   /**
     * Save the supplied media to the remote store.
     *
@@ -282,7 +309,7 @@ object RemoteMediaStore extends MediaStore {
   def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
 
     //is the supplied URL an image service URL ?? If so extract imageID and return.....
-    if (urlToMedia.startsWith(Config.remoteMediaStoreUrl)) {
+    if (isRemoteMediaStoreUrl(Config.remoteMediaStoreUrl)) {
       logger.info("Remote media store host recognised: " + urlToMedia)
       val imageId = extractUUIDFromURL(urlToMedia)
 
