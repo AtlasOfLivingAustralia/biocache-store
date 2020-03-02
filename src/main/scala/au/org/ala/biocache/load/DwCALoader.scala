@@ -293,7 +293,7 @@ class DwCALoader extends DataLoader {
           }
 
           val fullRecord = FullRecordMapper.createFullRecord(recordUuid, fieldTuples.toArray, Raw)
-          queue.put(ConsumableRecord(resourceUid, recordUuid, fullRecord, multimedia, removeNullFields))
+          queue.put(ConsumableRecord(count.get(), resourceUid, recordUuid, fullRecord, multimedia, removeNullFields))
 
           lastID = uniqueID
           lastUUID = ""
@@ -313,7 +313,7 @@ class DwCALoader extends DataLoader {
 
       // send sentinels
       0.to(consumers.size).foreach { idx =>
-        queue.put(ConsumableRecord(null, END_OF_QUEUE, null, null, false))
+        queue.put(ConsumableRecord(-1, null, END_OF_QUEUE, null, null, false))
       }
 
       // wait for threads to complete
@@ -416,10 +416,13 @@ class DwCALoader extends DataLoader {
         while (!noMoreToCome) {
           val r = queue.poll()
           if (r != null && r.recordUuid != END_OF_QUEUE) {
-            processMedia(r.resourceUid, r.fullRecord, r.multimedia)
-            Config.occurrenceDAO.addRawOccurrenceBatch(Array(r.fullRecord), r.removeNullFields)
+            try {
+              processMedia(r.resourceUid, r.fullRecord, r.multimedia)
+              Config.occurrenceDAO.addRawOccurrenceBatch(Array(r.fullRecord), r.removeNullFields)
+            } catch {
+              case e:Exception => logger.error("Problem loading record - row number: " + r.rowNumber + " - " + e.getMessage, e)
+            }
           }
-
           if ((r != null && r.recordUuid == END_OF_QUEUE) || Thread.currentThread().isInterrupted()) {
             noMoreToCome = true
           }
@@ -430,7 +433,7 @@ class DwCALoader extends DataLoader {
     }
   }
 
-  case class ConsumableRecord(resourceUid:String, recordUuid:String, fullRecord:FullRecord, multimedia:Seq[Multimedia], removeNullFields:Boolean)
+  case class ConsumableRecord(rowNumber:Long, resourceUid:String, recordUuid:String, fullRecord:FullRecord, multimedia:Seq[Multimedia], removeNullFields:Boolean)
 }
 
 /**
