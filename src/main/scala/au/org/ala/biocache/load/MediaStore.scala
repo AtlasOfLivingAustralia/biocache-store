@@ -409,6 +409,7 @@ object RemoteMediaStore extends MediaStore {
       val result = Json.toJavaMap(jsonStr)
       result
     } else {
+      EntityUtils.consume((httpResponse.getEntity))
       logger.warn("Unable to retrieve metadata for image already stored in image service: " + url)
       null
     }
