@@ -362,7 +362,7 @@ object RemoteMediaStore extends MediaStore {
     * @return Option[String]
     */
   private def extractUUIDFromURL(urlToMedia:String): Option[String] = {
-    val uri = new URI(urlToMedia)
+    val uri = new URI(urlToMedia.replace(" ","%20"))
     if (urlToMedia.contains("/image/proxy")) {
       // Case 1:
       //   http://images.ala.org.au/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf
