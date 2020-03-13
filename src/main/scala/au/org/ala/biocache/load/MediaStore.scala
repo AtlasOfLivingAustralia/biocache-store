@@ -1,7 +1,7 @@
 package au.org.ala.biocache.load
 
 import java.io._
-import java.net.{URI, URL}
+import java.net.{URI, URL, URLEncoder}
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.{io, util}
@@ -337,7 +337,11 @@ object RemoteMediaStore extends MediaStore {
     //if its a URL - let the image service download it....
     //media store will handle any duplicates by checking original URL and MD5 hash
     val imageId = if (urlToMedia.startsWith(FileProtocol)) {
-      val file = new File(URI.create(urlToMedia.replaceAll(" ", "%20")))
+
+      val pattern = ("(" + FileProtocol+"/+)(.+)").r
+      val pattern(protocol, path) = urlToMedia
+      val file = new File(URI.create(protocol + URLEncoder.encode(path, "UTF-8").replace("+", "%20")))
+
       val (stored, name, storedId) = alreadyStored(uuid, resourceUID, file)
       if (stored) {
         logger.info("File " + name + " already uploaded to " + storedId)
