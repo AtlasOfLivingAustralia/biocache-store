@@ -660,6 +660,8 @@ CREATE TABLE occ_uuid (
     AND read_repair_chance = 0.0
     AND speculative_retry = '99PERCENTILE';
 
+CREATE INDEX ON occ_uuid (value);
+
 CREATE TABLE qid (
     rowkey text PRIMARY KEY,
     bbox text,

@@ -91,7 +91,7 @@ object DwCACreator extends Tool {
     var addImagesToExisting = false
 
     val parser = new OptionParser(help) {
-      arg("data-resource-uid", "The UID of the data resource to load or 'all' to generate for all",
+      arg("data-resource-uid", "Comma separated list of DRs or 'all' to generate for all",
         { v: String => resourceUid = v }
       )
       arg("directory-to-dump", "Directory to place the created archives",
@@ -114,7 +114,7 @@ object DwCACreator extends Tool {
           val resourceIDs = if (resourceUid == "all"){
             getDataResourceUids
           } else {
-            List(resourceUid)
+            resourceUid.split(",").map(_.trim).toList
           }
 
           val dataResource2OutputStreams = resourceIDs.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
@@ -298,6 +298,7 @@ object DwCACreator extends Tool {
 class DwCACreator {
 
   val logger = LoggerFactory.getLogger("DwCACreator")
+  val lineEnd = "\r\n"
 
   def createOutputForCSV(directory:String, dataResource:String) : Option[(ZipOutputStream, CSVWriter)] = {
 
@@ -316,7 +317,7 @@ class DwCACreator {
     if(addEML(zop, dataResource)){
       addMeta(zop)
       zop.putNextEntry(new ZipEntry("occurrence.csv"))
-      val occWriter = new CSVWriter(new OutputStreamWriter(zop))
+      val occWriter = new CSVWriter(new OutputStreamWriter(zop), ',', '"', lineEnd)
       Some((zop, occWriter))
     } else {
       //no EML implies that a DWC-A should not be generated.
@@ -347,7 +348,7 @@ class DwCACreator {
   def addMeta(zop:ZipOutputStream) = {
     zop.putNextEntry(new ZipEntry("meta.xml"))
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
+      <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
           <location>occurrence.csv</location>
         </files>
@@ -406,7 +407,7 @@ class DwCACreator {
   def addMetaWithMultimedia(zop:ZipOutputStream) = {
     zop.putNextEntry(new ZipEntry("meta.xml"))
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
+      <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
           <location>occurrence.csv</location>
         </files>
@@ -453,7 +454,7 @@ class DwCACreator {
         <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
         <field index="40" term="http://purl.org/dc/terms/references" />
       </core>
-      <extension encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
+      <extension encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
         <files>
           <location>image.csv</location>
         </files>

@@ -1,15 +1,15 @@
 package au.org.ala.biocache.load
 
 import java.io._
-import java.net.URI
+import java.net.{URI, URL, URLEncoder}
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-import java.util
+import java.{io, util}
 import java.util.UUID
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.model.{FullRecord, Multimedia}
-import au.org.ala.biocache.util.{HttpUtil, Json}
+import au.org.ala.biocache.util.{FileHelper, HttpUtil, Json}
 import com.google.common.util.concurrent.RateLimiter
 import com.jayway.jsonpath.JsonPath
 import net.minidev.json.JSONArray
@@ -96,7 +96,7 @@ trait MediaStore {
   }
 
   /**
-    * Test to see if the supplied file is already stored in the media store.
+    * Test to see if the supplied local file is already stored in the media store.
     * Returns tuple with:
     *
     * boolean - true if stored
@@ -104,11 +104,12 @@ trait MediaStore {
     * String - identifier or filesystem path to where the media is stored.
     *
     * @param uuid
-    * @param resourceUID
-    * @param urlToMedia
+    * @param resourceUID The data resource
+    * @param file The local file
+    *
     * @return
     */
-  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String)
+  def alreadyStored(uuid: String, resourceUID: String, file: File): (Boolean, String, String)
 
   /**
     * Checks to see if the supplied media file is accessible on the file system
@@ -181,6 +182,8 @@ object RemoteMediaStore extends MediaStore {
 
   override val logger = LoggerFactory.getLogger("RemoteMediaStore")
 
+  val FileProtocol = "file:"
+
   import org.apache.http.impl.client.CloseableHttpClient
   import org.apache.http.impl.client.HttpClients
   import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
@@ -190,13 +193,21 @@ object RemoteMediaStore extends MediaStore {
   var rateLimiter: RateLimiter = null
 
   def getClient : CloseableHttpClient = {
-    this.synchronized {
-      if (client == null) {
-        cm = new PoolingHttpClientConnectionManager
-        cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
-        cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
-        client = HttpClients.custom.setConnectionManager(cm).build
-        rateLimiter = RateLimiter.create(Config.remoteMediaStoreMaxRequests)
+    if (client == null) {
+      this.synchronized {
+        if (client == null) {
+          cm = new PoolingHttpClientConnectionManager
+          cm.setMaxTotal(Config.remoteMediaConnectionPoolSize)
+          cm.setDefaultMaxPerRoute(Config.remoteMediaConnectionMaxPerRoute)
+          client = HttpClients.custom.setConnectionManager(cm).build
+        }
+      }
+    }
+    if (rateLimiter == null) {
+      this.synchronized {
+        if (rateLimiter == null) {
+          rateLimiter = RateLimiter.create(Config.remoteMediaStoreMaxRequests)
+        }
       }
     }
     rateLimiter.acquire()
@@ -217,47 +228,34 @@ object RemoteMediaStore extends MediaStore {
     *
     * @param uuid
     * @param resourceUID
-    * @param urlToMedia
+    * @param file The local filer
     * @return
     */
-  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String) = {
-
-    //check image store for the supplied resourceUID/UUID/Filename combination
-    //http://images.ala.org.au/ws/findImagesByOriginalFilename?
-    // filenames=http://biocache.ala.org.au/biocache-media/dr836/29790/1b6c48ab-0c11-4d2e-835e-85d016f335eb/PWCnSmwl.jpeg
-    val jsonToPost = Json.toJSON(Map("filenames" -> Array(constructFileID(resourceUID, uuid, urlToMedia))))
-
-    if(logger.isDebugEnabled()) {
-      logger.debug(jsonToPost)
-    }
-
-    val (code, body) = HttpUtil.postBody(
-      Config.remoteMediaStoreUrl + "/ws/findImagesByOriginalFilename",
-      "application/json",
-      jsonToPost
-    )
-
-    if (code == 200) {
+  def alreadyStored(uuid: String, resourceUID: String, file: File): (Boolean, String, String) = {
+    if (!file.exists || file.length == 0) {
+      (false, "", "")
+    } else {
+      val hash = FileHelper.file2helper(file).sha1Hash()
+      val httpGet = new HttpGet(Config.remoteMediaStoreUrl + "/ws/search?q=contentsha1hash:" + hash + "&fq=dataResourceUid:" + resourceUID)
+      val response = getClient.execute(httpGet)
       try {
-        val jsonPath = JsonPath.compile("$..imageId")
-        val idArray = jsonPath.read(body).asInstanceOf[JSONArray]
-        if (idArray.isEmpty) {
-          (false, "", "")
-        } else if (idArray.size() == 0) {
+        if (response.getStatusLine.getStatusCode != 200) {
+          logger.warn("Unable to test storage status for " + file + " reason " + response.getStatusLine + " treating as not stored")
           (false, "", "")
         } else {
-          val imageId = idArray.get(0)
-          logger.info(s"Image $urlToMedia already stored here: " + Config.remoteMediaStoreUrl + s"/image/proxyImage?imageId=$imageId")
-          (true, extractFileName(urlToMedia), imageId.toString())
+          val body = Source.fromInputStream(response.getEntity.getContent).mkString
+          val jsonPath = JsonPath.compile("$..imageIdentifier")
+          val idArray = jsonPath.read(body).asInstanceOf[JSONArray]
+
+          if (idArray.isEmpty) {
+            (false, "", "")
+          } else {
+            (true, file.getName, idArray.get(0).asInstanceOf[String])
+          }
         }
-      } catch {
-        case e: Exception => {
-          logger.debug(e.getMessage, e)
-          (false, "", "")
-        }
+      } finally {
+        response.close()
       }
-    } else {
-      (false, "", "")
     }
   }
 
@@ -273,6 +271,33 @@ object RemoteMediaStore extends MediaStore {
   protected def constructFileID(resourceUID: String, uuid: String, urlToMedia: String) =
     resourceUID + "||" + uuid + "||" + extractFileName(urlToMedia)
 
+
+  /**
+    * Check if the URL looks like an image service URL. This test will ignore
+    * differences of protocol (http vs https).
+    *
+    * @param urlToMedia the URL to test
+    * @return true if URL looks like an image service URL.
+    */
+  def isRemoteMediaStoreUrl(urlToMedia:String): Boolean = {
+
+    if (urlToMedia == null) return false
+
+    if (urlToMedia.startsWith(Config.remoteMediaStoreUrl)) {
+      return true
+    }
+
+    //ignore the protocol, and look at host
+    val urlToMediaHost = new URL(urlToMedia).getHost()
+    val urlToRemoteMediaStoreHost = new URL(Config.remoteMediaStoreUrl).getHost()
+
+    if (urlToMediaHost.equals(urlToRemoteMediaStoreHost)) {
+      return true
+    }
+
+    false
+  }
+
   /**
     * Save the supplied media to the remote store.
     *
@@ -284,7 +309,7 @@ object RemoteMediaStore extends MediaStore {
   def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
 
     //is the supplied URL an image service URL ?? If so extract imageID and return.....
-    if (urlToMedia.startsWith(Config.remoteMediaStoreUrl)) {
+    if (isRemoteMediaStoreUrl(urlToMedia)) {
       logger.info("Remote media store host recognised: " + urlToMedia)
       val imageId = extractUUIDFromURL(urlToMedia)
 
@@ -307,9 +332,26 @@ object RemoteMediaStore extends MediaStore {
       }
     }
 
+    // if it starts with file: then it's locally
+
     //if its a URL - let the image service download it....
     //media store will handle any duplicates by checking original URL and MD5 hash
-    val imageId = uploadImageFromUrl(uuid, resourceUID, urlToMedia, media)
+    val imageId = if (urlToMedia.startsWith(FileProtocol)) {
+
+      val pattern = ("(" + FileProtocol+"/+)(.+)").r
+      val pattern(protocol, path) = urlToMedia
+      val file = new File(URI.create(protocol + URLEncoder.encode(path, "UTF-8").replace("+", "%20")))
+
+      val (stored, name, storedId) = alreadyStored(uuid, resourceUID, file)
+      if (stored) {
+        logger.info("File " + name + " already uploaded to " + storedId)
+        Some(storedId)
+      } else {
+        uploadImage(uuid, resourceUID, urlToMedia, file, media)
+      }
+    } else {
+      uploadImageFromUrl(uuid, resourceUID, urlToMedia, media)
+    }
     if (imageId.isDefined) {
       Some((extractFileName(urlToMedia), imageId.getOrElse("")))
     } else {
@@ -324,7 +366,7 @@ object RemoteMediaStore extends MediaStore {
     * @return Option[String]
     */
   private def extractUUIDFromURL(urlToMedia:String): Option[String] = {
-    val uri = new URI(urlToMedia)
+    val uri = new URI(urlToMedia.replace(" ","%20"))
     if (urlToMedia.contains("/image/proxy")) {
       // Case 1:
       //   http://images.ala.org.au/image/proxyImageThumbnailLarge?imageId=119d85b5-76cb-4d1d-af30-e141706be8bf
@@ -371,6 +413,7 @@ object RemoteMediaStore extends MediaStore {
       val result = Json.toJavaMap(jsonStr)
       result
     } else {
+      EntityUtils.consume((httpResponse.getEntity))
       logger.warn("Unable to retrieve metadata for image already stored in image service: " + url)
       null
     }
@@ -571,17 +614,21 @@ object RemoteMediaStore extends MediaStore {
     httpPost.setHeader("apiKey", Config.mediaStoreApiKey)
 
     val response = getClient.execute(httpPost)
-    val result = response.getStatusLine()
-    val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-    logger.debug("Image service response code: " + result.getStatusCode)
-    val map = Json.toMap(responseBody)
-    logger.debug("Image ID: " + map.getOrElse("imageId", ""))
-    map.get("imageId") match {
-      case Some(o) => Some(o.toString())
-      case None => {
-        logger.warn(s"Unable to persist image with multipart upload. Response code $result.getStatusCode.  Image service response body: $responseBody")
-        None
+    try {
+      val result = response.getStatusLine()
+      val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+      logger.debug("Image service response code: " + result.getStatusCode)
+      val map = Json.toMap(responseBody)
+      logger.debug("Image ID: " + map.getOrElse("imageId", ""))
+      map.get("imageId") match {
+        case Some(o) => Some(o.toString())
+        case None => {
+          logger.warn(s"Unable to persist image with multipart upload. Response code $result.getStatusCode.  Image service response body: $responseBody")
+          None
+        }
       }
+    } finally {
+      response.close()
     }
   }
 
@@ -640,9 +687,8 @@ object LocalMediaStore extends MediaStore {
 
   def convertPathToUrl(str: String) = str.replaceAll(Config.mediaFileStore, Config.mediaBaseUrl)
 
-  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String) = {
-    val path = createFilePath(uuid, resourceUID, urlToMedia)
-    (new File(path).exists, extractFileName(urlToMedia), path)
+  def alreadyStored(uuid: String, resourceUID: String, file: File): (Boolean, String, String) = {
+    (file.exists, extractFileName(file.getAbsolutePath), file.getAbsolutePath)
   }
 
   /**
@@ -667,8 +713,11 @@ object LocalMediaStore extends MediaStore {
     */
   def save(uuid: String, resourceUID: String, urlToMedia: String, media: Option[Multimedia]): Option[(String, String)] = {
 
+    val fullPath = createFilePath(uuid, resourceUID, urlToMedia)
+    val file = new File(fullPath)
+
     //check to see if the media is already stored
-    val (stored, name, path) = alreadyStored(uuid, resourceUID, urlToMedia)
+    val (stored, name, path) = alreadyStored(uuid, resourceUID, file)
     if (stored) {
       logger.info("Media already stored to: " + path)
       Some(name, path)
@@ -679,8 +728,6 @@ object LocalMediaStore extends MediaStore {
       var out: java.io.FileOutputStream = null
 
       try {
-        val fullPath = createFilePath(uuid, resourceUID, urlToMedia)
-        val file = new File(fullPath)
         if (!file.exists() || file.length() == 0) {
           val url = new java.net.URL(urlToMedia.replaceAll(" ", "%20"))
           in = url.openStream
@@ -781,9 +828,9 @@ object NullMediaStore extends MediaStore {
 
   def convertPathToUrl(str: String) = { noImageUrl }
 
-  def alreadyStored(uuid: String, resourceUID: String, urlToMedia: String): (Boolean, String, String) = {
+  def alreadyStored(uuid: String, resourceUID: String, file: File): (Boolean, String, String) = {
     if (logger.isDebugEnabled)
-      logger.debug("Already stored media " + urlToMedia + " for record " + uuid + " resource " + resourceUID + " as not found image " + noImageUrl)
+      logger.debug("Already stored media " + file + " for record " + uuid + " resource " + resourceUID + " as not found image " + noImageUrl)
     (true, "notFound", noImageUrl)
   }
 
