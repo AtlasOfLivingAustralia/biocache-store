@@ -178,7 +178,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>sds</artifactId>
-            <version>1.4.4</version>
+            <version>1.4.5</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-lang</groupId>
