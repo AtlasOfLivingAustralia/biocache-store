@@ -46,7 +46,7 @@ class TaxonomicNameTest extends ConfigFunSuite {
       val processed = new FullRecord
       raw.classification.scientificName ="Zabidius novemaculeatus"
       (new ClassificationProcessor).process("test",raw,processed)
-      expectResult("wellformed"){processed.classification.nameParseType}
+      expectResult("SCIENTIFIC"){processed.classification.nameParseType}
     }
 
     ignore("name not in national checklists"){

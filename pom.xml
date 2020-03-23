@@ -220,7 +220,7 @@
         <dependency>
             <groupId>au.org.ala</groupId>
             <artifactId>ala-name-matching</artifactId>
-            <version>3.3</version>
+            <version>3.4</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.gbif</groupId>

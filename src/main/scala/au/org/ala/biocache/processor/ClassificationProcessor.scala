@@ -100,7 +100,7 @@ class ClassificationProcessor extends Processor {
       Array("noIssue")
     }
     //check the name parse tye to see if the scientific name was valid
-    if (processed.classification.nameParseType == "blacklisted") {
+    if (processed.classification.nameParseType == "PLACEHOLDER" ||processed.classification.nameParseType == "NO_NAME") {
       assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME)
     } else {
       assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME, PASSED)
