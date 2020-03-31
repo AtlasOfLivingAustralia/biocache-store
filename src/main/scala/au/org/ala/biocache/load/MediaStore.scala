@@ -233,9 +233,15 @@ object RemoteMediaStore extends MediaStore {
     */
   def alreadyStored(uuid: String, resourceUID: String, file: File): (Boolean, String, String) = {
     if (!file.exists || file.length == 0) {
+      if (logger.isDebugEnabled()) {
+        logger.debug("Media file did not exist or file was 0-bytes: '" + file.toString() + "' uuid=" + uuid)
+      }
       (false, "", "")
     } else {
       val hash = FileHelper.file2helper(file).sha1Hash()
+      if (logger.isDebugEnabled()) {
+        logger.debug("Searching for media file by hash: '" + file.toString() + "' uuid=" + uuid + " hash=" + hash)
+      }
       val httpGet = new HttpGet(Config.remoteMediaStoreUrl + "/ws/search?q=contentsha1hash:" + hash + "&fq=dataResourceUid:" + resourceUID)
       val response = getClient.execute(httpGet)
       try {
@@ -243,13 +249,22 @@ object RemoteMediaStore extends MediaStore {
           logger.warn("Unable to test storage status for " + file + " reason " + response.getStatusLine + " treating as not stored")
           (false, "", "")
         } else {
+          if (logger.isDebugEnabled()) {
+            logger.debug("Searching for media file by hash returned HTTP 200: '" + file.toString() + "' uuid=" + uuid + " hash=" + hash)
+          }
           val body = Source.fromInputStream(response.getEntity.getContent).mkString
           val jsonPath = JsonPath.compile("$..imageIdentifier")
           val idArray = jsonPath.read(body).asInstanceOf[JSONArray]
 
           if (idArray.isEmpty) {
+            if (logger.isDebugEnabled()) {
+              logger.debug("Searching for media file by hash did not return matches: '" + file.toString() + "' uuid=" + uuid + " hash=" + hash)
+            }
             (false, "", "")
           } else {
+            if (logger.isDebugEnabled()) {
+              logger.debug("Searching for media file by hash returned matches: '" + file.toString() + "' uuid=" + uuid + " hash=" + hash + " idArray=" + idArray.toString() + " using first id=" + idArray.get(0).asInstanceOf[String])
+            }
             (true, file.getName, idArray.get(0).asInstanceOf[String])
           }
         }
@@ -310,7 +325,7 @@ object RemoteMediaStore extends MediaStore {
 
     //is the supplied URL an image service URL ?? If so extract imageID and return.....
     if (isRemoteMediaStoreUrl(urlToMedia)) {
-      logger.info("Remote media store host recognised: " + urlToMedia)
+      logger.info("Remote media store host recognised: " + urlToMedia + " for uuid=" + uuid)
       val imageId = extractUUIDFromURL(urlToMedia)
 
       if (imageId.isEmpty) {
@@ -319,6 +334,9 @@ object RemoteMediaStore extends MediaStore {
       } else {
         val metadata = getMetadata(imageId.get)
         if (metadata != null) {
+          if (logger.isDebugEnabled()) {
+            logger.debug("Searching for remote media file imageId=" + imageId.get + " for uuid=" + uuid + " returned metadata: " + metadata)
+          }
           val originalFileName = metadata.getOrDefault("originalFileName", "")
           if (originalFileName != null){
             return Some((originalFileName.toString, imageId.get))
@@ -326,10 +344,14 @@ object RemoteMediaStore extends MediaStore {
             return Some(("", imageId.get))
           }
         } else {
-          logger.error("Unable to retrieve metadata for image already stored in image service: " + imageId.get)
+          logger.error("Unable to retrieve metadata for image already stored in image service: " + imageId.get + " for uuid=" + uuid)
           return None
         }
       }
+    } else if (!urlToMedia.isEmpty()) {
+      logger.info("Remote media store host not recognised: " + urlToMedia + " for uuid=" + uuid)
+    } else {
+      logger.debug("Empty URL to media, ignoring for urlToMedia=" + urlToMedia + " uuid=" + uuid)
     }
 
     // if it starts with file: then it's locally
@@ -344,17 +366,29 @@ object RemoteMediaStore extends MediaStore {
 
       val (stored, name, storedId) = alreadyStored(uuid, resourceUID, file)
       if (stored) {
-        logger.info("File " + name + " already uploaded to " + storedId)
+        logger.info("File " + name + " already uploaded to " + storedId + " for uuid=" + uuid)
         Some(storedId)
       } else {
+        if (logger.isDebugEnabled()) {
+          logger.debug("Saving local file to remote media store for uuid=" + uuid + " media=" + media.toString + " urlToMedia=" + urlToMedia)
+        }
         uploadImage(uuid, resourceUID, urlToMedia, file, media)
       }
     } else {
+      if (logger.isDebugEnabled()) {
+        logger.debug("Saving remote url to remote media store for uuid=" + uuid + " media=" + media.toString + " urlToMedia=" + urlToMedia)
+      }
       uploadImageFromUrl(uuid, resourceUID, urlToMedia, media)
     }
     if (imageId.isDefined) {
+      if (logger.isDebugEnabled()) {
+        logger.debug("Successfully searched or saved image to/from media store for uuid=" + uuid)
+      }
       Some((extractFileName(urlToMedia), imageId.getOrElse("")))
     } else {
+      if (logger.isDebugEnabled()) {
+        logger.debug("Failed to search or save image to/from media store for uuid=" + uuid)
+      }
       None
     }
   }
