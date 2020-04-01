@@ -287,9 +287,8 @@ class DwCALoader extends DataLoader {
             logger.info("Only loading multimedia for specific core record types, starRecord.core().rowType()=" + starRecord.core().rowType())
             if (starRecord.core().rowType() == DwcTerm.Occurrence || starRecord.core().rowType().simpleName().contains("SimpleDarwinRecord")) {
               if (logger.isDebugEnabled()) {
-                logger.debug("Loading multimedia for this core record type, starRecord.core().rowType()=" + starRecord.core().rowType())
+                logger.debug("Loading multimedia for this core record type, starRecord.core().rowType()=" + starRecord.core().rowType() + " starRecord.rowTypes()=" + starRecord.rowTypes())
               }
-              
               loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
                 loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
             } else {
