@@ -193,9 +193,11 @@ class DwCALoader extends DataLoader {
       val coreRowType = archive.getCore.getRowType
       if(coreRowType == DwcTerm.Event){
         logger.info("Choosing EventCoreExtractor for Darwin Core Archive loading: coreRowType=" + coreRowType)
+        logger.debug("Choosing EventCoreExtractor for Darwin Core Archive loading: coreRowType=" + coreRowType)
         new EventCoreExtractor(archive)
       } else {
         logger.info("Choosing OccurrenceCoreExtractor for Darwin Core Archive loading: coreRowType=" + coreRowType)
+        logger.debug("Choosing OccurrenceCoreExtractor for Darwin Core Archive loading: coreRowType=" + coreRowType)
         new OccurrenceCoreExtractor(archive)
       }
     }
@@ -283,7 +285,11 @@ class DwCALoader extends DataLoader {
           // Get any related multimedia
           val multimedia = {
             logger.info("Only loading multimedia for specific core record types, starRecord.core().rowType()=" + starRecord.core().rowType())
-            if (starRecord.core().rowType() == DwcTerm.Occurrence || starRecord.core().rowType().simpleName() == "SimpleDarwinRecord") {
+            if (starRecord.core().rowType() == DwcTerm.Occurrence || starRecord.core().rowType().simpleName().contains("SimpleDarwinRecord")) {
+              if (logger.isDebugEnabled()) {
+                logger.debug("Loading multimedia for this core record type, starRecord.core().rowType()=" + starRecord.core().rowType())
+              }
+              
               loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
                 loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
             } else {
