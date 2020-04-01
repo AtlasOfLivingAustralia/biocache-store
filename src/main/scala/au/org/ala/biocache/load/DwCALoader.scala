@@ -192,8 +192,10 @@ class DwCALoader extends DataLoader {
     val extractor:CoreExtractor = {
       val coreRowType = archive.getCore.getRowType
       if(coreRowType == DwcTerm.Event){
+        logger.info("Choosing EventCoreExtractor for Darwin Core Archive loading: coreRowType=" + coreRowType)
         new EventCoreExtractor(archive)
       } else {
+        logger.info("Choosing OccurrenceCoreExtractor for Darwin Core Archive loading: coreRowType=" + coreRowType)
         new OccurrenceCoreExtractor(archive)
       }
     }
@@ -280,10 +282,12 @@ class DwCALoader extends DataLoader {
 
           // Get any related multimedia
           val multimedia = {
+            logger.info("Only loading multimedia for specific core record types, starRecord.core().rowType()=" + starRecord.core().rowType())
             if (starRecord.core().rowType() == DwcTerm.Occurrence || starRecord.core().rowType().simpleName() == "SimpleDarwinRecord") {
               loadMultimedia(starRecord, DwCALoader.IMAGE_TYPE, imageBase) ++
                 loadMultimedia(starRecord, DwCALoader.MULTIMEDIA_TYPE, imageBase)
             } else {
+              logger.warn("Not loading multimedia for this core record type, starRecord.core().rowType()=" + starRecord.core().rowType())
               List()
             }
           }
@@ -382,8 +386,16 @@ class DwCALoader extends DataLoader {
    */
   def loadMultimedia(star: StarRecord, rowType: Term, imageBase: URL): Seq[Multimedia] = {
     if (!star.hasExtension(rowType)) {
+      if(logger.isDebugEnabled()) {
+        logger.debug("Extension record type not found rowType=" + rowType)
+      }
       return List.empty
     }
+
+    if(logger.isDebugEnabled()) {
+      logger.debug("Extension record type was found rowType=" + rowType)
+    }
+    
     val records = star.extension(rowType).asScala
     val multimedia = new ListBuffer[Multimedia]
     records.foreach { row =>
@@ -393,6 +405,9 @@ class DwCALoader extends DataLoader {
         case Some(location) => multimedia.add(Multimedia.create(location, metadata))
         case None => logger.info("No location found for multimedia typed row: " + row)
       }
+    }
+    if(logger.isDebugEnabled()) {
+      logger.debug("Extension record type multimedia records identified rowType=" + rowType + " multimedia=" + multimedia)
     }
     multimedia
   }
