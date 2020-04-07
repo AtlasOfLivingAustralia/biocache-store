@@ -9,13 +9,15 @@ import org.apache.commons.lang.StringUtils
 import org.junit.runner.RunWith
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.scalatest.junit.JUnitRunner
+import org.junit.Ignore
 
 /**
- * Performs some Location Processing tests
+ * Performs some tests against the SDS service.
+ * Generally turned off, turn on if you want to test against an actual server
  */
 @RunWith(classOf[JUnitRunner])
+@Ignore
 class SDSServiceTest extends FunSuite {
-
   /** Enable this test to test the actual SDS interface */
   test("State based sensitivity via service") {
     val configFilePath = System.getProperty("user.dir") +  "/src/test/resources/biocache-sds-test-config.properties"
