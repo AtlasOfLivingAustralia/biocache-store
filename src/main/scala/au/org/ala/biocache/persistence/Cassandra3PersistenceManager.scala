@@ -66,6 +66,7 @@ class Cassandra3PersistenceManager  @Inject() (
   val map = new MapMaker().weakValues().makeMap[String, PreparedStatement]()
 
   val updateThreadPool = Executors.newFixedThreadPool(noOfUpdateThreads.toInt).asInstanceOf[ThreadPoolExecutor]
+  val executor = MoreExecutors.getExitingExecutorService(updateThreadPool)
 
   def getCacheSize = map.size()
 
@@ -437,7 +438,6 @@ class Cassandra3PersistenceManager  @Inject() (
   def putAsync(rowkey: String, entityName: String, keyValuePairs: Map[String, String], newRecord: Boolean, removeNullFields: Boolean) = {
 
     try {
-      val executor = MoreExecutors.getExitingExecutorService(updateThreadPool)
       val stmt: BoundStatement = createPutStatement(rowkey, entityName, keyValuePairs)
       val future = session.executeAsync(stmt)
       Futures.addCallback(future, new IngestCallback, executor)
@@ -484,10 +484,10 @@ class Cassandra3PersistenceManager  @Inject() (
     val statement = getPreparedStmt(sql, entityName)
 
     val boundStatement = if (keyValuePairsToUse.size == 1) {
-      val values = Array(rowkey, keyValuePairsToUse.values.head).map { x => new String(x.getBytes("UTF-8")) }
+      val values = Array(rowkey, keyValuePairsToUse.values.head).map { x => if (x == null) null else new String(x.getBytes("UTF-8")) }
       statement.bind(values: _*)
     } else {
-      val values = (Array(rowkey) ++ keyValuePairsToUse.values.toArray[String]).map { x => new String(x.getBytes("UTF-8")) }
+      val values = (Array(rowkey) ++ keyValuePairsToUse.values.toArray[String]).map { x => if (x == null) null else new String(x.getBytes("UTF-8")) }
       if (values == null) {
         throw new Exception("keyValuePairsToUse are null...")
       }

@@ -46,6 +46,7 @@ object Config {
 
   //URL to an instance of the ALA image-service
   val remoteMediaStoreUrl = configModule.properties.getProperty("media.store.url", "")
+  val remoteMediaStoreMaxRequests = configModule.properties.getProperty("media.store.maxrequests.persec", "10").toInt
 
   // Media store type
   val mediaStoreType = configModule.properties.getProperty("media.store.type", "auto")
@@ -96,9 +97,9 @@ object Config {
   // Set to the same as the connection pool size by default, assuming a single Solr server
   // Configure this and the connection pool size as required to fit a Solr cluster setup if one is in use
 
-  val remoteMediaConnectionPoolSize = configModule.properties.getProperty("mediastore.connection.pool.size", "25").toInt
+  val remoteMediaConnectionPoolSize = configModule.properties.getProperty("media.store.connection.pool.size", "25").toInt
 
-  val remoteMediaConnectionMaxPerRoute = configModule.properties.getProperty("mediastore.connection.pool.maxperroute", "25").toInt
+  val remoteMediaConnectionMaxPerRoute = configModule.properties.getProperty("media.store.connection.pool.maxperroute", "25").toInt
 
   val userAgent = configModule.properties.getProperty("biocache.useragent", "Biocache")
 
@@ -131,6 +132,8 @@ object Config {
   val mediaFileStore = configModule.properties.getProperty("media.dir","/data/biocache-media/")
 
   val mediaBaseUrl = configModule.properties.getProperty("media.url","https://biocache.ala.org.au/biocache-media")
+
+  val biocacheUiUrl = configModule.properties.getProperty("biocache.ui.url","https://biocache.ala.org.au")
 
   val excludeSensitiveValuesFor = configModule.properties.getProperty("exclude.sensitive.values","")
 

@@ -52,7 +52,7 @@ object Loader extends Tool {
       opt("fl", "force-load", "Force the (re)load of media", {
         forceLoad = true
       })
-      opt("t", "test-load", "Test the (re)load of media", {
+      opt("tl", "test-load", "Test the (re)load of media", {
         testLoad = true
       })
       opt("rnf", "remove-null-fields", "Remove the null/Empty fields currently exist in the atlas", {

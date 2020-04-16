@@ -16,10 +16,7 @@ object HttpUtil {
 
   val logger = LoggerFactory.getLogger("HttpUtil")
 
-  def get(url: String): (String) = {
-    val result = Source.fromURL(new URL(url)).mkString
-    result
-  }
+  def get(url: String): (String) = Source.fromURL(new URL(url)).mkString
 
   def postBody(url: String, contentType: String, stringBody: String): (Int, String) = {
     val httpClient = new DefaultHttpClient()
@@ -33,33 +30,9 @@ object HttpUtil {
       try {
         val result = response.getStatusLine()
         val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
-        logger.debug("Response code: " + result.getStatusCode)
-        (result.getStatusCode, responseBody)
-      } finally {
-        response.close()
-      }      
-    } finally {
-      httpClient.close()
-    }
-  }
-
-  def uploadFileWithJson(url:String, file:File, contentType:String, json:String) : (Int, String) = {
-
-    //upload an image
-    val httpClient = new DefaultHttpClient()
-    try {
-      val entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE)
-      val fileBody = new FileBody(file, contentType)
-      entity.addPart("image", fileBody)
-      entity.addPart("metadata", new StringBody(json))
-
-      val httpPost = new HttpPost(url)
-      httpPost.setEntity(entity)
-      val response = httpClient.execute(httpPost)
-      try {
-        val result = response.getStatusLine()
-        logger.debug("Response code: " + result.getStatusCode)
-        val responseBody = Source.fromInputStream(response.getEntity().getContent()).mkString
+        if (logger.isDebugEnabled()) {
+          logger.debug("Response code: " + result.getStatusCode)
+        }
         (result.getStatusCode, responseBody)
       } finally {
         response.close()

@@ -13,14 +13,14 @@ import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.cmd.Tool
-import com.opencsv.CSVReader
+import com.opencsv.{CSVReaderBuilder, RFC4180Parser}
 import org.apache.commons.lang.StringUtils
 
 import scala.collection.mutable.ListBuffer
 
 /**
- * Companion object for the DwCACreator class.
- */
+  * Companion object for the DwCACreator class.
+  */
 object DwCACreator extends Tool {
 
   def cmd = "create-dwc"
@@ -35,7 +35,9 @@ object DwCACreator extends Tool {
     "catalogNumber",
     "collectionCode",
     "institutionCode",
+    "scientificName",
     "scientificName_p",
+    "scientificNameAuthorship",
     "recordedBy",
     "taxonConceptID_p",
     "taxonRank_p",
@@ -45,6 +47,12 @@ object DwCACreator extends Tool {
     "order_p",
     "family_p",
     "genus_p",
+    "kingdom",
+    "phylum",
+    "classs",
+    "order",
+    "family",
+    "genus",
     "decimalLatitude_p",
     "decimalLongitude_p",
     "coordinateUncertaintyInMeters_p",
@@ -67,6 +75,7 @@ object DwCACreator extends Tool {
     "occurrenceRemarks",
     "locationRemarks",
     "recordNumber",
+    "vernacularName",
     "vernacularName_p",
     "individualCount",
     "eventID",
@@ -82,7 +91,7 @@ object DwCACreator extends Tool {
     var addImagesToExisting = false
 
     val parser = new OptionParser(help) {
-      arg("data-resource-uid", "The UID of the data resource to load or 'all' to generate for all",
+      arg("data-resource-uid", "Comma separated list of DRs or 'all' to generate for all",
         { v: String => resourceUid = v }
       )
       arg("directory-to-dump", "Directory to place the created archives",
@@ -101,12 +110,19 @@ object DwCACreator extends Tool {
         dwcc.addImageExportsToArchives(directory)
       } else {
         try {
-          val dataResource2OutputStreams = getDataResourceUids.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
+
+          val resourceIDs = if (resourceUid == "all"){
+            getDataResourceUids
+          } else {
+            resourceUid.split(",").map(_.trim).toList
+          }
+
+          val dataResource2OutputStreams = resourceIDs.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
           Config.persistenceManager.pageOverSelect("occ", (key, map) => {
             synchronized {
               val dr = map.getOrElse("dataResourceUid", "")
               val deletedDate = map.getOrElse("deletedDate", "")
-              if (dr != "" && deletedDate =="") {
+              if (dr != "" && resourceIDs.contains(dr) && deletedDate =="") {
                 val dataResourceMap = dataResource2OutputStreams.get(dr)
                 if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty){
                   val (zop, csv) = dataResourceMap.get.get
@@ -122,6 +138,62 @@ object DwCACreator extends Tool {
                       }
                     }
 
+                    // we will provide the processed if we can, but also supply the verbatim in
+                    val (scientificName, kingdom, phylum, classs, order, family, genus, vernacularName, processedTaxonomyProvided) = {
+                      val processedSciName = cleanValue(map.getOrElse("scientificName_p", ""))
+                      if (StringUtils.isEmpty(processedSciName)){
+                        (
+                          cleanValue(map.getOrElse("scientificName", "")),
+                          cleanValue(map.getOrElse("kingdom", "")),
+                          cleanValue(map.getOrElse("phylum", "")),
+                          cleanValue(map.getOrElse("classs", "")),
+                          cleanValue(map.getOrElse("order", "")),
+                          cleanValue(map.getOrElse("family", "")),
+                          cleanValue(map.getOrElse("genus", "")),
+                          cleanValue(map.getOrElse("vernacularName", "")),
+
+                          false
+                        )
+                      } else {
+                        (processedSciName,
+                          cleanValue(map.getOrElse("kingdom_p", "")),
+                          cleanValue(map.getOrElse("phylum_p", "")),
+                          cleanValue(map.getOrElse("classs_p", "")),
+                          cleanValue(map.getOrElse("order_p", "")),
+                          cleanValue(map.getOrElse("family_p", "")),
+                          cleanValue(map.getOrElse("genus_p", "")),
+                          cleanValue(map.getOrElse("vernacularName_p", "")),
+                          true
+                        )
+                      }
+                    }
+
+                    //Advice from GBIF team : Appending a "Identification aligned to ALA taxonomy" or
+                    // "Verbatim identification provided (did not align to ALA taxonomy)"
+                    val dataGeneralisations = {
+                      var dataGeneralization = cleanValue(map.getOrElse("dataGeneralizations_p", ""))
+                      if (StringUtils.isNotEmpty(dataGeneralization)){
+                        dataGeneralization = dataGeneralization + " "
+                      }
+
+                      if (processedTaxonomyProvided){
+                        dataGeneralization = dataGeneralization + "Identification aligned to national taxonomy. Originally supplied as " +
+                          "[[ " +
+                          cleanValue(map.getOrElse("kingdom", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("phylum", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("classs", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("order", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("family", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("genus", "<not-supplied>")) +
+                          " | " + cleanValue(map.getOrElse("scientificName", "<not-supplied>")) +
+                          "]]"
+                      } else {
+                        dataGeneralization = dataGeneralization + "Verbatim identification provided (did not align to national taxonomy)"
+                      }
+
+                      dataGeneralization
+                    }
+
                     csv.writeNext(Array(
                       cleanValue(map.getOrElse("rowkey", "")),
                       cleanValue(map.getOrElse("catalogNumber",  "")),
@@ -132,16 +204,16 @@ object DwCACreator extends Tool {
                       cleanValue(map.getOrElse("recordedBy", "")),
                       cleanValue(map.getOrElse("occurrenceStatus_p", "")),
                       cleanValue(map.getOrElse("individualCount", "")),
-                      cleanValue(map.getOrElse("scientificName_p", "")),
+                      scientificName,
                       cleanValue(map.getOrElse("taxonConceptID_p", "")),
                       cleanValue(map.getOrElse("taxonRank_p", "")),
-                      cleanValue(map.getOrElse("kingdom_p", "")),
-                      cleanValue(map.getOrElse("phylum_p", "")),
-                      cleanValue(map.getOrElse("classs_p", "")),
-                      cleanValue(map.getOrElse("order_p", "")),
-                      cleanValue(map.getOrElse("family_p", "")),
-                      cleanValue(map.getOrElse("genus_p", "")),
-                      cleanValue(map.getOrElse("vernacularName_p", "")),
+                      kingdom,
+                      phylum,
+                      classs,
+                      order,
+                      family,
+                      genus,
+                      vernacularName,
                       cleanValue(map.getOrElse("decimalLatitude_p", "")),
                       cleanValue(map.getOrElse("decimalLongitude_p", "")),
                       cleanValue(map.getOrElse("geodeticDatum_p", "")),
@@ -161,7 +233,9 @@ object DwCACreator extends Tool {
                       cleanValue(map.getOrElse("eventID", "")),
                       cleanValue(map.getOrElse("identifiedBy", "")),
                       cleanValue(map.getOrElse("occurrenceRemarks", "")),
-                      cleanValue(map.getOrElse("dataGeneralizations_p", ""))
+                      dataGeneralisations,
+                      cleanValue(map.getOrElse("occurrenceID", "")), //provide the raw occurrence ID in otherCatalogNumbers - discussed with GBIF
+                      Config.biocacheUiUrl + "/occurrences/" + cleanValue(map.getOrElse("rowkey", ""))
                     ))
                     csv.flush()
                   }
@@ -170,12 +244,18 @@ object DwCACreator extends Tool {
             }
             true
           }, threads, pageSize, defaultFields:_*)
+
+          //finish write of CSV to zip
           dataResource2OutputStreams.values.foreach { zopAndCsv =>
-            zopAndCsv.get._1.flush()
-            zopAndCsv.get._1.closeEntry()
-            zopAndCsv.get._1.close()
+            if (!zopAndCsv.isEmpty){
+              zopAndCsv.get._1.flush()
+              zopAndCsv.get._1.closeEntry()
+              zopAndCsv.get._1.close()
+            }
           }
+          //add images
           dwcc.addImageExportsToArchives(directory)
+
         } catch {
           case e:Exception => {
             logger.error(e.getMessage(), e)
@@ -211,24 +291,25 @@ object DwCACreator extends Tool {
 }
 
 /**
- * Class for creating a Darwin Core Archive from data in the biocache.
- *
- * TODO support for dwc fields in registry metadata. When not available use the default fields.
- */
+  * Class for creating a Darwin Core Archive from data in the biocache.
+  *
+  * TODO support for dwc fields in registry metadata. When not available use the default fields.
+  */
 class DwCACreator {
 
   val logger = LoggerFactory.getLogger("DwCACreator")
+  val lineEnd = "\r\n"
 
   def createOutputForCSV(directory:String, dataResource:String) : Option[(ZipOutputStream, CSVWriter)] = {
 
     logger.info("Creating archive for " + dataResource)
     val zipFile = new java.io.File (
       directory +
-      System.getProperty("file.separator") +
-      dataResource +
-      System.getProperty("file.separator") +
-      dataResource +
-      ".zip"
+        System.getProperty("file.separator") +
+        dataResource +
+        System.getProperty("file.separator") +
+        dataResource +
+        ".zip"
     )
 
     FileUtils.forceMkdir(zipFile.getParentFile)
@@ -236,7 +317,7 @@ class DwCACreator {
     if(addEML(zop, dataResource)){
       addMeta(zop)
       zop.putNextEntry(new ZipEntry("occurrence.csv"))
-      val occWriter = new CSVWriter(new OutputStreamWriter(zop))
+      val occWriter = new CSVWriter(new OutputStreamWriter(zop), ',', '"', lineEnd)
       Some((zop, occWriter))
     } else {
       //no EML implies that a DWC-A should not be generated.
@@ -267,64 +348,7 @@ class DwCACreator {
   def addMeta(zop:ZipOutputStream) = {
     zop.putNextEntry(new ZipEntry("meta.xml"))
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
-        <files>
-              <location>occurrence.csv</location>
-        </files>
-        <id index="0"/>
-        <field index="0"  term="http://rs.tdwg.org/dwc/terms/occurrenceID" />
-        <field index="1"  term="http://rs.tdwg.org/dwc/terms/catalogNumber" />
-        <field index="2"  term="http://rs.tdwg.org/dwc/terms/collectionCode" />
-        <field index="3"  term="http://rs.tdwg.org/dwc/terms/institutionCode" />
-        <field index="4"  term="http://rs.tdwg.org/dwc/terms/recordNumber" />
-        <field index="5"  term="http://rs.tdwg.org/dwc/terms/basisOfRecord" default="HumanObservation" />
-        <field index="6"  term="http://rs.tdwg.org/dwc/terms/recordedBy" />
-        <field index="7"  term="http://rs.tdwg.org/dwc/terms/occurrenceStatus" />
-        <field index="8"  term="http://rs.tdwg.org/dwc/terms/individualCount" />
-        <field index="9"  term="http://rs.tdwg.org/dwc/terms/scientificName" />
-        <field index="10" term="http://rs.tdwg.org/dwc/terms/taxonConceptID" />
-        <field index="11" term="http://rs.tdwg.org/dwc/terms/taxonRank" />
-        <field index="12" term="http://rs.tdwg.org/dwc/terms/kingdom" />
-        <field index="13" term="http://rs.tdwg.org/dwc/terms/phylum" />
-        <field index="14" term="http://rs.tdwg.org/dwc/terms/class" />
-        <field index="15" term="http://rs.tdwg.org/dwc/terms/order" />
-        <field index="16" term="http://rs.tdwg.org/dwc/terms/family" />
-        <field index="17" term="http://rs.tdwg.org/dwc/terms/genus" />
-        <field index="18" term="http://rs.tdwg.org/dwc/terms/vernacularName" />
-        <field index="19" term="http://rs.tdwg.org/dwc/terms/decimalLatitude" />
-        <field index="20" term="http://rs.tdwg.org/dwc/terms/decimalLongitude" />
-        <field index="21" term="http://rs.tdwg.org/dwc/terms/geodeticDatum" />
-        <field index="22" term="http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters" />
-        <field index="23" term="http://rs.tdwg.org/dwc/terms/maximumElevationInMeters" />
-        <field index="24" term="http://rs.tdwg.org/dwc/terms/minimumElevationInMeters" />
-        <field index="25" term="http://rs.tdwg.org/dwc/terms/minimumDepthInMeters" />
-        <field index="26" term="http://rs.tdwg.org/dwc/terms/maximumDepthInMeters" />
-        <field index="27" term="http://rs.tdwg.org/dwc/terms/country" />
-        <field index="28" term="http://rs.tdwg.org/dwc/terms/stateProvince" />
-        <field index="29" term="http://rs.tdwg.org/dwc/terms/locality" />
-        <field index="30" term="http://rs.tdwg.org/dwc/terms/locationRemarks" />
-        <field index="31" term="http://rs.tdwg.org/dwc/terms/year" />
-        <field index="32" term="http://rs.tdwg.org/dwc/terms/month" />
-        <field index="33" term="http://rs.tdwg.org/dwc/terms/day" />
-        <field index="34" term="http://rs.tdwg.org/dwc/terms/eventDate" />
-        <field index="35" term="http://rs.tdwg.org/dwc/terms/eventID" />
-        <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
-        <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
-        <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
-      </core>
-    </archive>
-    //add the XML
-    zop.write("""<?xml version="1.0"?>""".getBytes)
-    zop.write("\n".getBytes)
-    zop.write(metaXml.mkString("\n").getBytes)
-    zop.flush
-    zop.closeEntry
-  }
-
-  def addMetaWithMultimedia(zop:ZipOutputStream) = {
-    zop.putNextEntry(new ZipEntry("meta.xml"))
-    val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
+      <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
           <location>occurrence.csv</location>
         </files>
@@ -368,8 +392,69 @@ class DwCACreator {
         <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
         <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
         <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
+        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
+        <field index="40" term="http://purl.org/dc/terms/references" />
       </core>
-      <extension encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
+    </archive>
+    //add the XML
+    zop.write("""<?xml version="1.0"?>""".getBytes)
+    zop.write("\n".getBytes)
+    zop.write(metaXml.mkString("\n").getBytes)
+    zop.flush
+    zop.closeEntry
+  }
+
+  def addMetaWithMultimedia(zop:ZipOutputStream) = {
+    zop.putNextEntry(new ZipEntry("meta.xml"))
+    val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
+      <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
+        <files>
+          <location>occurrence.csv</location>
+        </files>
+        <id index="0"/>
+        <field index="0"  term="http://rs.tdwg.org/dwc/terms/occurrenceID" />
+        <field index="1"  term="http://rs.tdwg.org/dwc/terms/catalogNumber" />
+        <field index="2"  term="http://rs.tdwg.org/dwc/terms/collectionCode" />
+        <field index="3"  term="http://rs.tdwg.org/dwc/terms/institutionCode" />
+        <field index="4"  term="http://rs.tdwg.org/dwc/terms/recordNumber" />
+        <field index="5"  term="http://rs.tdwg.org/dwc/terms/basisOfRecord" default="HumanObservation" />
+        <field index="6"  term="http://rs.tdwg.org/dwc/terms/recordedBy" />
+        <field index="7"  term="http://rs.tdwg.org/dwc/terms/occurrenceStatus" />
+        <field index="8"  term="http://rs.tdwg.org/dwc/terms/individualCount" />
+        <field index="9"  term="http://rs.tdwg.org/dwc/terms/scientificName" />
+        <field index="10" term="http://rs.tdwg.org/dwc/terms/taxonConceptID" />
+        <field index="11" term="http://rs.tdwg.org/dwc/terms/taxonRank" />
+        <field index="12" term="http://rs.tdwg.org/dwc/terms/kingdom" />
+        <field index="13" term="http://rs.tdwg.org/dwc/terms/phylum" />
+        <field index="14" term="http://rs.tdwg.org/dwc/terms/class" />
+        <field index="15" term="http://rs.tdwg.org/dwc/terms/order" />
+        <field index="16" term="http://rs.tdwg.org/dwc/terms/family" />
+        <field index="17" term="http://rs.tdwg.org/dwc/terms/genus" />
+        <field index="18" term="http://rs.tdwg.org/dwc/terms/vernacularName" />
+        <field index="19" term="http://rs.tdwg.org/dwc/terms/decimalLatitude" />
+        <field index="20" term="http://rs.tdwg.org/dwc/terms/decimalLongitude" />
+        <field index="21" term="http://rs.tdwg.org/dwc/terms/geodeticDatum" />
+        <field index="22" term="http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters" />
+        <field index="23" term="http://rs.tdwg.org/dwc/terms/maximumElevationInMeters" />
+        <field index="24" term="http://rs.tdwg.org/dwc/terms/minimumElevationInMeters" />
+        <field index="25" term="http://rs.tdwg.org/dwc/terms/minimumDepthInMeters" />
+        <field index="26" term="http://rs.tdwg.org/dwc/terms/maximumDepthInMeters" />
+        <field index="27" term="http://rs.tdwg.org/dwc/terms/country" />
+        <field index="28" term="http://rs.tdwg.org/dwc/terms/stateProvince" />
+        <field index="29" term="http://rs.tdwg.org/dwc/terms/locality" />
+        <field index="30" term="http://rs.tdwg.org/dwc/terms/locationRemarks" />
+        <field index="31" term="http://rs.tdwg.org/dwc/terms/year" />
+        <field index="32" term="http://rs.tdwg.org/dwc/terms/month" />
+        <field index="33" term="http://rs.tdwg.org/dwc/terms/day" />
+        <field index="34" term="http://rs.tdwg.org/dwc/terms/eventDate" />
+        <field index="35" term="http://rs.tdwg.org/dwc/terms/eventID" />
+        <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
+        <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
+        <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
+        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
+        <field index="40" term="http://purl.org/dc/terms/references" />
+      </core>
+      <extension encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
         <files>
           <location>image.csv</location>
         </files>
@@ -420,8 +505,12 @@ class DwCACreator {
     logger.info("Extracting Gzip....")
     extractGzip(imagesExport, workingDir + "/images-export.csv")
 
-    //split the files by data resource
-    val reader = new CSVReader(new FileReader(workingDir + "/images-export.csv"))
+    //assume output is RFC4180 - i.e. no escape character is in use, and quotes are respected.
+    val reader = new CSVReaderBuilder(new FileReader(workingDir + "/images-export.csv"))
+      .withSkipLines(1)
+      .withCSVParser(new RFC4180Parser())
+      .build()
+
     var line = reader.readNext()
 
     var currentUid = ""
@@ -443,14 +532,14 @@ class DwCACreator {
         writer = new CSVWriter(new FileWriter(workingDirSplitFiles + "/" + dataResourceUid))
       }
 
-      if(StringUtils.isNotEmpty(dataResourceUid)){
+      if (StringUtils.isNotEmpty(dataResourceUid)){
         writer.writeNext(line.slice(1, line.length))
       }
 
       line = reader.readNext()
     }
 
-    if(writer != null) {
+    if (writer != null) {
       writer.flush()
       writer.close()
       writer = null
@@ -466,6 +555,10 @@ class DwCACreator {
       if (archive.exists()){
 
         val backupArchive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip.backup")
+        if (backupArchive.exists()){
+          backupArchive.delete()
+        }
+
         //rename
         FileUtils.moveFile(archive, backupArchive)
 
@@ -492,7 +585,7 @@ class DwCACreator {
           val entries = zipFile.entries
           while (entries.hasMoreElements) {
             val entry = entries.nextElement
-            if(entry.getName == "occurrence.csv"){
+            if (entry.getName == "occurrence.csv"){
               stream = zipFile.getInputStream(entry)
             }
           }

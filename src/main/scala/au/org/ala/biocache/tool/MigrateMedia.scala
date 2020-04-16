@@ -42,7 +42,7 @@ object MigrateMedia extends Tool {
               val filesToSave = record.occurrence.associatedMedia.split(";")
               filesToSave.foreach(filePath => {
                 println(s"saving $uuid, $dataResourceUid, $filePath")
-                val (alreadyStored, fileName, identifer) = Config.mediaStore.alreadyStored(uuid, dataResourceUid, "file://" + filePath)
+                val (alreadyStored, fileName, identifer) = Config.mediaStore.alreadyStored(uuid, dataResourceUid, new File(filePath))
                 if (!dryRun && !alreadyStored) {
                   try {
                     Config.mediaStore.save(uuid, dataResourceUid, "file://" + filePath, None)

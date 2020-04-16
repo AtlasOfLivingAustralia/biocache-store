@@ -16,12 +16,17 @@
  */
 package au.org.ala.biocache.util
 
+import java.io
 import java.io._
+import java.security.MessageDigest
 import java.util.jar.JarFile
 import java.util.zip.GZIPInputStream
+
 import au.com.bytecode.opencsv.CSVReader
 import net.lingala.zip4j.core.ZipFile
 import org.slf4j.LoggerFactory
+
+import scala.collection.mutable
 
 /**
  * File helper - used as a implicit converter to add additional helper methods to java.io.File
@@ -114,6 +119,37 @@ class FileHelper(file: File) {
       currentLine = reader.readNext
     }
   }
+
+
+  /**
+   * Compute a SHA1 hash of a local file.
+   *
+   * @return The SHA-1 hash of the file as a hex string
+   */
+  def sha1Hash(): String =
+    if (!file.exists || file.length == 0) {
+      ""
+    } else {
+      val sha1 = MessageDigest.getInstance("SHA-1")
+      val buffer = new Array[Byte](4096)
+      val is = new io.FileInputStream(file)
+      try {
+        var n  = is.read(buffer)
+
+        while (n > 0) {
+          sha1.update(buffer, 0, n)
+          n = is.read(buffer)
+        }
+
+        val sb = new mutable.StringBuilder
+        for (b <- sha1.digest)
+          sb.append(String.format("%02x", Byte.box(b)))
+        sb.toString()
+      } finally {
+        is.close()
+      }
+    }
+
 }
 
 /**
