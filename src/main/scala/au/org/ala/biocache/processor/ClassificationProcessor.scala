@@ -2,15 +2,17 @@ package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.Config
 import org.slf4j.LoggerFactory
+
 import scala.collection.JavaConversions
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import au.org.ala.names.model.LinnaeanRankClassification
 import org.apache.commons.lang.StringUtils
-import au.org.ala.biocache.caches.{CommonNameDAO, TaxonProfileDAO, ClassificationDAO, AttributionDAO}
+import au.org.ala.biocache.caches.{AttributionDAO, ClassificationDAO, CommonNameDAO, TaxonProfileDAO}
 import au.org.ala.biocache.util.BiocacheConversions
-import au.org.ala.biocache.model.{Attribution, QualityAssertion, FullRecord, Classification}
+import au.org.ala.biocache.model.{Attribution, Classification, FullRecord, QualityAssertion}
 import au.org.ala.biocache.load.FullRecordMapper
-import au.org.ala.biocache.vocab.{AssertionStatus, Kingdoms, DwC, AssertionCodes}
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, DwC, Kingdoms}
+import org.gbif.api.vocabulary.NameType
 
 /**
  * A processor of taxonomic information.
@@ -88,8 +90,9 @@ class ClassificationProcessor extends Processor {
    */
   private def setMatchStats(nameMetrics:au.org.ala.names.model.MetricsResultDTO, processed:FullRecord, assertions:ArrayBuffer[QualityAssertion]){
     //set the parse type and errors for all results before continuing
-    processed.classification.nameParseType = if (nameMetrics.getNameType != null) {
-      nameMetrics.getNameType.toString
+    val nameType = nameMetrics.getNameType
+    processed.classification.nameParseType = if (nameType != null) {
+      nameType.toString
     } else {
       null
     }
@@ -100,7 +103,7 @@ class ClassificationProcessor extends Processor {
       Array("noIssue")
     }
     //check the name parse tye to see if the scientific name was valid
-    if (processed.classification.nameParseType == "blacklisted") {
+    if (nameType == NameType.PLACEHOLDER || nameType == NameType.NO_NAME) {
       assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME)
     } else {
       assertions += QualityAssertion(INVALID_SCIENTIFIC_NAME, PASSED)

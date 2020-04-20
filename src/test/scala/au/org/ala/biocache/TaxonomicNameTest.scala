@@ -6,6 +6,7 @@ import org.junit.runner.RunWith
 import au.org.ala.biocache.model.FullRecord
 import au.org.ala.biocache.processor.ClassificationProcessor
 import au.org.ala.biocache.vocab.AssertionCodes
+import org.gbif.api.vocabulary.NameType
 
 @RunWith(classOf[JUnitRunner])
 class TaxonomicNameTest extends ConfigFunSuite {
@@ -46,7 +47,7 @@ class TaxonomicNameTest extends ConfigFunSuite {
       val processed = new FullRecord
       raw.classification.scientificName ="Zabidius novemaculeatus"
       (new ClassificationProcessor).process("test",raw,processed)
-      expectResult("wellformed"){processed.classification.nameParseType}
+      expectResult(NameType.SCIENTIFIC.toString){processed.classification.nameParseType}
     }
 
     ignore("name not in national checklists"){

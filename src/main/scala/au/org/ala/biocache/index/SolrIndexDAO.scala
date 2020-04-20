@@ -1186,7 +1186,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
               }
             }
           } else {
-            if (i - start > 1 && !validKey.isEmpty) {
+            if (i - start > 0 && !validKey.isEmpty) {
               val value =
                 if (skipped) {
                   //parse
