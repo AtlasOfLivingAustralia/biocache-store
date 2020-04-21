@@ -38,4 +38,21 @@ class AttributionTest extends ConfigFunSuite{
         val dr = AttributionDAO.getDataResourceFromWS("dr92")
         expectResult(Some("MachineObservation")){dr.get.defaultDwcValues.get("basisOfRecord")}
     }
+
+    test("licence lookup with embedded licence"){
+        var raw = new FullRecord
+        var processed = new FullRecord
+        raw.attribution.dataResourceUid = "dr367"
+        raw.attribution.license = "CC-BY Au"
+        (new AttributionProcessor).process("test", raw, processed)
+        expectResult("CC-BY 4.0 (Au)"){processed.attribution.license}
+      }
+
+    test("licence lookup with default licence"){
+        var raw = new FullRecord
+        var processed = new FullRecord
+        raw.attribution.dataResourceUid = "dr366"
+        (new AttributionProcessor).process("test", raw, processed)
+        expectResult("CC-BY 4.0 (Int)"){processed.attribution.license}
+    }
 }

@@ -1,6 +1,7 @@
 package au.org.ala.biocache.vocab
 
 import java.io.File
+import java.util.regex.Pattern
 
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.util.Stemmer
@@ -17,7 +18,7 @@ trait Vocab {
 
   import scala.collection.JavaConversions._
 
-  val all:Set[Term]
+  val all:IndexedSeq[Term]
 
   val logger = LoggerFactory.getLogger("Vocab")
 
@@ -73,21 +74,12 @@ trait Vocab {
     */
   def matchRegex(string2Match:String) : Option[Term] = {
     if(string2Match != null){
-
-      all.foreach(term => {
-        val pattern = new Regex(term.variants(0))
-        string2Match match {
-          case pattern => return Some(term)
-          case _ => None
-        }
-      })
+      return all.find(term => Pattern.compile(term.variants(0), Pattern.CASE_INSENSITIVE).asPredicate().test(string2Match))
     }
     None
   }
 
-  def matchRegexCached(string2Match:String) : Option[Term] = {
-     memoizeFnc(matchRegex _ string2Match)
-  }
+  def matchRegexCached(string2Match : String) : Option[Term] = memoizeFnc(matchRegex)(string2Match)
 
   def retrieveCanonicals(terms:Seq[String]) = {
     terms.map(ch => {
@@ -107,7 +99,7 @@ trait Vocab {
     })
   }
 
-  def loadVocabFromVerticalFile(filePath:String) : Set[Term] = {
+  def loadVocabFromVerticalFile(filePath:String) : immutable.IndexedSeq[Term] = {
 
     val map = getSource(filePath).getLines.toList.map { row =>
         val values = row.split("\t")
@@ -121,7 +113,7 @@ trait Vocab {
     grouped.map { case(canonical, valueMap) =>
        val variants = valueMap.keys
        new Term(canonical, variants.toArray)
-    }.toSet
+    }.toIndexedSeq
   }
 
   def loadVocabFromFile(filePath:String) : immutable.IndexedSeq[Term] = getSource(filePath).getLines.toList.map({ row =>
@@ -130,10 +122,10 @@ trait Vocab {
     new Term(values.head, variants)
   }).toIndexedSeq
 
-  def loadRegexFromFile(filePath:String) : Set[Term] = getSource(filePath).getLines.toList.map({ row =>
+  def loadRegexFromFile(filePath:String) : immutable.IndexedSeq[Term] = getSource(filePath).getLines.toList.map({ row =>
     val values = row.split("\t")
     new Term(values.head, values.tail)
-  }).toSet
+  }).toIndexedSeq
 
   private def getSource(filePath:String) : scala.io.Source = {
     val overrideFile = new File(Config.vocabDirectory + filePath)

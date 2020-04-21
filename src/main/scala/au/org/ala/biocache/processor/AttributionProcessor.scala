@@ -64,11 +64,15 @@ class AttributionProcessor extends Processor {
         processed.attribution.dataHubUid = dataResource.get.dataHubUid
         processed.attribution.dataResourceUid = dataResource.get.dataResourceUid
         processed.attribution.provenance = dataResource.get.provenance
-        val term = License.matchRegexCached(raw.attribution.license)
-        if (term.isEmpty) {
+        if (raw.attribution.license == null || raw.attribution.license.isEmpty) {
           processed.attribution.license = dataResource.get.license
         } else {
-          processed.attribution.license = term.get.canonical
+          val term = License.matchRegexCached(raw.attribution.license)
+          if (term.isEmpty) {
+            processed.attribution.license = dataResource.get.license
+          } else {
+            processed.attribution.license = term.get.canonical
+          }
         }
         //only add the taxonomic hints if they were not populated by the collection
         if (processed.attribution.taxonomicHints == null) {
