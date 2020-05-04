@@ -1,33 +1,31 @@
-package au.org.ala.biocache.export
+package au.org.ala.biocache.`export`
 
-import java.util.zip._
 import java.io._
+import java.util.zip._
 
 import au.com.bytecode.opencsv.CSVWriter
-
-import scala.io.Source
-import org.apache.commons.io.{FileUtils, IOUtils}
-
-import scala.util.parsing.json.JSON
-import org.slf4j.LoggerFactory
 import au.org.ala.biocache.Config
-import au.org.ala.biocache.util.OptionParser
 import au.org.ala.biocache.cmd.Tool
+import au.org.ala.biocache.util.OptionParser
 import com.opencsv.{CSVReaderBuilder, RFC4180Parser}
+import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.commons.lang.StringUtils
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
+import scala.io.Source
+import scala.util.parsing.json.JSON
 
 /**
-  * Companion object for the DwCACreator class.
+  * Companion object for the DwCAExporter class.
   */
-object DwCACreator extends Tool {
+object DwCAExporter extends Tool {
 
-  def cmd = "create-dwc"
+  def cmd = "export-dwca"
 
-  def desc = "Create Darwin Core Archive for a data resource"
+  def desc = "Export Darwin Core Archive for a data resource"
 
-  val logger = LoggerFactory.getLogger("DwCACreator")
+  val logger = LoggerFactory.getLogger("DwCAExporter")
 
   val defaultFields = List(
     "rowkey",
@@ -104,7 +102,7 @@ object DwCACreator extends Tool {
     }
 
     if(parser.parse(args)){
-      val dwcc = new DwCACreator
+      val dwcc = new DwCAExporter
 
       if (addImagesToExisting){
         dwcc.addImageExportsToArchives(directory)
@@ -295,9 +293,9 @@ object DwCACreator extends Tool {
   *
   * TODO support for dwc fields in registry metadata. When not available use the default fields.
   */
-class DwCACreator {
+class DwCAExporter {
 
-  val logger = LoggerFactory.getLogger("DwCACreator")
+  val logger = LoggerFactory.getLogger("DwCAExporter")
   val lineEnd = "\r\n"
 
   def createOutputForCSV(directory:String, dataResource:String) : Option[(ZipOutputStream, CSVWriter)] = {
