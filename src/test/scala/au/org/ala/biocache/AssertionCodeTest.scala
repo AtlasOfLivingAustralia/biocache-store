@@ -75,10 +75,26 @@ class AssertionCodeTest extends ConfigFunSuite {
       AssertionCodes.isGeospatiallyKosher(assertions1)
     }
 
-    val assertions2 = Array(QualityAssertion(AssertionCodes.INVERTED_COORDINATES))
-    expectResult(true) {
+    val assertions2 = Array(QualityAssertion(AssertionCodes.ZERO_COORDINATES))
+    expectResult(false) {
       AssertionCodes.isGeospatiallyKosher(assertions2)
     }
+
+    val assertions3 = Array(QualityAssertion(AssertionCodes.INVERTED_COORDINATES))
+    expectResult(true) {
+      AssertionCodes.isGeospatiallyKosher(assertions3)
+    }
+
+    val assertions4 = Array(QualityAssertion(AssertionCodes.COORDINATE_HABITAT_MISMATCH))
+    expectResult(true) {
+      AssertionCodes.isGeospatiallyKosher(assertions4)
+    }
+
+    val assertions5 = Array(QualityAssertion(AssertionCodes.COORDINATES_CENTRE_OF_STATEPROVINCE))
+    expectResult(true) {
+      AssertionCodes.isGeospatiallyKosher(assertions5)
+    }
+
   }
 
   test("Test kosher based on list of int codes") {
@@ -86,9 +102,19 @@ class AssertionCodeTest extends ConfigFunSuite {
     expectResult(true) {
       AssertionCodes.isGeospatiallyKosher(codes1)
     }
-    val codes2 = Array(1, 2, 0)
-    expectResult(false) {
+
+    val codes2 = Array(1, 2, 3, 26)
+    expectResult(true) {
       AssertionCodes.isGeospatiallyKosher(codes2)
+    }
+
+    val codes3 = Array(1, 2, 0)
+    expectResult(false) {
+      AssertionCodes.isGeospatiallyKosher(codes3)
+    }
+    val codes4 = Array(1, 2, 46)
+    expectResult(false) {
+      AssertionCodes.isGeospatiallyKosher(codes4)
     }
   }
 
