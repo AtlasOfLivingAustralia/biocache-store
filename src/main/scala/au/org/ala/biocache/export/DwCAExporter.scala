@@ -1,4 +1,4 @@
-package au.org.ala.biocache.`export`
+package au.org.ala.biocache.export
 
 import java.io._
 import java.util.zip._
@@ -12,6 +12,7 @@ import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.util.parsing.json.JSON
@@ -27,235 +28,253 @@ object DwCAExporter extends Tool {
 
   val logger = LoggerFactory.getLogger("DwCAExporter")
 
-  val defaultFields = List(
-    "rowkey",
-    "dataResourceUid",
-    "catalogNumber",
-    "collectionCode",
-    "institutionCode",
-    "scientificName",
-    "scientificName_p",
-    "scientificNameAuthorship",
-    "recordedBy",
-    "taxonConceptID_p",
-    "taxonRank_p",
-    "kingdom_p",
-    "phylum_p",
-    "classs_p",
-    "order_p",
-    "family_p",
-    "genus_p",
-    "kingdom",
-    "phylum",
-    "classs",
-    "order",
-    "family",
-    "genus",
-    "decimalLatitude_p",
-    "decimalLongitude_p",
-    "coordinateUncertaintyInMeters_p",
-    "maximumElevationInMeters",
-    "minimumElevationInMeters",
-    "minimumDepthInMeters",
-    "maximumDepthInMeters",
-    "geodeticDatum_p",
-    "country_p",
-    "stateProvince_p",
-    "locality",
-    "occurrenceStatus_p",
-    "year_p",
-    "month_p",
-    "day_p",
-    "eventDate_p",
-    "eventDateEnd_p",
-    "basisOfRecord_p",
-    "identifiedBy",
-    "occurrenceRemarks",
-    "locationRemarks",
-    "recordNumber",
-    "vernacularName",
-    "vernacularName_p",
-    "individualCount",
-    "eventID",
-    "dataGeneralizations_p"
-  )
-
   def main(args: Array[String]): Unit = {
+
+    var fieldsMap = mutable.LinkedHashMap(
+      "rowkey"->"http://ala.org.au/terms/uuid",
+      "acceptedNameUsage"->"http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
+      "acceptedNameUsageID"->"http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
+      "accessRights"->"http://purl.org/dc/terms/accessRights",
+      "associatedMedia"->"http://rs.tdwg.org/dwc/terms/associatedMedia",
+      "associatedOccurrences"->"http://rs.tdwg.org/dwc/terms/associatedOccurrences",
+      "associatedReferences"->"http://rs.tdwg.org/dwc/terms/associatedReferences",
+      "associatedSequences"->"http://rs.tdwg.org/dwc/terms/associatedSequences",
+      "associatedTaxa"->"http://rs.tdwg.org/dwc/terms/associatedTaxa",
+      "basisOfRecord"->"http://rs.tdwg.org/dwc/terms/basisOfRecord",
+      "behavior"->"http://rs.tdwg.org/dwc/terms/behavior",
+      "bibliographicCitation"->"http://purl.org/dc/terms/bibliographicCitation",
+      "catalogNumber"->"http://rs.tdwg.org/dwc/terms/catalogNumber",
+      "class"->"http://rs.tdwg.org/dwc/terms/class",
+      "classs"->"http://rs.tdwg.org/dwc/terms/classs",
+      "collectionCode"->"http://rs.tdwg.org/dwc/terms/collectionCode",
+      "collectionID"->"http://rs.tdwg.org/dwc/terms/collectionID",
+      "continent"->"http://rs.tdwg.org/dwc/terms/continent",
+      "coordinatePrecision"->"http://rs.tdwg.org/dwc/terms/coordinatePrecision",
+      "coordinateUncertaintyInMeters"->"http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters",
+      "country"->"http://rs.tdwg.org/dwc/terms/country",
+      "countryCode"->"http://rs.tdwg.org/dwc/terms/countryCode",
+      "county"->"http://rs.tdwg.org/dwc/terms/county",
+      "dataGeneralizations"->"http://rs.tdwg.org/dwc/terms/dataGeneralizations",
+      "dataResourceUid"->"http://rs.tdwg.org/dwc/terms/dataResourceUid",
+      "datasetID"->"http://rs.tdwg.org/dwc/terms/datasetID",
+      "datasetName"->"http://rs.tdwg.org/dwc/terms/datasetName",
+      "dateIdentified"->"http://rs.tdwg.org/dwc/terms/dateIdentified",
+      "day"->"http://rs.tdwg.org/dwc/terms/day",
+      "decimalLatitude"->"http://rs.tdwg.org/dwc/terms/decimalLatitude",
+      "decimalLongitude"->"http://rs.tdwg.org/dwc/terms/decimalLongitude",
+      "disposition"->"http://rs.tdwg.org/dwc/terms/disposition",
+      "dynamicProperties"->"http://rs.tdwg.org/dwc/terms/dynamicProperties",
+      "endDayOfYear"->"http://rs.tdwg.org/dwc/terms/endDayOfYear",
+      "establishmentMeans"->"http://rs.tdwg.org/dwc/terms/establishmentMeans",
+      "eventAttributes"->"http://rs.tdwg.org/dwc/terms/eventAttributes",
+      "eventDate"->"http://rs.tdwg.org/dwc/terms/eventDate",
+      "eventID"->"http://rs.tdwg.org/dwc/terms/eventID",
+      "eventRemarks"->"http://rs.tdwg.org/dwc/terms/eventRemarks",
+      "eventTime"->"http://rs.tdwg.org/dwc/terms/eventTime",
+      "family"->"http://rs.tdwg.org/dwc/terms/family",
+      "fieldNotes"->"http://rs.tdwg.org/dwc/terms/fieldNotes",
+      "fieldNumber"->"http://rs.tdwg.org/dwc/terms/fieldNumber",
+      "footprintSpatialFit"->"http://rs.tdwg.org/dwc/terms/footprintSpatialFit",
+      "footprintSRS"->"http://rs.tdwg.org/dwc/terms/footprintSRS",
+      "footprintWKT"->"http://rs.tdwg.org/dwc/terms/footprintWKT",
+      "genus"->"http://rs.tdwg.org/dwc/terms/genus",
+      "geodeticDatum"->"http://rs.tdwg.org/dwc/terms/geodeticDatum",
+      "georeferencedBy"->"http://rs.tdwg.org/dwc/terms/georeferencedBy",
+      "georeferencedDate"->"http://rs.tdwg.org/dwc/terms/georeferencedDate",
+      "georeferenceProtocol"->"http://rs.tdwg.org/dwc/terms/georeferenceProtocol",
+      "georeferenceRemarks"->"http://rs.tdwg.org/dwc/terms/georeferenceRemarks",
+      "georeferenceSources"->"http://rs.tdwg.org/dwc/terms/georeferenceSources",
+      "georeferenceVerificationStatus"->"http://rs.tdwg.org/dwc/terms/georeferenceVerificationStatus",
+      "habitat"->"http://rs.tdwg.org/dwc/terms/habitat",
+      "higherClassification"->"http://rs.tdwg.org/dwc/terms/higherClassification",
+      "higherGeography"->"http://rs.tdwg.org/dwc/terms/higherGeography",
+      "higherGeographyID"->"http://rs.tdwg.org/dwc/terms/higherGeographyID",
+      "identificationID"->"http://rs.tdwg.org/dwc/terms/identificationID",
+      "identificationQualifier"->"http://rs.tdwg.org/dwc/terms/identificationQualifier",
+      "identificationReferences"->"http://rs.tdwg.org/dwc/terms/identificationReferences",
+      "identificationRemarks"->"http://rs.tdwg.org/dwc/terms/identificationRemarks",
+      "identificationVerificationStatus"->"http://rs.tdwg.org/dwc/terms/identificationVerificationStatus",
+      "identifiedBy"->"http://rs.tdwg.org/dwc/terms/identifiedBy",
+      "individualCount"->"http://rs.tdwg.org/dwc/terms/individualCount",
+      "individualID"->"http://rs.tdwg.org/dwc/terms/individualID",
+      "informationWithheld"->"http://rs.tdwg.org/dwc/terms/informationWithheld",
+      "infraspecificEpithet"->"http://rs.tdwg.org/dwc/terms/infraspecificEpithet",
+      "institutionCode"->"http://rs.tdwg.org/dwc/terms/institutionCode",
+      "institutionID"->"http://rs.tdwg.org/dwc/terms/institutionID",
+      "island"->"http://rs.tdwg.org/dwc/terms/island",
+      "islandGroup"->"http://rs.tdwg.org/dwc/terms/islandGroup",
+      "kingdom"->"http://rs.tdwg.org/dwc/terms/kingdom",
+      "language"->"http://purl.org/dc/terms/language",
+      "license"->"http://purl.org/dc/terms/license",
+      "lifeStage"->"http://rs.tdwg.org/dwc/terms/lifeStage",
+      "locality"->"http://rs.tdwg.org/dwc/terms/locality",
+      "locationAccordingTo"->"http://rs.tdwg.org/dwc/terms/locationAccordingTo",
+      "locationAttributes"->"http://rs.tdwg.org/dwc/terms/locationAttributes",
+      "locationID"->"http://rs.tdwg.org/dwc/terms/locationID",
+      "locationRemarks"->"http://rs.tdwg.org/dwc/terms/locationRemarks",
+      "maximumDepthInMeters"->"http://rs.tdwg.org/dwc/terms/maximumDepthInMeters",
+      "maximumDistanceAboveSurfaceInMeters"->"http://rs.tdwg.org/dwc/terms/maximumDistanceAboveSurfaceInMeters",
+      "maximumElevationInMeters"->"http://rs.tdwg.org/dwc/terms/maximumElevationInMeters",
+      "measurementAccuracy"->"http://rs.tdwg.org/dwc/terms/measurementAccuracy",
+      "measurementDeterminedBy"->"http://rs.tdwg.org/dwc/terms/measurementDeterminedBy",
+      "measurementDeterminedDate"->"http://rs.tdwg.org/dwc/terms/measurementDeterminedDate",
+      "measurementID"->"http://rs.tdwg.org/dwc/terms/measurementID",
+      "measurementMethod"->"http://rs.tdwg.org/dwc/terms/measurementMethod",
+      "measurementRemarks"->"http://rs.tdwg.org/dwc/terms/measurementRemarks",
+      "measurementType"->"http://rs.tdwg.org/dwc/terms/measurementType",
+      "measurementUnit"->"http://rs.tdwg.org/dwc/terms/measurementUnit",
+      "measurementValue"->"http://rs.tdwg.org/dwc/terms/measurementValue",
+      "minimumDepthInMeters"->"http://rs.tdwg.org/dwc/terms/minimumDepthInMeters",
+      "minimumDistanceAboveSurfaceInMeters"->"http://rs.tdwg.org/dwc/terms/minimumDistanceAboveSurfaceInMeters",
+      "minimumElevationInMeters"->"http://rs.tdwg.org/dwc/terms/minimumElevationInMeters",
+      "modified"->"http://purl.org/dc/terms/modified",
+      "month"->"http://rs.tdwg.org/dwc/terms/month",
+      "municipality"->"http://rs.tdwg.org/dwc/terms/municipality",
+      "nameAccordingTo"->"http://rs.tdwg.org/dwc/terms/nameAccordingTo",
+      "nameAccordingToID"->"http://rs.tdwg.org/dwc/terms/nameAccordingToID",
+      "namePublishedIn"->"http://rs.tdwg.org/dwc/terms/namePublishedIn",
+      "namePublishedInID"->"http://rs.tdwg.org/dwc/terms/namePublishedInID",
+      "namePublishedInYear"->"http://rs.tdwg.org/dwc/terms/namePublishedInYear",
+      "nomenclaturalCode"->"http://rs.tdwg.org/dwc/terms/nomenclaturalCode",
+      "nomenclaturalStatus"->"http://rs.tdwg.org/dwc/terms/nomenclaturalStatus",
+      "occurrenceAttributes"->"http://rs.tdwg.org/dwc/terms/occurrenceAttributes",
+      "occurrenceDetails"->"http://rs.tdwg.org/dwc/terms/occurrenceDetails",
+      "occurrenceID"->"http://rs.tdwg.org/dwc/terms/occurrenceID",
+      "occurrenceRemarks"->"http://rs.tdwg.org/dwc/terms/occurrenceRemarks",
+      "occurrenceStatus"->"http://rs.tdwg.org/dwc/terms/occurrenceStatus",
+      "order"->"http://rs.tdwg.org/dwc/terms/order",
+      "organismQuantity"->"http://rs.tdwg.org/dwc/terms/organismQuantity",
+      "organismQuantityType"->"http://rs.tdwg.org/dwc/terms/organismQuantityType",
+      "originalNameUsage"->"http://rs.tdwg.org/dwc/terms/originalNameUsage",
+      "originalNameUsageID"->"http://rs.tdwg.org/dwc/terms/originalNameUsageID",
+      "otherCatalogNumbers"->"http://rs.tdwg.org/dwc/terms/otherCatalogNumbers",
+      "ownerInstitutionCode"->"http://rs.tdwg.org/dwc/terms/ownerInstitutionCode",
+      "parentNameUsage"->"http://rs.tdwg.org/dwc/terms/parentNameUsage",
+      "parentNameUsageID"->"http://rs.tdwg.org/dwc/terms/parentNameUsageID",
+      "phylum"->"http://rs.tdwg.org/dwc/terms/phylum",
+      "pointRadiusSpatialFit"->"http://rs.tdwg.org/dwc/terms/pointRadiusSpatialFit",
+      "preparations"->"http://rs.tdwg.org/dwc/terms/preparations",
+      "previousIdentifications"->"http://rs.tdwg.org/dwc/terms/previousIdentifications",
+      "recordedBy"->"http://rs.tdwg.org/dwc/terms/recordedBy",
+      "recordNumber"->"http://rs.tdwg.org/dwc/terms/recordNumber",
+      "relatedResourceID"->"http://rs.tdwg.org/dwc/terms/relatedResourceID",
+      "relationshipAccordingTo"->"http://rs.tdwg.org/dwc/terms/relationshipAccordingTo",
+      "relationshipEstablishedDate"->"http://rs.tdwg.org/dwc/terms/relationshipEstablishedDate",
+      "relationshipOfResource"->"http://rs.tdwg.org/dwc/terms/relationshipOfResource",
+      "relationshipRemarks"->"http://rs.tdwg.org/dwc/terms/relationshipRemarks",
+      "reproductiveCondition"->"http://rs.tdwg.org/dwc/terms/reproductiveCondition",
+      "resourceID"->"http://rs.tdwg.org/dwc/terms/resourceID",
+      "resourceRelationshipID"->"http://rs.tdwg.org/dwc/terms/resourceRelationshipID",
+      "rightsHolder"->"http://purl.org/dc/terms/rightsHolder",
+      "samplingEffort"->"http://rs.tdwg.org/dwc/terms/samplingEffort",
+      "samplingProtocol"->"http://rs.tdwg.org/dwc/terms/samplingProtocol",
+      "scientificName"->"http://rs.tdwg.org/dwc/terms/scientificName",
+      "scientificNameAuthorship"->"http://rs.tdwg.org/dwc/terms/scientificNameAuthorship",
+      "scientificNameID"->"http://rs.tdwg.org/dwc/terms/scientificNameID",
+      "sex"->"http://rs.tdwg.org/dwc/terms/sex",
+      "specificEpithet"->"http://rs.tdwg.org/dwc/terms/specificEpithet",
+      "startDayOfYear"->"http://rs.tdwg.org/dwc/terms/startDayOfYear",
+      "stateProvince"->"http://rs.tdwg.org/dwc/terms/stateProvince",
+      "subgenus"->"http://rs.tdwg.org/dwc/terms/subgenus",
+      "taxonConceptID"->"http://rs.tdwg.org/dwc/terms/taxonConceptID",
+      "taxonID"->"http://rs.tdwg.org/dwc/terms/taxonID",
+      "taxonomicStatus"->"http://rs.tdwg.org/dwc/terms/taxonomicStatus",
+      "taxonRank"->"http://rs.tdwg.org/dwc/terms/taxonRank",
+      "taxonRemarks"->"http://rs.tdwg.org/dwc/terms/taxonRemarks",
+      "type"->"http://purl.org/dc/terms/type",
+      "typeStatus"->"http://rs.tdwg.org/dwc/terms/typeStatus",
+      "verbatimCoordinates"->"http://rs.tdwg.org/dwc/terms/verbatimCoordinates",
+      "verbatimCoordinateSystem"->"http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem",
+      "verbatimDepth"->"http://rs.tdwg.org/dwc/terms/verbatimDepth",
+      "verbatimElevation"->"http://rs.tdwg.org/dwc/terms/verbatimElevation",
+      "verbatimEventDate"->"http://rs.tdwg.org/dwc/terms/verbatimEventDate",
+      "verbatimLatitude"->"http://rs.tdwg.org/dwc/terms/verbatimLatitude",
+      "verbatimLocality"->"http://rs.tdwg.org/dwc/terms/verbatimLocality",
+      "verbatimLongitude"->"http://rs.tdwg.org/dwc/terms/verbatimLongitude",
+      "verbatimSRS"->"http://rs.tdwg.org/dwc/terms/verbatimSRS",
+      "verbatimTaxonRank"->"http://rs.tdwg.org/dwc/terms/verbatimTaxonRank",
+      "vernacularName"->"http://rs.tdwg.org/dwc/terms/vernacularName",
+      "waterbody"->"http://rs.tdwg.org/dwc/terms/waterbody",
+      "year"->"http://rs.tdwg.org/dwc/terms/year"
+    )
 
     var resourceUid = ""
     var directory = ""
     var threads = 4
     var pageSize = 1000
     var addImagesToExisting = false
+    var exportExtensions = false
 
     val parser = new OptionParser(help) {
       arg("data-resource-uid", "Comma separated list of DRs or 'all' to generate for all",
         { v: String => resourceUid = v }
       )
       arg("directory-to-dump", "Directory to place the created archives",
-        { v:String => directory = v }
+        { v: String => directory = v }
+      )
+      opt("f", "fields", "Comma separated list of DwC fields to export (according to cassandra DB). Default is :" + fieldsMap.keySet,
+        { v: String => val fields = v.split(",").toList
+          fieldsMap = fieldsMap.filter((field) => fields.contains(field._1))
+        }
       )
       intOpt("t", "thread", "The number of threads to use. Default is " + threads, { v: Int => threads = v })
       intOpt("ps", "pageSize", "The pageSize to use. Default is " + pageSize, { v: Int => pageSize = v })
 
-      booleanOpt("add-images-to-existing-only", "Add images to existing archives." , { v: Boolean => addImagesToExisting = v })
+      booleanOpt("export-extensions", "Export extensions too.", { v: Boolean => exportExtensions = v })
+
+      booleanOpt("add-images-to-existing-only", "Add images to existing archives.", { v: Boolean => addImagesToExisting = v })
     }
 
-    if(parser.parse(args)){
-      val dwcc = new DwCAExporter
+    if (parser.parse(args)) {
+      val dwcc = new DwCAExporter(fieldsMap)
 
-      if (addImagesToExisting){
+      if (addImagesToExisting) {
         dwcc.addImageExportsToArchives(directory)
       } else {
         try {
 
-          val resourceIDs = if (resourceUid == "all"){
+          val resourceIDs = if (resourceUid == "all") {
             getDataResourceUids
           } else {
             resourceUid.split(",").map(_.trim).toList
           }
 
-          val dataResource2OutputStreams = resourceIDs.map { uid => (uid, dwcc.createOutputForCSV(directory, uid) ) }.toMap
+          val dataResource2OutputStreams = resourceIDs.map { uid => (uid, dwcc.createOutputForCSV(directory, uid)) }.toMap
           Config.persistenceManager.pageOverSelect("occ", (key, map) => {
             synchronized {
               val dr = map.getOrElse("dataResourceUid", "")
               val deletedDate = map.getOrElse("deletedDate", "")
-              if (dr != "" && resourceIDs.contains(dr) && deletedDate =="") { // Record is not deleted
+              if (dr != "" && resourceIDs.contains(dr) && deletedDate == "") { // Record is not deleted
                 val dataResourceMap = dataResource2OutputStreams.get(dr)
-                if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty){
+                if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty) {
                   val (zop, csv) = dataResourceMap.get.get
 
                   synchronized {
-                    val eventDate = {
-                      val eventDate = map.getOrElse("eventDate_p", "")
-                      val eventDateEnd = map.getOrElse("eventDateEnd_p", "")
-                      if(eventDateEnd != "" && eventDate != "" && eventDate != eventDateEnd){
-                        eventDate + "/" + eventDateEnd
-                      } else {
-                        eventDate
-                      }
-                    }
-
-                    // we will provide the processed if we can, but also supply the verbatim in
-                    val (scientificName, kingdom, phylum, classs, order, family, genus, vernacularName, processedTaxonomyProvided) = {
-                      val processedSciName = cleanValue(map.getOrElse("scientificName_p", ""))
-                      if (StringUtils.isEmpty(processedSciName)){
-                        (
-                          cleanValue(map.getOrElse("scientificName", "")),
-                          cleanValue(map.getOrElse("kingdom", "")),
-                          cleanValue(map.getOrElse("phylum", "")),
-                          cleanValue(map.getOrElse("classs", "")),
-                          cleanValue(map.getOrElse("order", "")),
-                          cleanValue(map.getOrElse("family", "")),
-                          cleanValue(map.getOrElse("genus", "")),
-                          cleanValue(map.getOrElse("vernacularName", "")),
-
-                          false
-                        )
-                      } else {
-                        (processedSciName,
-                          cleanValue(map.getOrElse("kingdom_p", "")),
-                          cleanValue(map.getOrElse("phylum_p", "")),
-                          cleanValue(map.getOrElse("classs_p", "")),
-                          cleanValue(map.getOrElse("order_p", "")),
-                          cleanValue(map.getOrElse("family_p", "")),
-                          cleanValue(map.getOrElse("genus_p", "")),
-                          cleanValue(map.getOrElse("vernacularName_p", "")),
-                          true
-                        )
-                      }
-                    }
-
-                    //Advice from GBIF team : Appending a "Identification aligned to ALA taxonomy" or
-                    // "Verbatim identification provided (did not align to ALA taxonomy)"
-                    val dataGeneralisations = {
-                      var dataGeneralization = cleanValue(map.getOrElse("dataGeneralizations_p", ""))
-                      if (StringUtils.isNotEmpty(dataGeneralization)){
-                        dataGeneralization = dataGeneralization + " "
-                      }
-
-                      if (processedTaxonomyProvided){
-                        dataGeneralization = dataGeneralization + "Identification aligned to national taxonomy. Originally supplied as " +
-                          "[[ " +
-                          cleanValue(map.getOrElse("kingdom", "<not-supplied>")) +
-                          " | " + cleanValue(map.getOrElse("phylum", "<not-supplied>")) +
-                          " | " + cleanValue(map.getOrElse("classs", "<not-supplied>")) +
-                          " | " + cleanValue(map.getOrElse("order", "<not-supplied>")) +
-                          " | " + cleanValue(map.getOrElse("family", "<not-supplied>")) +
-                          " | " + cleanValue(map.getOrElse("genus", "<not-supplied>")) +
-                          " | " + cleanValue(map.getOrElse("scientificName", "<not-supplied>")) +
-                          "]]"
-                      } else {
-                        dataGeneralization = dataGeneralization + "Verbatim identification provided (did not align to national taxonomy)"
-                      }
-
-                      dataGeneralization
-                    }
-
-                    csv.writeNext(Array(
-                      cleanValue(map.getOrElse("rowkey", "")),
-                      cleanValue(map.getOrElse("catalogNumber",  "")),
-                      cleanValue(map.getOrElse("collectionCode", "")),
-                      cleanValue(map.getOrElse("institutionCode", "")),
-                      cleanValue(map.getOrElse("recordNumber", "")),
-                      cleanValue(map.getOrElse("basisOfRecord_p", "")),
-                      cleanValue(map.getOrElse("recordedBy", "")),
-                      cleanValue(map.getOrElse("occurrenceStatus_p", "")),
-                      cleanValue(map.getOrElse("individualCount", "")),
-                      scientificName,
-                      cleanValue(map.getOrElse("taxonConceptID_p", "")),
-                      cleanValue(map.getOrElse("taxonRank_p", "")),
-                      kingdom,
-                      phylum,
-                      classs,
-                      order,
-                      family,
-                      genus,
-                      vernacularName,
-                      cleanValue(map.getOrElse("decimalLatitude_p", "")),
-                      cleanValue(map.getOrElse("decimalLongitude_p", "")),
-                      cleanValue(map.getOrElse("geodeticDatum_p", "")),
-                      cleanValue(map.getOrElse("coordinateUncertaintyInMeters_p", "")),
-                      cleanValue(map.getOrElse("maximumElevationInMeters", "")),
-                      cleanValue(map.getOrElse("minimumElevationInmeters", "")),
-                      cleanValue(map.getOrElse("minimumDepthInMeters", "")),
-                      cleanValue(map.getOrElse("maximumDepthInMeters", "")),
-                      cleanValue(map.getOrElse("country_p", "")),
-                      cleanValue(map.getOrElse("stateProvince_p", "")),
-                      cleanValue(map.getOrElse("locality", "")),
-                      cleanValue(map.getOrElse("locationRemarks", "")),
-                      cleanValue(map.getOrElse("year_p", "")),
-                      cleanValue(map.getOrElse("month_p", "")),
-                      cleanValue(map.getOrElse("day_p", "")),
-                      cleanValue(eventDate),
-                      cleanValue(map.getOrElse("eventID", "")),
-                      cleanValue(map.getOrElse("identifiedBy", "")),
-                      cleanValue(map.getOrElse("occurrenceRemarks", "")),
-                      dataGeneralisations,
-                      cleanValue(map.getOrElse("occurrenceID", "")), //provide the raw occurrence ID in otherCatalogNumbers - discussed with GBIF
-                      Config.biocacheUiUrl + "/occurrences/" + cleanValue(map.getOrElse("rowkey", ""))
-                    ))
+                    val row =  fieldsMap.filter(_._1 != "dataResourceUid").map((fieldMap) => cleanValue(map.getOrElse(fieldMap._1,null))).toArray
+                    csv.writeNext(
+                      row
+                    )
                     csv.flush()
                   }
                 }
               }
             }
             true
-          }, threads, pageSize, defaultFields:_*)
-
+          }, threads, pageSize, fieldsMap.keySet.toSeq: _*)
           //finish write of CSV to zip
           dataResource2OutputStreams.values.foreach { zopAndCsv =>
-            if (!zopAndCsv.isEmpty){
+            if (!zopAndCsv.isEmpty) {
               zopAndCsv.get._1.flush()
               zopAndCsv.get._1.closeEntry()
               zopAndCsv.get._1.close()
             }
           }
           //add images
-          dwcc.addImageExportsToArchives(directory)
-
+          if (exportExtensions) {
+            dwcc.addImageExportsToArchives(directory)
+          }
         } catch {
-          case e:Exception => {
+          case e: Exception => {
             logger.error(e.getMessage(), e)
             throw new RuntimeException(e)
           }
@@ -266,12 +285,12 @@ object DwCAExporter extends Tool {
     Config.persistenceManager.shutdown
   }
 
-  def cleanValue(input:String) = if(input == null) "" else input.replaceAll("[\\t\\n\\r]", " ").trim
+  def cleanValue(input: String) = if (input == null) "" else input.replaceAll("[\\t\\n\\r]", " ").trim
 
   // pattern to extract a data resource uid from a filter query , because the label show i18n value
   val dataResourcePattern = "(?:[\"]*)?(?:[a-z_]*_uid:\")([a-z0-9]*)(?:[\"]*)?".r
 
-  def getDataResourceUids : Seq[String] = {
+  def getDataResourceUids: Seq[String] = {
     val url = Config.biocacheServiceUrl + "/occurrences/search?q=*:*&facets=data_resource_uid&pageSize=0&flimit=-1"
     val jsonString = Source.fromURL(url).getLines.mkString
     val json = JSON.parseFull(jsonString).get.asInstanceOf[Map[String, String]]
@@ -293,15 +312,15 @@ object DwCAExporter extends Tool {
   *
   * TODO support for dwc fields in registry metadata. When not available use the default fields.
   */
-class DwCAExporter {
+class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
 
   val logger = LoggerFactory.getLogger("DwCAExporter")
   val lineEnd = "\r\n"
 
-  def createOutputForCSV(directory:String, dataResource:String) : Option[(ZipOutputStream, CSVWriter)] = {
+  def createOutputForCSV(directory: String, dataResource: String): Option[(ZipOutputStream, CSVWriter)] = {
 
     logger.info("Creating archive for " + dataResource)
-    val zipFile = new java.io.File (
+    val zipFile = new java.io.File(
       directory +
         System.getProperty("file.separator") +
         dataResource +
@@ -312,7 +331,7 @@ class DwCAExporter {
 
     FileUtils.forceMkdir(zipFile.getParentFile)
     val zop = new ZipOutputStream(new FileOutputStream(zipFile))
-    if(addEML(zop, dataResource)){
+    if (addEML(zop, dataResource)) {
       addMeta(zop)
       zop.putNextEntry(new ZipEntry("occurrence.csv"))
       val occWriter = new CSVWriter(new OutputStreamWriter(zop), ',', '"', lineEnd)
@@ -325,7 +344,7 @@ class DwCAExporter {
     }
   }
 
-  def addEML(zop:ZipOutputStream, dr:String):Boolean ={
+  def addEML(zop: ZipOutputStream, dr: String): Boolean = {
     try {
       zop.putNextEntry(new ZipEntry("eml.xml"))
       val content = Source.fromURL(Config.registryUrl + "/eml/" + dr).mkString
@@ -334,64 +353,26 @@ class DwCAExporter {
       zop.closeEntry
       true
     } catch {
-      case e:Exception =>
-        logger.error("Problem retrieving metadata for EML: " + dr + ", " + e.getMessage() )
-        if (logger.isDebugEnabled){
+      case e: Exception =>
+        logger.error("Problem retrieving metadata for EML: " + dr + ", " + e.getMessage())
+        if (logger.isDebugEnabled) {
           logger.debug("Problem retrieving metadata for EML: " + dr + ", " + e.getMessage(), e)
         }
         false
     }
   }
 
-  def addMeta(zop:ZipOutputStream) = {
+  def addMeta(zop: ZipOutputStream) = {
     zop.putNextEntry(new ZipEntry("meta.xml"))
+    val fieldsSeq = fieldList.filter(_._1 != "dataResourceUid").keySet.toIndexedSeq
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
           <location>occurrence.csv</location>
         </files>
-        <id index="0"/>
-        <field index="0"  term="http://rs.tdwg.org/dwc/terms/occurrenceID" />
-        <field index="1"  term="http://rs.tdwg.org/dwc/terms/catalogNumber" />
-        <field index="2"  term="http://rs.tdwg.org/dwc/terms/collectionCode" />
-        <field index="3"  term="http://rs.tdwg.org/dwc/terms/institutionCode" />
-        <field index="4"  term="http://rs.tdwg.org/dwc/terms/recordNumber" />
-        <field index="5"  term="http://rs.tdwg.org/dwc/terms/basisOfRecord" default="HumanObservation" />
-        <field index="6"  term="http://rs.tdwg.org/dwc/terms/recordedBy" />
-        <field index="7"  term="http://rs.tdwg.org/dwc/terms/occurrenceStatus" />
-        <field index="8"  term="http://rs.tdwg.org/dwc/terms/individualCount" />
-        <field index="9"  term="http://rs.tdwg.org/dwc/terms/scientificName" />
-        <field index="10" term="http://rs.tdwg.org/dwc/terms/taxonConceptID" />
-        <field index="11" term="http://rs.tdwg.org/dwc/terms/taxonRank" />
-        <field index="12" term="http://rs.tdwg.org/dwc/terms/kingdom" />
-        <field index="13" term="http://rs.tdwg.org/dwc/terms/phylum" />
-        <field index="14" term="http://rs.tdwg.org/dwc/terms/class" />
-        <field index="15" term="http://rs.tdwg.org/dwc/terms/order" />
-        <field index="16" term="http://rs.tdwg.org/dwc/terms/family" />
-        <field index="17" term="http://rs.tdwg.org/dwc/terms/genus" />
-        <field index="18" term="http://rs.tdwg.org/dwc/terms/vernacularName" />
-        <field index="19" term="http://rs.tdwg.org/dwc/terms/decimalLatitude" />
-        <field index="20" term="http://rs.tdwg.org/dwc/terms/decimalLongitude" />
-        <field index="21" term="http://rs.tdwg.org/dwc/terms/geodeticDatum" />
-        <field index="22" term="http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters" />
-        <field index="23" term="http://rs.tdwg.org/dwc/terms/maximumElevationInMeters" />
-        <field index="24" term="http://rs.tdwg.org/dwc/terms/minimumElevationInMeters" />
-        <field index="25" term="http://rs.tdwg.org/dwc/terms/minimumDepthInMeters" />
-        <field index="26" term="http://rs.tdwg.org/dwc/terms/maximumDepthInMeters" />
-        <field index="27" term="http://rs.tdwg.org/dwc/terms/country" />
-        <field index="28" term="http://rs.tdwg.org/dwc/terms/stateProvince" />
-        <field index="29" term="http://rs.tdwg.org/dwc/terms/locality" />
-        <field index="30" term="http://rs.tdwg.org/dwc/terms/locationRemarks" />
-        <field index="31" term="http://rs.tdwg.org/dwc/terms/year" />
-        <field index="32" term="http://rs.tdwg.org/dwc/terms/month" />
-        <field index="33" term="http://rs.tdwg.org/dwc/terms/day" />
-        <field index="34" term="http://rs.tdwg.org/dwc/terms/eventDate" />
-        <field index="35" term="http://rs.tdwg.org/dwc/terms/eventID" />
-        <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
-        <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
-        <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
-        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
-        <field index="40" term="http://purl.org/dc/terms/references" />
+        <id index="0"/>{for {a <- 0 to fieldsSeq.size - 1} yield {
+          <field index={a + ""} term={fieldList(fieldsSeq(a))}/>
+      }}
       </core>
     </archive>
     //add the XML
@@ -402,7 +383,7 @@ class DwCAExporter {
     zop.closeEntry
   }
 
-  def addMetaWithMultimedia(zop:ZipOutputStream) = {
+  def addMetaWithMultimedia(zop: ZipOutputStream) = {
     zop.putNextEntry(new ZipEntry("meta.xml"))
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
@@ -410,47 +391,47 @@ class DwCAExporter {
           <location>occurrence.csv</location>
         </files>
         <id index="0"/>
-        <field index="0"  term="http://rs.tdwg.org/dwc/terms/occurrenceID" />
-        <field index="1"  term="http://rs.tdwg.org/dwc/terms/catalogNumber" />
-        <field index="2"  term="http://rs.tdwg.org/dwc/terms/collectionCode" />
-        <field index="3"  term="http://rs.tdwg.org/dwc/terms/institutionCode" />
-        <field index="4"  term="http://rs.tdwg.org/dwc/terms/recordNumber" />
-        <field index="5"  term="http://rs.tdwg.org/dwc/terms/basisOfRecord" default="HumanObservation" />
-        <field index="6"  term="http://rs.tdwg.org/dwc/terms/recordedBy" />
-        <field index="7"  term="http://rs.tdwg.org/dwc/terms/occurrenceStatus" />
-        <field index="8"  term="http://rs.tdwg.org/dwc/terms/individualCount" />
-        <field index="9"  term="http://rs.tdwg.org/dwc/terms/scientificName" />
-        <field index="10" term="http://rs.tdwg.org/dwc/terms/taxonConceptID" />
-        <field index="11" term="http://rs.tdwg.org/dwc/terms/taxonRank" />
-        <field index="12" term="http://rs.tdwg.org/dwc/terms/kingdom" />
-        <field index="13" term="http://rs.tdwg.org/dwc/terms/phylum" />
-        <field index="14" term="http://rs.tdwg.org/dwc/terms/class" />
-        <field index="15" term="http://rs.tdwg.org/dwc/terms/order" />
-        <field index="16" term="http://rs.tdwg.org/dwc/terms/family" />
-        <field index="17" term="http://rs.tdwg.org/dwc/terms/genus" />
-        <field index="18" term="http://rs.tdwg.org/dwc/terms/vernacularName" />
-        <field index="19" term="http://rs.tdwg.org/dwc/terms/decimalLatitude" />
-        <field index="20" term="http://rs.tdwg.org/dwc/terms/decimalLongitude" />
-        <field index="21" term="http://rs.tdwg.org/dwc/terms/geodeticDatum" />
-        <field index="22" term="http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters" />
-        <field index="23" term="http://rs.tdwg.org/dwc/terms/maximumElevationInMeters" />
-        <field index="24" term="http://rs.tdwg.org/dwc/terms/minimumElevationInMeters" />
-        <field index="25" term="http://rs.tdwg.org/dwc/terms/minimumDepthInMeters" />
-        <field index="26" term="http://rs.tdwg.org/dwc/terms/maximumDepthInMeters" />
-        <field index="27" term="http://rs.tdwg.org/dwc/terms/country" />
-        <field index="28" term="http://rs.tdwg.org/dwc/terms/stateProvince" />
-        <field index="29" term="http://rs.tdwg.org/dwc/terms/locality" />
-        <field index="30" term="http://rs.tdwg.org/dwc/terms/locationRemarks" />
-        <field index="31" term="http://rs.tdwg.org/dwc/terms/year" />
-        <field index="32" term="http://rs.tdwg.org/dwc/terms/month" />
-        <field index="33" term="http://rs.tdwg.org/dwc/terms/day" />
-        <field index="34" term="http://rs.tdwg.org/dwc/terms/eventDate" />
-        <field index="35" term="http://rs.tdwg.org/dwc/terms/eventID" />
-        <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy" />
-        <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks" />
-        <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations" />
-        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers" />
-        <field index="40" term="http://purl.org/dc/terms/references" />
+        <field index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
+        <field index="1" term="http://rs.tdwg.org/dwc/terms/catalogNumber"/>
+        <field index="2" term="http://rs.tdwg.org/dwc/terms/collectionCode"/>
+        <field index="3" term="http://rs.tdwg.org/dwc/terms/institutionCode"/>
+        <field index="4" term="http://rs.tdwg.org/dwc/terms/recordNumber"/>
+        <field index="5" term="http://rs.tdwg.org/dwc/terms/basisOfRecord" default="HumanObservation"/>
+        <field index="6" term="http://rs.tdwg.org/dwc/terms/recordedBy"/>
+        <field index="7" term="http://rs.tdwg.org/dwc/terms/occurrenceStatus"/>
+        <field index="8" term="http://rs.tdwg.org/dwc/terms/individualCount"/>
+        <field index="9" term="http://rs.tdwg.org/dwc/terms/scientificName"/>
+        <field index="10" term="http://rs.tdwg.org/dwc/terms/taxonConceptID"/>
+        <field index="11" term="http://rs.tdwg.org/dwc/terms/taxonRank"/>
+        <field index="12" term="http://rs.tdwg.org/dwc/terms/kingdom"/>
+        <field index="13" term="http://rs.tdwg.org/dwc/terms/phylum"/>
+        <field index="14" term="http://rs.tdwg.org/dwc/terms/class"/>
+        <field index="15" term="http://rs.tdwg.org/dwc/terms/order"/>
+        <field index="16" term="http://rs.tdwg.org/dwc/terms/family"/>
+        <field index="17" term="http://rs.tdwg.org/dwc/terms/genus"/>
+        <field index="18" term="http://rs.tdwg.org/dwc/terms/vernacularName"/>
+        <field index="19" term="http://rs.tdwg.org/dwc/terms/decimalLatitude"/>
+        <field index="20" term="http://rs.tdwg.org/dwc/terms/decimalLongitude"/>
+        <field index="21" term="http://rs.tdwg.org/dwc/terms/geodeticDatum"/>
+        <field index="22" term="http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters"/>
+        <field index="23" term="http://rs.tdwg.org/dwc/terms/maximumElevationInMeters"/>
+        <field index="24" term="http://rs.tdwg.org/dwc/terms/minimumElevationInMeters"/>
+        <field index="25" term="http://rs.tdwg.org/dwc/terms/minimumDepthInMeters"/>
+        <field index="26" term="http://rs.tdwg.org/dwc/terms/maximumDepthInMeters"/>
+        <field index="27" term="http://rs.tdwg.org/dwc/terms/country"/>
+        <field index="28" term="http://rs.tdwg.org/dwc/terms/stateProvince"/>
+        <field index="29" term="http://rs.tdwg.org/dwc/terms/locality"/>
+        <field index="30" term="http://rs.tdwg.org/dwc/terms/locationRemarks"/>
+        <field index="31" term="http://rs.tdwg.org/dwc/terms/year"/>
+        <field index="32" term="http://rs.tdwg.org/dwc/terms/month"/>
+        <field index="33" term="http://rs.tdwg.org/dwc/terms/day"/>
+        <field index="34" term="http://rs.tdwg.org/dwc/terms/eventDate"/>
+        <field index="35" term="http://rs.tdwg.org/dwc/terms/eventID"/>
+        <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy"/>
+        <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks"/>
+        <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations"/>
+        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers"/>
+        <field index="40" term="http://purl.org/dc/terms/references"/>
       </core>
       <extension encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
         <files>
@@ -483,16 +464,16 @@ class DwCAExporter {
     *
     * @return
     */
-  def addImageExportsToArchives(archivesPath:String) {
+  def addImageExportsToArchives(archivesPath: String) {
 
-    if(Config.remoteMediaStoreUrl == "") return
+    if (Config.remoteMediaStoreUrl == "") return
 
     val workingDir = Config.tmpWorkDir + "/images-export"
     val workingDirSplitFiles = workingDir + "/split"
     val imagesExport = workingDir + "/images-export.csv.gz"
 
     //create working directories
-    FileUtils.forceMkdir(new File(workingDirSplitFiles) )
+    FileUtils.forceMkdir(new File(workingDirSplitFiles))
 
     //download the gzip from images.ala.org.au....
     logger.info("Downloading images archive extract....")
@@ -512,15 +493,15 @@ class DwCAExporter {
     var line = reader.readNext()
 
     var currentUid = ""
-    var writer:CSVWriter = null
+    var writer: CSVWriter = null
     val list = new ListBuffer[String]
 
     logger.info("Splitting into separate files to...." + workingDirSplitFiles)
     while (line != null) {
 
       val dataResourceUid = line(0)
-      if (dataResourceUid != currentUid && StringUtils.isNotEmpty(dataResourceUid)){
-        if(writer != null){
+      if (dataResourceUid != currentUid && StringUtils.isNotEmpty(dataResourceUid)) {
+        if (writer != null) {
           writer.flush()
           writer.close()
           writer = null
@@ -530,7 +511,7 @@ class DwCAExporter {
         writer = new CSVWriter(new FileWriter(workingDirSplitFiles + "/" + dataResourceUid))
       }
 
-      if (StringUtils.isNotEmpty(dataResourceUid)){
+      if (StringUtils.isNotEmpty(dataResourceUid)) {
         writer.writeNext(line.slice(1, line.length))
       }
 
@@ -550,10 +531,10 @@ class DwCAExporter {
       //find the archive....
       val archivePath = archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip"
       val archive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip")
-      if (archive.exists()){
+      if (archive.exists()) {
 
         val backupArchive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip.backup")
-        if (backupArchive.exists()){
+        if (backupArchive.exists()) {
           backupArchive.delete()
         }
 
@@ -578,19 +559,19 @@ class DwCAExporter {
 
         //add occurrences CSV from existing zip
         zop.putNextEntry(new ZipEntry("occurrence.csv"))
-        val occurrenceInputStream:InputStream = {
-          var stream:InputStream = null
+        val occurrenceInputStream: InputStream = {
+          var stream: InputStream = null
           val entries = zipFile.entries
           while (entries.hasMoreElements) {
             val entry = entries.nextElement
-            if (entry.getName == "occurrence.csv"){
+            if (entry.getName == "occurrence.csv") {
               stream = zipFile.getInputStream(entry)
             }
           }
           stream
         }
 
-        if (occurrenceInputStream != null ){
+        if (occurrenceInputStream != null) {
           IOUtils.copy(occurrenceInputStream, zop)
           occurrenceInputStream.close()
         }
@@ -610,7 +591,7 @@ class DwCAExporter {
     * @param inputFilePath
     * @param outputFilePath
     */
-  def extractGzip(inputFilePath:String,  outputFilePath:String): Unit = {
+  def extractGzip(inputFilePath: String, outputFilePath: String): Unit = {
     val buffer = new Array[Byte](1024)
     try {
       val gzis = new GZIPInputStream(new FileInputStream(inputFilePath))
@@ -636,7 +617,7 @@ class DwCAExporter {
     * @param outputFile
     * @return
     */
-  private def downloadToFile(urlStr:String, outputFile:String): Option[File] = try {
+  private def downloadToFile(urlStr: String, outputFile: String): Option[File] = try {
     val tmpFile = new File(outputFile)
     val url = new java.net.URL(urlStr)
     val in = url.openStream
