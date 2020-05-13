@@ -155,6 +155,9 @@ object AssertionCodes {
   //the assertions that are NOT performed during the processing phase
   val offlineAssertionCodes = Array(INFERRED_DUPLICATE_RECORD, SPECIES_OUTSIDE_EXPERT_RANGE, DETECTED_OUTLIER)
 
+  // The assertions that say whether something passes the geospatial sniff test */
+  val geospatialKosherCodes = Array(GEOSPATIAL_ISSUE, TAXONOMIC_ISSUE, ZERO_COORDINATES, COORDINATES_OUT_OF_RANGE, DECIMAL_LAT_LONG_CONVERSION_FAILED, DECIMAL_LAT_LONG_CALCULATION_FROM_VERBATIM_FAILED, DECIMAL_LAT_LONG_CALCULATION_FROM_EASTING_NORTHING_FAILED)
+
   /** Retrieve an error code by the numeric code */
   def getByCode(code:Int) : Option[ErrorCode] = all.find(errorCode => errorCode.code == code)
 
@@ -185,7 +188,7 @@ object AssertionCodes {
      * GEODETIC_DATUM_ASSUMED_WGS84 is geospatially valid
      * */
   def isGeospatiallyKosher(assertions:Array[Int]) : Boolean = assertions.filter(qa => {
-     AssertionCodes.geospatialCodes.exists(c => c.code == qa && c.isFatal)
+     AssertionCodes.geospatialKosherCodes.exists(c => c.code == qa)
    //  val code = AssertionCodes.geospatialCodes.find(c => c.code == qa)
     // !code.isEmpty && code.get.isFatal
    }).isEmpty

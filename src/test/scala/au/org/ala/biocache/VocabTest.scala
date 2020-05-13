@@ -135,4 +135,30 @@ class VocabTest extends ConfigFunSuite {
     expectResult("audio/mp3"){MimeType.matchTerm("mp3").get.canonical}
     expectResult("video/mp4"){MimeType.matchTerm("mp4").get.canonical}
   }
+
+  test("licences no cache") {
+    expectResult("CC-BY 3.0 (Au)"){License.matchRegex("CC-BY 3.0 Au").get.canonical}
+    expectResult("CC-BY 3.0 (Au)"){License.matchRegex("CreativeCommons By 3.0 Au").get.canonical}
+    expectResult("CC-BY 4.0 (Au)"){License.matchRegex("CC-BY Au").get.canonical}
+    expectResult("CC-BY 3.0 (Int)"){License.matchRegex("CC-BY 3.0").get.canonical}
+    expectResult("CC-BY 4.0 (Int)"){License.matchRegex("CC-BY").get.canonical}
+    expectResult("CC-BY-SA 2.5 (Au)"){License.matchRegex("CC-BY/SA 2.5 (Au)").get.canonical}
+    expectResult("CC-BY-SA 4.0 (Au)"){License.matchRegex("CC-BY/SA (Au)").get.canonical}
+    expectResult("CC-BY-SA 3.0 (Int)"){License.matchRegex("CC:BY:SA 3.0").get.canonical}
+    expectResult("CC-BY-SA 4.0 (Int)"){License.matchRegex("CC.BY.SA").get.canonical}
+    expectResult("CC-BY-NC 4.0 (Int)"){License.matchRegex("CC-BY-NC").get.canonical}
+    expectResult("CC-BY-ND 4.0 (Int)"){License.matchRegex("CC-BY-ND").get.canonical}
+    expectResult("CC-BY-NC-SA 3.0 (Au)"){License.matchRegex("CC-BY-NC-SA-3.0-AU").get.canonical}
+    expectResult("CC-BY-NC-SA 3.0 (Int)"){License.matchRegex("CC-BY-NC-SA 3.0").get.canonical}
+    expectResult("CC-BY-NC-SA 4.0 (Int)"){License.matchRegex("CC-BY-NC-SA").get.canonical}
+    expectResult("Custom"){License.matchRegex("Rotate widdershins").get.canonical}
+  }
+
+  test("licences with cache") {
+    expectResult("CC-BY 3.0 (Au)"){License.matchRegexCached("CC-BY 3.0 Au").get.canonical}
+    expectResult("CC-BY 3.0 (Au)"){License.matchRegexCached("CC-BY 3.0 Au").get.canonical}
+    expectResult("CC-BY 4.0 (Int)"){License.matchRegexCached("CC-BY").get.canonical}
+    expectResult("Custom"){License.matchRegexCached("Rotate widdershins").get.canonical}
+  }
+
 }
