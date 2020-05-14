@@ -122,7 +122,7 @@ object DwCACreator extends Tool {
             synchronized {
               val dr = map.getOrElse("dataResourceUid", "")
               val deletedDate = map.getOrElse("deletedDate", "")
-              if (dr != "" && resourceIDs.contains(dr) && deletedDate =="") {
+              if (dr != "" && resourceIDs.contains(dr) && deletedDate =="") { // Record is not deleted
                 val dataResourceMap = dataResource2OutputStreams.get(dr)
                 if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty){
                   val (zop, csv) = dataResourceMap.get.get
