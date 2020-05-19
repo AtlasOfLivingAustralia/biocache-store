@@ -9,6 +9,7 @@ import au.org.ala.biocache.util.Json
 import org.apache.commons.io.FileUtils
 import org.apache.solr.client.solrj.impl.ZkClientClusterStateProvider
 import org.apache.solr.client.solrj.request.CollectionAdminRequest.ClusterStatus
+import org.apache.solr.client.solrj.request.schema.SchemaRequest
 import org.apache.solr.core.{SolrConfig, SolrResourceLoader}
 import org.apache.solr.schema.{IndexSchema, IndexSchemaFactory}
 import org.slf4j.{Logger, LoggerFactory}
@@ -202,19 +203,28 @@ class IndexLocalNode {
 
   private def importAdditionalFieldsToSOLR(fieldsFile: File) {
     try {
-      val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor,
-        Config.extraMiscFields, Config.solrCollection)
+      // do a batch request to add these fields to SOLR
+      val fields = scala.io.Source.fromFile(fieldsFile).getLines.collect { case line => {
+        val src = scala.xml.XML.loadString(line)
 
-      scala.io.Source.fromFile(fieldsFile).getLines.foreach(line => {
-        val newField = scala.xml.XML.loadString(line)
-        solrIndexUpdate.addFieldToSolr(newField.attributes.get("name").get.toString,
-          newField.attributes.get("type").get.toString,
-          newField.attributes.get("multiValued").get.toString.toBoolean,
-          newField.attributes.get("docValues").get.toString.toBoolean,
-          newField.attributes.get("indexed").get.toString.toBoolean,
-          newField.attributes.get("stored").get.toString.toBoolean)
+        val field = Map(
+          "name" -> src.attributes.get("name").get.toString,
+          "type" -> src.attributes.get("type").get.toString,
+          "multiValued" -> src.attributes.get("multiValued").get.toString.toBoolean,
+          "docValues" -> src.attributes.get("docValues").get.toString.toBoolean,
+          "indexed" -> src.attributes.get("indexed").get.toString.toBoolean,
+          "stored" -> src.attributes.get("stored").get.toString.toBoolean)
+
+        field
+      }}
+
+      // Do the batch addition of new fields
+      if (!fields.isEmpty) {
+        val solrIndexUpdate = new SolrIndexDAO(Config.solrHome, Config.excludeSensitiveValuesFor,
+          Config.extraMiscFields, Config.solrCollection)
+
+        solrIndexUpdate.addFieldsToSolr(fields.toList)
       }
-      )
     } catch {
       case e: Exception => logger.error("failed to add new fields into SOLR: " + Config.solrHome, e)
     }

@@ -1,6 +1,7 @@
 package au.org.ala.biocache.index
 
 import java.io.{File, FileWriter, OutputStream}
+import java.util
 import java.util.Date
 import java.util.concurrent.ArrayBlockingQueue
 
@@ -194,17 +195,74 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     def layers = Config.fieldsToSample(true)
 
     if (!layers.isEmpty) {
-      layers.foreach(layer => {
-        if (!solrFieldNames.contains(layer) && !isDynamicField(layer)) {
-          val fieldType = if (layer.startsWith("cl")) {
-            Config.schemaFieldTypeCl
-          } else {
-            Config.schemaFieldTypeEl
-          }
-          addFieldToSolr(layer, fieldType,
-            Config.schemaMultiValuedLayer, Config.schemaDocValuesLayer, Config.schemaIndexedLayer, Config.schemaStoredLayer)
+      // bulk add new layers to schema
+      val newFields = layers.collect { case layer => {
+        val fieldType = if (layer.startsWith("cl")) {
+          Config.schemaFieldTypeCl
+        } else {
+          Config.schemaFieldTypeEl
         }
-      })
+
+        val newField = Map(
+          "name" -> layer,
+          "type" -> fieldType,
+          "multiValued" -> Config.schemaMultiValuedLayer,
+          "docValues" -> Config.schemaDocValuesLayer,
+          "indexed" -> Config.schemaIndexedLayer,
+          "stored" -> Config.schemaStoredLayer)
+
+        newField
+      }}.toList
+
+      if (!newFields.isEmpty) {
+        addFieldsToSolr(newFields)
+      }
+    }
+  }
+
+  def addFieldsToSolr(newFields: List[Map[String, Any]]): Unit = {
+    init()
+
+    // do not add fields when using EmbeddedSolrServer
+    if (solrServer.isInstanceOf[EmbeddedSolrServer]) {
+      return
+    }
+
+    if (solrFieldNames.isEmpty) {
+      getSchemaFields()
+    }
+
+    if (!newFields.isEmpty) {
+      val list : util.List[SchemaRequest.Update] = newFields.collect {
+
+        case fieldMap if (!solrFieldNames.contains(fieldMap.get("name").toString) &&
+          !isDynamicField(fieldMap.get("name").toString)) =>
+
+          new SchemaRequest.AddField(fieldMap.map { case (k, v) =>
+              k -> v.asInstanceOf[Object]
+            }.asJava).asInstanceOf[SchemaRequest.Update]
+      }
+
+      batchUpdate(list)
+    }
+  }
+
+  def batchUpdate(updates: java.util.List[SchemaRequest.Update]) {
+    init()
+
+    // do not batch update when using EmbeddedSolrServer
+    if (solrServer.isInstanceOf[EmbeddedSolrServer]) {
+      logger.error("Cannot batch update SOLR when using EmbeddedSolrServer")
+      return
+    }
+
+    try {
+      val updateRequest = new SchemaRequest.MultiUpdate(updates)
+      updateRequest.process(solrServer)
+    }catch {
+      case err: Exception => {
+        logger.error("batch update failed", err)
+      }
     }
   }
 
