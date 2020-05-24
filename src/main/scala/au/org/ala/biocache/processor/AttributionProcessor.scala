@@ -2,7 +2,7 @@ package au.org.ala.biocache.processor
 
 import au.org.ala.biocache.caches.AttributionDAO
 import au.org.ala.biocache.model.{FullRecord, QualityAssertion}
-import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus}
+import au.org.ala.biocache.vocab.{AssertionCodes, AssertionStatus, BasisOfRecord, License}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ArrayBuffer
@@ -64,7 +64,16 @@ class AttributionProcessor extends Processor {
         processed.attribution.dataHubUid = dataResource.get.dataHubUid
         processed.attribution.dataResourceUid = dataResource.get.dataResourceUid
         processed.attribution.provenance = dataResource.get.provenance
-        processed.attribution.license = dataResource.get.license
+        if (raw.attribution.license == null || raw.attribution.license.isEmpty) {
+          processed.attribution.license = dataResource.get.license
+        } else {
+          val term = License.matchRegexCached(raw.attribution.license)
+          if (term.isEmpty) {
+            processed.attribution.license = dataResource.get.license
+          } else {
+            processed.attribution.license = term.get.canonical
+          }
+        }
         //only add the taxonomic hints if they were not populated by the collection
         if (processed.attribution.taxonomicHints == null) {
           processed.attribution.taxonomicHints = dataResource.get.taxonomicHints

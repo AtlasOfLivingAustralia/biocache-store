@@ -206,6 +206,7 @@ object CMD2 {
     DuplicationDetection,
     DwCALoader,
     DwCACreator,
+    DwCAExporter,
     DwcCSVLoader,
     DebugRecord,
     ExpertDistributionOutlierTool,
