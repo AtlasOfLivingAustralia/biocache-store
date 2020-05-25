@@ -31,7 +31,7 @@ object DwCAExporter extends Tool {
   def main(args: Array[String]): Unit = {
 
     var fieldsMap = mutable.LinkedHashMap(
-      "rowkey"->"http://ala.org.au/terms/uuid",
+      "rowkey"->"",
       "acceptedNameUsage"->"http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
       "acceptedNameUsageID"->"http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
       "accessRights"->"http://purl.org/dc/terms/accessRights",
@@ -243,14 +243,19 @@ object DwCAExporter extends Tool {
           Config.persistenceManager.pageOverSelect("occ", (key, map) => {
             synchronized {
               val dr = map.getOrElse("dataResourceUid", "")
-              val deletedDate = map.getOrElse("deletedDate", "")
-              if (dr != "" && resourceIDs.contains(dr) && deletedDate == "") { // Record is not deleted
+              val dateDeleted = map.getOrElse("dateDeleted", "")
+              if (!dr.isEmpty && resourceIDs.contains(dr) && dateDeleted.isEmpty) { // Record is not deleted
                 val dataResourceMap = dataResource2OutputStreams.get(dr)
                 if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty) {
                   val (zop, csv) = dataResourceMap.get.get
 
                   synchronized {
-                    val row =  fieldsMap.filter(_._1 != "dataResourceUid").map((fieldMap) => cleanValue(map.getOrElse(fieldMap._1,null))).toArray
+                    var filteredMap = new mutable.LinkedHashMap[String, String]()
+                    filteredMap ++= map
+                    if (filteredMap.get("class").isEmpty) {
+                      filteredMap("class") = filteredMap.getOrElse("classs", null)
+                    }
+                    val row = (fieldsMap - "dataResourceUid" - "classs").map((fieldMap) => cleanValue(filteredMap.getOrElse(fieldMap._1, null))).toArray
                     csv.writeNext(
                       row
                     )
@@ -364,15 +369,18 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
 
   def addMeta(zop: ZipOutputStream) = {
     zop.putNextEntry(new ZipEntry("meta.xml"))
-    val fieldsSeq = fieldList.filter(_._1 != "dataResourceUid").keySet.toIndexedSeq
+    val fieldsSeq = (fieldList -  "dataResourceUid" - "classs" - "rowkey").keySet.toIndexedSeq
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
           <location>occurrence.csv</location>
         </files>
-        <id index="0"/>{for {a <- 0 to fieldsSeq.size - 1} yield {
-          <field index={a + ""} term={fieldList(fieldsSeq(a))}/>
-      }}
+        <id index="0"/>
+        {fieldsSeq.zipWithIndex.map{
+            case (field, index) =>
+              <field index={index + 1 + ""} term={fieldList(fieldsSeq(index))}/>
+          }
+        }
       </core>
     </archive>
     //add the XML
