@@ -243,7 +243,7 @@ object DwCACreator extends Tool {
               }
             }
             true
-          }, threads, pageSize, defaultFields:_*)
+          }, pageSize, threads, defaultFields:_*)
 
           //finish write of CSV to zip
           dataResource2OutputStreams.values.foreach { zopAndCsv =>

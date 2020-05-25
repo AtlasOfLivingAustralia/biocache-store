@@ -265,7 +265,7 @@ object DwCAExporter extends Tool {
               }
             }
             true
-          }, threads, pageSize, fieldsMap.keySet.toSeq: _*)
+          }, pageSize, threads, fieldsMap.keySet.toSeq: _*)
           //finish write of CSV to zip
           dataResource2OutputStreams.values.foreach { zopAndCsv =>
             if (!zopAndCsv.isEmpty) {
