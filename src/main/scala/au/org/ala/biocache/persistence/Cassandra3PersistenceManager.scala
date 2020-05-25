@@ -639,7 +639,7 @@ class Cassandra3PersistenceManager  @Inject() (
             s"allow filtering"
 
           val stmt = new SimpleStatement(pagingQuery)
-          stmt.setFetchSize(100)
+          stmt.setFetchSize(pageSize)
           stmt.setIdempotent(true)
           stmt.setReadTimeoutMillis(60000)
           stmt.setConsistencyLevel(ConsistencyLevel.ONE)
@@ -663,7 +663,7 @@ class Cassandra3PersistenceManager  @Inject() (
             val currentTime = System.currentTimeMillis
             val currentRowKey = row.getString(0)
             val recordsPerSec = (counter.toFloat) / ((currentTime - start).toFloat / 1000f)
-            val timeInSec = (currentTime - start) / 1000
+            val timeInSec = (currentTime - start) / pageSize
 
             logger.debug(s"$currentRowKey - records read: $counter.  Records per sec: $recordsPerSec,  Time taken: $timeInSec")
 
