@@ -23,7 +23,7 @@ import java.util.jar.JarFile
 import java.util.zip.GZIPInputStream
 
 import au.com.bytecode.opencsv.CSVReader
-import net.lingala.zip4j.core.ZipFile
+import net.lingala.zip4j.ZipFile
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
