@@ -102,30 +102,6 @@ class TaxonomicNameTest extends ConfigFunSuite {
     }
 
 
-  test("listed species"){
-    val raw = new FullRecord
-    var processed = new FullRecord
-
-    raw.classification.scientificName = "Thalia"
-    raw.classification.scientificName = "Bettongia lesueur graii"
-    raw.classification.scientificNameAuthorship = "(Gould, 1841)"
-    raw.classification.kingdom ="Animalia"
-    raw.classification.classs = "Mammalia"
-    raw.classification.order = "Diprotodonta" // Incorrect
-    raw.classification.family = "Potoroidae"
-    raw.classification.genus = "Bettongia"
-    raw.classification.specificEpithet = "lesueur"
-    raw.classification.infraspecificEpithet = "graii"
-    raw.classification.taxonRank = "Subspecies"
-
-    //unresolved cross rank homonym
-    var qas = (new ClassificationProcessor).process("test", raw, processed);
-
-    expectResult("Bettongia lesueur graii"){processed.classification.scientificName}
-    expectResult("urn:lsid:biodiversity.org.au:afd.taxon:7a019451-60d4-4925-82c9-2c3aaf3aeaf4"){processed.classification.taxonConceptID}
-  }
-
-
   //    test("missing accepted name"){
 //      val raw = new FullRecord
 //      var processed = new FullRecord
