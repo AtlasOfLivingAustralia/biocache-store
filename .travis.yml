@@ -13,9 +13,10 @@ cache:
 
 before_install:
 - mkdir -p $HOME/.m2; wget -q -O $HOME/.m2/settings.xml https://raw.githubusercontent.com/AtlasOfLivingAustralia/travis-build-configuration/master/travis_maven_settings.xml
-- sudo mkdir -p /data/lucene; sudo wget -O /data/lucene/namematching.tgz https://archives.ala.org.au/archives/nameindexes/20171012-lucene5/namematching-20171012-lucene5.tgz
+- sudo mkdir -p /data/lucene; sudo wget -O /data/lucene/namematching.tgz https://archives.ala.org.au/archives/nameindexes/20200214/namematching-20200214.tgz
 - cd /data/lucene
 - sudo tar zxvf namematching.tgz
+- sudo ln -s /data/lucene/namematching-20200214 namematching
 - ls -laF
 - cd $TRAVIS_BUILD_DIR
 
