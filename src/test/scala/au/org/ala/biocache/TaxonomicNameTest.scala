@@ -101,7 +101,8 @@ class TaxonomicNameTest extends ConfigFunSuite {
       expectResult("Animalia".toLowerCase()){processed.classification.kingdom.toLowerCase()}
     }
 
-//    test("missing accepted name"){
+
+  //    test("missing accepted name"){
 //      val raw = new FullRecord
 //      var processed = new FullRecord
 //      raw.classification.scientificName="Gnaphalium collinum"
