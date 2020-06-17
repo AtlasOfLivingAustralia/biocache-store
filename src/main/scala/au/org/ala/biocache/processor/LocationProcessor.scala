@@ -80,6 +80,9 @@ class LocationProcessor extends Processor {
     //process state/country values if coordinates not determined
     processStateCountryValues(raw, processed, assertions)
 
+    //Process georeference information
+    processGeoreferenceValues(raw, processed, assertions)
+
     //create flag if no location info was supplied for this record
     checkLocationSupplied(raw, processed, assertions)
 
@@ -160,6 +163,24 @@ class LocationProcessor extends Processor {
       }
     }
   }
+
+  /**
+   * Process any georeference infomaation
+   *
+   * @param raw The original record
+   * @param processed Processed values
+   * @param assertions The current list of assertions
+   */
+  private def processGeoreferenceValues(raw: FullRecord, processed: FullRecord, assertions: ArrayBuffer[QualityAssertion]) {
+    // georeferencedDate is handled by the event prooessor
+    // processed.location.georeferencedDate = raw.location.georeferencedDate
+    processed.location.georeferencedBy = raw.location.georeferencedBy
+    processed.location.georeferenceProtocol = raw.location.georeferenceProtocol
+    processed.location.georeferenceRemarks = raw.location.georeferenceRemarks
+    processed.location.georeferenceSources = raw.location.georeferenceSources
+    processed.location.georeferenceVerificationStatus = raw.location.georeferenceVerificationStatus
+  }
+
 
   /**
     * Validation checks
