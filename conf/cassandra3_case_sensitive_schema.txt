@@ -114,7 +114,7 @@ CREATE TABLE occ.qa (
     "userDisplayName" text,
     "userEmail" text,
     uuid text,
-    PRIMARY KEY (rowkey, "userId", code)
+    PRIMARY KEY (rowkey, "userId", code, relatedUuid)
 ) WITH CLUSTERING ORDER BY ("userId" ASC, code ASC)
     AND bloom_filter_fp_chance = 0.01
     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
