@@ -6,7 +6,7 @@ import java.util.zip._
 import au.com.bytecode.opencsv.CSVWriter
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
-import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.util.{Json, OptionParser}
 import com.opencsv.{CSVReaderBuilder, RFC4180Parser}
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.commons.lang.StringUtils
@@ -30,7 +30,7 @@ object DwCAExporter extends Tool {
 
   def main(args: Array[String]): Unit = {
 
-    var fieldsMap = mutable.LinkedHashMap(
+    var dwcFieldsMap = mutable.LinkedHashMap(
       "rowkey" -> "",
       "acceptedNameUsage" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
       "acceptedNameUsageID" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
@@ -206,17 +206,47 @@ object DwCAExporter extends Tool {
     def writeCsvRow(resourceIDs: Seq[String], dataResource2OutputStreams: Map[String, Option[(ZipOutputStream, CSVWriter)]], map: Map[String, String]) = {
       val dr = map.getOrElse("dataResourceUid", "")
       val dateDeleted = map.getOrElse("dateDeleted", "")
+
+      def extractOriginalSensitiveProperties: (Map[String, String], Map[String, String]) = {
+        if (!map.getOrElse("originalSensitiveValues", "").isEmpty) {
+          val json = JSON.parseFull(map.getOrElse("originalSensitiveValues", "")).get.asInstanceOf[Map[String, String]]
+          var originalMiscProperties = new mutable.HashMap[String, String]()
+          var originalProperties = new mutable.HashMap[String, String]()
+          json.filterKeys((k) => if (!k.endsWith("_p")) true else false) foreach (originalTerm => {
+            if (dwcFieldsMap.contains(originalTerm._1)) {
+              originalProperties += (originalTerm._1 -> originalTerm._2)
+            } else {
+              originalMiscProperties += (originalTerm._1 -> originalTerm._2)
+            }
+          })
+          (originalProperties.toMap, originalMiscProperties.toMap)
+        } else
+          (Map.empty[String, String], Map.empty[String, String])
+      }
+
+
       if (!dr.isEmpty && resourceIDs.contains(dr) && dateDeleted.isEmpty) { // Record is not deleted
         val dataResourceMap = dataResource2OutputStreams.get(dr)
         if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty) {
           val (zop, csv) = dataResourceMap.get.get
-          synchronized {
-            var filteredMap = new mutable.LinkedHashMap[String, String]()
-            filteredMap ++= map
-            if (filteredMap.get("class").isEmpty) {
-              filteredMap("class") = filteredMap.getOrElse("classs", filteredMap.getOrElse("_class", null))
+          val (originalProperties, originalMiscProperties) = extractOriginalSensitiveProperties
+          val resultMap = map.filter(_._2 != null).map({ (entry) =>
+            entry._1 match {
+              case "class" =>
+                (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
+              case "miscProperties" =>
+                if (originalMiscProperties.isEmpty)
+                  ("dynamicProperties", entry._2)
+                else {
+                  val miscProperties = JSON.parseFull(map.getOrElse("miscProperties", "")).get.asInstanceOf[Map[String, String]]
+                  ("dynamicProperties", Json.toJSON(miscProperties ++ originalMiscProperties))
+                }
+              case _ =>
+                (entry._1, originalProperties.getOrElse(entry._1, entry._2))
             }
-            val row = (fieldsMap).map((fieldMap) => cleanValue(filteredMap.getOrElse(fieldMap._1, null))).toArray
+          }).filter(term => dwcFieldsMap.contains(term._1))
+          val row = (dwcFieldsMap).map((fieldMap) => cleanValue(resultMap.getOrElse(fieldMap._1, null))).toArray
+          synchronized {
             csv.writeNext(
               row
             )
@@ -233,10 +263,10 @@ object DwCAExporter extends Tool {
       arg("directory-to-dump", "Directory to place the created archives",
         { v: String => directory = v }
       )
-      opt("f", "fields", "Comma separated list of DwC fields to export (according to cassandra DB). Default is :" + fieldsMap.keySet,
+      opt("f", "fields", "Comma separated list of DwC fields to export (according to cassandra DB). Default is :" + dwcFieldsMap.keySet,
         { v: String =>
           val fields = v.split(",").toList
-          fieldsMap = fieldsMap.filter((field) => fields.contains(field._1))
+          dwcFieldsMap = dwcFieldsMap.filter((field) => fields.contains(field._1))
         }
       )
       intOpt("t", "thread", "The number of threads to use. Default is " + threads, { v: Int => threads = v })
@@ -248,7 +278,7 @@ object DwCAExporter extends Tool {
     }
 
     if (parser.parse(args)) {
-      val dwcc = new DwCAExporter(fieldsMap)
+      val dwcc = new DwCAExporter(dwcFieldsMap)
 
       if (addImagesToExisting) {
         dwcc.addImageExportsToArchives(directory)
@@ -267,7 +297,7 @@ object DwCAExporter extends Tool {
               writeCsvRow(resourceIDs, dataResource2OutputStreams, map)
             }
             true
-          }, pageSize, threads, fieldsMap.keySet.toSeq: _*)
+          }, pageSize, threads)
           //finish write of CSV to zip
           dataResource2OutputStreams.values.foreach { zopAndCsv =>
             if (!zopAndCsv.isEmpty) {
