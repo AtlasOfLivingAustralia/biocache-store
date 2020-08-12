@@ -959,4 +959,37 @@ class ProcessLocationTest extends ConfigFunSuite with BeforeAndAfterAll {
       processed.location.decimalLongitude
     }
   }
+
+
+  test("georeferencing processing") {
+    var raw = new FullRecord
+    var processed = new FullRecord
+    raw.location.decimalLatitude="-29.04"
+    raw.location.decimalLongitude="167.95"
+    raw.location.georeferencedBy = "Minnie Bannister"
+    raw.location.georeferencedDate = "2020-06-12"
+    raw.location.georeferenceProtocol = "GPS"
+    raw.location.georeferenceRemarks = "This is a test"
+    raw.location.georeferenceSources = "The back of an envelope"
+    raw.location.georeferenceVerificationStatus = "unverified"
+    var qas = (new LocationProcessor).process("test", raw, processed)
+
+    expectResult(raw.location.georeferencedBy){
+      processed.location.georeferencedBy
+    }
+    assert(processed.location.georeferencedDate == null)
+    expectResult(raw.location.georeferenceProtocol){
+      processed.location.georeferenceProtocol
+    }
+    expectResult(raw.location.georeferenceRemarks){
+      processed.location.georeferenceRemarks
+    }
+    expectResult(raw.location.georeferenceSources){
+      processed.location.georeferenceSources
+    }
+    expectResult(raw.location.georeferenceVerificationStatus){
+      processed.location.georeferenceVerificationStatus
+    }
+  }
+
 }

@@ -6,7 +6,7 @@ import java.util.zip._
 import au.com.bytecode.opencsv.CSVWriter
 import au.org.ala.biocache.Config
 import au.org.ala.biocache.cmd.Tool
-import au.org.ala.biocache.util.OptionParser
+import au.org.ala.biocache.util.{Json, OptionParser}
 import com.opencsv.{CSVReaderBuilder, RFC4180Parser}
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.commons.lang.StringUtils
@@ -30,172 +30,170 @@ object DwCAExporter extends Tool {
 
   def main(args: Array[String]): Unit = {
 
-    var fieldsMap = mutable.LinkedHashMap(
-      "rowkey"->"http://ala.org.au/terms/uuid",
-      "acceptedNameUsage"->"http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
-      "acceptedNameUsageID"->"http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
-      "accessRights"->"http://purl.org/dc/terms/accessRights",
-      "associatedMedia"->"http://rs.tdwg.org/dwc/terms/associatedMedia",
-      "associatedOccurrences"->"http://rs.tdwg.org/dwc/terms/associatedOccurrences",
-      "associatedReferences"->"http://rs.tdwg.org/dwc/terms/associatedReferences",
-      "associatedSequences"->"http://rs.tdwg.org/dwc/terms/associatedSequences",
-      "associatedTaxa"->"http://rs.tdwg.org/dwc/terms/associatedTaxa",
-      "basisOfRecord"->"http://rs.tdwg.org/dwc/terms/basisOfRecord",
-      "behavior"->"http://rs.tdwg.org/dwc/terms/behavior",
-      "bibliographicCitation"->"http://purl.org/dc/terms/bibliographicCitation",
-      "catalogNumber"->"http://rs.tdwg.org/dwc/terms/catalogNumber",
-      "class"->"http://rs.tdwg.org/dwc/terms/class",
-      "classs"->"http://rs.tdwg.org/dwc/terms/classs",
-      "collectionCode"->"http://rs.tdwg.org/dwc/terms/collectionCode",
-      "collectionID"->"http://rs.tdwg.org/dwc/terms/collectionID",
-      "continent"->"http://rs.tdwg.org/dwc/terms/continent",
-      "coordinatePrecision"->"http://rs.tdwg.org/dwc/terms/coordinatePrecision",
-      "coordinateUncertaintyInMeters"->"http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters",
-      "country"->"http://rs.tdwg.org/dwc/terms/country",
-      "countryCode"->"http://rs.tdwg.org/dwc/terms/countryCode",
-      "county"->"http://rs.tdwg.org/dwc/terms/county",
-      "dataGeneralizations"->"http://rs.tdwg.org/dwc/terms/dataGeneralizations",
-      "dataResourceUid"->"http://rs.tdwg.org/dwc/terms/dataResourceUid",
-      "datasetID"->"http://rs.tdwg.org/dwc/terms/datasetID",
-      "datasetName"->"http://rs.tdwg.org/dwc/terms/datasetName",
-      "dateIdentified"->"http://rs.tdwg.org/dwc/terms/dateIdentified",
-      "day"->"http://rs.tdwg.org/dwc/terms/day",
-      "decimalLatitude"->"http://rs.tdwg.org/dwc/terms/decimalLatitude",
-      "decimalLongitude"->"http://rs.tdwg.org/dwc/terms/decimalLongitude",
-      "disposition"->"http://rs.tdwg.org/dwc/terms/disposition",
-      "dynamicProperties"->"http://rs.tdwg.org/dwc/terms/dynamicProperties",
-      "endDayOfYear"->"http://rs.tdwg.org/dwc/terms/endDayOfYear",
-      "establishmentMeans"->"http://rs.tdwg.org/dwc/terms/establishmentMeans",
-      "eventAttributes"->"http://rs.tdwg.org/dwc/terms/eventAttributes",
-      "eventDate"->"http://rs.tdwg.org/dwc/terms/eventDate",
-      "eventID"->"http://rs.tdwg.org/dwc/terms/eventID",
-      "eventRemarks"->"http://rs.tdwg.org/dwc/terms/eventRemarks",
-      "eventTime"->"http://rs.tdwg.org/dwc/terms/eventTime",
-      "family"->"http://rs.tdwg.org/dwc/terms/family",
-      "fieldNotes"->"http://rs.tdwg.org/dwc/terms/fieldNotes",
-      "fieldNumber"->"http://rs.tdwg.org/dwc/terms/fieldNumber",
-      "footprintSpatialFit"->"http://rs.tdwg.org/dwc/terms/footprintSpatialFit",
-      "footprintSRS"->"http://rs.tdwg.org/dwc/terms/footprintSRS",
-      "footprintWKT"->"http://rs.tdwg.org/dwc/terms/footprintWKT",
-      "genus"->"http://rs.tdwg.org/dwc/terms/genus",
-      "geodeticDatum"->"http://rs.tdwg.org/dwc/terms/geodeticDatum",
-      "georeferencedBy"->"http://rs.tdwg.org/dwc/terms/georeferencedBy",
-      "georeferencedDate"->"http://rs.tdwg.org/dwc/terms/georeferencedDate",
-      "georeferenceProtocol"->"http://rs.tdwg.org/dwc/terms/georeferenceProtocol",
-      "georeferenceRemarks"->"http://rs.tdwg.org/dwc/terms/georeferenceRemarks",
-      "georeferenceSources"->"http://rs.tdwg.org/dwc/terms/georeferenceSources",
-      "georeferenceVerificationStatus"->"http://rs.tdwg.org/dwc/terms/georeferenceVerificationStatus",
-      "habitat"->"http://rs.tdwg.org/dwc/terms/habitat",
-      "higherClassification"->"http://rs.tdwg.org/dwc/terms/higherClassification",
-      "higherGeography"->"http://rs.tdwg.org/dwc/terms/higherGeography",
-      "higherGeographyID"->"http://rs.tdwg.org/dwc/terms/higherGeographyID",
-      "identificationID"->"http://rs.tdwg.org/dwc/terms/identificationID",
-      "identificationQualifier"->"http://rs.tdwg.org/dwc/terms/identificationQualifier",
-      "identificationReferences"->"http://rs.tdwg.org/dwc/terms/identificationReferences",
-      "identificationRemarks"->"http://rs.tdwg.org/dwc/terms/identificationRemarks",
-      "identificationVerificationStatus"->"http://rs.tdwg.org/dwc/terms/identificationVerificationStatus",
-      "identifiedBy"->"http://rs.tdwg.org/dwc/terms/identifiedBy",
-      "individualCount"->"http://rs.tdwg.org/dwc/terms/individualCount",
-      "individualID"->"http://rs.tdwg.org/dwc/terms/individualID",
-      "informationWithheld"->"http://rs.tdwg.org/dwc/terms/informationWithheld",
-      "infraspecificEpithet"->"http://rs.tdwg.org/dwc/terms/infraspecificEpithet",
-      "institutionCode"->"http://rs.tdwg.org/dwc/terms/institutionCode",
-      "institutionID"->"http://rs.tdwg.org/dwc/terms/institutionID",
-      "island"->"http://rs.tdwg.org/dwc/terms/island",
-      "islandGroup"->"http://rs.tdwg.org/dwc/terms/islandGroup",
-      "kingdom"->"http://rs.tdwg.org/dwc/terms/kingdom",
-      "language"->"http://purl.org/dc/terms/language",
-      "license"->"http://purl.org/dc/terms/license",
-      "lifeStage"->"http://rs.tdwg.org/dwc/terms/lifeStage",
-      "locality"->"http://rs.tdwg.org/dwc/terms/locality",
-      "locationAccordingTo"->"http://rs.tdwg.org/dwc/terms/locationAccordingTo",
-      "locationAttributes"->"http://rs.tdwg.org/dwc/terms/locationAttributes",
-      "locationID"->"http://rs.tdwg.org/dwc/terms/locationID",
-      "locationRemarks"->"http://rs.tdwg.org/dwc/terms/locationRemarks",
-      "maximumDepthInMeters"->"http://rs.tdwg.org/dwc/terms/maximumDepthInMeters",
-      "maximumDistanceAboveSurfaceInMeters"->"http://rs.tdwg.org/dwc/terms/maximumDistanceAboveSurfaceInMeters",
-      "maximumElevationInMeters"->"http://rs.tdwg.org/dwc/terms/maximumElevationInMeters",
-      "measurementAccuracy"->"http://rs.tdwg.org/dwc/terms/measurementAccuracy",
-      "measurementDeterminedBy"->"http://rs.tdwg.org/dwc/terms/measurementDeterminedBy",
-      "measurementDeterminedDate"->"http://rs.tdwg.org/dwc/terms/measurementDeterminedDate",
-      "measurementID"->"http://rs.tdwg.org/dwc/terms/measurementID",
-      "measurementMethod"->"http://rs.tdwg.org/dwc/terms/measurementMethod",
-      "measurementRemarks"->"http://rs.tdwg.org/dwc/terms/measurementRemarks",
-      "measurementType"->"http://rs.tdwg.org/dwc/terms/measurementType",
-      "measurementUnit"->"http://rs.tdwg.org/dwc/terms/measurementUnit",
-      "measurementValue"->"http://rs.tdwg.org/dwc/terms/measurementValue",
-      "minimumDepthInMeters"->"http://rs.tdwg.org/dwc/terms/minimumDepthInMeters",
-      "minimumDistanceAboveSurfaceInMeters"->"http://rs.tdwg.org/dwc/terms/minimumDistanceAboveSurfaceInMeters",
-      "minimumElevationInMeters"->"http://rs.tdwg.org/dwc/terms/minimumElevationInMeters",
-      "modified"->"http://purl.org/dc/terms/modified",
-      "month"->"http://rs.tdwg.org/dwc/terms/month",
-      "municipality"->"http://rs.tdwg.org/dwc/terms/municipality",
-      "nameAccordingTo"->"http://rs.tdwg.org/dwc/terms/nameAccordingTo",
-      "nameAccordingToID"->"http://rs.tdwg.org/dwc/terms/nameAccordingToID",
-      "namePublishedIn"->"http://rs.tdwg.org/dwc/terms/namePublishedIn",
-      "namePublishedInID"->"http://rs.tdwg.org/dwc/terms/namePublishedInID",
-      "namePublishedInYear"->"http://rs.tdwg.org/dwc/terms/namePublishedInYear",
-      "nomenclaturalCode"->"http://rs.tdwg.org/dwc/terms/nomenclaturalCode",
-      "nomenclaturalStatus"->"http://rs.tdwg.org/dwc/terms/nomenclaturalStatus",
-      "occurrenceAttributes"->"http://rs.tdwg.org/dwc/terms/occurrenceAttributes",
-      "occurrenceDetails"->"http://rs.tdwg.org/dwc/terms/occurrenceDetails",
-      "occurrenceID"->"http://rs.tdwg.org/dwc/terms/occurrenceID",
-      "occurrenceRemarks"->"http://rs.tdwg.org/dwc/terms/occurrenceRemarks",
-      "occurrenceStatus"->"http://rs.tdwg.org/dwc/terms/occurrenceStatus",
-      "order"->"http://rs.tdwg.org/dwc/terms/order",
-      "organismQuantity"->"http://rs.tdwg.org/dwc/terms/organismQuantity",
-      "organismQuantityType"->"http://rs.tdwg.org/dwc/terms/organismQuantityType",
-      "originalNameUsage"->"http://rs.tdwg.org/dwc/terms/originalNameUsage",
-      "originalNameUsageID"->"http://rs.tdwg.org/dwc/terms/originalNameUsageID",
-      "otherCatalogNumbers"->"http://rs.tdwg.org/dwc/terms/otherCatalogNumbers",
-      "ownerInstitutionCode"->"http://rs.tdwg.org/dwc/terms/ownerInstitutionCode",
-      "parentNameUsage"->"http://rs.tdwg.org/dwc/terms/parentNameUsage",
-      "parentNameUsageID"->"http://rs.tdwg.org/dwc/terms/parentNameUsageID",
-      "phylum"->"http://rs.tdwg.org/dwc/terms/phylum",
-      "pointRadiusSpatialFit"->"http://rs.tdwg.org/dwc/terms/pointRadiusSpatialFit",
-      "preparations"->"http://rs.tdwg.org/dwc/terms/preparations",
-      "previousIdentifications"->"http://rs.tdwg.org/dwc/terms/previousIdentifications",
-      "recordedBy"->"http://rs.tdwg.org/dwc/terms/recordedBy",
-      "recordNumber"->"http://rs.tdwg.org/dwc/terms/recordNumber",
-      "relatedResourceID"->"http://rs.tdwg.org/dwc/terms/relatedResourceID",
-      "relationshipAccordingTo"->"http://rs.tdwg.org/dwc/terms/relationshipAccordingTo",
-      "relationshipEstablishedDate"->"http://rs.tdwg.org/dwc/terms/relationshipEstablishedDate",
-      "relationshipOfResource"->"http://rs.tdwg.org/dwc/terms/relationshipOfResource",
-      "relationshipRemarks"->"http://rs.tdwg.org/dwc/terms/relationshipRemarks",
-      "reproductiveCondition"->"http://rs.tdwg.org/dwc/terms/reproductiveCondition",
-      "resourceID"->"http://rs.tdwg.org/dwc/terms/resourceID",
-      "resourceRelationshipID"->"http://rs.tdwg.org/dwc/terms/resourceRelationshipID",
-      "rightsHolder"->"http://purl.org/dc/terms/rightsHolder",
-      "samplingEffort"->"http://rs.tdwg.org/dwc/terms/samplingEffort",
-      "samplingProtocol"->"http://rs.tdwg.org/dwc/terms/samplingProtocol",
-      "scientificName"->"http://rs.tdwg.org/dwc/terms/scientificName",
-      "scientificNameAuthorship"->"http://rs.tdwg.org/dwc/terms/scientificNameAuthorship",
-      "scientificNameID"->"http://rs.tdwg.org/dwc/terms/scientificNameID",
-      "sex"->"http://rs.tdwg.org/dwc/terms/sex",
-      "specificEpithet"->"http://rs.tdwg.org/dwc/terms/specificEpithet",
-      "startDayOfYear"->"http://rs.tdwg.org/dwc/terms/startDayOfYear",
-      "stateProvince"->"http://rs.tdwg.org/dwc/terms/stateProvince",
-      "subgenus"->"http://rs.tdwg.org/dwc/terms/subgenus",
-      "taxonConceptID"->"http://rs.tdwg.org/dwc/terms/taxonConceptID",
-      "taxonID"->"http://rs.tdwg.org/dwc/terms/taxonID",
-      "taxonomicStatus"->"http://rs.tdwg.org/dwc/terms/taxonomicStatus",
-      "taxonRank"->"http://rs.tdwg.org/dwc/terms/taxonRank",
-      "taxonRemarks"->"http://rs.tdwg.org/dwc/terms/taxonRemarks",
-      "type"->"http://purl.org/dc/terms/type",
-      "typeStatus"->"http://rs.tdwg.org/dwc/terms/typeStatus",
-      "verbatimCoordinates"->"http://rs.tdwg.org/dwc/terms/verbatimCoordinates",
-      "verbatimCoordinateSystem"->"http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem",
-      "verbatimDepth"->"http://rs.tdwg.org/dwc/terms/verbatimDepth",
-      "verbatimElevation"->"http://rs.tdwg.org/dwc/terms/verbatimElevation",
-      "verbatimEventDate"->"http://rs.tdwg.org/dwc/terms/verbatimEventDate",
-      "verbatimLatitude"->"http://rs.tdwg.org/dwc/terms/verbatimLatitude",
-      "verbatimLocality"->"http://rs.tdwg.org/dwc/terms/verbatimLocality",
-      "verbatimLongitude"->"http://rs.tdwg.org/dwc/terms/verbatimLongitude",
-      "verbatimSRS"->"http://rs.tdwg.org/dwc/terms/verbatimSRS",
-      "verbatimTaxonRank"->"http://rs.tdwg.org/dwc/terms/verbatimTaxonRank",
-      "vernacularName"->"http://rs.tdwg.org/dwc/terms/vernacularName",
-      "waterbody"->"http://rs.tdwg.org/dwc/terms/waterbody",
-      "year"->"http://rs.tdwg.org/dwc/terms/year"
+    var dwcFieldsMap = mutable.LinkedHashMap(
+      "rowkey" -> "",
+      "acceptedNameUsage" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
+      "acceptedNameUsageID" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
+      "accessRights" -> "http://purl.org/dc/terms/accessRights",
+      "associatedMedia" -> "http://rs.tdwg.org/dwc/terms/associatedMedia",
+      "associatedOccurrences" -> "http://rs.tdwg.org/dwc/terms/associatedOccurrences",
+      "associatedReferences" -> "http://rs.tdwg.org/dwc/terms/associatedReferences",
+      "associatedSequences" -> "http://rs.tdwg.org/dwc/terms/associatedSequences",
+      "associatedTaxa" -> "http://rs.tdwg.org/dwc/terms/associatedTaxa",
+      "basisOfRecord" -> "http://rs.tdwg.org/dwc/terms/basisOfRecord",
+      "behavior" -> "http://rs.tdwg.org/dwc/terms/behavior",
+      "bibliographicCitation" -> "http://purl.org/dc/terms/bibliographicCitation",
+      "catalogNumber" -> "http://rs.tdwg.org/dwc/terms/catalogNumber",
+      "class" -> "http://rs.tdwg.org/dwc/terms/class",
+      "collectionCode" -> "http://rs.tdwg.org/dwc/terms/collectionCode",
+      "collectionID" -> "http://rs.tdwg.org/dwc/terms/collectionID",
+      "continent" -> "http://rs.tdwg.org/dwc/terms/continent",
+      "coordinatePrecision" -> "http://rs.tdwg.org/dwc/terms/coordinatePrecision",
+      "coordinateUncertaintyInMeters" -> "http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters",
+      "country" -> "http://rs.tdwg.org/dwc/terms/country",
+      "countryCode" -> "http://rs.tdwg.org/dwc/terms/countryCode",
+      "county" -> "http://rs.tdwg.org/dwc/terms/county",
+      "dataGeneralizations" -> "http://rs.tdwg.org/dwc/terms/dataGeneralizations",
+      "datasetID" -> "http://rs.tdwg.org/dwc/terms/datasetID",
+      "datasetName" -> "http://rs.tdwg.org/dwc/terms/datasetName",
+      "dateIdentified" -> "http://rs.tdwg.org/dwc/terms/dateIdentified",
+      "day" -> "http://rs.tdwg.org/dwc/terms/day",
+      "decimalLatitude" -> "http://rs.tdwg.org/dwc/terms/decimalLatitude",
+      "decimalLongitude" -> "http://rs.tdwg.org/dwc/terms/decimalLongitude",
+      "disposition" -> "http://rs.tdwg.org/dwc/terms/disposition",
+      "dynamicProperties" -> "http://rs.tdwg.org/dwc/terms/dynamicProperties",
+      "endDayOfYear" -> "http://rs.tdwg.org/dwc/terms/endDayOfYear",
+      "establishmentMeans" -> "http://rs.tdwg.org/dwc/terms/establishmentMeans",
+      "eventAttributes" -> "http://rs.tdwg.org/dwc/terms/eventAttributes",
+      "eventDate" -> "http://rs.tdwg.org/dwc/terms/eventDate",
+      "eventID" -> "http://rs.tdwg.org/dwc/terms/eventID",
+      "eventRemarks" -> "http://rs.tdwg.org/dwc/terms/eventRemarks",
+      "eventTime" -> "http://rs.tdwg.org/dwc/terms/eventTime",
+      "family" -> "http://rs.tdwg.org/dwc/terms/family",
+      "fieldNotes" -> "http://rs.tdwg.org/dwc/terms/fieldNotes",
+      "fieldNumber" -> "http://rs.tdwg.org/dwc/terms/fieldNumber",
+      "footprintSpatialFit" -> "http://rs.tdwg.org/dwc/terms/footprintSpatialFit",
+      "footprintSRS" -> "http://rs.tdwg.org/dwc/terms/footprintSRS",
+      "footprintWKT" -> "http://rs.tdwg.org/dwc/terms/footprintWKT",
+      "genus" -> "http://rs.tdwg.org/dwc/terms/genus",
+      "geodeticDatum" -> "http://rs.tdwg.org/dwc/terms/geodeticDatum",
+      "georeferencedBy" -> "http://rs.tdwg.org/dwc/terms/georeferencedBy",
+      "georeferencedDate" -> "http://rs.tdwg.org/dwc/terms/georeferencedDate",
+      "georeferenceProtocol" -> "http://rs.tdwg.org/dwc/terms/georeferenceProtocol",
+      "georeferenceRemarks" -> "http://rs.tdwg.org/dwc/terms/georeferenceRemarks",
+      "georeferenceSources" -> "http://rs.tdwg.org/dwc/terms/georeferenceSources",
+      "georeferenceVerificationStatus" -> "http://rs.tdwg.org/dwc/terms/georeferenceVerificationStatus",
+      "habitat" -> "http://rs.tdwg.org/dwc/terms/habitat",
+      "higherClassification" -> "http://rs.tdwg.org/dwc/terms/higherClassification",
+      "higherGeography" -> "http://rs.tdwg.org/dwc/terms/higherGeography",
+      "higherGeographyID" -> "http://rs.tdwg.org/dwc/terms/higherGeographyID",
+      "identificationID" -> "http://rs.tdwg.org/dwc/terms/identificationID",
+      "identificationQualifier" -> "http://rs.tdwg.org/dwc/terms/identificationQualifier",
+      "identificationReferences" -> "http://rs.tdwg.org/dwc/terms/identificationReferences",
+      "identificationRemarks" -> "http://rs.tdwg.org/dwc/terms/identificationRemarks",
+      "identificationVerificationStatus" -> "http://rs.tdwg.org/dwc/terms/identificationVerificationStatus",
+      "identifiedBy" -> "http://rs.tdwg.org/dwc/terms/identifiedBy",
+      "individualCount" -> "http://rs.tdwg.org/dwc/terms/individualCount",
+      "individualID" -> "http://rs.tdwg.org/dwc/terms/individualID",
+      "informationWithheld" -> "http://rs.tdwg.org/dwc/terms/informationWithheld",
+      "infraspecificEpithet" -> "http://rs.tdwg.org/dwc/terms/infraspecificEpithet",
+      "institutionCode" -> "http://rs.tdwg.org/dwc/terms/institutionCode",
+      "institutionID" -> "http://rs.tdwg.org/dwc/terms/institutionID",
+      "island" -> "http://rs.tdwg.org/dwc/terms/island",
+      "islandGroup" -> "http://rs.tdwg.org/dwc/terms/islandGroup",
+      "kingdom" -> "http://rs.tdwg.org/dwc/terms/kingdom",
+      "language" -> "http://purl.org/dc/terms/language",
+      "license" -> "http://purl.org/dc/terms/license",
+      "lifeStage" -> "http://rs.tdwg.org/dwc/terms/lifeStage",
+      "locality" -> "http://rs.tdwg.org/dwc/terms/locality",
+      "locationAccordingTo" -> "http://rs.tdwg.org/dwc/terms/locationAccordingTo",
+      "locationAttributes" -> "http://rs.tdwg.org/dwc/terms/locationAttributes",
+      "locationID" -> "http://rs.tdwg.org/dwc/terms/locationID",
+      "locationRemarks" -> "http://rs.tdwg.org/dwc/terms/locationRemarks",
+      "maximumDepthInMeters" -> "http://rs.tdwg.org/dwc/terms/maximumDepthInMeters",
+      "maximumDistanceAboveSurfaceInMeters" -> "http://rs.tdwg.org/dwc/terms/maximumDistanceAboveSurfaceInMeters",
+      "maximumElevationInMeters" -> "http://rs.tdwg.org/dwc/terms/maximumElevationInMeters",
+      "measurementAccuracy" -> "http://rs.tdwg.org/dwc/terms/measurementAccuracy",
+      "measurementDeterminedBy" -> "http://rs.tdwg.org/dwc/terms/measurementDeterminedBy",
+      "measurementDeterminedDate" -> "http://rs.tdwg.org/dwc/terms/measurementDeterminedDate",
+      "measurementID" -> "http://rs.tdwg.org/dwc/terms/measurementID",
+      "measurementMethod" -> "http://rs.tdwg.org/dwc/terms/measurementMethod",
+      "measurementRemarks" -> "http://rs.tdwg.org/dwc/terms/measurementRemarks",
+      "measurementType" -> "http://rs.tdwg.org/dwc/terms/measurementType",
+      "measurementUnit" -> "http://rs.tdwg.org/dwc/terms/measurementUnit",
+      "measurementValue" -> "http://rs.tdwg.org/dwc/terms/measurementValue",
+      "minimumDepthInMeters" -> "http://rs.tdwg.org/dwc/terms/minimumDepthInMeters",
+      "minimumDistanceAboveSurfaceInMeters" -> "http://rs.tdwg.org/dwc/terms/minimumDistanceAboveSurfaceInMeters",
+      "minimumElevationInMeters" -> "http://rs.tdwg.org/dwc/terms/minimumElevationInMeters",
+      "modified" -> "http://purl.org/dc/terms/modified",
+      "month" -> "http://rs.tdwg.org/dwc/terms/month",
+      "municipality" -> "http://rs.tdwg.org/dwc/terms/municipality",
+      "nameAccordingTo" -> "http://rs.tdwg.org/dwc/terms/nameAccordingTo",
+      "nameAccordingToID" -> "http://rs.tdwg.org/dwc/terms/nameAccordingToID",
+      "namePublishedIn" -> "http://rs.tdwg.org/dwc/terms/namePublishedIn",
+      "namePublishedInID" -> "http://rs.tdwg.org/dwc/terms/namePublishedInID",
+      "namePublishedInYear" -> "http://rs.tdwg.org/dwc/terms/namePublishedInYear",
+      "nomenclaturalCode" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalCode",
+      "nomenclaturalStatus" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalStatus",
+      "occurrenceAttributes" -> "http://rs.tdwg.org/dwc/terms/occurrenceAttributes",
+      "occurrenceDetails" -> "http://rs.tdwg.org/dwc/terms/occurrenceDetails",
+      "occurrenceID" -> "http://rs.tdwg.org/dwc/terms/occurrenceID",
+      "occurrenceRemarks" -> "http://rs.tdwg.org/dwc/terms/occurrenceRemarks",
+      "occurrenceStatus" -> "http://rs.tdwg.org/dwc/terms/occurrenceStatus",
+      "order" -> "http://rs.tdwg.org/dwc/terms/order",
+      "organismQuantity" -> "http://rs.tdwg.org/dwc/terms/organismQuantity",
+      "organismQuantityType" -> "http://rs.tdwg.org/dwc/terms/organismQuantityType",
+      "originalNameUsage" -> "http://rs.tdwg.org/dwc/terms/originalNameUsage",
+      "originalNameUsageID" -> "http://rs.tdwg.org/dwc/terms/originalNameUsageID",
+      "otherCatalogNumbers" -> "http://rs.tdwg.org/dwc/terms/otherCatalogNumbers",
+      "ownerInstitutionCode" -> "http://rs.tdwg.org/dwc/terms/ownerInstitutionCode",
+      "parentNameUsage" -> "http://rs.tdwg.org/dwc/terms/parentNameUsage",
+      "parentNameUsageID" -> "http://rs.tdwg.org/dwc/terms/parentNameUsageID",
+      "phylum" -> "http://rs.tdwg.org/dwc/terms/phylum",
+      "pointRadiusSpatialFit" -> "http://rs.tdwg.org/dwc/terms/pointRadiusSpatialFit",
+      "preparations" -> "http://rs.tdwg.org/dwc/terms/preparations",
+      "previousIdentifications" -> "http://rs.tdwg.org/dwc/terms/previousIdentifications",
+      "recordedBy" -> "http://rs.tdwg.org/dwc/terms/recordedBy",
+      "recordNumber" -> "http://rs.tdwg.org/dwc/terms/recordNumber",
+      "relatedResourceID" -> "http://rs.tdwg.org/dwc/terms/relatedResourceID",
+      "relationshipAccordingTo" -> "http://rs.tdwg.org/dwc/terms/relationshipAccordingTo",
+      "relationshipEstablishedDate" -> "http://rs.tdwg.org/dwc/terms/relationshipEstablishedDate",
+      "relationshipOfResource" -> "http://rs.tdwg.org/dwc/terms/relationshipOfResource",
+      "relationshipRemarks" -> "http://rs.tdwg.org/dwc/terms/relationshipRemarks",
+      "reproductiveCondition" -> "http://rs.tdwg.org/dwc/terms/reproductiveCondition",
+      "resourceID" -> "http://rs.tdwg.org/dwc/terms/resourceID",
+      "resourceRelationshipID" -> "http://rs.tdwg.org/dwc/terms/resourceRelationshipID",
+      "rightsHolder" -> "http://purl.org/dc/terms/rightsHolder",
+      "samplingEffort" -> "http://rs.tdwg.org/dwc/terms/samplingEffort",
+      "samplingProtocol" -> "http://rs.tdwg.org/dwc/terms/samplingProtocol",
+      "scientificName" -> "http://rs.tdwg.org/dwc/terms/scientificName",
+      "scientificNameAuthorship" -> "http://rs.tdwg.org/dwc/terms/scientificNameAuthorship",
+      "scientificNameID" -> "http://rs.tdwg.org/dwc/terms/scientificNameID",
+      "sex" -> "http://rs.tdwg.org/dwc/terms/sex",
+      "specificEpithet" -> "http://rs.tdwg.org/dwc/terms/specificEpithet",
+      "startDayOfYear" -> "http://rs.tdwg.org/dwc/terms/startDayOfYear",
+      "stateProvince" -> "http://rs.tdwg.org/dwc/terms/stateProvince",
+      "subgenus" -> "http://rs.tdwg.org/dwc/terms/subgenus",
+      "taxonConceptID" -> "http://rs.tdwg.org/dwc/terms/taxonConceptID",
+      "taxonID" -> "http://rs.tdwg.org/dwc/terms/taxonID",
+      "taxonomicStatus" -> "http://rs.tdwg.org/dwc/terms/taxonomicStatus",
+      "taxonRank" -> "http://rs.tdwg.org/dwc/terms/taxonRank",
+      "taxonRemarks" -> "http://rs.tdwg.org/dwc/terms/taxonRemarks",
+      "type" -> "http://purl.org/dc/terms/type",
+      "typeStatus" -> "http://rs.tdwg.org/dwc/terms/typeStatus",
+      "verbatimCoordinates" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinates",
+      "verbatimCoordinateSystem" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem",
+      "verbatimDepth" -> "http://rs.tdwg.org/dwc/terms/verbatimDepth",
+      "verbatimElevation" -> "http://rs.tdwg.org/dwc/terms/verbatimElevation",
+      "verbatimEventDate" -> "http://rs.tdwg.org/dwc/terms/verbatimEventDate",
+      "verbatimLatitude" -> "http://rs.tdwg.org/dwc/terms/verbatimLatitude",
+      "verbatimLocality" -> "http://rs.tdwg.org/dwc/terms/verbatimLocality",
+      "verbatimLongitude" -> "http://rs.tdwg.org/dwc/terms/verbatimLongitude",
+      "verbatimSRS" -> "http://rs.tdwg.org/dwc/terms/verbatimSRS",
+      "verbatimTaxonRank" -> "http://rs.tdwg.org/dwc/terms/verbatimTaxonRank",
+      "vernacularName" -> "http://rs.tdwg.org/dwc/terms/vernacularName",
+      "waterBody" -> "http://rs.tdwg.org/dwc/terms/waterBody",
+      "year" -> "http://rs.tdwg.org/dwc/terms/year"
     )
 
     var resourceUid = ""
@@ -205,6 +203,59 @@ object DwCAExporter extends Tool {
     var addImagesToExisting = false
     var exportExtensions = false
 
+    def writeCsvRow(resourceIDs: Seq[String], dataResource2OutputStreams: Map[String, Option[(ZipOutputStream, CSVWriter)]], map: Map[String, String]) = {
+      val dr = map.getOrElse("dataResourceUid", "")
+      val dateDeleted = map.getOrElse("dateDeleted", "")
+
+      def extractOriginalSensitiveProperties: (Map[String, String], Map[String, String]) = {
+        if (!map.getOrElse("originalSensitiveValues", "").isEmpty) {
+          val json = JSON.parseFull(map.getOrElse("originalSensitiveValues", "")).get.asInstanceOf[Map[String, String]]
+          var originalMiscProperties = new mutable.HashMap[String, String]()
+          var originalProperties = new mutable.HashMap[String, String]()
+          json.filterKeys((k) => if (!k.endsWith("_p")) true else false) foreach (originalTerm => {
+            if (dwcFieldsMap.contains(originalTerm._1)) {
+              originalProperties += (originalTerm._1 -> originalTerm._2)
+            } else {
+              originalMiscProperties += (originalTerm._1 -> originalTerm._2)
+            }
+          })
+          (originalProperties.toMap, originalMiscProperties.toMap)
+        } else
+          (Map.empty[String, String], Map.empty[String, String])
+      }
+
+
+      if (!dr.isEmpty && resourceIDs.contains(dr) && dateDeleted.isEmpty) { // Record is not deleted
+        val dataResourceMap = dataResource2OutputStreams.get(dr)
+        if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty) {
+          val (zop, csv) = dataResourceMap.get.get
+          val (originalProperties, originalMiscProperties) = extractOriginalSensitiveProperties
+          val resultMap = map.filter(_._2 != null).map({ (entry) =>
+            entry._1 match {
+              case "class" =>
+                (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
+              case "miscProperties" =>
+                if (originalMiscProperties.isEmpty)
+                  ("dynamicProperties", entry._2)
+                else {
+                  val miscProperties = JSON.parseFull(map.getOrElse("miscProperties", "")).get.asInstanceOf[Map[String, String]]
+                  ("dynamicProperties", Json.toJSON(miscProperties ++ originalMiscProperties))
+                }
+              case _ =>
+                (entry._1, originalProperties.getOrElse(entry._1, entry._2))
+            }
+          }).filter(term => dwcFieldsMap.contains(term._1))
+          val row = (dwcFieldsMap).map((fieldMap) => cleanValue(resultMap.getOrElse(fieldMap._1, null))).toArray
+          synchronized {
+            csv.writeNext(
+              row
+            )
+            csv.flush()
+          }
+        }
+      }
+    }
+
     val parser = new OptionParser(help) {
       arg("data-resource-uid", "Comma separated list of DRs or 'all' to generate for all",
         { v: String => resourceUid = v }
@@ -212,9 +263,10 @@ object DwCAExporter extends Tool {
       arg("directory-to-dump", "Directory to place the created archives",
         { v: String => directory = v }
       )
-      opt("f", "fields", "Comma separated list of DwC fields to export (according to cassandra DB). Default is :" + fieldsMap.keySet,
-        { v: String => val fields = v.split(",").toList
-          fieldsMap = fieldsMap.filter((field) => fields.contains(field._1))
+      opt("f", "fields", "Comma separated list of DwC fields to export (according to cassandra DB). Default is :" + dwcFieldsMap.keySet,
+        { v: String =>
+          val fields = v.split(",").toList
+          dwcFieldsMap = dwcFieldsMap.filter((field) => fields.contains(field._1))
         }
       )
       intOpt("t", "thread", "The number of threads to use. Default is " + threads, { v: Int => threads = v })
@@ -226,7 +278,7 @@ object DwCAExporter extends Tool {
     }
 
     if (parser.parse(args)) {
-      val dwcc = new DwCAExporter(fieldsMap)
+      val dwcc = new DwCAExporter(dwcFieldsMap)
 
       if (addImagesToExisting) {
         dwcc.addImageExportsToArchives(directory)
@@ -242,25 +294,10 @@ object DwCAExporter extends Tool {
           val dataResource2OutputStreams = resourceIDs.map { uid => (uid, dwcc.createOutputForCSV(directory, uid)) }.toMap
           Config.persistenceManager.pageOverSelect("occ", (key, map) => {
             synchronized {
-              val dr = map.getOrElse("dataResourceUid", "")
-              val deletedDate = map.getOrElse("deletedDate", "")
-              if (dr != "" && resourceIDs.contains(dr) && deletedDate == "") { // Record is not deleted
-                val dataResourceMap = dataResource2OutputStreams.get(dr)
-                if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty) {
-                  val (zop, csv) = dataResourceMap.get.get
-
-                  synchronized {
-                    val row =  fieldsMap.filter(_._1 != "dataResourceUid").map((fieldMap) => cleanValue(map.getOrElse(fieldMap._1,null))).toArray
-                    csv.writeNext(
-                      row
-                    )
-                    csv.flush()
-                  }
-                }
-              }
+              writeCsvRow(resourceIDs, dataResource2OutputStreams, map)
             }
             true
-          }, threads, pageSize, fieldsMap.keySet.toSeq: _*)
+          }, pageSize, threads)
           //finish write of CSV to zip
           dataResource2OutputStreams.values.foreach { zopAndCsv =>
             if (!zopAndCsv.isEmpty) {
@@ -364,14 +401,15 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
 
   def addMeta(zop: ZipOutputStream) = {
     zop.putNextEntry(new ZipEntry("meta.xml"))
-    val fieldsSeq = fieldList.filter(_._1 != "dataResourceUid").keySet.toIndexedSeq
+    val fieldsSeq = (fieldList - "dataResourceUid" - "classs" - "rowkey").keySet.toIndexedSeq
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
           <location>occurrence.csv</location>
         </files>
-        <id index="0"/>{for {a <- 0 to fieldsSeq.size - 1} yield {
-          <field index={a + ""} term={fieldList(fieldsSeq(a))}/>
+        <id index="0"/>{fieldsSeq.zipWithIndex.map {
+        case (field, index) =>
+            <field index={index + 1 + ""} term={fieldList(fieldsSeq(index))}/>
       }}
       </core>
     </archive>
