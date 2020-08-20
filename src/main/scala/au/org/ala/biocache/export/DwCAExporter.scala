@@ -369,7 +369,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
     FileUtils.forceMkdir(zipFile.getParentFile)
     val zop = new ZipOutputStream(new FileOutputStream(zipFile))
     if (addEML(zop, dataResource)) {
-      addMeta(zop)
+      addMeta(zop, List())
       zop.putNextEntry(new ZipEntry("occurrence.csv"))
       val occWriter = new CSVWriter(new OutputStreamWriter(zop), ',', '"', lineEnd)
       Some((zop, occWriter))
@@ -398,20 +398,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
         false
     }
   }
-
-  def addMeta(zop: ZipOutputStream) = {
-    zop.putNextEntry(new ZipEntry("meta.xml"))
-    val fieldsSeq = (fieldList - "dataResourceUid" - "classs" - "rowkey").keySet.toIndexedSeq
-    val metaXml: Elem = buildCoreMetaXml(fieldsSeq, List("Multimedia"))
-    //add the XML
-    zop.write("""<?xml version="1.0"?>""".getBytes)
-    zop.write("\n".getBytes)
-    zop.write(metaXml.mkString("\n").getBytes)
-    zop.flush
-    zop.closeEntry
-  }
-
-  private def buildCoreMetaXml(fieldsSeq: immutable.IndexedSeq[String], extensions: List[String]) = {
+  private def buildMetaXml(fieldsSeq: immutable.IndexedSeq[String], extensions: List[String]) = {
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
@@ -439,15 +426,16 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
             <field index="8" term="http://purl.org/dc/terms/rightsHolder"/>
             <field index="9" term="http://purl.org/dc/terms/references"/>
           </extension>
+        case _ =>
       }}
     </archive>
     metaXml
   }
 
-  def addMetaWithMultimedia(zop: ZipOutputStream) = {
+  def addMeta(zop: ZipOutputStream, extensions: List[String]) = {
     zop.putNextEntry(new ZipEntry("meta.xml"))
     val fieldsSeq = (fieldList - "dataResourceUid" - "classs" - "rowkey").keySet.toIndexedSeq
-    val metaXml: Elem = buildCoreMetaXml(fieldsSeq, List("Multimedia"))
+    val metaXml: Elem = buildMetaXml(fieldsSeq, extensions)
     //add the XML
     zop.write("""<?xml version="1.0"?>""".getBytes)
     zop.write("\n".getBytes)
@@ -455,6 +443,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
     zop.flush
     zop.closeEntry
   }
+
 
   /**
     * Retrieves an archive from the image service and then appends contents to
@@ -528,10 +517,10 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
 
       //find the archive....
       val archivePath = archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip"
-      val archive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip")
+      val archive = new File(archivePath)
       if (archive.exists()) {
 
-        val backupArchive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip.backup")
+        val backupArchive = new File(archivePath + ".backup")
         if (backupArchive.exists()) {
           backupArchive.delete()
         }
@@ -547,7 +536,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
         addEML(zop, dataResourceUid)
 
         //add meta.xml - with multimedia extension
-        addMetaWithMultimedia(zop)
+        addMeta(zop, List("Multimedia"))
 
         //add images CSV
         zop.putNextEntry(new ZipEntry("image.csv"))
