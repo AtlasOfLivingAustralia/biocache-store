@@ -318,6 +318,7 @@ trait IndexDAO {
     ("recordedBy", "collectors", -1, PARSED),
     ("right", "rgt", -1, PARSED),
     ("scientificName", "taxon_name", -1, PARSED),
+    ("scientificNameAuthorship", "scientificNameAuthorship", -1, RAW),
     ("species", "species", -1, PARSED),
     ("speciesID", "species_guid", -1, PARSED),
     ("specificEpithet", "specific_epithet", -1, RAW),
