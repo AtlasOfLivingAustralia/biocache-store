@@ -1299,8 +1299,11 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
     all.remove(AssertionCodes.PROCESSING_ERROR)
     all.remove(AssertionCodes.VERIFIED)
 
-    while (end > 2) {
+    while (end > 2 && i < jsonString.length()) {
       end = jsonString.indexOf('{', i + 1)
+      if (end < 0) { //last one, so there is no following '{'
+        end = jsonString.length()
+      }
 
       var codePos = jsonString.indexOf("\"code\":", i)
       var qaStatusPos = jsonString.indexOf("\"qaStatus\":", i)
