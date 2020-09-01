@@ -76,7 +76,7 @@ trait DataLoader {
   }
 
   def getDataResourceDetailsAsMap(uid: String): Map[String, String] = {
-    val json = scala.io.Source.fromURL(Config.registryUrl + "/dataResource/" + uid, "UTF-8").getLines().mkString
+    val json = scala.io.Source.fromURL(Config.registryUrl + "/dataResource/" + uid + "?api_key=" + Config.collectoryApiKey, "UTF-8").getLines().mkString
     JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
   }
 
