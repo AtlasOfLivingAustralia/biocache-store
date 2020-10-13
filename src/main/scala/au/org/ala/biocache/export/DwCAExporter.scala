@@ -233,7 +233,11 @@ object DwCAExporter extends Tool {
           val resultMap = map.filter(_._2 != null).map({ (entry) =>
             entry._1 match {
               case "class" =>
+                // class field in dwca can include the combincation of the following fields if the prior field is empty : class, classs, and _class
                 (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
+              case "identifiedBy" =>
+                // it will include identifierBy field if the identifiedBy is empty
+                (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else map.getOrElse("identifierBy", "")))
               case "miscProperties" =>
                 if (originalMiscProperties.isEmpty)
                   ("dynamicProperties", entry._2)
