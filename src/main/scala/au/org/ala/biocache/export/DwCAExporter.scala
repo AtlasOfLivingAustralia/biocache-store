@@ -12,10 +12,11 @@ import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.util.parsing.json.JSON
+import scala.xml.Elem
 
 /**
   * Companion object for the DwCAExporter class.
@@ -224,7 +225,6 @@ object DwCAExporter extends Tool {
           (Map.empty[String, String], Map.empty[String, String])
       }
 
-
       if (!dr.isEmpty && resourceIDs.contains(dr) && dateDeleted.isEmpty) { // Record is not deleted
         val dataResourceMap = dataResource2OutputStreams.get(dr)
         if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty) {
@@ -369,7 +369,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
     FileUtils.forceMkdir(zipFile.getParentFile)
     val zop = new ZipOutputStream(new FileOutputStream(zipFile))
     if (addEML(zop, dataResource)) {
-      addMeta(zop)
+      addMeta(zop, List())
       zop.putNextEntry(new ZipEntry("occurrence.csv"))
       val occWriter = new CSVWriter(new OutputStreamWriter(zop), ',', '"', lineEnd)
       Some((zop, occWriter))
@@ -398,10 +398,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
         false
     }
   }
-
-  def addMeta(zop: ZipOutputStream) = {
-    zop.putNextEntry(new ZipEntry("meta.xml"))
-    val fieldsSeq = (fieldList - "dataResourceUid" - "classs" - "rowkey").keySet.toIndexedSeq
+  private def buildMetaXml(fieldsSeq: immutable.IndexedSeq[String], extensions: List[String]) = {
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
@@ -411,8 +408,34 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
         case (field, index) =>
             <field index={index + 1 + ""} term={fieldList(fieldsSeq(index))}/>
       }}
-      </core>
+      </core>{extensions.map {
+        case "Multimedia" =>
+          <extension encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
+            <files>
+              <location>image.csv</location>
+            </files>
+            <coreid index="0"/>
+            <field index="0" term="id"/>
+            <field index="1" term="http://purl.org/dc/terms/identifier"/>
+            <field index="2" term="http://purl.org/dc/terms/creator"/>
+            <field index="3" term="http://purl.org/dc/terms/created"/>
+            <field index="4" term="http://purl.org/dc/terms/title"/>
+            <field index="5" term="http://purl.org/dc/terms/format"/>
+            <field index="6" term="http://purl.org/dc/terms/license"/>
+            <field index="7" term="http://purl.org/dc/terms/rights"/>
+            <field index="8" term="http://purl.org/dc/terms/rightsHolder"/>
+            <field index="9" term="http://purl.org/dc/terms/references"/>
+          </extension>
+        case _ =>
+      }}
     </archive>
+    metaXml
+  }
+
+  def addMeta(zop: ZipOutputStream, extensions: List[String]) = {
+    zop.putNextEntry(new ZipEntry("meta.xml"))
+    val fieldsSeq = (fieldList - "dataResourceUid" - "classs" - "rowkey").keySet.toIndexedSeq
+    val metaXml: Elem = buildMetaXml(fieldsSeq, extensions)
     //add the XML
     zop.write("""<?xml version="1.0"?>""".getBytes)
     zop.write("\n".getBytes)
@@ -421,80 +444,6 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
     zop.closeEntry
   }
 
-  def addMetaWithMultimedia(zop: ZipOutputStream) = {
-    zop.putNextEntry(new ZipEntry("meta.xml"))
-    val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
-        <files>
-          <location>occurrence.csv</location>
-        </files>
-        <id index="0"/>
-        <field index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
-        <field index="1" term="http://rs.tdwg.org/dwc/terms/catalogNumber"/>
-        <field index="2" term="http://rs.tdwg.org/dwc/terms/collectionCode"/>
-        <field index="3" term="http://rs.tdwg.org/dwc/terms/institutionCode"/>
-        <field index="4" term="http://rs.tdwg.org/dwc/terms/recordNumber"/>
-        <field index="5" term="http://rs.tdwg.org/dwc/terms/basisOfRecord" default="HumanObservation"/>
-        <field index="6" term="http://rs.tdwg.org/dwc/terms/recordedBy"/>
-        <field index="7" term="http://rs.tdwg.org/dwc/terms/occurrenceStatus"/>
-        <field index="8" term="http://rs.tdwg.org/dwc/terms/individualCount"/>
-        <field index="9" term="http://rs.tdwg.org/dwc/terms/scientificName"/>
-        <field index="10" term="http://rs.tdwg.org/dwc/terms/taxonConceptID"/>
-        <field index="11" term="http://rs.tdwg.org/dwc/terms/taxonRank"/>
-        <field index="12" term="http://rs.tdwg.org/dwc/terms/kingdom"/>
-        <field index="13" term="http://rs.tdwg.org/dwc/terms/phylum"/>
-        <field index="14" term="http://rs.tdwg.org/dwc/terms/class"/>
-        <field index="15" term="http://rs.tdwg.org/dwc/terms/order"/>
-        <field index="16" term="http://rs.tdwg.org/dwc/terms/family"/>
-        <field index="17" term="http://rs.tdwg.org/dwc/terms/genus"/>
-        <field index="18" term="http://rs.tdwg.org/dwc/terms/vernacularName"/>
-        <field index="19" term="http://rs.tdwg.org/dwc/terms/decimalLatitude"/>
-        <field index="20" term="http://rs.tdwg.org/dwc/terms/decimalLongitude"/>
-        <field index="21" term="http://rs.tdwg.org/dwc/terms/geodeticDatum"/>
-        <field index="22" term="http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters"/>
-        <field index="23" term="http://rs.tdwg.org/dwc/terms/maximumElevationInMeters"/>
-        <field index="24" term="http://rs.tdwg.org/dwc/terms/minimumElevationInMeters"/>
-        <field index="25" term="http://rs.tdwg.org/dwc/terms/minimumDepthInMeters"/>
-        <field index="26" term="http://rs.tdwg.org/dwc/terms/maximumDepthInMeters"/>
-        <field index="27" term="http://rs.tdwg.org/dwc/terms/country"/>
-        <field index="28" term="http://rs.tdwg.org/dwc/terms/stateProvince"/>
-        <field index="29" term="http://rs.tdwg.org/dwc/terms/locality"/>
-        <field index="30" term="http://rs.tdwg.org/dwc/terms/locationRemarks"/>
-        <field index="31" term="http://rs.tdwg.org/dwc/terms/year"/>
-        <field index="32" term="http://rs.tdwg.org/dwc/terms/month"/>
-        <field index="33" term="http://rs.tdwg.org/dwc/terms/day"/>
-        <field index="34" term="http://rs.tdwg.org/dwc/terms/eventDate"/>
-        <field index="35" term="http://rs.tdwg.org/dwc/terms/eventID"/>
-        <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy"/>
-        <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks"/>
-        <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations"/>
-        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers"/>
-        <field index="40" term="http://purl.org/dc/terms/references"/>
-      </core>
-      <extension encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
-        <files>
-          <location>image.csv</location>
-        </files>
-        <coreid index="0"/>
-        <field index="0" term="id"/>
-        <field index="1" term="http://purl.org/dc/terms/identifier"/>
-        <field index="2" term="http://purl.org/dc/terms/creator"/>
-        <field index="3" term="http://purl.org/dc/terms/created"/>
-        <field index="4" term="http://purl.org/dc/terms/title"/>
-        <field index="5" term="http://purl.org/dc/terms/format"/>
-        <field index="6" term="http://purl.org/dc/terms/license"/>
-        <field index="7" term="http://purl.org/dc/terms/rights"/>
-        <field index="8" term="http://purl.org/dc/terms/rightsHolder"/>
-        <field index="9" term="http://purl.org/dc/terms/references"/>
-      </extension>
-    </archive>
-    //add the XML
-    zop.write("""<?xml version="1.0"?>""".getBytes)
-    zop.write("\n".getBytes)
-    zop.write(metaXml.mkString("\n").getBytes)
-    zop.flush
-    zop.closeEntry
-  }
 
   /**
     * Retrieves an archive from the image service and then appends contents to
@@ -568,10 +517,10 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
 
       //find the archive....
       val archivePath = archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip"
-      val archive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip")
+      val archive = new File(archivePath)
       if (archive.exists()) {
 
-        val backupArchive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip.backup")
+        val backupArchive = new File(archivePath + ".backup")
         if (backupArchive.exists()) {
           backupArchive.delete()
         }
@@ -587,7 +536,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
         addEML(zop, dataResourceUid)
 
         //add meta.xml - with multimedia extension
-        addMetaWithMultimedia(zop)
+        addMeta(zop, List("Multimedia"))
 
         //add images CSV
         zop.putNextEntry(new ZipEntry("image.csv"))
