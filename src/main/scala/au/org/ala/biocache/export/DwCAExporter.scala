@@ -63,6 +63,7 @@ object DwCAExporter extends Tool {
       "decimalLongitude" -> "http://rs.tdwg.org/dwc/terms/decimalLongitude",
       "disposition" -> "http://rs.tdwg.org/dwc/terms/disposition",
       "dynamicProperties" -> "http://rs.tdwg.org/dwc/terms/dynamicProperties",
+      "easting" -> "http://rs.ala.org.au/terms/1.0/easting",
       "endDayOfYear" -> "http://rs.tdwg.org/dwc/terms/endDayOfYear",
       "establishmentMeans" -> "http://rs.tdwg.org/dwc/terms/establishmentMeans",
       "eventAttributes" -> "http://rs.tdwg.org/dwc/terms/eventAttributes",
@@ -136,6 +137,7 @@ object DwCAExporter extends Tool {
       "namePublishedInYear" -> "http://rs.tdwg.org/dwc/terms/namePublishedInYear",
       "nomenclaturalCode" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalCode",
       "nomenclaturalStatus" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalStatus",
+      "northing" -> "http://rs.ala.org.au/terms/1.0/northing",
       "occurrenceAttributes" -> "http://rs.tdwg.org/dwc/terms/occurrenceAttributes",
       "occurrenceDetails" -> "http://rs.tdwg.org/dwc/terms/occurrenceDetails",
       "occurrenceID" -> "http://rs.tdwg.org/dwc/terms/occurrenceID",
@@ -194,7 +196,8 @@ object DwCAExporter extends Tool {
       "verbatimTaxonRank" -> "http://rs.tdwg.org/dwc/terms/verbatimTaxonRank",
       "vernacularName" -> "http://rs.tdwg.org/dwc/terms/vernacularName",
       "waterBody" -> "http://rs.tdwg.org/dwc/terms/waterBody",
-      "year" -> "http://rs.tdwg.org/dwc/terms/year"
+      "year" -> "http://rs.tdwg.org/dwc/terms/year",
+      "zone" -> "http://rs.ala.org.au/terms/1.0/zone"
     )
 
     var resourceUid = ""
