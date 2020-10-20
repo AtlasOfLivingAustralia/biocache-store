@@ -191,6 +191,7 @@ object DwCAExporter extends Tool {
       "type" -> "http://purl.org/dc/terms/type",
       "typeStatus" -> "http://rs.tdwg.org/dwc/terms/typeStatus",
       "typifiedName" -> "http://rs.tdwg.org/abcd/terms/typifiedName",
+      "userId" -> "http://rs.gbif.org/terms/1.0/recordedByID",
       "verbatimCoordinates" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinates",
       "verbatimCoordinateSystem" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem",
       "verbatimDepth" -> "http://rs.tdwg.org/dwc/terms/verbatimDepth",
