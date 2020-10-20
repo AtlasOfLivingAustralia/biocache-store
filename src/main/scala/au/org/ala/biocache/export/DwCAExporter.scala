@@ -98,6 +98,7 @@ object DwCAExporter extends Tool {
       "identificationRemarks" -> "http://rs.tdwg.org/dwc/terms/identificationRemarks",
       "identificationVerificationStatus" -> "http://rs.tdwg.org/dwc/terms/identificationVerificationStatus",
       "identifiedBy" -> "http://rs.tdwg.org/dwc/terms/identifiedBy",
+      "identifierRole" -> "http://hiscom.chah.org.au/hispid/terms/identifierRole",
       "individualCount" -> "http://rs.tdwg.org/dwc/terms/individualCount",
       "individualID" -> "http://rs.tdwg.org/dwc/terms/individualID",
       "informationWithheld" -> "http://rs.tdwg.org/dwc/terms/informationWithheld",
