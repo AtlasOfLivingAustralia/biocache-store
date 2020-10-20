@@ -33,6 +33,9 @@ object DwCAExporter extends Tool {
 
     var dwcFieldsMap = mutable.LinkedHashMap(
       "rowkey" -> "",
+      "abcdIdentificationQualifier" -> "http://rs.tdwg.org/abcd/terms/abcdIdentificationQualifier",
+      "abcdIdentificationQualifierInsertionPoint" -> "http://rs.tdwg.org/abcd/terms/abcdIdentificationQualifierInsertionPoint",
+      "abcdTypeStatus" -> "http://rs.tdwg.org/abcd/terms/abcdTypeStatus",
       "acceptedNameUsage" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
       "acceptedNameUsageID" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
       "accessRights" -> "http://purl.org/dc/terms/accessRights",
@@ -186,6 +189,7 @@ object DwCAExporter extends Tool {
       "taxonRemarks" -> "http://rs.tdwg.org/dwc/terms/taxonRemarks",
       "type" -> "http://purl.org/dc/terms/type",
       "typeStatus" -> "http://rs.tdwg.org/dwc/terms/typeStatus",
+      "typifiedName" -> "http://rs.tdwg.org/abcd/terms/typifiedName",
       "verbatimCoordinates" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinates",
       "verbatimCoordinateSystem" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem",
       "verbatimDepth" -> "http://rs.tdwg.org/dwc/terms/verbatimDepth",
