@@ -178,6 +178,7 @@ object DwCAExporter extends Tool {
       "scientificName" -> "http://rs.tdwg.org/dwc/terms/scientificName",
       "scientificNameAuthorship" -> "http://rs.tdwg.org/dwc/terms/scientificNameAuthorship",
       "scientificNameID" -> "http://rs.tdwg.org/dwc/terms/scientificNameID",
+      "secondaryCollectors" -> "http://hiscom.chah.org.au/hispid/terms/secondaryCollectors",
       "sex" -> "http://rs.tdwg.org/dwc/terms/sex",
       "source" -> "http://purl.org/dc/terms/source",
       "species" -> "http://rs.ala.org.au/terms/1.0/species",
