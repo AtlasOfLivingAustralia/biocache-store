@@ -160,6 +160,7 @@ object DwCAExporter extends Tool {
       "pointRadiusSpatialFit" -> "http://rs.tdwg.org/dwc/terms/pointRadiusSpatialFit",
       "preparations" -> "http://rs.tdwg.org/dwc/terms/preparations",
       "previousIdentifications" -> "http://rs.tdwg.org/dwc/terms/previousIdentifications",
+      "photographer" -> "http://rs.ala.org.au/terms/1.0/photographer",
       "recordedBy" -> "http://rs.tdwg.org/dwc/terms/recordedBy",
       "recordNumber" -> "http://rs.tdwg.org/dwc/terms/recordNumber",
       "relatedResourceID" -> "http://rs.tdwg.org/dwc/terms/relatedResourceID",
