@@ -23,48 +23,48 @@ object QualityAssertion {
     if(errorCode.isEmpty){
       throw new Exception("Unrecognised code: " + code)
     }
-    new QualityAssertion(uuid,null,errorCode.get.name,errorCode.get.code,null,null,2,null,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null,errorCode.get.name,errorCode.get.code,null,null,2,null,null,null,null,null,null,null,null,new Date(),null)
   }
 
   def apply(errorCode:ErrorCode) = {
     val uuid = UUID.randomUUID.toString
-    new QualityAssertion(uuid,null,errorCode.name,errorCode.code,null,null,0,null,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null,errorCode.name,errorCode.code,null,null,0,null,null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(errorCode:ErrorCode,problemAsserted:Boolean) = {
     val uuid = UUID.randomUUID.toString
-    new QualityAssertion(uuid,null,errorCode.name,errorCode.code,null,null,if(problemAsserted) 0 else 1,null,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null,errorCode.name,errorCode.code,null,null,if(problemAsserted) 0 else 1,null,null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(errorCode:ErrorCode,problemAsserted:Boolean,comment:String) = {
     val uuid = UUID.randomUUID.toString
-    new QualityAssertion(uuid,null,errorCode.name,errorCode.code,null,null,if(problemAsserted) 0 else 1,comment,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null,errorCode.name,errorCode.code,null,null,if(problemAsserted) 0 else 1,comment,null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(errorCode:ErrorCode,comment:String) = {
     val uuid = UUID.randomUUID.toString
-    new QualityAssertion(uuid,null,errorCode.name,errorCode.code,null,null,0,comment,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null,errorCode.name,errorCode.code,null,null,0,comment,null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(errorCode:ErrorCode, qaStatus:Int, comment:String)={
     val uuid = UUID.randomUUID.toString
-    new QualityAssertion(uuid,null, errorCode.name, errorCode.code,null,null, qaStatus, comment, null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null, errorCode.name, errorCode.code,null,null, qaStatus, comment, null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(errorCode:ErrorCode, qaStatus:Int)={
     val uuid = UUID.randomUUID.toString
-    new QualityAssertion(uuid,null, errorCode.name, errorCode.code,null,null, qaStatus, null, null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null, errorCode.name, errorCode.code,null,null, qaStatus, null, null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(assertionCode:Int,problemAsserted:Boolean,comment:String) = {
     val uuid = UUID.randomUUID.toString
-    new QualityAssertion(uuid,null,null,assertionCode,null,null,if(problemAsserted) 0 else 1,comment,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null,null,assertionCode,null,null,if(problemAsserted) 0 else 1,comment,null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(assertionCode:Int, qaStatus:Int, comment:String) ={
     val uuid = UUID.randomUUID().toString
-    new QualityAssertion(uuid,null, null, assertionCode,null,null,qaStatus,comment,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null, null, assertionCode,null,null,qaStatus,comment,null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(assertionCode:Int, qaStatus:Int) ={
     val uuid = UUID.randomUUID().toString
-    new QualityAssertion(uuid,null, null, assertionCode,null,null,qaStatus,null,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null, null, assertionCode,null,null,qaStatus,null,null,null,null,null,null,null,null,new Date(),null)
   }
   def apply(errorCode:ErrorCode, relatedUuid: String, qaStatus:Int) = {
     val uuid = UUID.randomUUID().toString
-    new QualityAssertion(uuid,null, errorCode.name, errorCode.code,null,relatedUuid,qaStatus,null,null,null,null,null,null,null,null,new Date())
+    new QualityAssertion(uuid,null, errorCode.name, errorCode.code,null,relatedUuid,qaStatus,null,null,null,null,null,null,null,null,new Date(),null)
   }
 
 
@@ -107,13 +107,14 @@ class QualityAssertion (
   @BeanProperty var userRole:String,  //null for system assertions, example - collection manager
   @BeanProperty var userEntityUid:String,  //null for system assertions, example - co13
   @BeanProperty var userEntityName:String,  //null for system assertions, example - ANIC
-  @BeanProperty var created:String)
+  @BeanProperty var created:String,
+  @BeanProperty var relatedRecordId:String)
   extends Cloneable with Comparable[AnyRef] with POSO {
 
  // override def toString :String = s"name:$name, code:$code, value:$value, comment:$comment, qaStatus:$qaStatus, relatedUuid:$relatedUuid"
   override def toString :String = s"code:$code, qaStatus:$getQAStatusName, uuid:$uuid, relatedUuid:$relatedUuid, created:$created \n"
 
-  def this() = this(null,null,null,-1,false,null,2,null,null,null,null,null,null,null,null,null)
+  def this() = this(null,null,null,-1,false,null,2,null,null,null,null,null,null,null,null,null,null)
   override def clone : QualityAssertion = super.clone.asInstanceOf[QualityAssertion]
   override def equals(that: Any) = that match {
     case other: QualityAssertion => {
