@@ -5,6 +5,7 @@ import org.junit.runner.RunWith
 import au.org.ala.biocache.model.{FullRecord, QualityAssertion, Versions}
 import au.org.ala.biocache.load.FullRecordMapper
 import au.org.ala.biocache.processor.RecordProcessor
+import au.org.ala.biocache.util.Json
 import au.org.ala.biocache.vocab.AssertionCodes
 import au.org.ala.biocache.vocab.AssertionStatus
 
@@ -13,6 +14,7 @@ class AssertionCodeTest extends ConfigFunSuite {
   val rowKey = "test1"
   val rowKey2 = "test2"
   val rowKey3 = "test3"
+  val rowKey4 = "test4"
   val uuid = "uuid"
   val occurrenceDAO = Config.occurrenceDAO
 
@@ -304,6 +306,50 @@ class AssertionCodeTest extends ConfigFunSuite {
     }
   }
 
+  test("user assertion list") {
+    val processed = new FullRecord
+    processed.rowKey = uuid
+    occurrenceDAO.updateOccurrence(rowKey4, processed, None, Versions.PROCESSED)
+    // first qa added
+    val qa = QualityAssertion.apply(AssertionCodes.GEOSPATIAL_ISSUE, AssertionStatus.QA_UNCONFIRMED);
+    qa.userId = "hua091@csiro.au"
+    occurrenceDAO.addUserAssertion(rowKey4, qa)
+    var assertionList = Json.toListWithGeneric(Config.persistenceManager.get(rowKey4, "occ", FullRecordMapper.userQualityAssertionColumn).getOrElse(""), classOf[QualityAssertion]).asInstanceOf[List[QualityAssertion]]
+    expectResult(true) {
+      occurrenceDAO.getUserAssertions(rowKey4).size == 1 && assertionList.size == 1
+    }
+    // add second qa
+    val qa2 = QualityAssertion.apply(AssertionCodes.COORDINATE_HABITAT_MISMATCH, AssertionStatus.QA_UNCONFIRMED)
+    qa2.userId = "test@csiro.au"
+    occurrenceDAO.addUserAssertion(rowKey4, qa2)
+    assertionList = Json.toListWithGeneric(Config.persistenceManager.get(rowKey4, "occ", FullRecordMapper.userQualityAssertionColumn).getOrElse(""), classOf[QualityAssertion]).asInstanceOf[List[QualityAssertion]]
+    expectResult(true) {
+      occurrenceDAO.getUserAssertions(rowKey4).size == 2 && assertionList.size == 2
+    }
+    // a 50001 verification associated with 1st qa
+    val qa50001 = QualityAssertion.apply(AssertionCodes.VERIFIED, AssertionStatus.QA_OPEN_ISSUE);
+    qa50001.userId = "admin@csiro.au"
+    qa50001.relatedUuid = qa.uuid
+    occurrenceDAO.addUserAssertion(rowKey4, qa50001)
+    assertionList = Json.toListWithGeneric(Config.persistenceManager.get(rowKey4, "occ", FullRecordMapper.userQualityAssertionColumn).getOrElse(""), classOf[QualityAssertion]).asInstanceOf[List[QualityAssertion]]
+    expectResult(true) {
+      occurrenceDAO.getUserAssertions(rowKey4).size == 3 && assertionList.size == 2
+    }
+    occurrenceDAO.deleteUserAssertion(rowKey4, qa50001.uuid)
+    assertionList = Json.toListWithGeneric(Config.persistenceManager.get(rowKey4, "occ", FullRecordMapper.userQualityAssertionColumn).getOrElse(""), classOf[QualityAssertion]).asInstanceOf[List[QualityAssertion]]
+    expectResult(true) {
+      occurrenceDAO.getUserAssertions(rowKey4).size == 2 && assertionList.size == 2
+    }
+    // a 50002 verification associated with qa2
+    val qa50002 = QualityAssertion.apply(AssertionCodes.VERIFIED, AssertionStatus.QA_VERIFIED);
+    qa50002.userId = "admin1@csiro.au"
+    qa50002.relatedUuid = qa2.uuid
+    occurrenceDAO.addUserAssertion(rowKey4, qa50002)
+    assertionList = Json.toListWithGeneric(Config.persistenceManager.get(rowKey4, "occ", FullRecordMapper.userQualityAssertionColumn).getOrElse(""), classOf[QualityAssertion]).asInstanceOf[List[QualityAssertion]]
+    expectResult(true) {
+      occurrenceDAO.getUserAssertions(rowKey4).size == 3 && assertionList.size == 2
+    }
+  }
   test("Test add adhoc System assertion") {
 
     import AssertionStatus._
