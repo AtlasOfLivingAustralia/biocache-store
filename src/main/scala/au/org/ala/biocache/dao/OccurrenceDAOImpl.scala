@@ -745,7 +745,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     }
 
     // Updating system assertion, pass in false
-    val (userAssertionStatus, trueUserAssertions) = getCombinedUserStatus(false, userAssertions)
+    val (userAssertionStatus, trueUserAssertions, originalAssertions) = getCombinedUserStatus(false, userAssertions)
 
     val verified = if (userAssertionStatus == AssertionStatus.QA_VERIFIED || userAssertionStatus == AssertionStatus.QA_CORRECTED) true else false
 
@@ -910,7 +910,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
       persistenceManager.put(rowKey, qaEntityName, qaMap, true, false)
       val systemAssertions = getSystemAssertions(rowKey)
       val userAssertions = getUserAssertions(rowKey)
-      updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions :+ qualityAssertion)
+      updateAssertionStatus(rowKey, qualityAssertion, systemAssertions, userAssertions)
 
       //set the last user assertion date
       persistenceManager.put(rowKey, entityName, FullRecordMapper.lastUserAssertionDateColumn, qualityAssertion.created, false, false)
@@ -1008,14 +1008,24 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     * If Collection Admin verifies the record, currentAssertion will have
     * code: 50000 (AssertionCodes.VERIFIED.code),
     * qaStatus: AssertionStatus.QA_OPEN_ISSUE, AssertionStatus.QA_VERIFIED, AssertionStatus:QA_CORRECTED
+    *
+    * Alex updated on 07/12/2020, combinedUserAssertions contains all assertions in 50005 or 50001 state (outstanding assertions)
+    * originalAssertions contains all assertions users (not admin) made. Keep the original interface just to make sure new change
+    * doesn't break anything
     */
-  private def getCombinedUserStatus(bVerified: Boolean, userAssertions: List[QualityAssertion]): (Int, ArrayBuffer[QualityAssertion]) = {
+  private def getCombinedUserStatus(bVerified: Boolean, userAssertions: List[QualityAssertion]): (Int, ArrayBuffer[QualityAssertion], ArrayBuffer[QualityAssertion]) = {
 
     // Filter off only verified records
     val verifiedAssertions = userAssertions.filter(qa => qa.code == AssertionCodes.VERIFIED.code)
 
     // Filter off only user assertions type
     val assertions = userAssertions.filter(qa => qa.code != AssertionCodes.VERIFIED.code && AssertionStatus.isUserAssertionType(qa.qaStatus))
+
+    var originalAssertions = new ArrayBuffer[QualityAssertion]()
+    // qa.relatedUuid == null means it's not a verification because a verification must have an associated assertion thus relatedUuid not null
+    assertions.filter(qa => qa.relatedUuid == null).foreach {
+      originalAssertions.append(_)
+    }
 
     // Sort the verified list according to relatedUuid and order of reference rowKey.
     // RowKey for verified records consist of rowKey|userId|code|recNum where recNum increments everytime a verified record is added
@@ -1072,7 +1082,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
 
     logger.debug("Overall assertion Status: " + userAssertionStatus)
 
-    (userAssertionStatus, combinedUserAssertions)
+    (userAssertionStatus, combinedUserAssertions, originalAssertions)
   }
 
   /**
@@ -1083,7 +1093,7 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     logger.debug("Updating the assertion status for : " + rowKey)
 
     val bVerified = AssertionCodes.isVerified(assertion)
-    val (userAssertionStatus, remainingAssertions) = getCombinedUserStatus(bVerified, userAssertions)
+    val (userAssertionStatus, remainingAssertions, originalAssertions) = getCombinedUserStatus(bVerified, userAssertions)
 
     // default to the assertion which is to be evaluated
     var actualAssertion = assertion
@@ -1152,7 +1162,8 @@ class OccurrenceDAOImpl extends OccurrenceDAO {
     logger.debug("Final " + listErrorCodes)
 
     //update the list
-    persistenceManager.put(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn, Json.toJSON(remainingAssertions.toList), false, false)
+    // use all user assertions (no matter if it's already verified) to fill userQualityAssertionColumn so that assertion_user_id can be extracted correctly when reindexing
+    persistenceManager.put(rowKey, entityName, FullRecordMapper.userQualityAssertionColumn, Json.toJSON(originalAssertions.toList), false, false)
     persistenceManager.putList(rowKey, entityName, FullRecordMapper.markAsQualityAssertion(phase), listErrorCodes.toList, classOf[Int], false, true, false)
 
     //set the overall decision if necessary
