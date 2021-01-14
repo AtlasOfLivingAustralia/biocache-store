@@ -33,6 +33,9 @@ object DwCAExporter extends Tool {
 
     var dwcFieldsMap = mutable.LinkedHashMap(
       "rowkey" -> "",
+      "abcdIdentificationQualifier" -> "http://rs.tdwg.org/abcd/terms/abcdIdentificationQualifier",
+      "abcdIdentificationQualifierInsertionPoint" -> "http://rs.tdwg.org/abcd/terms/abcdIdentificationQualifierInsertionPoint",
+      "abcdTypeStatus" -> "http://rs.tdwg.org/abcd/terms/abcdTypeStatus",
       "acceptedNameUsage" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
       "acceptedNameUsageID" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
       "accessRights" -> "http://purl.org/dc/terms/accessRights",
@@ -63,6 +66,7 @@ object DwCAExporter extends Tool {
       "decimalLongitude" -> "http://rs.tdwg.org/dwc/terms/decimalLongitude",
       "disposition" -> "http://rs.tdwg.org/dwc/terms/disposition",
       "dynamicProperties" -> "http://rs.tdwg.org/dwc/terms/dynamicProperties",
+      "easting" -> "http://rs.ala.org.au/terms/1.0/easting",
       "endDayOfYear" -> "http://rs.tdwg.org/dwc/terms/endDayOfYear",
       "establishmentMeans" -> "http://rs.tdwg.org/dwc/terms/establishmentMeans",
       "eventAttributes" -> "http://rs.tdwg.org/dwc/terms/eventAttributes",
@@ -94,6 +98,7 @@ object DwCAExporter extends Tool {
       "identificationRemarks" -> "http://rs.tdwg.org/dwc/terms/identificationRemarks",
       "identificationVerificationStatus" -> "http://rs.tdwg.org/dwc/terms/identificationVerificationStatus",
       "identifiedBy" -> "http://rs.tdwg.org/dwc/terms/identifiedBy",
+      "identifierRole" -> "http://hiscom.chah.org.au/hispid/terms/identifierRole",
       "individualCount" -> "http://rs.tdwg.org/dwc/terms/individualCount",
       "individualID" -> "http://rs.tdwg.org/dwc/terms/individualID",
       "informationWithheld" -> "http://rs.tdwg.org/dwc/terms/informationWithheld",
@@ -106,6 +111,9 @@ object DwCAExporter extends Tool {
       "language" -> "http://purl.org/dc/terms/language",
       "license" -> "http://purl.org/dc/terms/license",
       "lifeStage" -> "http://rs.tdwg.org/dwc/terms/lifeStage",
+      "loanDate" -> "http://data.ggbn.org/schemas/ggbn/terms/loanDate",
+      "loanDestination" -> "http://data.ggbn.org/schemas/ggbn/terms/loanDestination",
+      "loanIdentifier" -> "http://data.ggbn.org/schemas/ggbn/terms/loanIdentifier",
       "locality" -> "http://rs.tdwg.org/dwc/terms/locality",
       "locationAccordingTo" -> "http://rs.tdwg.org/dwc/terms/locationAccordingTo",
       "locationAttributes" -> "http://rs.tdwg.org/dwc/terms/locationAttributes",
@@ -136,6 +144,7 @@ object DwCAExporter extends Tool {
       "namePublishedInYear" -> "http://rs.tdwg.org/dwc/terms/namePublishedInYear",
       "nomenclaturalCode" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalCode",
       "nomenclaturalStatus" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalStatus",
+      "northing" -> "http://rs.ala.org.au/terms/1.0/northing",
       "occurrenceAttributes" -> "http://rs.tdwg.org/dwc/terms/occurrenceAttributes",
       "occurrenceDetails" -> "http://rs.tdwg.org/dwc/terms/occurrenceDetails",
       "occurrenceID" -> "http://rs.tdwg.org/dwc/terms/occurrenceID",
@@ -154,6 +163,7 @@ object DwCAExporter extends Tool {
       "pointRadiusSpatialFit" -> "http://rs.tdwg.org/dwc/terms/pointRadiusSpatialFit",
       "preparations" -> "http://rs.tdwg.org/dwc/terms/preparations",
       "previousIdentifications" -> "http://rs.tdwg.org/dwc/terms/previousIdentifications",
+      "photographer" -> "http://rs.ala.org.au/terms/1.0/photographer",
       "recordedBy" -> "http://rs.tdwg.org/dwc/terms/recordedBy",
       "recordNumber" -> "http://rs.tdwg.org/dwc/terms/recordNumber",
       "relatedResourceID" -> "http://rs.tdwg.org/dwc/terms/relatedResourceID",
@@ -164,17 +174,24 @@ object DwCAExporter extends Tool {
       "reproductiveCondition" -> "http://rs.tdwg.org/dwc/terms/reproductiveCondition",
       "resourceID" -> "http://rs.tdwg.org/dwc/terms/resourceID",
       "resourceRelationshipID" -> "http://rs.tdwg.org/dwc/terms/resourceRelationshipID",
+      "rights" -> "http://purl.org/dc/terms/rights",
       "rightsHolder" -> "http://purl.org/dc/terms/rightsHolder",
       "samplingEffort" -> "http://rs.tdwg.org/dwc/terms/samplingEffort",
       "samplingProtocol" -> "http://rs.tdwg.org/dwc/terms/samplingProtocol",
       "scientificName" -> "http://rs.tdwg.org/dwc/terms/scientificName",
       "scientificNameAuthorship" -> "http://rs.tdwg.org/dwc/terms/scientificNameAuthorship",
       "scientificNameID" -> "http://rs.tdwg.org/dwc/terms/scientificNameID",
+      "secondaryCollectors" -> "http://hiscom.chah.org.au/hispid/terms/secondaryCollectors",
       "sex" -> "http://rs.tdwg.org/dwc/terms/sex",
+      "source" -> "http://purl.org/dc/terms/source",
+      "species" -> "http://rs.ala.org.au/terms/1.0/species",
       "specificEpithet" -> "http://rs.tdwg.org/dwc/terms/specificEpithet",
       "startDayOfYear" -> "http://rs.tdwg.org/dwc/terms/startDayOfYear",
       "stateProvince" -> "http://rs.tdwg.org/dwc/terms/stateProvince",
       "subgenus" -> "http://rs.tdwg.org/dwc/terms/subgenus",
+      "subfamily" -> "http://rs.ala.org.au/terms/1.0/subfamily",
+      "subspecies" -> "http://rs.ala.org.au/terms/1.0/subspecies",
+      "superfamily" -> "http://rs.ala.org.au/terms/1.0/superfamily",
       "taxonConceptID" -> "http://rs.tdwg.org/dwc/terms/taxonConceptID",
       "taxonID" -> "http://rs.tdwg.org/dwc/terms/taxonID",
       "taxonomicStatus" -> "http://rs.tdwg.org/dwc/terms/taxonomicStatus",
@@ -182,6 +199,8 @@ object DwCAExporter extends Tool {
       "taxonRemarks" -> "http://rs.tdwg.org/dwc/terms/taxonRemarks",
       "type" -> "http://purl.org/dc/terms/type",
       "typeStatus" -> "http://rs.tdwg.org/dwc/terms/typeStatus",
+      "typifiedName" -> "http://rs.tdwg.org/abcd/terms/typifiedName",
+      "userId" -> "http://rs.gbif.org/terms/1.0/recordedByID",
       "verbatimCoordinates" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinates",
       "verbatimCoordinateSystem" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem",
       "verbatimDepth" -> "http://rs.tdwg.org/dwc/terms/verbatimDepth",
@@ -194,7 +213,8 @@ object DwCAExporter extends Tool {
       "verbatimTaxonRank" -> "http://rs.tdwg.org/dwc/terms/verbatimTaxonRank",
       "vernacularName" -> "http://rs.tdwg.org/dwc/terms/vernacularName",
       "waterBody" -> "http://rs.tdwg.org/dwc/terms/waterBody",
-      "year" -> "http://rs.tdwg.org/dwc/terms/year"
+      "year" -> "http://rs.tdwg.org/dwc/terms/year",
+      "zone" -> "http://rs.ala.org.au/terms/1.0/zone"
     )
 
     var resourceUid = ""
@@ -233,7 +253,11 @@ object DwCAExporter extends Tool {
           val resultMap = map.filter(_._2 != null).map({ (entry) =>
             entry._1 match {
               case "class" =>
+                // class field in dwca can include the combincation of the following fields if the prior field is empty : class, classs, and _class
                 (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
+              case "identifiedBy" =>
+                // it will include identifierBy field if the identifiedBy is empty
+                (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else map.getOrElse("identifierBy", "")))
               case "miscProperties" =>
                 if (originalMiscProperties.isEmpty)
                   ("dynamicProperties", entry._2)
