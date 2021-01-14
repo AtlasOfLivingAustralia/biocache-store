@@ -39,7 +39,8 @@ object DwCAExporter extends Tool {
       "acceptedNameUsage" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
       "acceptedNameUsageID" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
       "accessRights" -> "http://purl.org/dc/terms/accessRights",
-      "associatedMedia" -> "http://rs.tdwg.org/dwc/terms/associatedMedia",
+//      Skipp exportying associatedMedia as the images has already been exported in the DwcA image extension
+//      "associatedMedia" -> "http://rs.tdwg.org/dwc/terms/associatedMedia",
       "associatedOccurrences" -> "http://rs.tdwg.org/dwc/terms/associatedOccurrences",
       "associatedReferences" -> "http://rs.tdwg.org/dwc/terms/associatedReferences",
       "associatedSequences" -> "http://rs.tdwg.org/dwc/terms/associatedSequences",
