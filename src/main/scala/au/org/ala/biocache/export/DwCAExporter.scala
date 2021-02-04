@@ -12,10 +12,11 @@ import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.commons.lang.StringUtils
 import org.slf4j.LoggerFactory
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.util.parsing.json.JSON
+import scala.xml.Elem
 
 /**
   * Companion object for the DwCAExporter class.
@@ -32,6 +33,9 @@ object DwCAExporter extends Tool {
 
     var dwcFieldsMap = mutable.LinkedHashMap(
       "rowkey" -> "",
+      "abcdIdentificationQualifier" -> "http://rs.tdwg.org/abcd/terms/abcdIdentificationQualifier",
+      "abcdIdentificationQualifierInsertionPoint" -> "http://rs.tdwg.org/abcd/terms/abcdIdentificationQualifierInsertionPoint",
+      "abcdTypeStatus" -> "http://rs.tdwg.org/abcd/terms/abcdTypeStatus",
       "acceptedNameUsage" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
       "acceptedNameUsageID" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
       "accessRights" -> "http://purl.org/dc/terms/accessRights",
@@ -62,6 +66,7 @@ object DwCAExporter extends Tool {
       "decimalLongitude" -> "http://rs.tdwg.org/dwc/terms/decimalLongitude",
       "disposition" -> "http://rs.tdwg.org/dwc/terms/disposition",
       "dynamicProperties" -> "http://rs.tdwg.org/dwc/terms/dynamicProperties",
+      "easting" -> "http://rs.ala.org.au/terms/1.0/easting",
       "endDayOfYear" -> "http://rs.tdwg.org/dwc/terms/endDayOfYear",
       "establishmentMeans" -> "http://rs.tdwg.org/dwc/terms/establishmentMeans",
       "eventAttributes" -> "http://rs.tdwg.org/dwc/terms/eventAttributes",
@@ -93,6 +98,7 @@ object DwCAExporter extends Tool {
       "identificationRemarks" -> "http://rs.tdwg.org/dwc/terms/identificationRemarks",
       "identificationVerificationStatus" -> "http://rs.tdwg.org/dwc/terms/identificationVerificationStatus",
       "identifiedBy" -> "http://rs.tdwg.org/dwc/terms/identifiedBy",
+      "identifierRole" -> "http://hiscom.chah.org.au/hispid/terms/identifierRole",
       "individualCount" -> "http://rs.tdwg.org/dwc/terms/individualCount",
       "individualID" -> "http://rs.tdwg.org/dwc/terms/individualID",
       "informationWithheld" -> "http://rs.tdwg.org/dwc/terms/informationWithheld",
@@ -105,6 +111,9 @@ object DwCAExporter extends Tool {
       "language" -> "http://purl.org/dc/terms/language",
       "license" -> "http://purl.org/dc/terms/license",
       "lifeStage" -> "http://rs.tdwg.org/dwc/terms/lifeStage",
+      "loanDate" -> "http://data.ggbn.org/schemas/ggbn/terms/loanDate",
+      "loanDestination" -> "http://data.ggbn.org/schemas/ggbn/terms/loanDestination",
+      "loanIdentifier" -> "http://data.ggbn.org/schemas/ggbn/terms/loanIdentifier",
       "locality" -> "http://rs.tdwg.org/dwc/terms/locality",
       "locationAccordingTo" -> "http://rs.tdwg.org/dwc/terms/locationAccordingTo",
       "locationAttributes" -> "http://rs.tdwg.org/dwc/terms/locationAttributes",
@@ -135,6 +144,7 @@ object DwCAExporter extends Tool {
       "namePublishedInYear" -> "http://rs.tdwg.org/dwc/terms/namePublishedInYear",
       "nomenclaturalCode" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalCode",
       "nomenclaturalStatus" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalStatus",
+      "northing" -> "http://rs.ala.org.au/terms/1.0/northing",
       "occurrenceAttributes" -> "http://rs.tdwg.org/dwc/terms/occurrenceAttributes",
       "occurrenceDetails" -> "http://rs.tdwg.org/dwc/terms/occurrenceDetails",
       "occurrenceID" -> "http://rs.tdwg.org/dwc/terms/occurrenceID",
@@ -153,6 +163,7 @@ object DwCAExporter extends Tool {
       "pointRadiusSpatialFit" -> "http://rs.tdwg.org/dwc/terms/pointRadiusSpatialFit",
       "preparations" -> "http://rs.tdwg.org/dwc/terms/preparations",
       "previousIdentifications" -> "http://rs.tdwg.org/dwc/terms/previousIdentifications",
+      "photographer" -> "http://rs.ala.org.au/terms/1.0/photographer",
       "recordedBy" -> "http://rs.tdwg.org/dwc/terms/recordedBy",
       "recordNumber" -> "http://rs.tdwg.org/dwc/terms/recordNumber",
       "relatedResourceID" -> "http://rs.tdwg.org/dwc/terms/relatedResourceID",
@@ -163,17 +174,24 @@ object DwCAExporter extends Tool {
       "reproductiveCondition" -> "http://rs.tdwg.org/dwc/terms/reproductiveCondition",
       "resourceID" -> "http://rs.tdwg.org/dwc/terms/resourceID",
       "resourceRelationshipID" -> "http://rs.tdwg.org/dwc/terms/resourceRelationshipID",
+      "rights" -> "http://purl.org/dc/terms/rights",
       "rightsHolder" -> "http://purl.org/dc/terms/rightsHolder",
       "samplingEffort" -> "http://rs.tdwg.org/dwc/terms/samplingEffort",
       "samplingProtocol" -> "http://rs.tdwg.org/dwc/terms/samplingProtocol",
       "scientificName" -> "http://rs.tdwg.org/dwc/terms/scientificName",
       "scientificNameAuthorship" -> "http://rs.tdwg.org/dwc/terms/scientificNameAuthorship",
       "scientificNameID" -> "http://rs.tdwg.org/dwc/terms/scientificNameID",
+      "secondaryCollectors" -> "http://hiscom.chah.org.au/hispid/terms/secondaryCollectors",
       "sex" -> "http://rs.tdwg.org/dwc/terms/sex",
+      "source" -> "http://purl.org/dc/terms/source",
+      "species" -> "http://rs.ala.org.au/terms/1.0/species",
       "specificEpithet" -> "http://rs.tdwg.org/dwc/terms/specificEpithet",
       "startDayOfYear" -> "http://rs.tdwg.org/dwc/terms/startDayOfYear",
       "stateProvince" -> "http://rs.tdwg.org/dwc/terms/stateProvince",
       "subgenus" -> "http://rs.tdwg.org/dwc/terms/subgenus",
+      "subfamily" -> "http://rs.ala.org.au/terms/1.0/subfamily",
+      "subspecies" -> "http://rs.ala.org.au/terms/1.0/subspecies",
+      "superfamily" -> "http://rs.ala.org.au/terms/1.0/superfamily",
       "taxonConceptID" -> "http://rs.tdwg.org/dwc/terms/taxonConceptID",
       "taxonID" -> "http://rs.tdwg.org/dwc/terms/taxonID",
       "taxonomicStatus" -> "http://rs.tdwg.org/dwc/terms/taxonomicStatus",
@@ -181,6 +199,8 @@ object DwCAExporter extends Tool {
       "taxonRemarks" -> "http://rs.tdwg.org/dwc/terms/taxonRemarks",
       "type" -> "http://purl.org/dc/terms/type",
       "typeStatus" -> "http://rs.tdwg.org/dwc/terms/typeStatus",
+      "typifiedName" -> "http://rs.tdwg.org/abcd/terms/typifiedName",
+      "userId" -> "http://rs.gbif.org/terms/1.0/recordedByID",
       "verbatimCoordinates" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinates",
       "verbatimCoordinateSystem" -> "http://rs.tdwg.org/dwc/terms/verbatimCoordinateSystem",
       "verbatimDepth" -> "http://rs.tdwg.org/dwc/terms/verbatimDepth",
@@ -193,7 +213,8 @@ object DwCAExporter extends Tool {
       "verbatimTaxonRank" -> "http://rs.tdwg.org/dwc/terms/verbatimTaxonRank",
       "vernacularName" -> "http://rs.tdwg.org/dwc/terms/vernacularName",
       "waterBody" -> "http://rs.tdwg.org/dwc/terms/waterBody",
-      "year" -> "http://rs.tdwg.org/dwc/terms/year"
+      "year" -> "http://rs.tdwg.org/dwc/terms/year",
+      "zone" -> "http://rs.ala.org.au/terms/1.0/zone"
     )
 
     var resourceUid = ""
@@ -224,7 +245,6 @@ object DwCAExporter extends Tool {
           (Map.empty[String, String], Map.empty[String, String])
       }
 
-
       if (!dr.isEmpty && resourceIDs.contains(dr) && dateDeleted.isEmpty) { // Record is not deleted
         val dataResourceMap = dataResource2OutputStreams.get(dr)
         if (!dataResourceMap.isEmpty && !dataResourceMap.get.isEmpty) {
@@ -233,7 +253,11 @@ object DwCAExporter extends Tool {
           val resultMap = map.filter(_._2 != null).map({ (entry) =>
             entry._1 match {
               case "class" =>
+                // class field in dwca can include the combincation of the following fields if the prior field is empty : class, classs, and _class
                 (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
+              case "identifiedBy" =>
+                // it will include identifierBy field if the identifiedBy is empty
+                (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else map.getOrElse("identifierBy", "")))
               case "miscProperties" =>
                 if (originalMiscProperties.isEmpty)
                   ("dynamicProperties", entry._2)
@@ -369,7 +393,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
     FileUtils.forceMkdir(zipFile.getParentFile)
     val zop = new ZipOutputStream(new FileOutputStream(zipFile))
     if (addEML(zop, dataResource)) {
-      addMeta(zop)
+      addMeta(zop, List())
       zop.putNextEntry(new ZipEntry("occurrence.csv"))
       val occWriter = new CSVWriter(new OutputStreamWriter(zop), ',', '"', lineEnd)
       Some((zop, occWriter))
@@ -398,10 +422,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
         false
     }
   }
-
-  def addMeta(zop: ZipOutputStream) = {
-    zop.putNextEntry(new ZipEntry("meta.xml"))
-    val fieldsSeq = (fieldList - "dataResourceUid" - "classs" - "rowkey").keySet.toIndexedSeq
+  private def buildMetaXml(fieldsSeq: immutable.IndexedSeq[String], extensions: List[String]) = {
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
       <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
@@ -411,8 +432,34 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
         case (field, index) =>
             <field index={index + 1 + ""} term={fieldList(fieldsSeq(index))}/>
       }}
-      </core>
+      </core>{extensions.map {
+        case "Multimedia" =>
+          <extension encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
+            <files>
+              <location>image.csv</location>
+            </files>
+            <coreid index="0"/>
+            <field index="0" term="id"/>
+            <field index="1" term="http://purl.org/dc/terms/identifier"/>
+            <field index="2" term="http://purl.org/dc/terms/creator"/>
+            <field index="3" term="http://purl.org/dc/terms/created"/>
+            <field index="4" term="http://purl.org/dc/terms/title"/>
+            <field index="5" term="http://purl.org/dc/terms/format"/>
+            <field index="6" term="http://purl.org/dc/terms/license"/>
+            <field index="7" term="http://purl.org/dc/terms/rights"/>
+            <field index="8" term="http://purl.org/dc/terms/rightsHolder"/>
+            <field index="9" term="http://purl.org/dc/terms/references"/>
+          </extension>
+        case _ =>
+      }}
     </archive>
+    metaXml
+  }
+
+  def addMeta(zop: ZipOutputStream, extensions: List[String]) = {
+    zop.putNextEntry(new ZipEntry("meta.xml"))
+    val fieldsSeq = (fieldList - "dataResourceUid" - "classs" - "rowkey").keySet.toIndexedSeq
+    val metaXml: Elem = buildMetaXml(fieldsSeq, extensions)
     //add the XML
     zop.write("""<?xml version="1.0"?>""".getBytes)
     zop.write("\n".getBytes)
@@ -421,80 +468,6 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
     zop.closeEntry
   }
 
-  def addMetaWithMultimedia(zop: ZipOutputStream) = {
-    zop.putNextEntry(new ZipEntry("meta.xml"))
-    val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
-        <files>
-          <location>occurrence.csv</location>
-        </files>
-        <id index="0"/>
-        <field index="0" term="http://rs.tdwg.org/dwc/terms/occurrenceID"/>
-        <field index="1" term="http://rs.tdwg.org/dwc/terms/catalogNumber"/>
-        <field index="2" term="http://rs.tdwg.org/dwc/terms/collectionCode"/>
-        <field index="3" term="http://rs.tdwg.org/dwc/terms/institutionCode"/>
-        <field index="4" term="http://rs.tdwg.org/dwc/terms/recordNumber"/>
-        <field index="5" term="http://rs.tdwg.org/dwc/terms/basisOfRecord" default="HumanObservation"/>
-        <field index="6" term="http://rs.tdwg.org/dwc/terms/recordedBy"/>
-        <field index="7" term="http://rs.tdwg.org/dwc/terms/occurrenceStatus"/>
-        <field index="8" term="http://rs.tdwg.org/dwc/terms/individualCount"/>
-        <field index="9" term="http://rs.tdwg.org/dwc/terms/scientificName"/>
-        <field index="10" term="http://rs.tdwg.org/dwc/terms/taxonConceptID"/>
-        <field index="11" term="http://rs.tdwg.org/dwc/terms/taxonRank"/>
-        <field index="12" term="http://rs.tdwg.org/dwc/terms/kingdom"/>
-        <field index="13" term="http://rs.tdwg.org/dwc/terms/phylum"/>
-        <field index="14" term="http://rs.tdwg.org/dwc/terms/class"/>
-        <field index="15" term="http://rs.tdwg.org/dwc/terms/order"/>
-        <field index="16" term="http://rs.tdwg.org/dwc/terms/family"/>
-        <field index="17" term="http://rs.tdwg.org/dwc/terms/genus"/>
-        <field index="18" term="http://rs.tdwg.org/dwc/terms/vernacularName"/>
-        <field index="19" term="http://rs.tdwg.org/dwc/terms/decimalLatitude"/>
-        <field index="20" term="http://rs.tdwg.org/dwc/terms/decimalLongitude"/>
-        <field index="21" term="http://rs.tdwg.org/dwc/terms/geodeticDatum"/>
-        <field index="22" term="http://rs.tdwg.org/dwc/terms/coordinateUncertaintyInMeters"/>
-        <field index="23" term="http://rs.tdwg.org/dwc/terms/maximumElevationInMeters"/>
-        <field index="24" term="http://rs.tdwg.org/dwc/terms/minimumElevationInMeters"/>
-        <field index="25" term="http://rs.tdwg.org/dwc/terms/minimumDepthInMeters"/>
-        <field index="26" term="http://rs.tdwg.org/dwc/terms/maximumDepthInMeters"/>
-        <field index="27" term="http://rs.tdwg.org/dwc/terms/country"/>
-        <field index="28" term="http://rs.tdwg.org/dwc/terms/stateProvince"/>
-        <field index="29" term="http://rs.tdwg.org/dwc/terms/locality"/>
-        <field index="30" term="http://rs.tdwg.org/dwc/terms/locationRemarks"/>
-        <field index="31" term="http://rs.tdwg.org/dwc/terms/year"/>
-        <field index="32" term="http://rs.tdwg.org/dwc/terms/month"/>
-        <field index="33" term="http://rs.tdwg.org/dwc/terms/day"/>
-        <field index="34" term="http://rs.tdwg.org/dwc/terms/eventDate"/>
-        <field index="35" term="http://rs.tdwg.org/dwc/terms/eventID"/>
-        <field index="36" term="http://rs.tdwg.org/dwc/terms/identifiedBy"/>
-        <field index="37" term="http://rs.tdwg.org/dwc/terms/occurrenceRemarks"/>
-        <field index="38" term="http://rs.tdwg.org/dwc/terms/dataGeneralizations"/>
-        <field index="39" term="http://rs.tdwg.org/dwc/terms/otherCatalogNumbers"/>
-        <field index="40" term="http://purl.org/dc/terms/references"/>
-      </core>
-      <extension encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
-        <files>
-          <location>image.csv</location>
-        </files>
-        <coreid index="0"/>
-        <field index="0" term="id"/>
-        <field index="1" term="http://purl.org/dc/terms/identifier"/>
-        <field index="2" term="http://purl.org/dc/terms/creator"/>
-        <field index="3" term="http://purl.org/dc/terms/created"/>
-        <field index="4" term="http://purl.org/dc/terms/title"/>
-        <field index="5" term="http://purl.org/dc/terms/format"/>
-        <field index="6" term="http://purl.org/dc/terms/license"/>
-        <field index="7" term="http://purl.org/dc/terms/rights"/>
-        <field index="8" term="http://purl.org/dc/terms/rightsHolder"/>
-        <field index="9" term="http://purl.org/dc/terms/references"/>
-      </extension>
-    </archive>
-    //add the XML
-    zop.write("""<?xml version="1.0"?>""".getBytes)
-    zop.write("\n".getBytes)
-    zop.write(metaXml.mkString("\n").getBytes)
-    zop.flush
-    zop.closeEntry
-  }
 
   /**
     * Retrieves an archive from the image service and then appends contents to
@@ -568,10 +541,10 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
 
       //find the archive....
       val archivePath = archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip"
-      val archive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip")
+      val archive = new File(archivePath)
       if (archive.exists()) {
 
-        val backupArchive = new File(archivesPath + "/" + dataResourceUid + "/" + dataResourceUid + ".zip.backup")
+        val backupArchive = new File(archivePath + ".backup")
         if (backupArchive.exists()) {
           backupArchive.delete()
         }
@@ -587,7 +560,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
         addEML(zop, dataResourceUid)
 
         //add meta.xml - with multimedia extension
-        addMetaWithMultimedia(zop)
+        addMeta(zop, List("Multimedia"))
 
         //add images CSV
         zop.putNextEntry(new ZipEntry("image.csv"))
