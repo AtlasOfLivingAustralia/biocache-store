@@ -294,7 +294,7 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <!-- GBIF crawler library uses Stopwatch methods that require 18.0+ -->
-            <version>24.0-jre</version>
+            <version>29.0-jre</version>
         </dependency>
         <!-- Google Guice -->
         <dependency>
