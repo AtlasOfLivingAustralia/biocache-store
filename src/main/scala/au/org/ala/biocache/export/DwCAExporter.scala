@@ -39,7 +39,7 @@ object DwCAExporter extends Tool {
       "acceptedNameUsage" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsage",
       "acceptedNameUsageID" -> "http://rs.tdwg.org/dwc/terms/acceptedNameUsageID",
       "accessRights" -> "http://purl.org/dc/terms/accessRights",
-//      Skipp exportying associatedMedia as the images has already been exported in the DwcA image extension
+//      Skip exportying associatedMedia as the images has already been exported in the DwcA image extension
 //      "associatedMedia" -> "http://rs.tdwg.org/dwc/terms/associatedMedia",
       "associatedOccurrences" -> "http://rs.tdwg.org/dwc/terms/associatedOccurrences",
       "associatedReferences" -> "http://rs.tdwg.org/dwc/terms/associatedReferences",
@@ -101,7 +101,6 @@ object DwCAExporter extends Tool {
       "identifiedBy" -> "http://rs.tdwg.org/dwc/terms/identifiedBy",
       "identifierRole" -> "http://hiscom.chah.org.au/hispid/terms/identifierRole",
       "individualCount" -> "http://rs.tdwg.org/dwc/terms/individualCount",
-      "individualID" -> "http://rs.tdwg.org/dwc/terms/individualID",
       "informationWithheld" -> "http://rs.tdwg.org/dwc/terms/informationWithheld",
       "infraspecificEpithet" -> "http://rs.tdwg.org/dwc/terms/infraspecificEpithet",
       "institutionCode" -> "http://rs.tdwg.org/dwc/terms/institutionCode",
@@ -147,11 +146,11 @@ object DwCAExporter extends Tool {
       "nomenclaturalStatus" -> "http://rs.tdwg.org/dwc/terms/nomenclaturalStatus",
       "northing" -> "http://rs.ala.org.au/terms/1.0/northing",
       "occurrenceAttributes" -> "http://rs.tdwg.org/dwc/terms/occurrenceAttributes",
-      "occurrenceDetails" -> "http://rs.tdwg.org/dwc/terms/occurrenceDetails",
       "occurrenceID" -> "http://rs.tdwg.org/dwc/terms/occurrenceID",
       "occurrenceRemarks" -> "http://rs.tdwg.org/dwc/terms/occurrenceRemarks",
       "occurrenceStatus" -> "http://rs.tdwg.org/dwc/terms/occurrenceStatus",
       "order" -> "http://rs.tdwg.org/dwc/terms/order",
+      "organismID" -> "http://rs.tdwg.org/dwc/terms/organismID",
       "organismQuantity" -> "http://rs.tdwg.org/dwc/terms/organismQuantity",
       "organismQuantityType" -> "http://rs.tdwg.org/dwc/terms/organismQuantityType",
       "originalNameUsage" -> "http://rs.tdwg.org/dwc/terms/originalNameUsage",
@@ -167,6 +166,7 @@ object DwCAExporter extends Tool {
       "photographer" -> "http://rs.ala.org.au/terms/1.0/photographer",
       "recordedBy" -> "http://rs.tdwg.org/dwc/terms/recordedBy",
       "recordNumber" -> "http://rs.tdwg.org/dwc/terms/recordNumber",
+      "references" -> "http://purl.org/dc/terms/references",
       "relatedResourceID" -> "http://rs.tdwg.org/dwc/terms/relatedResourceID",
       "relationshipAccordingTo" -> "http://rs.tdwg.org/dwc/terms/relationshipAccordingTo",
       "relationshipEstablishedDate" -> "http://rs.tdwg.org/dwc/terms/relationshipEstablishedDate",
@@ -253,6 +253,10 @@ object DwCAExporter extends Tool {
           val (originalProperties, originalMiscProperties) = extractOriginalSensitiveProperties
           val resultMap = map.filter(_._2 != null).map({ (entry) =>
             entry._1 match {
+              case "individualID" =>
+                ("organismID", originalProperties.getOrElse(entry._1, entry._2))
+              case "occurrenceDetails" =>
+                ("references", originalProperties.getOrElse(entry._1, entry._2))
               case "class" =>
                 // class field in dwca can include the combincation of the following fields if the prior field is empty : class, classs, and _class
                 (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
