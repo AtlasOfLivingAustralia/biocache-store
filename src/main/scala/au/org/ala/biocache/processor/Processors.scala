@@ -37,6 +37,6 @@ object Processors {
     case c if c == UNRECOGNISED_COLLECTIONCODE.code || c == UNRECOGNISED_INSTITUTIONCODE.code => "attr"
     case c if c == INVALID_IMAGE_URL.code => "image"
     case c if c >= temporalBounds._1 && c < temporalBounds._2 => "event"
-    case _ => ""
+    case _ => (if (Config.caseSensitiveCassandra) "" else "default") // the non-case-sensitive cassandra schema does not include the field "_qa"
   }
 }
