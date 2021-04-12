@@ -1059,7 +1059,7 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
 
         writeOccIndexArrayToDoc(doc, guid, dataRow)
 
-        val fieldsAndType: Map[String, String] = Map[String, String]()
+        val fieldsAndType: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map[String, String]()
         if (userProvidedTypeMiscIndexProperties.nonEmpty || miscIndexProperties.nonEmpty || arrDefaultMiscFields.nonEmpty
           || Config.additionalFieldsToIndex.nonEmpty) {
 
@@ -1075,10 +1075,10 @@ class SolrIndexDAO @Inject()(@Named("solr.home") solrHome: String,
           Config.additionalFieldsToIndex.foreach(field =>
             if (!field.isEmpty) fieldsAndType.put(field.replaceAll("_[dsi(dt)]$", ""), field))
 
-          addJsonMapToDoc(doc, getArrayValue(columnOrder.miscPropertiesColumn, dataRow), fieldsAndType, null, true)
+          addJsonMapToDoc(doc, getArrayValue(columnOrder.miscPropertiesColumn, dataRow), fieldsAndType.toMap, null, true)
         } else {
           //when indexing everything always add miscPropertiesColumn values to the doc
-          addJsonMapToDoc(doc, getArrayValue(columnOrder.miscPropertiesColumn, dataRow), fieldsAndType, null, true)
+          addJsonMapToDoc(doc, getArrayValue(columnOrder.miscPropertiesColumn, dataRow), fieldsAndType.toMap, null, true)
         }
 
         addJsonArrayAssertionsToDoc(doc, getArrayValue(columnOrder.qualityAssertionColumn, dataRow))
