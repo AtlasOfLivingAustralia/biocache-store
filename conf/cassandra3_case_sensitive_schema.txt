@@ -114,6 +114,8 @@ CREATE TABLE occ.qa (
     "userDisplayName" text,
     "userEmail" text,
     uuid text,
+    relatedrecordid text,
+    relatedrecordreason text,
     PRIMARY KEY (rowkey, "userId", code)
 ) WITH CLUSTERING ORDER BY ("userId" ASC, code ASC)
     AND bloom_filter_fp_chance = 0.01

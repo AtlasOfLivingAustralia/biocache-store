@@ -77,7 +77,7 @@ class IndexingTest extends ConfigFunSuite {
     //previous tests may have added data
     logger.info("LSID count = " + lsidCount)
     expectResult(true){lsidCount >= 10000}
-    logger.info("LSID count = " + nameCount)
+    logger.info("Name count = " + nameCount)
     expectResult(true){nameCount >= 10000}
 
     if(merged.exists()) FileUtils.deleteDirectory(merged)
