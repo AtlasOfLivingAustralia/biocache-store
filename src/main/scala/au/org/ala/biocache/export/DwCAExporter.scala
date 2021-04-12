@@ -381,7 +381,6 @@ object DwCAExporter extends Tool {
 class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
 
   val logger = LoggerFactory.getLogger("DwCAExporter")
-  val lineEnd = "\r\n"
 
   def createOutputForCSV(directory: String, dataResource: String): Option[(ZipOutputStream, CSVWriter)] = {
 
@@ -400,7 +399,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
     if (addEML(zop, dataResource)) {
       addMeta(zop, List())
       zop.putNextEntry(new ZipEntry("occurrence.csv"))
-      val occWriter = new CSVWriter(new OutputStreamWriter(zop), ',', '"', lineEnd)
+      val occWriter = new CSVWriter(new OutputStreamWriter(zop), ',', '"', "\r\n")
       Some((zop, occWriter))
     } else {
       //no EML implies that a DWC-A should not be generated.
@@ -429,7 +428,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
   }
   private def buildMetaXml(fieldsSeq: immutable.IndexedSeq[String], extensions: List[String]) = {
     val metaXml = <archive xmlns="http://rs.tdwg.org/dwc/text/" metadata="eml.xml">
-      <core encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
+      <core encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.tdwg.org/dwc/terms/Occurrence">
         <files>
           <location>occurrence.csv</location>
         </files>
@@ -439,7 +438,7 @@ class DwCAExporter(fieldList: mutable.LinkedHashMap[String, String]) {
       }}
       </core>{extensions.map {
         case "Multimedia" =>
-          <extension encoding="UTF-8" linesTerminatedBy={lineEnd} fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
+          <extension encoding="UTF-8" linesTerminatedBy="\r\n" fieldsTerminatedBy="," fieldsEnclosedBy="&quot;" ignoreHeaderLines="0" rowType="http://rs.gbif.org/terms/1.0/Multimedia">
             <files>
               <location>image.csv</location>
             </files>
