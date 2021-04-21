@@ -197,6 +197,7 @@ object DwCAExporter extends Tool {
       "taxonID" -> "http://rs.tdwg.org/dwc/terms/taxonID",
       "taxonomicStatus" -> "http://rs.tdwg.org/dwc/terms/taxonomicStatus",
       "taxonRank" -> "http://rs.tdwg.org/dwc/terms/taxonRank",
+      "taxonRankID" -> "taxonRankID",
       "taxonRemarks" -> "http://rs.tdwg.org/dwc/terms/taxonRemarks",
       "type" -> "http://purl.org/dc/terms/type",
       "typeStatus" -> "http://rs.tdwg.org/dwc/terms/typeStatus",
@@ -257,9 +258,17 @@ object DwCAExporter extends Tool {
                 ("organismID", originalProperties.getOrElse(entry._1, entry._2))
               case "occurrenceDetails" =>
                 ("references", originalProperties.getOrElse(entry._1, entry._2))
+              case "rankID" =>
+                ("taxonRankID", originalProperties.getOrElse(entry._1, entry._2))
               case "class" =>
                 // class field in dwca can include the combincation of the following fields if the prior field is empty : class, classs, and _class
-                (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
+                ("class", originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
+              case "classs" =>
+                // class field in dwca can include the combincation of the following fields if the prior field is empty : class, classs, and _class
+                ("class", originalProperties.getOrElse("class", if (!map.getOrElse("class", "").isEmpty) map.getOrElse("class",""); else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
+              case "_class" =>
+                // class field in dwca can include the combincation of the following fields if the prior field is empty : class, classs, and _class
+                ("class", originalProperties.getOrElse("class", if (!map.getOrElse("class", "").isEmpty) map.getOrElse("class",""); else if (!map.getOrElse("classs", "").isEmpty) map.getOrElse("classs", ""); else map.getOrElse("_class", "")))
               case "identifiedBy" =>
                 // it will include identifierBy field if the identifiedBy is empty
                 (entry._1, originalProperties.getOrElse(entry._1, if (!entry._2.isEmpty()) entry._2; else map.getOrElse("identifierBy", "")))
