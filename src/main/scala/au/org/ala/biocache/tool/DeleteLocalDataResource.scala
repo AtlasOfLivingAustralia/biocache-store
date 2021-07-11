@@ -52,7 +52,7 @@ class DeleteLocalDataResource {
     var deleted = 0
 
     val recordsRead = Config.persistenceManager.pageOverLocal("occ", (rowkey, map, batchID) => {
-      val drUid = map.getOrElse("dataResourceUid", "")
+      val drUid = map.getOrElse((if (Config.caseSensitiveCassandra) "dataResourceUid" else "dataresourceuid"), "")
       val rowkey = map.getOrElse("rowkey", "")
       if (drUid != "") {
         if (drs.contains(drUid)) {
@@ -63,7 +63,7 @@ class DeleteLocalDataResource {
         }
       }
       true
-    }, threads, Array("rowkey", "dataResourceUid"))
+    }, threads, Array("rowkey", (if (Config.caseSensitiveCassandra) "dataResourceUid" else "dataresourceuid")))
     logger.info(s"Records read $recordsRead. Records deleted: $deleted")
   }
 }
